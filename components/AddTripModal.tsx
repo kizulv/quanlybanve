@@ -1,9 +1,8 @@
-
 import React, { useState, useEffect } from 'react';
 import { Dialog } from './ui/Dialog';
 import { Button } from './ui/Button';
 import { Bus, Route, BusTrip, BusType } from '../types';
-import { Loader2, Calendar, Clock, MapPin, User, Wallet } from 'lucide-react';
+import { Loader2, Clock, MapPin, Wallet, Calendar, CheckCircle2 } from 'lucide-react';
 import { generateCabinLayout, generateSleeperLayout } from '../utils/generators';
 
 interface AddTripModalProps {
@@ -25,7 +24,6 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
 }) => {
   const [selectedRouteId, setSelectedRouteId] = useState<string>('');
   const [selectedBusId, setSelectedBusId] = useState<string>('');
-  const [driver, setDriver] = useState('');
   const [time, setTime] = useState('07:00');
   const [price, setPrice] = useState<number>(0);
   const [isSaving, setIsSaving] = useState(false);
@@ -46,14 +44,22 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
     if (isOpen) {
       setSelectedRouteId('');
       setSelectedBusId('');
-      setDriver('');
       setTime('07:00');
       setPrice(0);
     }
   }, [isOpen]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Remove non-numeric chars
+    const rawValue = e.target.value.replace(/\D/g, "");
+    setPrice(rawValue ? parseInt(rawValue, 10) : 0);
+  };
+
+  const formatPrice = (val: number) => {
+    return val.toLocaleString('vi-VN');
+  };
+
+  const handleSubmit = async () => {
     if (!selectedRouteId || !selectedBusId) return;
 
     setIsSaving(true);
@@ -61,7 +67,10 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
     const route = routes.find(r => r.id === selectedRouteId);
     const bus = buses.find(b => b.id === selectedBusId);
     
-    if (!route || !bus) return;
+    if (!route || !bus) {
+        setIsSaving(false);
+        return;
+    }
 
     // Format date string YYYY-MM-DD HH:MM
     const dateStr = targetDate.toISOString().split('T')[0]; // YYYY-MM-DD
@@ -70,8 +79,6 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
     // Generate seats
     let seats = [];
     if (bus.layoutConfig) {
-      // Logic duplicated from SettingsView for consistency
-      // In a real app, extract this to a generator utility that takes layoutConfig
       const config = bus.layoutConfig;
       for (let f = 1; f <= config.floors; f++) {
         for (let r = 0; r < config.rows; r++) {
@@ -133,34 +140,62 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
       departureTime: dateTimeStr,
       type: bus.type,
       licensePlate: bus.plate,
-      driver: driver,
+      driver: "", // Removed from UI, default empty
       basePrice: price,
       seats: seats as any
     };
 
-    await onSave(tripData);
-    setIsSaving(false);
-    onClose();
+    try {
+        await onSave(tripData);
+        onClose();
+    } catch(e) {
+        console.error(e);
+    } finally {
+        setIsSaving(false);
+    }
   };
 
   return (
     <Dialog 
       isOpen={isOpen} 
       onClose={onClose} 
-      title={`Lên lịch cho ngày ${targetDate.toLocaleDateString('vi-VN')}`}
+      title="Tạo lịch chạy mới"
       className="max-w-lg"
+      footer={
+         <>
+          <Button variant="outline" onClick={onClose} disabled={isSaving}>Hủy bỏ</Button>
+          <Button 
+            onClick={handleSubmit} 
+            disabled={isSaving || !selectedRouteId || !selectedBusId}
+            className="min-w-[120px]"
+          >
+            {isSaving ? <Loader2 className="animate-spin mr-2" size={16} /> : <CheckCircle2 className="mr-2" size={16} />}
+            Lưu chuyến
+          </Button>
+         </>
+      }
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="space-y-5">
+        
+        {/* Date Info Banner */}
+        <div className="bg-blue-50 text-blue-800 px-4 py-3 rounded-lg flex items-center gap-3 border border-blue-100">
+           <Calendar className="text-blue-600" size={20} />
+           <div>
+              <div className="text-xs font-semibold uppercase tracking-wider text-blue-600/80">Ngày khởi hành</div>
+              <div className="font-bold text-lg leading-none">{targetDate.toLocaleDateString('vi-VN')}</div>
+           </div>
+        </div>
+
         {/* Route Selection */}
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Chọn tuyến đường</label>
+          <label className="block text-sm font-medium text-slate-700 mb-1.5">Chọn tuyến đường <span className="text-red-500">*</span></label>
           <div className="relative">
              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                <MapPin size={18} />
              </div>
              <select 
                required
-               className="w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none bg-white text-slate-900 appearance-none"
+               className="w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none bg-white text-slate-900 appearance-none shadow-sm"
                value={selectedRouteId}
                onChange={(e) => setSelectedRouteId(e.target.value)}
              >
@@ -174,10 +209,10 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
 
         {/* Bus Selection */}
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Chọn xe</label>
+          <label className="block text-sm font-medium text-slate-700 mb-1.5">Chọn xe vận hành <span className="text-red-500">*</span></label>
           <select 
              required
-             className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none bg-white text-slate-900"
+             className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none bg-white text-slate-900 shadow-sm"
              value={selectedBusId}
              onChange={(e) => setSelectedBusId(e.target.value)}
           >
@@ -193,7 +228,7 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
         <div className="grid grid-cols-2 gap-4">
           {/* Time */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Giờ khởi hành</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Giờ khởi hành</label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                 <Clock size={16} />
@@ -201,7 +236,7 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
               <input 
                 type="time" 
                 required
-                className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none bg-white text-slate-900"
+                className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none bg-white text-slate-900 shadow-sm"
                 value={time}
                 onChange={(e) => setTime(e.target.value)}
               />
@@ -210,47 +245,23 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
           
           {/* Price */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Giá vé</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Giá vé (VNĐ)</label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                 <Wallet size={16} />
               </div>
               <input 
-                type="number" 
+                type="text" 
                 required
-                className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none bg-white text-slate-900"
-                value={price}
-                onChange={(e) => setPrice(Number(e.target.value))}
+                className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none bg-white text-slate-900 font-bold shadow-sm"
+                value={formatPrice(price)}
+                onChange={handlePriceChange}
+                placeholder="0"
               />
             </div>
           </div>
         </div>
-
-        {/* Driver */}
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Tài xế / Phụ xe</label>
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-               <User size={18} />
-             </div>
-            <input 
-              type="text" 
-              placeholder="Nhập tên tài xế..."
-              className="w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none bg-white text-slate-900"
-              value={driver}
-              onChange={(e) => setDriver(e.target.value)}
-            />
-          </div>
-        </div>
-
-        <div className="pt-3 flex gap-3">
-          <Button type="button" variant="outline" className="flex-1" onClick={onClose}>Hủy</Button>
-          <Button type="submit" className="flex-1" disabled={isSaving}>
-            {isSaving ? <Loader2 className="animate-spin mr-2" /> : null}
-            Tạo chuyến
-          </Button>
-        </div>
-      </form>
+      </div>
     </Dialog>
   );
 };

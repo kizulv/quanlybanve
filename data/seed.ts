@@ -59,6 +59,7 @@ export const INITIAL_BUSES: Bus[] = [
   {
     id: "BUS-001",
     plate: "29B-123.45",
+    phoneNumber: "0987 654 321",
     type: BusType.CABIN,
     seats: 24,
     status: "Hoạt động",
@@ -67,6 +68,7 @@ export const INITIAL_BUSES: Bus[] = [
   {
     id: "BUS-002",
     plate: "29B-999.88",
+    phoneNumber: "0912 345 678",
     type: BusType.SLEEPER,
     seats: 36,
     status: "Hoạt động",
@@ -75,6 +77,7 @@ export const INITIAL_BUSES: Bus[] = [
   {
     id: "BUS-003",
     plate: "51F-555.66",
+    phoneNumber: "0868 868 304",
     type: BusType.CABIN,
     seats: 24,
     status: "Hoạt động",

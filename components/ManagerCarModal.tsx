@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   X,
   Loader2,
+  Phone,
 } from "lucide-react";
 
 interface ManagerCarModalProps {
@@ -27,6 +28,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
 }) => {
   // Form State
   const [plate, setPlate] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [type, setType] = useState<BusType>(BusType.CABIN);
   const [status, setStatus] = useState<Bus["status"]>("Hoạt động");
   const [isSaving, setIsSaving] = useState(false);
@@ -51,6 +53,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
   useEffect(() => {
     if (initialData) {
       setPlate(initialData.plate);
+      setPhoneNumber(initialData.phoneNumber || "");
       setType(initialData.type);
       setStatus(initialData.status);
 
@@ -67,6 +70,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
       }
     } else {
       setPlate("");
+      setPhoneNumber("");
       setType(BusType.CABIN);
       setStatus("Hoạt động");
       initDefaultConfig(BusType.CABIN);
@@ -83,7 +87,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
   ) => {
     const currentBusType = busTypeOverride || type;
     const colsCount = currentCols || config.cols;
-    const newLabels: Record<string, string> = { ...config.seatLabels }; // Keep existing labels if possible
+    const newLabels: Record<string, string> = { ...config.seatLabels };
 
     const parseKey = (key: string) => {
       const parts = key.split("-");
@@ -98,10 +102,6 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
         c: parseInt(parts[2]),
       };
     };
-
-    // Only generate new labels for keys that don't have one yet or if we are resetting
-    // Note: For a true "Smart Rename", we usually only auto-generate if the user explicitly asks,
-    // but here we ensure consistency when changing layout structure.
 
     if (currentBusType === BusType.CABIN) {
       for (let col = 0; col < colsCount; col++) {
@@ -119,8 +119,6 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
         ).sort((a, b) => a - b);
 
         colSeats.forEach((key) => {
-          // Only overwrite if not set (optional strategy), but for consistent layout changes we often overwrite.
-          // Here we overwrite to keep sequence correct when rows are added/removed.
           const k = parseKey(key);
           const logicalRowIndex = uniqueRows.indexOf(k.r);
           const num = logicalRowIndex * 2 + k.floor;
@@ -170,28 +168,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
       hasBench = true;
     }
 
-    // Reset labels completely on type change
     const labels = {};
-    // We can use a temporary config to calculate initial labels
-    const tempConfigForLabels = { cols, seatLabels: {} };
-    // Logic extraction needed to avoid circular dependency, but for simplicity we rely on recalculateLabels
-    // adapting to the passed args
-
-    // Manually run generation for init
-    const generatedLabels: Record<string, string> = {};
-    if (busType === BusType.CABIN) {
-      // ... same logic as recalculate ...
-      // For init we just let the effect or user interaction handle complex cases,
-      // but let's provide a basic valid set.
-      active.forEach((key, idx) => {
-        // simplified init
-        generatedLabels[key] = String(idx + 1);
-      });
-      // Call proper recalc
-    }
-
-    // Use the main function to get correct initial labels
-    // We need to pass the *future* type and cols because state hasn't updated yet
     const finalLabels = recalculateLabels(active, busType, cols);
 
     setConfig({
@@ -211,16 +188,12 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
 
     if (isActive) {
       newActive = newActive.filter((k) => k !== key);
-      // Remove label? No, keep it in case we toggle back, or clean up on save.
     } else {
       newActive.push(key);
     }
 
-    // We do NOT call recalculateLabels here to preserve custom names.
-    // Only generate a default name if it doesn't exist.
     const newLabels = { ...config.seatLabels };
     if (!newLabels[key] && !isActive) {
-      // Assign a temp label
       newLabels[key] = "??";
     }
 
@@ -239,7 +212,6 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
 
   const handleRowChange = (newRows: number) => {
     let newActive = [...config.activeSeats];
-    // Add seats if increasing rows
     if (newRows > config.rows) {
       for (let f = 1; f <= 2; f++) {
         for (let r = config.rows; r < newRows; r++) {
@@ -260,8 +232,6 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
       });
     }
 
-    // When structure changes, we might want to recalculate to keep order,
-    // OR we trust the user to rename. Let's Auto-Recalculate for structure changes to be helpful.
     const newLabels = recalculateLabels(newActive, type, config.cols);
 
     setConfig({
@@ -285,7 +255,6 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
       newActive = newActive.filter((k) => !k.includes("bench"));
     }
 
-    // Only recalc labels for new bench seats
     const newLabels = { ...config.seatLabels };
     if (checked) {
       newActive.forEach((key) => {
@@ -293,7 +262,6 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
           const parts = key.split("-");
           const f = parts[0];
           const i = parseInt(parts[2]);
-          // Default naming for bench
           const prefix = f === "1" ? "A" : "B";
           newLabels[key] =
             type === BusType.CABIN ? `${prefix}-G${i + 1}` : `B${f}-${i + 1}`;
@@ -329,7 +297,6 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
     setConfig({
       ...config,
       activeSeats: newActive,
-      // Keep existing labels is fine
       benchFloors: newBenchFloors,
     });
   };
@@ -339,14 +306,12 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
 
     setIsSaving(true);
 
-    // Sanitization: Ensure we only save labels for seats that are actually active
     const cleanLabels: Record<string, string> = {};
     config.activeSeats.forEach((key) => {
-      // If label exists, keep it. If not, generate a fallback (though UI should prevent this)
       if (config.seatLabels?.[key]) {
         cleanLabels[key] = config.seatLabels[key];
       } else {
-        cleanLabels[key] = key; // Fallback
+        cleanLabels[key] = key;
       }
     });
 
@@ -358,10 +323,11 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
     const newBus: Bus = {
       id: initialData ? initialData.id : `BUS-${Date.now()}`,
       plate,
+      phoneNumber,
       type,
       status,
       seats: config.activeSeats.length,
-      layoutConfig: cleanConfig, // Save the sanitized config to DB
+      layoutConfig: cleanConfig,
     };
 
     try {
@@ -454,6 +420,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
             </h3>
 
             <div className="space-y-4">
+              {/* License Plate */}
               <div>
                 <label className="block text-sm text-slate-700 mb-1.5">
                   Biển kiểm soát <span className="text-red-500">*</span>
@@ -467,6 +434,24 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
                     onChange={(e) => setPlate(e.target.value)}
                     placeholder="29B-123.45"
                     className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none bg-white text-slate-900 shadow-sm font-bold"
+                  />
+                </div>
+              </div>
+
+              {/* Phone Number */}
+              <div>
+                <label className="block text-sm text-slate-700 mb-1.5">
+                  Số điện thoại theo xe
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                     <Phone size={16} className="text-slate-400" />
+                  </div>
+                  <input
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    placeholder="VD: 0868 868 304"
+                    className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none bg-white text-slate-900 shadow-sm"
                   />
                 </div>
               </div>

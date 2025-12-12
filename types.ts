@@ -78,6 +78,7 @@ export interface BusLayoutConfig {
 export interface Bus {
   id: string;
   plate: string;
+  phoneNumber?: string; // New field
   type: BusType;
   seats: number;
   status: "Hoạt động" | "Ngưng hoạt động" | "Đã bán";
