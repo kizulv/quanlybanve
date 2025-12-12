@@ -1,3 +1,4 @@
+
 import { Bus, BusTrip, Route, Booking } from '../types';
 import { INITIAL_BUSES, INITIAL_ROUTES, INITIAL_TRIPS } from '../data/seed';
 
@@ -97,4 +98,29 @@ export const db = {
   routes: new Collection<Route>(DB_KEYS.ROUTES, INITIAL_ROUTES),
   trips: new Collection<BusTrip>(DB_KEYS.TRIPS, INITIAL_TRIPS),
   bookings: new Collection<Booking>(DB_KEYS.BOOKINGS, []),
+
+  // System Utilities
+  exportAll: () => {
+    return {
+      buses: JSON.parse(localStorage.getItem(DB_KEYS.BUSES) || '[]'),
+      routes: JSON.parse(localStorage.getItem(DB_KEYS.ROUTES) || '[]'),
+      trips: JSON.parse(localStorage.getItem(DB_KEYS.TRIPS) || '[]'),
+      bookings: JSON.parse(localStorage.getItem(DB_KEYS.BOOKINGS) || '[]'),
+      exportedAt: new Date().toISOString(),
+      version: '1.0'
+    };
+  },
+
+  importAll: (data: any) => {
+    try {
+      if (data.buses) localStorage.setItem(DB_KEYS.BUSES, JSON.stringify(data.buses));
+      if (data.routes) localStorage.setItem(DB_KEYS.ROUTES, JSON.stringify(data.routes));
+      if (data.trips) localStorage.setItem(DB_KEYS.TRIPS, JSON.stringify(data.trips));
+      if (data.bookings) localStorage.setItem(DB_KEYS.BOOKINGS, JSON.stringify(data.bookings));
+      return true;
+    } catch (e) {
+      console.error("Import failed", e);
+      return false;
+    }
+  }
 };

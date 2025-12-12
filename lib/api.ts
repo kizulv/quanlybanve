@@ -1,3 +1,4 @@
+
 import { db } from './db';
 import { Bus, BusTrip, Route, Booking, Passenger, Seat, SeatStatus } from '../types';
 
@@ -107,6 +108,17 @@ export const api = {
       await db.trips.updateOne(tripId, { seats: updatedSeats });
 
       return { bookings: newBookings, updatedTrip: { ...trip, seats: updatedSeats } };
+    }
+  },
+
+  system: {
+    exportData: async () => {
+      await delay(500); // Simulate large data processing
+      return db.exportAll();
+    },
+    importData: async (data: any) => {
+      await delay(500);
+      return db.importAll(data);
     }
   }
 };
