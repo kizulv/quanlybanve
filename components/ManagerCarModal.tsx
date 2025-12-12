@@ -96,7 +96,11 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
 
     if (currentBusType === BusType.CABIN) {
       for (let col = 0; col < colsCount; col++) {
-        const prefix = String.fromCharCode(65 + col);
+        // SWAP LABEL LOGIC: Col 0 -> B, Col 1 -> A
+        let prefix = String.fromCharCode(65 + col);
+        if (col === 0) prefix = 'B';
+        if (col === 1) prefix = 'A';
+
         const colSeats = activeSeats.filter((key) => {
           const k = parseKey(key);
           return !k.isBench && k.c === col;
@@ -145,7 +149,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
       }
       hasBench = false;
     } else {
-      rows = 5;
+      rows = 6;
       cols = 3;
       for (let f = 1; f <= 2; f++) {
         for (let r = 0; r < rows; r++) {
@@ -336,7 +340,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title={initialData ? "Cập nhật thông tin xe" : "Thêm xe mới"}
-      className="max-w-7xl w-full"
+      className="max-w-6xl w-full"
       footer={
         <>
           <Button variant="outline" onClick={onClose}>
@@ -350,7 +354,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
     >
       <div className="grid grid-cols-12 gap-6 lg:h-[70vh]">
         {/* --- LEFT COLUMN: INFO & CONTROLS (35%) --- */}
-        <div className="col-span-12 lg:col-span-5 h-full flex flex-col gap-4 overflow-y-auto pr-2">
+        <div className="col-span-12 lg:col-span-6 h-full flex flex-col gap-4 overflow-y-auto pr-2">
           {/* Section 1: General Info */}
           <div className="bg-slate-50 p-5 rounded-xl border border-slate-200">
             <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-4 pb-2 border-b border-slate-200">
@@ -561,7 +565,10 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
                     <span className="text-xs font-bold text-blue-700 uppercase">
                       Đổi tên ghế
                     </span>
-                    <button onClick={() => setEditingSeat(null)}>
+                    <button
+                      title="Đổi tên ghế"
+                      onClick={() => setEditingSeat(null)}
+                    >
                       <X
                         size={14}
                         className="text-slate-400 hover:text-slate-600"
@@ -569,6 +576,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
                     </button>
                   </div>
                   <input
+                    title="Nhập tên ghế"
                     autoFocus
                     className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 mb-2 bg-white"
                     value={editingSeat.label}
@@ -596,7 +604,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
         </div>
 
         {/* --- RIGHT COLUMN: VISUALIZER (65%) --- */}
-        <div className="col-span-12 lg:col-span-7 h-full bg-slate-100/50 rounded-xl border border-slate-200 overflow-hidden relative flex flex-col">
+        <div className="col-span-12 lg:col-span-6 h-full bg-slate-100/50 rounded-xl border border-slate-200 overflow-hidden relative flex flex-col">
           <div className="absolute top-4 right-4 bg-white/90 backdrop-blur px-3 py-1 rounded-full text-xs font-bold text-primary shadow-sm z-10 border border-white">
             Tổng cộng: {config.activeSeats.length} ghế
           </div>
@@ -614,12 +622,12 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
                       {/* Header */}
                       <div className="bg-slate-50 border-b border-slate-100 py-3 text-center">
                         <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                          Dãy {String.fromCharCode(65 + c)}
+                          Dãy {c === 0 ? 'B' : (c === 1 ? 'A' : String.fromCharCode(65 + c))}
                         </span>
                       </div>
 
                       <div className="p-4">
-                        <div className="flex justify-between px-2 mb-3 text-[10px] font-bold text-slate-400 uppercase">
+                        <div className="flex gap-8 justify-center px-2 mb-3 text-[10px] font-bold text-slate-400 uppercase">
                           <span>Dưới</span>
                           <span>Trên</span>
                         </div>
@@ -642,7 +650,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
                 </div>
               ) : (
                 /* --- SLEEPER LAYOUT --- */
-                <div className="flex gap-6 md:gap-10">
+                <div className="flex gap-4 md:gap-8">
                   {[...Array(config.floors)].map((_, floorIndex) => {
                     const floor = floorIndex + 1;
                     const hasBench =
@@ -652,14 +660,16 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
                     return (
                       <div
                         key={floor}
-                        className="relative bg-white rounded-[2.5rem] shadow-sm border border-slate-300 p-5 min-w-[200px]"
+                        className="bg-white rounded-2xl shadow-sm border border-slate-300 w-1/2 md:w-[220px] relative overflow-hidden"
                       >
                         {/* Floor Label */}
-                        <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[10px] font-bold px-3 py-0.5 rounded-full z-10 shadow-sm border border-slate-700">
-                          TẦNG {floor}
+                        <div className="bg-slate-50 border-b border-slate-100 py-3 text-center">
+                          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                            TẦNG {floor}
+                          </span>
                         </div>
 
-                        <div className="mt-5 flex flex-col items-center gap-3">
+                        <div className="p-4 flex flex-col items-center gap-3">
                           {/* Grid */}
                           <div
                             className="grid gap-x-3 gap-y-3"
@@ -683,7 +693,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
 
                           {/* Bench */}
                           {hasBench && (
-                            <div className="mt-3 pt-4 border-t border-dashed border-slate-200 w-full flex justify-center gap-1.5">
+                            <div className="w-full flex justify-center gap-1.5">
                               {[...Array(5)].map((_, i) => (
                                 <SeatButton
                                   key={`bench-${i}`}
@@ -694,6 +704,9 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
                               ))}
                             </div>
                           )}
+                        </div>
+                        <div className="h-10 bg-slate-50 border-t border-slate-100 mt-2 flex justify-center items-center">
+                          <div className="w-16 h-1.5 bg-slate-200 rounded-full"></div>
                         </div>
                       </div>
                     );
