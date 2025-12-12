@@ -251,17 +251,27 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
 
     // Name Generation logic
     let tripName = route.name;
-    if (direction === 'inbound') {
-       if (route.origin && route.destination) {
-         tripName = `${route.destination} - ${route.origin}`;
-       } else {
-         tripName = `${route.name} (Chiều về)`;
-       }
-    } else {
-       if (route.origin && route.destination) {
-         tripName = `${route.origin} - ${route.destination}`;
-       }
+
+    // 1. Try to use structured Origin/Destination
+    if (route.origin && route.destination) {
+        if (direction === 'inbound') {
+             tripName = `${route.destination} - ${route.origin}`;
+        } else {
+             tripName = `${route.origin} - ${route.destination}`;
+        }
+    } 
+    // 2. Fallback: Try to parse the string if it contains " - "
+    else if (route.name.includes(' - ')) {
+        const parts = route.name.split(' - ');
+        if (parts.length === 2) {
+             if (direction === 'inbound') {
+                tripName = `${parts[1]} - ${parts[0]}`;
+             } else {
+                tripName = route.name;
+             }
+        }
     }
+    // 3. Otherwise keep original name without appending "(Chiều về)" because the UI Badge handles the visual distinction.
 
     const tripData: Partial<BusTrip> = {
       routeId: route.id, 
