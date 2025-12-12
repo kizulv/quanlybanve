@@ -49,6 +49,7 @@ export interface BusTrip {
   driver: string;
   basePrice: number;
   seats: Seat[];
+  direction?: 'outbound' | 'inbound'; // New field: Direction of the trip
 }
 
 export interface RouteStats {

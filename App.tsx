@@ -8,7 +8,7 @@ import { ScheduleView } from './components/ScheduleView';
 import { Badge } from './components/ui/Badge';
 import { Button } from './components/ui/Button';
 import { BusTrip, Seat, SeatStatus, Passenger, Booking, Route, Bus, BusType } from './types';
-import { Search, Filter, BusFront, Armchair, Banknote, CalendarDays, Ticket, Clock, MapPin, Loader2 } from 'lucide-react';
+import { Search, Filter, BusFront, Armchair, Banknote, CalendarDays, Ticket, Clock, MapPin, Loader2, ArrowRightLeft } from 'lucide-react';
 import { api } from './lib/api';
 
 function App() {
@@ -220,6 +220,7 @@ function App() {
                 filteredTrips.map(trip => {
                   const availableSeats = trip.seats.filter(s => s.status === SeatStatus.AVAILABLE).length;
                   const isSelected = selectedTripId === trip.id;
+                  const isReturn = trip.direction === 'inbound';
                   return (
                     <div 
                       key={trip.id}
@@ -237,7 +238,12 @@ function App() {
                           <h3 className={`font-bold text-sm ${isSelected ? 'text-primary' : 'text-slate-900'}`}>{trip.route}</h3>
                           <div className="flex items-center text-xs text-slate-500 mt-1 gap-2">
                              <span className="flex items-center"><Clock size={12} className="mr-1"/> {trip.departureTime.split(' ')[1]}</span>
-                             <span className="flex items-center"><BusFront size={12} className="mr-1"/> {trip.licensePlate}</span>
+                             {trip.direction && (
+                                <span className={`flex items-center px-1.5 py-0.5 rounded ${isReturn ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'}`}>
+                                   <ArrowRightLeft size={10} className="mr-1" />
+                                   {isReturn ? 'Chiều về' : 'Chiều đi'}
+                                </span>
+                             )}
                           </div>
                         </div>
                         <Badge variant={trip.type === BusType.CABIN ? 'warning' : 'default'} className="scale-90 origin-right">
@@ -247,7 +253,7 @@ function App() {
                       
                       <div className="flex justify-between items-end pt-2 border-t border-slate-100/50 mt-2">
                         <div className="text-xs text-slate-500">
-                          Tài xế: <span className="font-medium text-slate-700">{trip.driver}</span>
+                           <span className="font-medium text-slate-700 flex items-center gap-1"><BusFront size={12}/> {trip.licensePlate}</span>
                         </div>
                         <div className="text-right">
                           <div className="text-sm font-bold text-primary">{trip.basePrice.toLocaleString('vi-VN')}đ</div>
