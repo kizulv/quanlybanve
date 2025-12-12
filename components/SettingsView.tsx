@@ -442,8 +442,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         <span>Loại xe:</span>
                         <span className="font-medium">
                           {bus.type === BusType.CABIN
-                            ? "Xe Phòng"
-                            : "Xe Giường Đơn"}
+                            ? "Xe phòng"
+                            : "Giường đơn"}
                         </span>
                       </div>
                       <div className="flex justify-between">
