@@ -619,7 +619,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
                       </div>
 
                       <div className="p-4">
-                        <div className="flex justify-center gap-8 mb-3 text-[10px] font-bold text-slate-400 uppercase">
+                        <div className="flex justify-between px-2 mb-3 text-[10px] font-bold text-slate-400 uppercase">
                           <span>Dưới</span>
                           <span>Trên</span>
                         </div>
