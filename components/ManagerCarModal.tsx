@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   X,
   AlertCircle,
+  Activity
 } from "lucide-react";
 
 interface ManagerCarModalProps {
@@ -28,6 +29,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
   // Form State
   const [plate, setPlate] = useState("");
   const [type, setType] = useState<BusType>(BusType.CABIN);
+  const [status, setStatus] = useState<Bus['status']>("Hoạt động");
 
   // Layout Builder State
   const [config, setConfig] = useState<BusLayoutConfig>({
@@ -50,6 +52,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
     if (initialData) {
       setPlate(initialData.plate);
       setType(initialData.type);
+      setStatus(initialData.status);
 
       if (initialData.layoutConfig) {
         setConfig({
@@ -65,6 +68,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
     } else {
       setPlate("");
       setType(BusType.CABIN);
+      setStatus("Hoạt động");
       initDefaultConfig(BusType.CABIN);
     }
     setEditingSeat(null);
@@ -283,7 +287,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
       id: initialData ? initialData.id : `BUS-${Date.now()}`,
       plate,
       type,
-      status: initialData ? initialData.status : "Hoạt động",
+      status, // Use state
       seats: config.activeSeats.length,
       layoutConfig: config,
     };
@@ -376,6 +380,23 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
                     placeholder="29B-123.45"
                     className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none bg-white text-slate-900 shadow-sm font-semibold"
                   />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2">
+                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                    Tình trạng
+                  </label>
+                  <select
+                    value={status}
+                    onChange={(e) => setStatus(e.target.value as any)}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none bg-white text-slate-900 shadow-sm font-semibold appearance-none"
+                  >
+                    <option value="Hoạt động">Hoạt động</option>
+                    <option value="Hoạt động">Dừng hoạt động</option>
+                    <option value="Đã bán">Đã bán</option>
+                  </select>
                 </div>
               </div>
 
@@ -594,8 +615,8 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
                   </Button>
                 </div>
               ) : (
-                <div className="bg-slate-50 p-3 rounded-lg text-xs text-slate-500 flex gap-2 items-start border border-slate-100">
-                  <Info size={16} className="shrink-0 mt-0.5 text-slate-400" />
+                <div className="bg-slate-50 p-3 rounded-lg text-xs text-slate-500 flex gap-2 flex items-center border border-slate-100">
+                  <Info size={16} className="shrink-0 text-slate-400" />
                   <p>Nhấp ghế để Ẩn/Hiện. Chuột phải để đổi tên.</p>
                 </div>
               )}

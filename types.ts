@@ -80,6 +80,6 @@ export interface Bus {
   plate: string;
   type: BusType;
   seats: number;
-  status: 'Hoạt động' | 'Bảo trì' | 'Ngưng hoạt động';
+  status: 'Hoạt động' | 'Bảo trì' | 'Ngưng hoạt động' | 'Đã bán';
   layoutConfig?: BusLayoutConfig;
 }
