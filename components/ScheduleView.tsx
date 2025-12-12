@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Bus, BusTrip, Route, BusType } from '../types';
-import { ChevronLeft, ChevronRight, Plus, MapPin, Clock, Trash2, CalendarDays, BusFront, AlertCircle, Zap, Edit2, ArrowRight, RotateCcw } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Clock, Trash2, CalendarDays, BusFront, AlertCircle, Zap, Edit2, ArrowRight, RotateCcw } from 'lucide-react';
 import { Button } from './ui/Button';
 import { Badge } from './ui/Badge';
 import { getDaysInMonth, daysOfWeek, formatLunarDate, formatTime, isSameDay } from '../utils/dateUtils';
@@ -98,6 +98,18 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
      const timeStr = direction === 'outbound' ? (route.departureTime || "07:00") : (route.returnTime || "13:00");
      const dateTimeStr = `${dateStr} ${timeStr}`;
 
+     // Construct name based on direction
+     let tripName = route.name;
+     if (direction === 'inbound') {
+         if (route.origin && route.destination) {
+             tripName = `${route.destination} - ${route.origin}`;
+         } else {
+             // Fallback legacy swap
+             const parts = route.name.split(' - ');
+             if (parts.length === 2) tripName = `${parts[1]} - ${parts[0]}`;
+         }
+     }
+
      // Generate seats
      let seats = [];
      if (bus.layoutConfig) {
@@ -137,8 +149,8 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
 
      const tripData: Partial<BusTrip> = {
          routeId: route.id,
-         name: route.name,
-         route: route.name,
+         name: tripName,
+         route: tripName, // Save snapshot name
          departureTime: dateTimeStr,
          type: bus.type,
          licensePlate: bus.plate,
@@ -156,6 +168,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
   }
 
   // Find buses that ran the OUTBOUND leg of this route on the PREVIOUS day
+  // Logic: Day N-1, Route matches, Time matches DepartureTime (Outbound)
   const getPreviousDayBuses = (currentDate: Date, route: Route) => {
     const prevDate = new Date(currentDate);
     prevDate.setDate(prevDate.getDate() - 1);
@@ -166,11 +179,17 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
       if (!isSameDay(tDate, prevDate)) return false;
 
       // 2. Match Route
-      if (t.routeId && String(t.routeId) !== String(route.id)) return false;
-      if (!t.routeId && t.route !== route.name) return false;
+      // Handle legacy string matching or ID matching
+      let isRouteMatch = false;
+      if (t.routeId) {
+          isRouteMatch = String(t.routeId) === String(route.id);
+      } else {
+          // Legacy name matching
+          isRouteMatch = t.route === route.name;
+      }
+      if (!isRouteMatch) return false;
 
       // 3. Match Direction = Outbound (Time matches route departure time)
-      // This is heuristic if data isn't perfectly clean, but works for standard logic
       const tTime = t.departureTime.split(' ')[1];
       return tTime === route.departureTime;
     }).map(t => t.licensePlate);
@@ -318,6 +337,8 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                                 {shouldShowAddSlot && (
                                     <EmptySlot 
                                         route={route} 
+                                        // Outbound: Use standard route name
+                                        routeName={route.name}
                                         timeDisplay={route.departureTime}
                                         availableBuses={availableBuses}
                                         noBusWarning={noBusWarning}
@@ -359,6 +380,15 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                          const shouldShowAddSlot = route.isEnhanced || existingTrips.length === 0;
                          const rotationBuses = getPreviousDayBuses(day, route);
 
+                         // Reverse Name Logic for Inbound Column
+                         let inboundRouteName = route.name;
+                         if (route.origin && route.destination) {
+                             inboundRouteName = `${route.destination} - ${route.origin}`;
+                         } else {
+                             const parts = route.name.split(' - ');
+                             if (parts.length === 2) inboundRouteName = `${parts[1]} - ${parts[0]}`;
+                         }
+
                          return (
                             <div key={`in-${route.id}-${day.getDate()}`} className="flex flex-col gap-2">
                                 {existingTrips.map(trip => (
@@ -374,6 +404,8 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                                 {shouldShowAddSlot && (
                                     <EmptySlot 
                                         route={route} 
+                                        // Inbound: Use reversed name
+                                        routeName={inboundRouteName}
                                         timeDisplay={route.returnTime}
                                         availableBuses={availableBuses}
                                         noBusWarning={noBusWarning}
@@ -455,6 +487,7 @@ const TripCard: React.FC<{ trip: BusTrip; isEnhanced: boolean; onEdit: () => voi
 
 const EmptySlot: React.FC<{ 
     route: Route; 
+    routeName: string;
     timeDisplay?: string; 
     availableBuses: Bus[]; 
     noBusWarning: boolean; 
@@ -463,7 +496,7 @@ const EmptySlot: React.FC<{
     isEnhanced: boolean;
     rotationBuses?: string[]; // Plate numbers
     direction: 'outbound' | 'inbound';
-}> = ({ route, timeDisplay, availableBuses, noBusWarning, onQuickAssign, onOpenDetail, isEnhanced, rotationBuses, direction }) => (
+}> = ({ route, routeName, timeDisplay, availableBuses, noBusWarning, onQuickAssign, onOpenDetail, isEnhanced, rotationBuses, direction }) => (
     <div className="flex flex-col gap-2 p-2.5 rounded-lg border border-dashed border-slate-300 bg-slate-50/50">
         <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -472,7 +505,7 @@ const EmptySlot: React.FC<{
                 </div>
                 <div>
                     <h4 className={`font-medium text-sm leading-none ${isEnhanced ? 'text-yellow-700' : 'text-slate-500'}`}>
-                        {route.name}
+                        {routeName}
                     </h4>
                     <div className="text-[10px] text-slate-400 flex items-center gap-1 mt-1">
                         <Clock size={10} /> 
@@ -510,7 +543,7 @@ const EmptySlot: React.FC<{
                             const isRental = b.status === 'Xe thuê/Tăng cường';
                             return (
                                 <option key={b.id} value={b.id}>
-                                    {isRecommended ? '⭐ ' : ''}
+                                    {isRecommended ? '↺ ' : ''}
                                     {b.plate} 
                                     {isRental ? ' (Thuê)' : ''} 
                                     {isRecommended ? ' (Quay đầu)' : ''}
