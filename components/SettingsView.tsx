@@ -10,7 +10,7 @@ import {
   MapPin,
   BusFront,
   AlertTriangle,
-  Phone
+  Phone,
 } from "lucide-react";
 import { Route, Bus, BusTrip, BusType, SeatStatus } from "../types";
 import {
@@ -259,7 +259,23 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       setDeleteTarget(null);
     }
   };
+  // Định dạng số điện thoại
+  const formatPhoneNumber = (phoneNumber: string): string => {
+    // Biểu thức chính quy cho 10 chữ số (4-3-3)
+    const regex = /^(\d{4})(\d{3})(\d{3})$/;
 
+    // Loại bỏ mọi ký tự không phải là số
+    const cleanedNumber = phoneNumber.replace(/\D/g, "");
+
+    // Kiểm tra và thay thế
+    if (regex.test(cleanedNumber)) {
+      // Sử dụng capture groups $1, $2, $3 để chèn dấu cách
+      return cleanedNumber.replace(regex, "$1 $2 $3");
+    }
+
+    // Trả về chuỗi ban đầu nếu không phải 10 chữ số hợp lệ
+    return phoneNumber;
+  };
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
@@ -292,25 +308,36 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {routes.map((route) => {
-                     const isInactive = route.status === 'inactive';
-                     return (
-                      <tr key={route.id} className={`hover:bg-slate-50 ${isInactive ? 'opacity-60 bg-slate-50/50' : ''}`}>
+                    const isInactive = route.status === "inactive";
+                    return (
+                      <tr
+                        key={route.id}
+                        className={`hover:bg-slate-50 ${
+                          isInactive ? "opacity-60 bg-slate-50/50" : ""
+                        }`}
+                      >
                         <td className="px-4 py-3">
-                            <div className="flex items-center gap-2">
-                                <span className={isInactive ? "line-through text-slate-500" : "font-medium"}>
-                                    {route.name}
-                                </span>
-                                {route.isEnhanced && (
-                                    <span className="text-xs font-bold text-yellow-600 bg-yellow-100 px-1.5 py-0.5 rounded border border-yellow-200">
-                                        (Tăng cường)
-                                    </span>
-                                )}
-                                {isInactive && (
-                                    <span className="text-xs font-bold text-red-600 bg-red-100 px-1.5 py-0.5 rounded border border-red-200">
-                                        Đã hủy
-                                    </span>
-                                )}
-                            </div>
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={
+                                isInactive
+                                  ? "line-through text-slate-500"
+                                  : "font-medium"
+                              }
+                            >
+                              {route.name}
+                            </span>
+                            {route.isEnhanced && (
+                              <span className="text-xs font-bold text-yellow-600 bg-yellow-100 px-1.5 py-0.5 rounded border border-yellow-200">
+                                (Tăng cường)
+                              </span>
+                            )}
+                            {isInactive && (
+                              <span className="text-xs font-bold text-red-600 bg-red-100 px-1.5 py-0.5 rounded border border-red-200">
+                                Đã hủy
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-4 py-3 text-primary font-bold">
                           {route.price
@@ -384,18 +411,22 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                           {bus.plate}
                         </h4>
                         <div className="flex gap-2 text-xs text-slate-500 mt-0.5">
-                           <span>{bus.id}</span>
-                           {bus.phoneNumber && <span className="text-slate-400">|</span>}
-                           {bus.phoneNumber && <span className="flex items-center"><Phone size={10} className="mr-0.5" />{bus.phoneNumber}</span>}
+                          {bus.phoneNumber && (
+                            <span className="flex items-center">
+                              <Phone size={10} className="mr-0.5" />
+                              {formatPhoneNumber(bus.phoneNumber)}
+                            </span>
+                          )}
                         </div>
                         {/* Show linked route name if available */}
                         {bus.defaultRouteId && (
-                           <div className="mt-1">
-                             <span className="text-xs bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded border border-blue-100 flex w-fit items-center gap-1">
-                               <MapPin size={10} />
-                               {routes.find(r => r.id === bus.defaultRouteId)?.name || 'Tuyến không tồn tại'}
-                             </span>
-                           </div>
+                          <div className="mt-1">
+                            <span className="text-xs bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded border border-blue-100 flex w-fit items-center gap-1">
+                              <MapPin size={10} />
+                              {routes.find((r) => r.id === bus.defaultRouteId)
+                                ?.name || "Tuyến không tồn tại"}
+                            </span>
+                          </div>
                         )}
                       </div>
                       <Badge
