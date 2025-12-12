@@ -22,9 +22,6 @@ export const ManagerRouteModal: React.FC<ManagerRouteModalProps> = ({
     price: 0,
     departureTime: "",
     returnTime: "",
-    distance: "",
-    duration: "",
-    stops: 0,
   });
   const [isSaving, setIsSaving] = useState(false);
 
@@ -42,9 +39,6 @@ export const ManagerRouteModal: React.FC<ManagerRouteModalProps> = ({
         price: 0,
         departureTime: "",
         returnTime: "",
-        distance: "",
-        duration: "",
-        stops: 0,
       });
     }
   }, [initialData, isOpen]);
@@ -61,7 +55,7 @@ export const ManagerRouteModal: React.FC<ManagerRouteModalProps> = ({
     // Remove all non-numeric characters
     const rawValue = e.target.value.replace(/\D/g, "");
     const numberValue = rawValue ? parseInt(rawValue, 10) : 0;
-    
+
     setFormData((prev) => ({
       ...prev,
       price: numberValue,
@@ -70,7 +64,7 @@ export const ManagerRouteModal: React.FC<ManagerRouteModalProps> = ({
 
   const formatPrice = (price: number | undefined) => {
     if (!price) return "";
-    return price.toLocaleString('en-US');
+    return price.toLocaleString("vi-VN");
   };
 
   const handleSave = async () => {
@@ -82,7 +76,7 @@ export const ManagerRouteModal: React.FC<ManagerRouteModalProps> = ({
         ...formData,
         id: initialData?.id || `ROUTE-${Date.now()}`,
       } as Route;
-      
+
       await onSave(routeToSave);
       onClose();
     } catch (error) {
@@ -103,8 +97,16 @@ export const ManagerRouteModal: React.FC<ManagerRouteModalProps> = ({
           <Button variant="outline" onClick={onClose} disabled={isSaving}>
             Hủy bỏ
           </Button>
-          <Button onClick={handleSave} disabled={isSaving || !formData.name} className="min-w-[100px]">
-            {isSaving ? <Loader2 className="animate-spin mr-2" size={16} /> : <Save className="mr-2" size={16} />}
+          <Button
+            onClick={handleSave}
+            disabled={isSaving || !formData.name}
+            className="min-w-[100px]"
+          >
+            {isSaving ? (
+              <Loader2 className="animate-spin mr-2" size={16} />
+            ) : (
+              <Save className="mr-2" size={16} />
+            )}
             Lưu
           </Button>
         </>

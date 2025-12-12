@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/Tabs";
 import { Button } from "./ui/Button";
@@ -206,7 +205,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       if (editingItem) {
         await api.trips.update(editingItem.id, {
           ...newTripData,
-          seats: editingItem.seats, 
+          seats: editingItem.seats,
         });
       } else {
         await api.trips.create({
@@ -287,7 +286,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     <th className="px-4 py-3">Tên tuyến</th>
                     <th className="px-4 py-3">Giá niêm yết</th>
                     <th className="px-4 py-3">Giờ chạy</th>
-                    <th className="px-4 py-3">Khoảng cách/Thời gian</th>
                     <th className="px-4 py-3 text-right">Thao tác</th>
                   </tr>
                 </thead>
@@ -296,18 +294,23 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     <tr key={route.id} className="hover:bg-slate-50">
                       <td className="px-4 py-3 font-medium">{route.name}</td>
                       <td className="px-4 py-3 text-primary font-bold">
-                        {route.price ? `${route.price.toLocaleString('vi-VN')} đ` : '-'}
+                        {route.price
+                          ? `${route.price.toLocaleString("vi-VN")} đ`
+                          : "-"}
                       </td>
                       <td className="px-4 py-3">
-                         <div className="text-xs">
-                           <span className="text-slate-500">Đi:</span> <span className="font-medium text-slate-900">{route.departureTime || '--:--'}</span>
-                         </div>
-                         <div className="text-xs">
-                           <span className="text-slate-500">Đến:</span> <span className="font-medium text-slate-900">{route.returnTime || '--:--'}</span>
-                         </div>
-                      </td>
-                      <td className="px-4 py-3 text-slate-500">
-                         {route.distance} • {route.duration}
+                        <div className="text-xs">
+                          <span className="text-slate-500">Đi:</span>{" "}
+                          <span className="font-medium text-slate-900">
+                            {route.departureTime || "--:--"}
+                          </span>
+                        </div>
+                        <div className="text-xs">
+                          <span className="text-slate-500">Đến:</span>{" "}
+                          <span className="font-medium text-slate-900">
+                            {route.returnTime || "--:--"}
+                          </span>
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex justify-end gap-2">

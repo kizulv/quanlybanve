@@ -1,14 +1,13 @@
-
 export enum BusType {
-  SLEEPER = 'SLEEPER', // Xe Giường đơn (formerly SLEEPER_41)
-  CABIN = 'CABIN',     // Xe Phòng (formerly ROOM_22)
+  SLEEPER = "SLEEPER", // Xe Giường đơn (formerly SLEEPER_41)
+  CABIN = "CABIN", // Xe Phòng (formerly ROOM_22)
 }
 
 export enum SeatStatus {
-  AVAILABLE = 'available',
-  SELECTED = 'selected',
-  BOOKED = 'booked',
-  SOLD = 'sold',
+  AVAILABLE = "available",
+  SELECTED = "selected",
+  BOOKED = "booked",
+  SOLD = "sold",
 }
 
 export interface Seat {
@@ -33,7 +32,7 @@ export interface Booking {
   seatId: string;
   busId: string;
   passenger: Passenger;
-  status: 'pending' | 'confirmed' | 'cancelled';
+  status: "pending" | "confirmed" | "cancelled";
   createdAt: string;
   totalPrice: number;
 }
@@ -60,9 +59,6 @@ export interface RouteStats {
 export interface Route {
   id: number | string;
   name: string;
-  distance: string;
-  duration: string;
-  stops: number;
   // New fields
   price?: number; // Giá vé niêm yết
   departureTime?: string; // Giờ xuất bến đi
@@ -84,6 +80,6 @@ export interface Bus {
   plate: string;
   type: BusType;
   seats: number;
-  status: 'Hoạt động' | 'Bảo trì' | 'Ngưng hoạt động' | 'Đã bán';
+  status: "Hoạt động" | "Ngưng hoạt động" | "Đã bán";
   layoutConfig?: BusLayoutConfig;
 }
