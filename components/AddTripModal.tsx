@@ -1,14 +1,16 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useMemo } from 'react';
 import { Dialog } from './ui/Dialog';
 import { Button } from './ui/Button';
 import { Bus, Route, BusTrip, BusType } from '../types';
-import { Loader2, Clock, MapPin, Wallet, Calendar, CheckCircle2 } from 'lucide-react';
+import { Loader2, Clock, MapPin, Wallet, Calendar, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { generateCabinLayout, generateSleeperLayout } from '../utils/generators';
 
 interface AddTripModalProps {
   isOpen: boolean;
   onClose: () => void;
   targetDate: Date;
+  preSelectedRouteId?: string;
   routes: Route[];
   buses: Bus[];
   onSave: (tripData: Partial<BusTrip>) => Promise<void>;
@@ -18,6 +20,7 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
   isOpen,
   onClose,
   targetDate,
+  preSelectedRouteId,
   routes,
   buses,
   onSave
@@ -35,6 +38,7 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
       if (route) {
         if (route.price) setPrice(route.price);
         if (route.departureTime) setTime(route.departureTime);
+        setSelectedBusId(''); // Reset bus when route changes because availability changes
       }
     }
   }, [selectedRouteId, routes]);
@@ -42,12 +46,31 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
   // Reset form on open
   useEffect(() => {
     if (isOpen) {
-      setSelectedRouteId('');
+      setSelectedRouteId(preSelectedRouteId || '');
       setSelectedBusId('');
       setTime('07:00');
       setPrice(0);
     }
-  }, [isOpen]);
+  }, [isOpen, preSelectedRouteId]);
+
+  // Filter Buses Logic
+  const filteredBuses = useMemo(() => {
+    return buses.filter(bus => {
+        if (bus.status !== 'Hoạt động') return false;
+        
+        // If no route selected yet, show all active buses (or maybe none?)
+        if (!selectedRouteId) return true;
+
+        const currentRoute = routes.find(r => r.id === selectedRouteId);
+        if (!currentRoute) return true;
+
+        // Requirement: Enhanced routes allow any bus
+        if (currentRoute.isEnhanced) return true;
+
+        // Requirement: Regular routes only allow buses configured for that route
+        return bus.defaultRouteId === selectedRouteId;
+    });
+  }, [buses, selectedRouteId, routes]);
 
   const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     // Remove non-numeric chars
@@ -113,17 +136,19 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
       // Add bench if exists
       if (config.hasRearBench) {
         for (let f = 1; f <= config.floors; f++) {
-          for (let i = 0; i < 5; i++) {
-            const key = `${f}-bench-${i}`;
-             if (config.activeSeats.includes(key)) {
-                let label = config.seatLabels?.[key];
-                if(!label) {
-                   const prefix = f === 1 ? "A" : "B";
-                   label = bus.type === BusType.CABIN ? `${prefix}-G${i + 1}` : `B${f}-${i + 1}`;
+          if(config.benchFloors?.includes(f)) {
+             for (let i = 0; i < 5; i++) {
+                const key = `${f}-bench-${i}`;
+                if (config.activeSeats.includes(key)) {
+                    let label = config.seatLabels?.[key];
+                    if(!label) {
+                       const prefix = f === 1 ? "A" : "B";
+                       label = bus.type === BusType.CABIN ? `${prefix}-G${i + 1}` : `B${f}-${i + 1}`;
+                    }
+                    seats.push({
+                      id: label, label, floor: f as 1 | 2, status: 'available', price: price, row: config.rows, col: i
+                    });
                 }
-                seats.push({
-                  id: label, label, floor: f as 1 | 2, status: 'available', price: price, row: config.rows, col: i
-                });
              }
           }
         }
@@ -195,13 +220,14 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
              </div>
              <select 
                required
-               className="w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none bg-white text-slate-900 appearance-none shadow-sm"
+               className="w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none bg-white text-slate-900 appearance-none shadow-sm disabled:bg-slate-100"
                value={selectedRouteId}
                onChange={(e) => setSelectedRouteId(e.target.value)}
+               disabled={!!preSelectedRouteId}
              >
                <option value="">-- Chọn tuyến --</option>
-               {routes.map(r => (
-                 <option key={r.id} value={r.id}>{r.name}</option>
+               {routes.filter(r => r.status !== 'inactive').map(r => (
+                 <option key={r.id} value={r.id}>{r.name} {r.isEnhanced ? '(Tăng cường)' : ''}</option>
                ))}
              </select>
           </div>
@@ -210,19 +236,27 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
         {/* Bus Selection */}
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1.5">Chọn xe vận hành <span className="text-red-500">*</span></label>
-          <select 
-             required
-             className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none bg-white text-slate-900 shadow-sm"
-             value={selectedBusId}
-             onChange={(e) => setSelectedBusId(e.target.value)}
-          >
-             <option value="">-- Chọn xe --</option>
-             {buses.filter(b => b.status === 'Hoạt động').map(b => (
-               <option key={b.id} value={b.id}>
-                 {b.plate} - {b.type === 'CABIN' ? 'Xe Phòng' : 'Giường nằm'} ({b.seats} chỗ)
-               </option>
-             ))}
-          </select>
+          {filteredBuses.length === 0 && selectedRouteId ? (
+             <div className="text-sm text-red-600 bg-red-50 p-3 rounded border border-red-100 mb-2 flex items-center gap-2">
+                <AlertTriangle size={16} />
+                Chưa có xe nào được cài đặt cho tuyến này. Vui lòng vào Cài đặt xe để gán tuyến hoặc chọn xe khác.
+             </div>
+          ) : (
+            <select 
+               required
+               className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none bg-white text-slate-900 shadow-sm"
+               value={selectedBusId}
+               onChange={(e) => setSelectedBusId(e.target.value)}
+               disabled={!selectedRouteId}
+            >
+               <option value="">-- Chọn xe --</option>
+               {filteredBuses.map(b => (
+                 <option key={b.id} value={b.id}>
+                   {b.plate} - {b.type === 'CABIN' ? 'Xe Phòng' : 'Giường nằm'} ({b.seats} chỗ)
+                 </option>
+               ))}
+            </select>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-4">
