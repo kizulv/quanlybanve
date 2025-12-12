@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Dialog } from './ui/Dialog';
 import { Button } from './ui/Button';
@@ -80,19 +81,23 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
   // Filter Buses Logic
   const filteredBuses = useMemo(() => {
     return buses.filter(bus => {
-        if (bus.status !== 'Hoạt động') return false;
+        // Allow Active buses AND Rental/Reinforcement buses
+        if (bus.status !== 'Hoạt động' && bus.status !== 'Xe thuê/Tăng cường') return false;
         
         // If editing, always allow the currently assigned bus (even if it violates current route logic)
         if (initialData && bus.plate === initialData.licensePlate) return true;
         
-        // If no route selected yet, show all active buses
+        // If no route selected yet, show all allowed buses
         if (!selectedRouteId) return true;
 
         const currentRoute = routes.find(r => r.id === selectedRouteId);
         if (!currentRoute) return true;
 
-        // Requirement: Enhanced routes allow any bus
+        // Requirement: Enhanced routes allow any bus (Active or Rental)
         if (currentRoute.isEnhanced) return true;
+        
+        // Requirement: If bus is Rental/Reinforcement, it can be assigned to ANY route manually
+        if (bus.status === 'Xe thuê/Tăng cường') return true;
 
         // Requirement: Regular routes allow buses configured for that route OR unassigned buses
         return String(bus.defaultRouteId) === String(selectedRouteId) || !bus.defaultRouteId;
@@ -295,7 +300,7 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
                <option value="">-- Chọn xe --</option>
                {filteredBuses.map(b => (
                  <option key={b.id} value={b.id}>
-                   {b.plate} - {b.type === 'CABIN' ? 'Xe Phòng' : 'Giường nằm'} ({b.seats} chỗ)
+                   {b.plate} {b.status === 'Xe thuê/Tăng cường' ? '(Thuê)' : ''} - {b.type === 'CABIN' ? 'Xe Phòng' : 'Giường nằm'} ({b.seats} chỗ)
                  </option>
                ))}
             </select>
