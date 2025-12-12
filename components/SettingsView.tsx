@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/Tabs';
 import { Button } from './ui/Button';
@@ -6,8 +5,9 @@ import { Badge } from './ui/Badge';
 import { Dialog } from './ui/Dialog';
 import { Plus, Edit2, Trash2, MapPin, BusFront, AlertTriangle } from 'lucide-react';
 import { Route, Bus, BusTrip, BusType, SeatStatus } from '../types';
-import { generateCabinLayout, generateSleeperLayout } from '../constants';
+import { generateCabinLayout, generateSleeperLayout } from '../utils/generators';
 import { ManagerCarModal } from './ManagerCarModal';
+import { api } from '../lib/api';
 
 interface SettingsViewProps {
   routes: Route[];
@@ -16,12 +16,11 @@ interface SettingsViewProps {
   setBuses: React.Dispatch<React.SetStateAction<Bus[]>>;
   trips: BusTrip[];
   setTrips: React.Dispatch<React.SetStateAction<BusTrip[]>>;
+  onDataChange: () => void;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({ 
-  routes, setRoutes, 
-  buses, setBuses, 
-  trips, setTrips 
+  routes, buses, trips, onDataChange 
 }) => {
   // Modal State for Add/Edit
   const [activeModal, setActiveModal] = useState<'route' | 'trip' | null>(null);
@@ -35,23 +34,30 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [deleteTarget, setDeleteTarget] = useState<{ type: 'route' | 'bus' | 'trip', id: string | number } | null>(null);
 
   // --- HANDLERS FOR ROUTES ---
-  const handleSaveRoute = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSaveRoute = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    const newRoute: Route = {
-      id: editingItem ? editingItem.id : Date.now(),
+    const routeData: Partial<Route> = {
       name: formData.get('name') as string,
       distance: formData.get('distance') as string,
       duration: formData.get('duration') as string,
       stops: Number(formData.get('stops')),
     };
 
-    if (editingItem) {
-      setRoutes(routes.map(r => r.id === newRoute.id ? newRoute : r));
-    } else {
-      setRoutes([...routes, newRoute]);
+    try {
+      if (editingItem) {
+        await api.routes.update(editingItem.id, routeData);
+      } else {
+        await api.routes.create({
+          id: `ROUTE-${Date.now()}`, 
+          ...routeData as Route
+        });
+      }
+      onDataChange();
+      closeModal();
+    } catch (e) {
+      console.error(e);
     }
-    closeModal();
   };
 
   const requestDeleteRoute = (id: number | string) => {
@@ -64,13 +70,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setIsCarManagerOpen(true);
   };
 
-  const handleSaveBus = (newBus: Bus) => {
-    if (editingBus) {
-      setBuses(buses.map(b => b.id === newBus.id ? newBus : b));
-    } else {
-      setBuses([...buses, newBus]);
+  const handleSaveBus = async (newBus: Bus) => {
+    try {
+      if (editingBus) {
+        await api.buses.update(newBus.id, newBus);
+      } else {
+        await api.buses.create(newBus);
+      }
+      onDataChange();
+    } catch (e) {
+      console.error(e);
     }
-    // No need to close modal here manually as the component calls onClose which sets state in prop
   };
 
   const requestDeleteBus = (id: string) => {
@@ -78,11 +88,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   // --- HANDLERS FOR TRIPS (SCHEDULES) ---
-  const handleSaveTrip = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSaveTrip = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     
     const busId = formData.get('busId') as string;
+    // Important: Find the bus in the *latest* props
     const selectedBus = buses.find(b => b.id === busId);
     if (!selectedBus) return;
 
@@ -104,13 +115,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               
               if (!label) {
                  if (selectedBus.type === BusType.CABIN) {
-                    // Logic CABIN: Col A/B. Row determines number.
-                    // F1 (odd) = r*2 + 1. F2 (even) = r*2 + 2.
                     const prefix = String.fromCharCode(65 + c); 
                     const num = (r * 2) + f;
                     label = `${prefix}${num}`;
                  } else {
-                    // Logic SLEEPER: Row -> Floor -> Col
                     const seatsPerRow = config.cols * config.floors;
                     const val = (r * seatsPerRow) + ((f - 1) * config.cols) + c + 1;
                     label = val.toString();
@@ -139,7 +147,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
              if (config.activeSeats.includes(key)) {
                 let label = config.seatLabels?.[key];
                 if (!label) {
-                  // Simple fallback for bench if labels missing
                   const prefix = f === 1 ? 'A' : 'B'; 
                   label = selectedBus.type === BusType.CABIN ? `${prefix}-G${i+1}` : `B${f}-${i+1}`;
                 }
@@ -150,7 +157,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   floor: f as 1 | 2,
                   status: SeatStatus.AVAILABLE,
                   price: basePrice,
-                  row: config.rows, // Put them visually after the last row
+                  row: config.rows, 
                   col: i 
                 });
              }
@@ -167,17 +174,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         : generateSleeperLayout(basePrice);
     }
     
-    // Preserve existing bookings if editing trip (simple check)
-    if (editingItem && editingItem.seats) {
-       // Ideally we map status from old seats to new layout by Label/ID
-       // For prototype, if the bus hasn't changed, keep seats
-       if (editingItem.licensePlate === selectedBus.plate) {
-         // Logic to merge status could go here
-       }
-    }
-
-    const newTrip: BusTrip = {
-      id: editingItem ? editingItem.id : `TRIP-${Date.now()}`,
+    // Create new trip object
+    const newTripData: Partial<BusTrip> = {
       name: formData.get('name') as string,
       route: formData.get('route') as string,
       departureTime: formData.get('departureTime') as string,
@@ -188,12 +186,27 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       seats: seats,
     };
 
-    if (editingItem) {
-      setTrips(trips.map(t => t.id === newTrip.id ? newTrip : t));
-    } else {
-      setTrips([...trips, newTrip]);
+    try {
+      if (editingItem) {
+        // Caution: In a real app, editing a trip might require complex seat merging if layout changed.
+        // For now, we update basic details but keep existing seats unless user explicitly wants reset.
+        // To simplify, we'll just update info, NOT reset seats if it's an edit, to preserve bookings.
+        // If you want to force layout update, you'd delete and recreate or add a "Reset Layout" button.
+        await api.trips.update(editingItem.id, {
+            ...newTripData,
+            seats: editingItem.seats // PRESERVE SEATS ON EDIT to avoid losing bookings
+        });
+      } else {
+        await api.trips.create({
+          id: `TRIP-${Date.now()}`,
+          ...newTripData as BusTrip
+        });
+      }
+      onDataChange();
+      closeModal();
+    } catch (e) {
+      console.error(e);
     }
-    closeModal();
   };
 
   const requestDeleteTrip = (id: string) => {
@@ -213,18 +226,24 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setEditingBus(null);
   };
 
-  const executeDelete = () => {
+  const executeDelete = async () => {
     if (!deleteTarget) return;
     const { type, id } = deleteTarget;
 
-    if (type === 'route') {
-      setRoutes(routes.filter(r => r.id !== id));
-    } else if (type === 'bus') {
-      setBuses(buses.filter(b => b.id !== id));
-    } else if (type === 'trip') {
-      setTrips(trips.filter(t => t.id !== id));
+    try {
+      if (type === 'route') {
+        await api.routes.delete(id);
+      } else if (type === 'bus') {
+        await api.buses.delete(id as string);
+      } else if (type === 'trip') {
+        await api.trips.delete(id as string);
+      }
+      onDataChange();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setDeleteTarget(null);
     }
-    setDeleteTarget(null);
   };
 
   return (
@@ -336,8 +355,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               ))}
             </div>
           </TabsContent>
-
-          {/* TAB 3: SCHEDULES REMOVED */}
         </Tabs>
       </div>
 

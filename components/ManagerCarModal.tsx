@@ -9,14 +9,13 @@ import {
   Info,
   CheckCircle2,
   X,
-  AlertCircle,
-  Activity,
+  Loader2,
 } from "lucide-react";
 
 interface ManagerCarModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (bus: Bus) => void;
+  onSave: (bus: Bus) => Promise<void> | void;
   initialData?: Bus | null;
 }
 
@@ -30,6 +29,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
   const [plate, setPlate] = useState("");
   const [type, setType] = useState<BusType>(BusType.CABIN);
   const [status, setStatus] = useState<Bus["status"]>("Hoạt động");
+  const [isSaving, setIsSaving] = useState(false);
 
   // Layout Builder State
   const [config, setConfig] = useState<BusLayoutConfig>({
@@ -72,6 +72,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
       initDefaultConfig(BusType.CABIN);
     }
     setEditingSeat(null);
+    setIsSaving(false);
   }, [initialData, isOpen]);
 
   // --- LOGIC ---
@@ -82,7 +83,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
   ) => {
     const currentBusType = busTypeOverride || type;
     const colsCount = currentCols || config.cols;
-    const newLabels: Record<string, string> = {};
+    const newLabels: Record<string, string> = { ...config.seatLabels }; // Keep existing labels if possible
 
     const parseKey = (key: string) => {
       const parts = key.split("-");
@@ -98,9 +99,12 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
       };
     };
 
+    // Only generate new labels for keys that don't have one yet or if we are resetting
+    // Note: For a true "Smart Rename", we usually only auto-generate if the user explicitly asks, 
+    // but here we ensure consistency when changing layout structure.
+    
     if (currentBusType === BusType.CABIN) {
       for (let col = 0; col < colsCount; col++) {
-        // SWAP LABEL LOGIC: Col 0 -> B, Col 1 -> A
         let prefix = String.fromCharCode(65 + col);
         if (col === 0) prefix = "B";
         if (col === 1) prefix = "A";
@@ -115,6 +119,8 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
         ).sort((a, b) => a - b);
 
         colSeats.forEach((key) => {
+          // Only overwrite if not set (optional strategy), but for consistent layout changes we often overwrite.
+          // Here we overwrite to keep sequence correct when rows are added/removed.
           const k = parseKey(key);
           const logicalRowIndex = uniqueRows.indexOf(k.r);
           const num = logicalRowIndex * 2 + k.floor;
@@ -131,7 +137,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
       });
 
       sortedKeys.forEach((key, index) => {
-        newLabels[key] = (index + 1).toString();
+         newLabels[key] = (index + 1).toString();
       });
     }
     return newLabels;
@@ -164,13 +170,36 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
       hasBench = true;
     }
 
-    const labels = recalculateLabels(active, busType, cols);
+    // Reset labels completely on type change
+    const labels = {}; 
+    // We can use a temporary config to calculate initial labels
+    const tempConfigForLabels = { cols, seatLabels: {} }; 
+    // Logic extraction needed to avoid circular dependency, but for simplicity we rely on recalculateLabels
+    // adapting to the passed args
+    
+    // Manually run generation for init
+    const generatedLabels: Record<string, string> = {};
+    if (busType === BusType.CABIN) {
+        // ... same logic as recalculate ...
+        // For init we just let the effect or user interaction handle complex cases,
+        // but let's provide a basic valid set.
+        active.forEach((key, idx) => {
+           // simplified init
+           generatedLabels[key] = String(idx + 1);
+        });
+        // Call proper recalc
+    }
+    
+    // Use the main function to get correct initial labels
+    // We need to pass the *future* type and cols because state hasn't updated yet
+    const finalLabels = recalculateLabels(active, busType, cols);
+
     setConfig({
       floors: 2,
       rows,
       cols,
       activeSeats: active,
-      seatLabels: labels,
+      seatLabels: finalLabels,
       hasRearBench: hasBench,
       benchFloors: [1, 2],
     });
@@ -182,14 +211,20 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
 
     if (isActive) {
       newActive = newActive.filter((k) => k !== key);
-      const newLabels = recalculateLabels(newActive);
-      setConfig({ ...config, activeSeats: newActive, seatLabels: newLabels });
-      if (editingSeat?.key === key) setEditingSeat(null);
+      // Remove label? No, keep it in case we toggle back, or clean up on save.
     } else {
       newActive.push(key);
-      const newLabels = recalculateLabels(newActive);
-      setConfig({ ...config, activeSeats: newActive, seatLabels: newLabels });
     }
+    
+    // We do NOT call recalculateLabels here to preserve custom names.
+    // Only generate a default name if it doesn't exist.
+    const newLabels = { ...config.seatLabels };
+    if (!newLabels[key] && !isActive) {
+        // Assign a temp label
+        newLabels[key] = "??"; 
+    }
+
+    setConfig({ ...config, activeSeats: newActive, seatLabels: newLabels });
   };
 
   const handleUpdateLabel = () => {
@@ -210,13 +245,13 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
         for (let r = config.rows; r < newRows; r++) {
           for (let c = 0; c < config.cols; c++) {
             const key = `${f}-${r}-${c}`;
-            if (!newActive.includes(key)) newActive.push(key);
-          }
+            if (!newActive.includes(key)) {
+                newActive.push(key);
+            }
         }
       }
     }
-    // Note: We don't necessarily need to remove seats if decreasing, they just won't render.
-    // But for cleanliness, we can filter.
+    }
     else if (newRows < config.rows) {
       newActive = newActive.filter((key) => {
         if (key.includes("bench")) return true;
@@ -226,7 +261,10 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
       });
     }
 
-    const newLabels = recalculateLabels(newActive);
+    // When structure changes, we might want to recalculate to keep order,
+    // OR we trust the user to rename. Let's Auto-Recalculate for structure changes to be helpful.
+    const newLabels = recalculateLabels(newActive, type, config.cols);
+    
     setConfig({
       ...config,
       rows: newRows,
@@ -247,7 +285,22 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
     } else {
       newActive = newActive.filter((k) => !k.includes("bench"));
     }
-    const newLabels = recalculateLabels(newActive);
+    
+    // Only recalc labels for new bench seats
+    const newLabels = { ...config.seatLabels };
+    if (checked) {
+         newActive.forEach(key => {
+             if (key.includes('bench') && !newLabels[key]) {
+                 const parts = key.split('-');
+                 const f = parts[0];
+                 const i = parseInt(parts[2]);
+                 // Default naming for bench
+                 const prefix = f === '1' ? 'A' : 'B'; 
+                 newLabels[key] = type === BusType.CABIN ? `${prefix}-G${i+1}` : `B${f}-${i+1}`;
+             }
+         });
+    }
+
     setConfig({
       ...config,
       hasRearBench: checked,
@@ -272,27 +325,54 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
     } else {
       newActive = newActive.filter((k) => !k.startsWith(`${floor}-bench-`));
     }
-    const newLabels = recalculateLabels(newActive);
+    
     setConfig({
       ...config,
       activeSeats: newActive,
-      seatLabels: newLabels,
+      // Keep existing labels is fine
       benchFloors: newBenchFloors,
     });
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!plate) return;
+    
+    setIsSaving(true);
+    
+    // Sanitization: Ensure we only save labels for seats that are actually active
+    const cleanLabels: Record<string, string> = {};
+    config.activeSeats.forEach(key => {
+        // If label exists, keep it. If not, generate a fallback (though UI should prevent this)
+        if (config.seatLabels?.[key]) {
+            cleanLabels[key] = config.seatLabels[key];
+        } else {
+            cleanLabels[key] = key; // Fallback
+        }
+    });
+
+    const cleanConfig: BusLayoutConfig = {
+        ...config,
+        seatLabels: cleanLabels
+    };
+
     const newBus: Bus = {
       id: initialData ? initialData.id : `BUS-${Date.now()}`,
       plate,
       type,
-      status, // Use state
+      status, 
       seats: config.activeSeats.length,
-      layoutConfig: config,
+      layoutConfig: cleanConfig, // Save the sanitized config to DB
     };
-    onSave(newBus);
-    onClose();
+    
+    try {
+      await onSave(newBus);
+      onClose();
+    } catch (error) {
+      console.error("Failed to save bus config", error);
+      alert("Lỗi khi lưu dữ liệu. Vui lòng thử lại.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const SeatButton: React.FC<{
@@ -305,7 +385,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
     const key = isBench ? `${floor}-bench-${index}` : `${floor}-${row}-${col}`;
     const isActive = config.activeSeats.includes(key);
     const isEditing = editingSeat?.key === key;
-    const label = config.seatLabels?.[key] || "";
+    const label = config.seatLabels?.[key] || (isActive ? "??" : "");
 
     return (
       <button
@@ -329,7 +409,6 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
         {isActive ? (
           <>
             <span className="font-bold">{label}</span>
-            {/* Pillow highlight */}
             <div className="absolute top-1 w-1/2 h-0.5 bg-white/30 rounded-full"></div>
           </>
         ) : (
@@ -347,11 +426,12 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
       className="max-w-6xl w-full"
       footer={
         <>
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={onClose} disabled={isSaving}>
             Đóng
           </Button>
-          <Button onClick={handleSave} className="flex items-center gap-2">
-            <Save size={16} /> Lưu cấu hình
+          <Button onClick={handleSave} className="flex items-center gap-2" disabled={isSaving || !plate}>
+            {isSaving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />} 
+            {isSaving ? 'Đang lưu...' : 'Lưu cấu hình'}
           </Button>
         </>
       }
@@ -394,7 +474,8 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none bg-white text-slate-900 shadow-sm appearance-none"
                   >
                     <option value="Hoạt động">Hoạt động</option>
-                    <option value="Hoạt động">Dừng hoạt động</option>
+                    <option value="Bảo trì">Bảo trì</option>
+                    <option value="Ngưng hoạt động">Ngưng hoạt động</option>
                     <option value="Đã bán">Đã bán</option>
                   </select>
                 </div>

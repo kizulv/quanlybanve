@@ -5,64 +5,43 @@ import { BookingForm } from './components/BookingForm';
 import { SettingsView } from './components/SettingsView';
 import { Badge } from './components/ui/Badge';
 import { Button } from './components/ui/Button';
-import { MOCK_TRIPS, MOCK_ROUTES, MOCK_BUSES } from './constants';
 import { BusTrip, Seat, SeatStatus, Passenger, Booking, Route, Bus, BusType } from './types';
-import { Search, Filter, BusFront, Armchair, Banknote, CalendarDays, Ticket, Clock, MapPin } from 'lucide-react';
-
-// Storage Keys
-const STORAGE_KEYS = {
-  BUSES: 'vinabus_db_buses',
-  ROUTES: 'vinabus_db_routes',
-  TRIPS: 'vinabus_db_trips',
-  BOOKINGS: 'vinabus_db_bookings',
-};
-
-// Helper to load data from LocalStorage with fallback
-const loadFromStorage = <T,>(key: string, fallback: T): T => {
-  try {
-    const savedData = localStorage.getItem(key);
-    if (savedData) {
-      return JSON.parse(savedData);
-    }
-  } catch (error) {
-    console.error(`Error loading ${key} from localStorage`, error);
-  }
-  return fallback;
-};
+import { Search, Filter, BusFront, Armchair, Banknote, CalendarDays, Ticket, Clock, MapPin, Loader2 } from 'lucide-react';
+import { api } from './lib/api';
 
 function App() {
   const [activeTab, setActiveTab] = useState('sales');
   
-  // -- GLOBAL STATE (Initialized from LocalStorage or Mock Data) --
-  const [trips, setTrips] = useState<BusTrip[]>(() => 
-    loadFromStorage(STORAGE_KEYS.TRIPS, MOCK_TRIPS)
-  );
-  const [routes, setRoutes] = useState<Route[]>(() => 
-    loadFromStorage(STORAGE_KEYS.ROUTES, MOCK_ROUTES)
-  );
-  const [buses, setBuses] = useState<Bus[]>(() => 
-    loadFromStorage(STORAGE_KEYS.BUSES, MOCK_BUSES)
-  );
-  const [bookings, setBookings] = useState<Booking[]>(() => 
-    loadFromStorage(STORAGE_KEYS.BOOKINGS, [])
-  );
+  // -- GLOBAL STATE (Fetched from API) --
+  const [trips, setTrips] = useState<BusTrip[]>([]);
+  const [routes, setRoutes] = useState<Route[]>([]);
+  const [buses, setBuses] = useState<Bus[]>([]);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   
-  // -- PERSISTENCE EFFECTS --
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.TRIPS, JSON.stringify(trips));
-  }, [trips]);
+  // -- DATA FETCHING --
+  const refreshData = async () => {
+    try {
+      const [tripsData, routesData, busesData, bookingsData] = await Promise.all([
+        api.trips.getAll(),
+        api.routes.getAll(),
+        api.buses.getAll(),
+        api.bookings.getAll()
+      ]);
+      setTrips(tripsData);
+      setRoutes(routesData);
+      setBuses(busesData);
+      setBookings(bookingsData);
+    } catch (error) {
+      console.error("Failed to fetch data", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.ROUTES, JSON.stringify(routes));
-  }, [routes]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.BUSES, JSON.stringify(buses));
-  }, [buses]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.BOOKINGS, JSON.stringify(bookings));
-  }, [bookings]);
+    refreshData();
+  }, []);
 
   // -- LOCAL UI STATE --
   const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
@@ -76,7 +55,7 @@ function App() {
   const selectedTrip = trips.find(t => t.id === selectedTripId) || null;
   const selectedSeats = selectedTrip?.seats.filter(s => s.status === SeatStatus.SELECTED) || [];
   
-  // Extract route names from the Routes configuration, not just trips
+  // Extract route names from the Routes configuration
   const availableRouteNames = useMemo(() => {
     return routes.map(r => r.name);
   }, [routes]);
@@ -84,7 +63,6 @@ function App() {
   const filteredTrips = useMemo(() => {
     return trips.filter(trip => {
       const routeMatch = selectedRoute === 'all' || trip.route === selectedRoute;
-      // Note: Date filtering mock logic. In a real app, strict date comparison is needed.
       return routeMatch;
     });
   }, [trips, selectedRoute, selectedDate]);
@@ -94,9 +72,10 @@ function App() {
     setSelectedTripId(tripId);
   };
 
-  const handleSeatClick = (clickedSeat: Seat) => {
+  const handleSeatClick = async (clickedSeat: Seat) => {
     if (!selectedTrip) return;
 
+    // Optimistic Update
     const updatedSeats = selectedTrip.seats.map(seat => {
       if (seat.id === clickedSeat.id) {
         return {
@@ -107,38 +86,36 @@ function App() {
       return seat;
     });
 
+    // Update Local State immediately for responsiveness
     const updatedTrip = { ...selectedTrip, seats: updatedSeats };
     setTrips(trips.map(t => t.id === selectedTrip.id ? updatedTrip : t));
+
+    // Persist to "DB" via API
+    try {
+      await api.trips.updateSeats(selectedTrip.id, updatedSeats);
+    } catch (e) {
+      console.error("Failed to update seat status", e);
+      // Revert on error would go here
+    }
   };
 
-  const handleBookingSubmit = (passenger: Passenger) => {
+  const handleBookingSubmit = async (passenger: Passenger) => {
     if (!selectedTrip) return;
 
-    const newBookings: Booking[] = selectedSeats.map(seat => ({
-      id: `BK-${Date.now()}-${seat.id}`,
-      seatId: seat.id,
-      busId: selectedTrip.id,
-      passenger,
-      status: 'confirmed',
-      createdAt: new Date().toISOString(),
-      totalPrice: seat.price
-    }));
-
-    const updatedSeats = selectedTrip.seats.map(seat => {
-      if (seat.status === SeatStatus.SELECTED) {
-        return { ...seat, status: SeatStatus.BOOKED };
-      }
-      return seat;
-    });
-
-    const updatedTrip = { ...selectedTrip, seats: updatedSeats };
-    
-    setTrips(trips.map(t => t.id === selectedTrip.id ? updatedTrip : t));
-    setBookings([...bookings, ...newBookings]);
-    setShowBookingForm(false);
+    // Call API transaction
+    try {
+      const result = await api.bookings.create(selectedTrip.id, selectedSeats, passenger);
+      
+      // Update Local State with result
+      setTrips(trips.map(t => t.id === selectedTrip.id ? result.updatedTrip : t));
+      setBookings([...bookings, ...result.bookings]);
+      setShowBookingForm(false);
+    } catch (error) {
+      alert("Đặt vé thất bại. Vui lòng thử lại.");
+    }
   };
 
-  const cancelSelection = () => {
+  const cancelSelection = async () => {
     if(!selectedTrip) return;
      const updatedSeats = selectedTrip.seats.map(seat => {
       if (seat.status === SeatStatus.SELECTED) {
@@ -146,12 +123,28 @@ function App() {
       }
       return seat;
     });
+    
+    // Update Local
     const updatedTrip = { ...selectedTrip, seats: updatedSeats };
     setTrips(trips.map(t => t.id === selectedTrip.id ? updatedTrip : t));
     setShowBookingForm(false);
+
+    // Update DB
+    await api.trips.updateSeats(selectedTrip.id, updatedSeats);
   }
 
   // Views
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="animate-spin text-primary" size={48} />
+          <p className="text-slate-500 font-medium">Đang tải dữ liệu...</p>
+        </div>
+      </div>
+    )
+  }
+
   const renderTicketSales = () => (
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-140px)]">
@@ -403,6 +396,7 @@ function App() {
           setBuses={setBuses}
           trips={trips}
           setTrips={setTrips}
+          onDataChange={refreshData}
         />
       )}
     </Layout>
