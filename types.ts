@@ -63,6 +63,8 @@ export interface Route {
   price?: number; // Giá vé niêm yết
   departureTime?: string; // Giờ xuất bến đi
   returnTime?: string; // Giờ xuất bến đến
+  isEnhanced?: boolean; // Tuyến tăng cường
+  status?: 'active' | 'inactive'; // Tình trạng: Hoạt động / Hủy
 }
 
 export interface BusLayoutConfig {

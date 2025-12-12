@@ -103,11 +103,13 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
   const recalculateLabels = (
     activeSeats: string[],
     busTypeOverride?: BusType,
-    currentCols?: number
+    currentCols?: number,
+    currentLabels?: Record<string, string>
   ) => {
     const currentBusType = busTypeOverride || type;
     const colsCount = currentCols || config.cols;
-    const newLabels: Record<string, string> = { ...config.seatLabels };
+    // Use provided labels as base or fallback to config
+    const newLabels: Record<string, string> = { ...(currentLabels || config.seatLabels) };
 
     const parseKey = (key: string) => {
       const parts = key.split("-");
@@ -188,8 +190,8 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
       hasBench = true;
     }
 
-    const labels = {};
-    const finalLabels = recalculateLabels(active, busType, cols);
+    // Pass empty object as initial labels to avoid carrying over garbage when switching types
+    const finalLabels = recalculateLabels(active, busType, cols, {});
 
     setConfig({
       floors: 2,
@@ -212,10 +214,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
       newActive.push(key);
     }
 
-    const newLabels = { ...config.seatLabels };
-    if (!newLabels[key] && !isActive) {
-      newLabels[key] = "??";
-    }
+    const newLabels = recalculateLabels(newActive);
 
     setConfig({ ...config, activeSeats: newActive, seatLabels: newLabels });
   };
@@ -264,6 +263,8 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
 
   const toggleRearBenchMaster = (checked: boolean) => {
     let newActive = [...config.activeSeats];
+    let newLabels = { ...config.seatLabels };
+
     if (checked) {
       for (let f = 1; f <= 2; f++) {
         for (let i = 0; i < 5; i++) {
@@ -271,22 +272,25 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
           if (!newActive.includes(key)) newActive.push(key);
         }
       }
+      // For Cabin, set default manual labels because recalculateLabels ignores bench
+      if (type === BusType.CABIN) {
+          newActive.forEach((key) => {
+            if (key.includes("bench") && !newLabels[key]) {
+              const parts = key.split("-");
+              const f = parts[0];
+              const i = parseInt(parts[2]);
+              const prefix = f === "1" ? "A" : "B";
+              newLabels[key] = `${prefix}-G${i + 1}`;
+            }
+          });
+      }
     } else {
       newActive = newActive.filter((k) => !k.includes("bench"));
     }
-
-    const newLabels = { ...config.seatLabels };
-    if (checked) {
-      newActive.forEach((key) => {
-        if (key.includes("bench") && !newLabels[key]) {
-          const parts = key.split("-");
-          const f = parts[0];
-          const i = parseInt(parts[2]);
-          const prefix = f === "1" ? "A" : "B";
-          newLabels[key] =
-            type === BusType.CABIN ? `${prefix}-G${i + 1}` : `B${f}-${i + 1}`;
-        }
-      });
+    
+    // For Sleeper, recalculate all to ensure continuous numbering including bench
+    if (type === BusType.SLEEPER) {
+        newLabels = recalculateLabels(newActive, type, config.cols, newLabels);
     }
 
     setConfig({
@@ -313,10 +317,25 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
     } else {
       newActive = newActive.filter((k) => !k.startsWith(`${floor}-bench-`));
     }
+    
+    let newLabels = { ...config.seatLabels };
+    if (type === BusType.SLEEPER) {
+       newLabels = recalculateLabels(newActive, type, config.cols);
+    } else {
+       // Manual labels for CABIN bench if added
+       if (checked) {
+         for (let i = 0; i < 5; i++) {
+            const key = `${floor}-bench-${i}`;
+            const prefix = floor === 1 ? "A" : "B";
+            if (!newLabels[key]) newLabels[key] = `${prefix}-G${i + 1}`;
+         }
+       }
+    }
 
     setConfig({
       ...config,
       activeSeats: newActive,
+      seatLabels: newLabels,
       benchFloors: newBenchFloors,
     });
   };
@@ -492,7 +511,9 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
                     className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none bg-white text-slate-900 shadow-sm appearance-none"
                   >
                      <option value="">-- Chọn tuyến --</option>
-                     {routes.map(r => (
+                     {routes
+                       .filter(r => !r.isEnhanced && r.status !== 'inactive')
+                       .map(r => (
                        <option key={r.id} value={r.id}>{r.name}</option>
                      ))}
                   </select>

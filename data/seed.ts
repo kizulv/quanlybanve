@@ -38,6 +38,8 @@ export const INITIAL_ROUTES: Route[] = [
     price: 450000,
     departureTime: "07:00",
     returnTime: "13:30",
+    status: 'active',
+    isEnhanced: false
   },
   {
     id: "ROUTE-02",
@@ -45,6 +47,8 @@ export const INITIAL_ROUTES: Route[] = [
     price: 350000,
     departureTime: "19:00",
     returnTime: "16:00",
+    status: 'active',
+    isEnhanced: false
   },
   {
     id: "ROUTE-03",
@@ -52,6 +56,8 @@ export const INITIAL_ROUTES: Route[] = [
     price: 500000,
     departureTime: "22:00",
     returnTime: "14:00",
+    status: 'active',
+    isEnhanced: false
   },
 ];
 

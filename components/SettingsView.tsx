@@ -291,50 +291,69 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {routes.map((route) => (
-                    <tr key={route.id} className="hover:bg-slate-50">
-                      <td className="px-4 py-3">{route.name}</td>
-                      <td className="px-4 py-3 text-primary font-bold">
-                        {route.price
-                          ? `${route.price.toLocaleString("vi-VN")} đ`
-                          : "-"}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="text-sm mb-1">
-                          <span className="text-slate-500">Đi:</span>{" "}
-                          <span className="font-medium text-slate-900">
-                            {route.departureTime || "--:--"}
-                          </span>
-                        </div>
-                        <div className="text-sm">
-                          <span className="text-slate-500">Về:</span>{" "}
-                          <span className="font-medium text-slate-900">
-                            {route.returnTime || "--:--"}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleOpenRouteModal(route)}
-                            className="h-8 w-8 text-slate-500 hover:text-primary"
-                          >
-                            <Edit2 size={14} />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => requestDeleteRoute(route.id)}
-                            className="h-8 w-8 text-slate-500 hover:text-destructive"
-                          >
-                            <Trash2 size={14} />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                  {routes.map((route) => {
+                     const isInactive = route.status === 'inactive';
+                     return (
+                      <tr key={route.id} className={`hover:bg-slate-50 ${isInactive ? 'opacity-60 bg-slate-50/50' : ''}`}>
+                        <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                                <span className={isInactive ? "line-through text-slate-500" : "font-medium"}>
+                                    {route.name}
+                                </span>
+                                {route.isEnhanced && (
+                                    <span className="text-xs font-bold text-yellow-600 bg-yellow-100 px-1.5 py-0.5 rounded border border-yellow-200">
+                                        (Tăng cường)
+                                    </span>
+                                )}
+                                {isInactive && (
+                                    <span className="text-xs font-bold text-red-600 bg-red-100 px-1.5 py-0.5 rounded border border-red-200">
+                                        Đã hủy
+                                    </span>
+                                )}
+                            </div>
+                        </td>
+                        <td className="px-4 py-3 text-primary font-bold">
+                          {route.price
+                            ? `${route.price.toLocaleString("vi-VN")} đ`
+                            : "-"}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="text-sm mb-1">
+                            <span className="text-slate-500">Đi:</span>{" "}
+                            <span className="font-medium text-slate-900">
+                              {route.departureTime || "--:--"}
+                            </span>
+                          </div>
+                          <div className="text-sm">
+                            <span className="text-slate-500">Về:</span>{" "}
+                            <span className="font-medium text-slate-900">
+                              {route.returnTime || "--:--"}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleOpenRouteModal(route)}
+                              className="h-8 w-8 text-slate-500 hover:text-primary"
+                            >
+                              <Edit2 size={14} />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => requestDeleteRoute(route.id)}
+                              className="h-8 w-8 text-slate-500 hover:text-destructive"
+                            >
+                              <Trash2 size={14} />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
