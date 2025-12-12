@@ -1,3 +1,4 @@
+
 import { BusType, BusTrip, Route, Bus } from "../types";
 import {
   generateCabinLayout,
@@ -94,6 +95,7 @@ export const INITIAL_BUSES: Bus[] = [
 export const INITIAL_TRIPS: BusTrip[] = [
   {
     id: "TRIP-001",
+    routeId: "ROUTE-01",
     name: "Chuyến Sáng Hà Nội - Sapa",
     route: "Hà Nội - Sapa",
     departureTime: "2023-10-27 07:00",
@@ -105,6 +107,7 @@ export const INITIAL_TRIPS: BusTrip[] = [
   },
   {
     id: "TRIP-002",
+    routeId: "ROUTE-02",
     name: "Chuyến Đêm Hà Nội - Đà Nẵng",
     route: "Hà Nội - Đà Nẵng",
     departureTime: "2023-10-27 19:00",
@@ -116,6 +119,7 @@ export const INITIAL_TRIPS: BusTrip[] = [
   },
   {
     id: "TRIP-003",
+    routeId: "ROUTE-03",
     name: "Chuyến Chiều Sài Gòn - Đà Lạt",
     route: "Sài Gòn - Đà Lạt",
     departureTime: "2023-10-27 13:00",

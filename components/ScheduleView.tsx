@@ -65,9 +65,16 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
   const handleOpenEdit = (trip: BusTrip) => {
     const tripDate = new Date(trip.departureTime.split(' ')[0]);
     setSelectedDateForAdd(tripDate);
-    // Find route ID from trip route name (legacy data fallback)
-    const route = routes.find(r => r.name === trip.route);
-    setPreSelectedRouteId(route ? String(route.id) : '');
+    // CRITICAL FIX: Find route by ID first, fallback to Name for legacy data
+    let routeIdToEdit = '';
+    if (trip.routeId) {
+        routeIdToEdit = String(trip.routeId);
+    } else {
+        const route = routes.find(r => r.name === trip.route);
+        routeIdToEdit = route ? String(route.id) : '';
+    }
+    
+    setPreSelectedRouteId(routeIdToEdit);
     setEditingTrip(trip);
     setIsModalOpen(true);
   };
@@ -127,7 +134,9 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
             : generateSleeperLayout(route.price || 0);
      }
 
+     // CRITICAL FIX: Save routeId
      const tripData: Partial<BusTrip> = {
+         routeId: route.id,
          name: route.name,
          route: route.name,
          departureTime: dateTimeStr,
@@ -215,9 +224,19 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
               {/* Trips Content - Iterating by Routes to show Slots */}
               <div className="flex-1 p-4 space-y-3">
                  {displayRoutes.map(route => {
+                    // CRITICAL FIX: Filter by routeId if present, fallback to name for old data
                     const existingTrips = trips.filter(t => {
                         const tDate = new Date(t.departureTime.split(' ')[0]);
-                        return isSameDay(tDate, day) && t.route === route.name;
+                        const isSameDayCheck = isSameDay(tDate, day);
+                        
+                        if (!isSameDayCheck) return false;
+
+                        // Strict check by ID first
+                        if (t.routeId && route.id) {
+                            return String(t.routeId) === String(route.id);
+                        }
+                        // Fallback check by name (Legacy)
+                        return t.route === route.name;
                     });
 
                     const availableBuses = getAvailableBusesForRoute(route);

@@ -121,6 +121,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     const selectedBus = buses.find((b) => b.id === busId);
     if (!selectedBus) return;
 
+    // Fix: Find Route ID from name to save correct relation
+    const routeName = formData.get("route") as string;
+    const selectedRoute = routes.find(r => r.name === routeName);
+    const routeId = selectedRoute ? selectedRoute.id : '';
+
     const basePrice = Number(formData.get("basePrice"));
 
     // Generate seats based on Bus Layout Config if available
@@ -200,8 +205,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     }
 
     const newTripData: Partial<BusTrip> = {
+      routeId: routeId, // Save ID
       name: formData.get("name") as string,
-      route: formData.get("route") as string,
+      route: routeName,
       departureTime: formData.get("departureTime") as string,
       type: selectedBus.type,
       licensePlate: selectedBus.plate,

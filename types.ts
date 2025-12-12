@@ -1,3 +1,4 @@
+
 export enum BusType {
   SLEEPER = "SLEEPER", // Xe Giường đơn (formerly SLEEPER_41)
   CABIN = "CABIN", // Xe Phòng (formerly ROOM_22)
@@ -39,8 +40,9 @@ export interface Booking {
 
 export interface BusTrip {
   id: string;
+  routeId: string | number; // New field: Strict Foreign Key
   name: string;
-  route: string;
+  route: string; // Keep for display purposes (Snapshot)
   departureTime: string;
   type: BusType;
   licensePlate: string;

@@ -50,8 +50,15 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
     if (isOpen) {
       if (initialData) {
         // Edit Mode
-        const route = routes.find(r => r.name === initialData.route);
-        setSelectedRouteId(route ? String(route.id) : '');
+        // FIX: Prefer routeId, fallback to finding by name
+        let rId = '';
+        if (initialData.routeId) {
+            rId = String(initialData.routeId);
+        } else {
+            const r = routes.find(route => route.name === initialData.route);
+            rId = r ? String(r.id) : '';
+        }
+        setSelectedRouteId(rId);
         
         const bus = buses.find(b => b.plate === initialData.licensePlate);
         setSelectedBusId(bus ? bus.id : '');
@@ -197,6 +204,7 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
     }
 
     const tripData: Partial<BusTrip> = {
+      routeId: route.id, // CRITICAL FIX: Save routeId
       name: route.name, // Use route name or custom
       route: route.name,
       departureTime: dateTimeStr,
