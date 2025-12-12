@@ -36,6 +36,8 @@ export const INITIAL_ROUTES: Route[] = [
   {
     id: "ROUTE-01",
     name: "Hà Nội - Sapa",
+    origin: "Hà Nội",
+    destination: "Sapa",
     price: 450000,
     departureTime: "07:00",
     returnTime: "13:30",
@@ -45,6 +47,8 @@ export const INITIAL_ROUTES: Route[] = [
   {
     id: "ROUTE-02",
     name: "Hà Nội - Đà Nẵng",
+    origin: "Hà Nội",
+    destination: "Đà Nẵng",
     price: 350000,
     departureTime: "19:00",
     returnTime: "16:00",
@@ -54,6 +58,8 @@ export const INITIAL_ROUTES: Route[] = [
   {
     id: "ROUTE-03",
     name: "Sài Gòn - Đà Lạt",
+    origin: "Sài Gòn",
+    destination: "Đà Lạt",
     price: 500000,
     departureTime: "22:00",
     returnTime: "14:00",

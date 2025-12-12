@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Dialog } from "./ui/Dialog";
 import { Button } from "./ui/Button";
@@ -11,7 +12,8 @@ import {
   X,
   Loader2,
   Phone,
-  MapPin
+  MapPin,
+  AlertTriangle
 } from "lucide-react";
 
 interface ManagerCarModalProps {
@@ -98,6 +100,16 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
         formatted = `${val.slice(0, 4)} ${val.slice(4)}`;
     }
     setPhoneNumber(formatted);
+  };
+
+  const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newStatus = e.target.value as Bus["status"];
+    setStatus(newStatus);
+    
+    // Logic: Nếu không phải là "Hoạt động", không cho phép gán tuyến mặc định
+    if (newStatus !== 'Hoạt động') {
+      setDefaultRouteId("");
+    }
   };
 
   const recalculateLabels = (
@@ -496,7 +508,29 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
                 </div>
               </div>
 
-              {/* Default Route */}
+              {/* Status - MOVED UP */}
+              <div>
+                <label className="block text-sm text-slate-700 mb-1.5">
+                  Tình trạng
+                </label>
+                <div className="relative">
+                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                     <AlertTriangle size={16} className="text-slate-400" />
+                   </div>
+                   <select
+                    value={status}
+                    onChange={handleStatusChange}
+                    className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none bg-white text-slate-900 shadow-sm appearance-none"
+                  >
+                    <option value="Hoạt động">Hoạt động</option>
+                    <option value="Xe thuê/Tăng cường">Xe thuê/Tăng cường</option>
+                    <option value="Ngưng hoạt động">Ngưng hoạt động</option>
+                    <option value="Đã bán">Đã bán</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Default Route - MOVED DOWN & DISABLED LOGIC ADDED */}
               <div>
                 <label className="block text-sm text-slate-700 mb-1.5">
                   Tuyến hoạt động (Mặc định)
@@ -508,7 +542,10 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
                   <select
                     value={defaultRouteId}
                     onChange={(e) => setDefaultRouteId(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none bg-white text-slate-900 shadow-sm appearance-none"
+                    disabled={status !== 'Hoạt động'}
+                    className={`w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none shadow-sm appearance-none transition-colors
+                      ${status !== 'Hoạt động' ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white text-slate-900'}
+                    `}
                   >
                      <option value="">-- Chọn tuyến --</option>
                      {routes
@@ -518,23 +555,11 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
                      ))}
                   </select>
                 </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2">
-                  <label className="block text-sm text-slate-700 mb-1.5">
-                    Tình trạng
-                  </label>
-                  <select
-                    value={status}
-                    onChange={(e) => setStatus(e.target.value as any)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none bg-white text-slate-900 shadow-sm appearance-none"
-                  >
-                    <option value="Hoạt động">Hoạt động</option>
-                    <option value="Ngưng hoạt động">Ngưng hoạt động</option>
-                    <option value="Đã bán">Đã bán</option>
-                  </select>
-                </div>
+                {status !== 'Hoạt động' && (
+                  <p className="text-[10px] text-amber-600 mt-1 pl-1">
+                    * Chỉ có thể gán tuyến mặc định khi xe đang ở trạng thái "Hoạt động".
+                  </p>
+                )}
               </div>
 
               <div>

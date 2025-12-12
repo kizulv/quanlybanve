@@ -60,8 +60,9 @@ export interface RouteStats {
 
 export interface Route {
   id: number | string;
-  name: string;
-  // New fields
+  name: string; // Generated: "${origin} - ${destination}"
+  origin?: string; // Bến đi
+  destination?: string; // Bến đến
   price?: number; // Giá vé niêm yết
   departureTime?: string; // Giờ xuất bến đi
   returnTime?: string; // Giờ xuất bến đến
@@ -85,7 +86,7 @@ export interface Bus {
   phoneNumber?: string; // New field
   type: BusType;
   seats: number;
-  status: "Hoạt động" | "Ngưng hoạt động" | "Đã bán";
+  status: "Hoạt động" | "Ngưng hoạt động" | "Đã bán" | "Xe thuê/Tăng cường";
   layoutConfig?: BusLayoutConfig;
   defaultRouteId?: string; // New field added
 }

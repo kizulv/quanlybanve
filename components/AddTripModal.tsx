@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Dialog } from './ui/Dialog';
 import { Button } from './ui/Button';
-import { Bus, Route, BusTrip, BusType } from '../types';
+import { Bus, Route, BusTrip, BusType, SeatStatus } from '../types';
 import { Loader2, Clock, MapPin, Wallet, Calendar, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { generateCabinLayout, generateSleeperLayout } from '../utils/generators';
 
@@ -163,7 +162,7 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
                     id: label,
                     label: label,
                     floor: f as 1 | 2,
-                    status: 'available',
+                    status: SeatStatus.AVAILABLE,
                     price: price,
                     row: r,
                     col: c
@@ -185,7 +184,7 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
                            label = bus.type === BusType.CABIN ? `${prefix}-G${i + 1}` : `B${f}-${i + 1}`;
                         }
                         seats.push({
-                          id: label, label, floor: f as 1 | 2, status: 'available', price: price, row: config.rows, col: i
+                          id: label, label, floor: f as 1 | 2, status: SeatStatus.AVAILABLE, price: price, row: config.rows, col: i
                         });
                     }
                  }
@@ -200,7 +199,7 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
     } else {
         // If bus is same, update the price of available seats?
         // Optional requirement, but good UX.
-        seats = seats.map(s => s.status === 'available' ? { ...s, price: price } : s);
+        seats = seats.map(s => s.status === SeatStatus.AVAILABLE ? { ...s, price: price } : s);
     }
 
     const tripData: Partial<BusTrip> = {

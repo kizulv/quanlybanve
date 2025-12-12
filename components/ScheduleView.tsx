@@ -298,7 +298,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                                 </div>
                             ))}
 
-                            {/* 2. Empty Slot (Quick Assign) */}
+                            {/* 2. Empty Slot (Quick Assign or Add Enhanced) */}
                             {shouldShowAddSlot && (
                                 <div className="flex flex-col sm:flex-row items-center gap-3 p-3 rounded-lg border border-dashed border-slate-300 bg-slate-50/50">
                                      <div className="flex-1 flex items-center gap-3 w-full">
@@ -318,24 +318,36 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                                      </div>
 
                                      <div className="w-full sm:w-auto flex items-center gap-2">
-                                        {noBusWarning ? (
-                                            <div className="text-xs text-red-500 flex items-center gap-1 px-3 py-1.5 bg-red-50 rounded border border-red-100">
-                                                <AlertCircle size={12} /> Chưa có xe phù hợp
-                                                <Button variant="ghost" size="sm" className="h-auto p-0 ml-1 text-red-600 underline" onClick={() => handleOpenAdd(day, String(route.id))}>Chi tiết</Button>
-                                            </div>
-                                        ) : (
-                                            <select 
-                                                className="h-9 w-full sm:w-[180px] text-sm border-slate-300 rounded-md focus:border-primary focus:ring-primary/20 bg-white"
-                                                onChange={(e) => handleQuickAssign(day, route, e.target.value)}
-                                                value=""
+                                        {/* For Enhanced Routes, we force the Modal open so user can edit TIME */}
+                                        {route.isEnhanced ? (
+                                            <Button 
+                                                size="sm" 
+                                                onClick={() => handleOpenAdd(day, String(route.id))}
+                                                className="bg-yellow-100 hover:bg-yellow-200 text-yellow-700 border border-yellow-300 w-full sm:w-auto"
                                             >
-                                                <option value="" disabled>-- Chọn xe chạy --</option>
-                                                {availableBuses.map(b => (
-                                                    <option key={b.id} value={b.id}>
-                                                        {b.plate} ({b.type === 'CABIN' ? '22P' : '41G'})
-                                                    </option>
-                                                ))}
-                                            </select>
+                                                <Plus size={14} className="mr-1" /> Lên lịch xe
+                                            </Button>
+                                        ) : (
+                                            /* Regular Routes: Keep Quick Assign */
+                                            noBusWarning ? (
+                                                <div className="text-xs text-red-500 flex items-center gap-1 px-3 py-1.5 bg-red-50 rounded border border-red-100">
+                                                    <AlertCircle size={12} /> Chưa có xe phù hợp
+                                                    <Button variant="ghost" size="sm" className="h-auto p-0 ml-1 text-red-600 underline" onClick={() => handleOpenAdd(day, String(route.id))}>Chi tiết</Button>
+                                                </div>
+                                            ) : (
+                                                <select 
+                                                    className="h-9 w-full sm:w-[180px] text-sm border-slate-300 rounded-md focus:border-primary focus:ring-primary/20 bg-white"
+                                                    onChange={(e) => handleQuickAssign(day, route, e.target.value)}
+                                                    value=""
+                                                >
+                                                    <option value="" disabled>-- Chọn xe chạy --</option>
+                                                    {availableBuses.map(b => (
+                                                        <option key={b.id} value={b.id}>
+                                                            {b.plate} ({b.type === 'CABIN' ? '22P' : '41G'})
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            )
                                         )}
                                      </div>
                                 </div>

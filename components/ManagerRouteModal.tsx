@@ -1,8 +1,9 @@
+
 import React, { useState, useEffect } from "react";
 import { Dialog } from "./ui/Dialog";
 import { Button } from "./ui/Button";
 import { Route } from "../types";
-import { MapPin, Save, Clock, Loader2, Banknote, AlertCircle, Zap } from "lucide-react";
+import { MapPin, Save, Clock, Loader2, Banknote, AlertCircle, Zap, ArrowRightLeft, ArrowRight } from "lucide-react";
 
 interface ManagerRouteModalProps {
   isOpen: boolean;
@@ -19,6 +20,8 @@ export const ManagerRouteModal: React.FC<ManagerRouteModalProps> = ({
 }) => {
   const [formData, setFormData] = useState<Partial<Route>>({
     name: "",
+    origin: "",
+    destination: "",
     price: 0,
     departureTime: "",
     returnTime: "",
@@ -29,8 +32,24 @@ export const ManagerRouteModal: React.FC<ManagerRouteModalProps> = ({
 
   useEffect(() => {
     if (initialData) {
+      // Logic to split name if origin/dest are missing (Legacy Data Support)
+      let origin = initialData.origin || "";
+      let destination = initialData.destination || "";
+      
+      if (!origin && !destination && initialData.name) {
+          const parts = initialData.name.split(" - ");
+          if (parts.length === 2) {
+              origin = parts[0];
+              destination = parts[1];
+          } else {
+              origin = initialData.name;
+          }
+      }
+
       setFormData({
         ...initialData,
+        origin,
+        destination,
         price: initialData.price || 0,
         departureTime: initialData.departureTime || "",
         returnTime: initialData.returnTime || "",
@@ -40,6 +59,8 @@ export const ManagerRouteModal: React.FC<ManagerRouteModalProps> = ({
     } else {
       setFormData({
         name: "",
+        origin: "",
+        destination: "",
         price: 0,
         departureTime: "",
         returnTime: "",
@@ -76,18 +97,29 @@ export const ManagerRouteModal: React.FC<ManagerRouteModalProps> = ({
     }));
   };
 
+  const handleSwapLocations = () => {
+      setFormData(prev => ({
+          ...prev,
+          origin: prev.destination,
+          destination: prev.origin
+      }));
+  };
+
   const formatPrice = (price: number | undefined) => {
     if (!price) return "";
     return price.toLocaleString("vi-VN");
   };
 
   const handleSave = async () => {
-    if (!formData.name) return;
+    if (!formData.origin || !formData.destination) return;
     setIsSaving(true);
     try {
-      // Ensure ID exists or is handled by parent/backend
+      // Construct the display name
+      const constructedName = `${formData.origin} - ${formData.destination}`;
+      
       const routeToSave = {
         ...formData,
+        name: constructedName,
         id: initialData?.id || `ROUTE-${Date.now()}`,
       } as Route;
 
@@ -113,7 +145,7 @@ export const ManagerRouteModal: React.FC<ManagerRouteModalProps> = ({
           </Button>
           <Button
             onClick={handleSave}
-            disabled={isSaving || !formData.name}
+            disabled={isSaving || !formData.origin || !formData.destination}
             className="min-w-[100px]"
           >
             {isSaving ? (
@@ -127,24 +159,62 @@ export const ManagerRouteModal: React.FC<ManagerRouteModalProps> = ({
       }
     >
       <div className="space-y-5">
-        {/* Tên tuyến */}
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1.5">
-            Tên tuyến đường <span className="text-red-500">*</span>
-          </label>
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-              <MapPin size={18} />
-            </div>
-            <input
-              name="name"
-              value={formData.name}
-              onChange={handleChange}
-              placeholder="Ví dụ: Hà Nội - Sapa"
-              className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none bg-white text-slate-900 font-medium shadow-sm"
-              autoFocus
-            />
-          </div>
+        {/* Origin & Destination */}
+        <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+             <label className="block text-sm font-medium text-slate-700 mb-3">
+                Lộ trình <span className="text-red-500">*</span>
+             </label>
+             <div className="flex items-center gap-3">
+                 <div className="flex-1">
+                     <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-blue-500">
+                           <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                        </div>
+                        <input
+                            name="origin"
+                            value={formData.origin}
+                            onChange={handleChange}
+                            placeholder="Bến đi (VD: Hà Nội)"
+                            className="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none bg-white text-slate-900 font-medium shadow-sm text-sm"
+                            autoFocus
+                        />
+                     </div>
+                     <div className="text-[10px] text-slate-400 mt-1 pl-1">Bến đi</div>
+                 </div>
+
+                 <button 
+                    type="button"
+                    onClick={handleSwapLocations}
+                    className="p-2 rounded-full hover:bg-slate-200 text-slate-400 hover:text-primary transition-colors"
+                    title="Đổi chiều"
+                 >
+                     <ArrowRightLeft size={16} />
+                 </button>
+
+                 <div className="flex-1">
+                     <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-red-500">
+                           <MapPin size={14} className="text-red-500" />
+                        </div>
+                        <input
+                            name="destination"
+                            value={formData.destination}
+                            onChange={handleChange}
+                            placeholder="Bến đến (VD: Sapa)"
+                            className="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none bg-white text-slate-900 font-medium shadow-sm text-sm"
+                        />
+                     </div>
+                     <div className="text-[10px] text-slate-400 mt-1 pl-1">Bến đến</div>
+                 </div>
+             </div>
+             
+             {formData.origin && formData.destination && (
+                 <div className="mt-3 flex items-center justify-center gap-2 text-sm text-slate-600 bg-white p-2 rounded border border-slate-100 border-dashed">
+                     <span className="font-bold text-blue-600">{formData.origin}</span>
+                     <ArrowRight size={14} className="text-slate-400"/>
+                     <span className="font-bold text-red-600">{formData.destination}</span>
+                 </div>
+             )}
         </div>
 
         {/* Giá vé niêm yết */}
@@ -171,7 +241,7 @@ export const ManagerRouteModal: React.FC<ManagerRouteModalProps> = ({
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">
-              Giờ xuất bến đi
+              Giờ xuất bến (Chiều đi)
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
@@ -189,7 +259,7 @@ export const ManagerRouteModal: React.FC<ManagerRouteModalProps> = ({
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">
-              Giờ xuất bến đến
+              Giờ xuất bến (Chiều về)
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
