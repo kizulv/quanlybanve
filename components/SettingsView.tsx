@@ -407,13 +407,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   <div className="flex-1">
                     <div className="flex justify-between items-start mb-3">
                       <div>
-                        <h4 className="font-bold text-lg text-slate-900">
-                          {bus.plate}
-                        </h4>
-                        <div className="flex gap-2 text-xs text-slate-500 mt-0.5">
+                        <div className="flex items-center gap-3">
+                          <h4 className="font-bold text-lg text-slate-900">
+                            {bus.plate}
+                          </h4>
                           {bus.phoneNumber && (
-                            <span className="flex items-center">
-                              <Phone size={10} className="mr-0.5" />
+                            <span className="flex items-center text-xs text-slate-500">
+                              <Phone size={10} className="mr-1" />
                               {formatPhoneNumber(bus.phoneNumber)}
                             </span>
                           )}
