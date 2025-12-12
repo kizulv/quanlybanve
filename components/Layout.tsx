@@ -43,13 +43,15 @@ export const Layout: React.FC<LayoutProps> = ({
 }) => {
   // Default sidebar state set to false (Hidden by default)
   const [isSidebarOpen, setSidebarOpen] = useState(false);
+  
+  // Schedule settings state
   const [scheduleSettings, setScheduleSettings] = useState<ScheduleSettings>({
     shutdownStartDate: "",
     shutdownEndDate: "",
     peakDays: []
   });
 
-  // Load schedule settings for calendar visualization
+  // Load schedule settings when tab changes (especially when coming back from Schedule view)
   useEffect(() => {
     const loadSettings = () => {
       const saved = localStorage.getItem("vinabus_schedule_settings");
@@ -63,13 +65,7 @@ export const Layout: React.FC<LayoutProps> = ({
     };
 
     loadSettings();
-    // Listen for storage events (if multiple tabs or update from ScheduleView)
-    window.addEventListener('storage', loadSettings);
-    // Custom event listener if we want instant updates within same window
-    // For now simple mount load is enough as switching tabs often re-renders Layout or we can rely on parent updates if we lifted state
-    
-    return () => window.removeEventListener('storage', loadSettings);
-  }, [activeTab]); // Reload when tab changes (e.g. coming back from Schedule tab)
+  }, [activeTab]);
 
   const navItems = [
     { id: "sales", icon: <Bus size={20} />, label: "Bán vé" },
@@ -280,6 +276,7 @@ export const Layout: React.FC<LayoutProps> = ({
                       onDateChange(date);
                       close();
                     }}
+                    // Pass settings from state
                     shutdownRange={{ 
                       start: scheduleSettings.shutdownStartDate, 
                       end: scheduleSettings.shutdownEndDate 

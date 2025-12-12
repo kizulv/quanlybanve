@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronLeft, ChevronRight, Ban, Zap } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Ban } from 'lucide-react';
 
 interface CalendarProps {
   selected?: Date;
@@ -93,13 +93,13 @@ export const Calendar: React.FC<CalendarProps> = ({
       let textClass = "";
       
       if (isShutdown) {
-        bgClass = "bg-slate-100 text-slate-300 cursor-not-allowed decoration-slate-300";
+        bgClass = "bg-slate-50 text-slate-400 cursor-not-allowed decoration-slate-300";
         borderClass = "border-transparent";
       } else if (isSelected) {
         bgClass = "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm";
       } else if (isPeak) {
-        bgClass = "bg-red-50 hover:bg-red-100 text-red-700 font-bold";
-        borderClass = "border-red-200";
+        bgClass = "bg-orange-50 hover:bg-orange-100 text-orange-700 font-bold";
+        borderClass = "border-orange-200";
       } else if (isToday) {
         textClass = "text-primary font-semibold";
         bgClass = "bg-primary/5";
@@ -112,26 +112,31 @@ export const Calendar: React.FC<CalendarProps> = ({
           onClick={(e) => handleDateClick(e, day)}
           disabled={isShutdown}
           className={`
-            relative h-10 w-10 p-1 rounded-md flex flex-col items-center justify-center transition-all border
+            relative h-11 w-11 p-1 rounded-md flex flex-col items-center justify-center transition-all border
             ${bgClass}
             ${borderClass}
             ${textClass}
           `}
         >
           <span className={`text-sm leading-none z-10 ${isSelected ? 'font-bold' : ''}`}>{day}</span>
-          <span className={`text-[0.6rem] leading-none mt-0.5 z-10 ${isSelected ? 'text-primary-foreground/80' : isShutdown ? 'text-slate-300' : 'text-slate-400'}`}>
-            {lunarDay}
+          
+          {/* Lunar Date or "Nghỉ Tết" Text */}
+          <span className={`text-[0.6rem] leading-tight mt-0.5 z-10 whitespace-nowrap 
+            ${isSelected ? 'text-primary-foreground/80' : 
+              isShutdown ? 'text-red-500 font-bold' : 'text-slate-400'
+            }`}>
+            {isShutdown ? "Nghỉ Tết" : lunarDay}
           </span>
           
           {/* Indicators */}
           {isShutdown && (
-             <div className="absolute inset-0 flex items-center justify-center opacity-20">
-               <Ban size={24} className="text-slate-500" />
+             <div className="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none">
+               <Ban size={28} className="text-red-500" />
              </div>
           )}
           {isPeak && !isShutdown && !isSelected && (
-             <div className="absolute top-0.5 right-0.5">
-               <div className="w-1.5 h-1.5 bg-red-500 rounded-full"></div>
+             <div className="absolute top-1 right-1">
+               <div className="w-1.5 h-1.5 bg-orange-500 rounded-full shadow-sm"></div>
              </div>
           )}
         </button>
@@ -141,7 +146,7 @@ export const Calendar: React.FC<CalendarProps> = ({
   };
 
   return (
-    <div className={`p-4 bg-white rounded-lg border border-slate-200 shadow-xl w-auto min-w-[320px] ${className}`} onClick={(e) => e.stopPropagation()}>
+    <div className={`p-4 bg-white rounded-lg border border-slate-200 shadow-xl w-auto min-w-[340px] ${className}`} onClick={(e) => e.stopPropagation()}>
       <div className="flex items-center justify-between mb-4 px-1">
         <button onClick={handlePrevMonth} className="p-1.5 hover:bg-slate-100 rounded-md text-slate-500 hover:text-slate-900 transition-colors">
           <ChevronLeft className="h-4 w-4" />
@@ -167,10 +172,12 @@ export const Calendar: React.FC<CalendarProps> = ({
       {/* Legend */}
       <div className="mt-3 pt-3 border-t border-slate-100 flex justify-center gap-4 text-[10px] text-slate-500">
          <div className="flex items-center gap-1.5">
-            <div className="w-2.5 h-2.5 rounded-sm bg-slate-200"></div> Nghỉ Tết
+            <div className="w-2.5 h-2.5 rounded-sm bg-slate-100 border border-slate-200 flex items-center justify-center">
+                <span className="block w-1.5 h-1.5 bg-red-400 rounded-full"></span>
+            </div> Nghỉ Tết
          </div>
          <div className="flex items-center gap-1.5">
-            <div className="w-2.5 h-2.5 rounded-sm bg-red-100 border border-red-200"></div> Cao điểm
+            <div className="w-2.5 h-2.5 rounded-sm bg-orange-100 border border-orange-200"></div> Cao điểm
          </div>
          <div className="flex items-center gap-1.5">
             <div className="w-2.5 h-2.5 rounded-sm bg-primary"></div> Đang chọn
