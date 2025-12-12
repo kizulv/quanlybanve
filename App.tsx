@@ -1,8 +1,10 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Layout } from './components/Layout';
 import { SeatMap } from './components/SeatMap';
 import { BookingForm } from './components/BookingForm';
 import { SettingsView } from './components/SettingsView';
+import { ScheduleView } from './components/ScheduleView';
 import { Badge } from './components/ui/Badge';
 import { Button } from './components/ui/Button';
 import { BusTrip, Seat, SeatStatus, Passenger, Booking, Route, Bus, BusType } from './types';
@@ -62,8 +64,11 @@ function App() {
 
   const filteredTrips = useMemo(() => {
     return trips.filter(trip => {
+      // Logic for sales tab: Filter by date AND route
+      const tripDate = new Date(trip.departureTime.split(' ')[0]);
+      const dateMatch = tripDate.toDateString() === selectedDate.toDateString();
       const routeMatch = selectedRoute === 'all' || trip.route === selectedRoute;
-      return routeMatch;
+      return dateMatch && routeMatch;
     });
   }, [trips, selectedRoute, selectedDate]);
 
@@ -133,6 +138,32 @@ function App() {
     await api.trips.updateSeats(selectedTrip.id, updatedSeats);
   }
 
+  // --- SCHEDULE HANDLERS ---
+  const handleAddTrip = async (date: Date, tripData: Partial<BusTrip>) => {
+    try {
+      const newTrip = {
+        id: `TRIP-${Date.now()}`,
+        ...tripData
+      } as BusTrip;
+      
+      await api.trips.create(newTrip);
+      await refreshData();
+    } catch (e) {
+      console.error("Create trip failed", e);
+    }
+  };
+
+  const handleDeleteTrip = async (tripId: string) => {
+    if(window.confirm("Bạn có chắc muốn xóa chuyến xe này không?")) {
+       try {
+         await api.trips.delete(tripId);
+         await refreshData();
+       } catch(e) {
+         console.error("Delete trip failed", e);
+       }
+    }
+  };
+
   // Views
   if (isLoading) {
     return (
@@ -165,7 +196,7 @@ function App() {
               {filteredTrips.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-slate-400 p-8 text-center">
                   <Search size={40} className="mb-2 opacity-50" />
-                  <p>Không tìm thấy chuyến xe nào cho tuyến đường này</p>
+                  <p>Không tìm thấy chuyến xe nào trong ngày này</p>
                 </div>
               ) : (
                 filteredTrips.map(trip => {
@@ -382,11 +413,13 @@ function App() {
       {activeTab === 'sales' && renderTicketSales()}
       {activeTab === 'tickets' && renderTickets()}
       {activeTab === 'schedule' && (
-        <div className="h-[60vh] flex flex-col items-center justify-center text-slate-400">
-          <CalendarDays size={64} className="mb-6 opacity-20" />
-          <h2 className="text-xl font-semibold text-slate-600">Chưa có dữ liệu lịch trình</h2>
-          <p className="text-slate-500 mt-2">Xem lịch chạy chi tiết trong phần cài đặt</p>
-        </div>
+        <ScheduleView 
+          trips={trips}
+          routes={routes}
+          buses={buses}
+          onAddTrip={handleAddTrip}
+          onDeleteTrip={handleDeleteTrip}
+        />
       )}
       {activeTab === 'settings' && (
         <SettingsView 
