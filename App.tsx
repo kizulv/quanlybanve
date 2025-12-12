@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Layout } from './components/Layout';
 import { SeatMap } from './components/SeatMap';
 import { BookingForm } from './components/BookingForm';
@@ -9,15 +9,61 @@ import { MOCK_TRIPS, MOCK_ROUTES, MOCK_BUSES } from './constants';
 import { BusTrip, Seat, SeatStatus, Passenger, Booking, Route, Bus, BusType } from './types';
 import { Search, Filter, BusFront, Armchair, Banknote, CalendarDays, Ticket, Clock, MapPin } from 'lucide-react';
 
+// Storage Keys
+const STORAGE_KEYS = {
+  BUSES: 'vinabus_db_buses',
+  ROUTES: 'vinabus_db_routes',
+  TRIPS: 'vinabus_db_trips',
+  BOOKINGS: 'vinabus_db_bookings',
+};
+
+// Helper to load data from LocalStorage with fallback
+const loadFromStorage = <T,>(key: string, fallback: T): T => {
+  try {
+    const savedData = localStorage.getItem(key);
+    if (savedData) {
+      return JSON.parse(savedData);
+    }
+  } catch (error) {
+    console.error(`Error loading ${key} from localStorage`, error);
+  }
+  return fallback;
+};
+
 function App() {
   const [activeTab, setActiveTab] = useState('sales');
   
-  // -- GLOBAL STATE --
-  const [trips, setTrips] = useState<BusTrip[]>(MOCK_TRIPS);
-  const [routes, setRoutes] = useState<Route[]>(MOCK_ROUTES);
-  const [buses, setBuses] = useState<Bus[]>(MOCK_BUSES);
-  const [bookings, setBookings] = useState<Booking[]>([]);
+  // -- GLOBAL STATE (Initialized from LocalStorage or Mock Data) --
+  const [trips, setTrips] = useState<BusTrip[]>(() => 
+    loadFromStorage(STORAGE_KEYS.TRIPS, MOCK_TRIPS)
+  );
+  const [routes, setRoutes] = useState<Route[]>(() => 
+    loadFromStorage(STORAGE_KEYS.ROUTES, MOCK_ROUTES)
+  );
+  const [buses, setBuses] = useState<Bus[]>(() => 
+    loadFromStorage(STORAGE_KEYS.BUSES, MOCK_BUSES)
+  );
+  const [bookings, setBookings] = useState<Booking[]>(() => 
+    loadFromStorage(STORAGE_KEYS.BOOKINGS, [])
+  );
   
+  // -- PERSISTENCE EFFECTS --
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.TRIPS, JSON.stringify(trips));
+  }, [trips]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.ROUTES, JSON.stringify(routes));
+  }, [routes]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.BUSES, JSON.stringify(buses));
+  }, [buses]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.BOOKINGS, JSON.stringify(bookings));
+  }, [bookings]);
+
   // -- LOCAL UI STATE --
   const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
   const [showBookingForm, setShowBookingForm] = useState(false);
@@ -38,7 +84,7 @@ function App() {
   const filteredTrips = useMemo(() => {
     return trips.filter(trip => {
       const routeMatch = selectedRoute === 'all' || trip.route === selectedRoute;
-      // Note: Date filtering mock.
+      // Note: Date filtering mock logic. In a real app, strict date comparison is needed.
       return routeMatch;
     });
   }, [trips, selectedRoute, selectedDate]);

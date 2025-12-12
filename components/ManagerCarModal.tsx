@@ -10,7 +10,7 @@ import {
   CheckCircle2,
   X,
   AlertCircle,
-  Activity
+  Activity,
 } from "lucide-react";
 
 interface ManagerCarModalProps {
@@ -29,7 +29,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
   // Form State
   const [plate, setPlate] = useState("");
   const [type, setType] = useState<BusType>(BusType.CABIN);
-  const [status, setStatus] = useState<Bus['status']>("Hoạt động");
+  const [status, setStatus] = useState<Bus["status"]>("Hoạt động");
 
   // Layout Builder State
   const [config, setConfig] = useState<BusLayoutConfig>({
@@ -102,8 +102,8 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
       for (let col = 0; col < colsCount; col++) {
         // SWAP LABEL LOGIC: Col 0 -> B, Col 1 -> A
         let prefix = String.fromCharCode(65 + col);
-        if (col === 0) prefix = 'B';
-        if (col === 1) prefix = 'A';
+        if (col === 0) prefix = "B";
+        if (col === 1) prefix = "A";
 
         const colSeats = activeSeats.filter((key) => {
           const k = parseKey(key);
@@ -367,7 +367,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                <label className="block text-sm text-slate-700 mb-1.5">
                   Biển kiểm soát <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
@@ -378,20 +378,20 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
                     value={plate}
                     onChange={(e) => setPlate(e.target.value)}
                     placeholder="29B-123.45"
-                    className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none bg-white text-slate-900 shadow-sm font-semibold"
+                    className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none bg-white text-slate-900 shadow-sm font-bold"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
-                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                  <label className="block text-sm text-slate-700 mb-1.5">
                     Tình trạng
                   </label>
                   <select
                     value={status}
                     onChange={(e) => setStatus(e.target.value as any)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none bg-white text-slate-900 shadow-sm font-semibold appearance-none"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none bg-white text-slate-900 shadow-sm appearance-none"
                   >
                     <option value="Hoạt động">Hoạt động</option>
                     <option value="Hoạt động">Dừng hoạt động</option>
@@ -401,7 +401,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                <label className="block text-sm text-slate-700 mb-1.5">
                   Loại phương tiện
                 </label>
                 <div className="flex flex-col lg:flex-row gap-2">
@@ -493,9 +493,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
               {/* Row Selection - Buttons instead of Slider */}
               <div>
                 <div className="flex justify-between mb-2 text-sm">
-                  <span className="text-slate-600 font-medium">
-                    Số hàng ghế
-                  </span>
+                  <span className="text-slate-700">Số hàng ghế</span>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <button
@@ -527,7 +525,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
               {type === BusType.SLEEPER && (
                 <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-slate-700">
+                    <span className="text-sm text-slate-700">
                       Ghế cuối (5 ghế/băng)
                     </span>
                     <div
@@ -643,7 +641,12 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
                       {/* Header */}
                       <div className="bg-slate-50 border-b border-slate-100 py-3 text-center">
                         <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                          Dãy {c === 0 ? 'B' : (c === 1 ? 'A' : String.fromCharCode(65 + c))}
+                          Dãy{" "}
+                          {c === 0
+                            ? "B"
+                            : c === 1
+                            ? "A"
+                            : String.fromCharCode(65 + c)}
                         </span>
                       </div>
 
