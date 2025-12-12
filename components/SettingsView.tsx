@@ -10,6 +10,7 @@ import {
   MapPin,
   BusFront,
   AlertTriangle,
+  Phone
 } from "lucide-react";
 import { Route, Bus, BusTrip, BusType, SeatStatus } from "../types";
 import {
@@ -363,7 +364,20 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         <h4 className="font-bold text-lg text-slate-900">
                           {bus.plate}
                         </h4>
-                        <p className="text-xs text-slate-500">{bus.id}</p>
+                        <div className="flex gap-2 text-xs text-slate-500 mt-0.5">
+                           <span>{bus.id}</span>
+                           {bus.phoneNumber && <span className="text-slate-400">|</span>}
+                           {bus.phoneNumber && <span className="flex items-center"><Phone size={10} className="mr-0.5" />{bus.phoneNumber}</span>}
+                        </div>
+                        {/* Show linked route name if available */}
+                        {bus.defaultRouteId && (
+                           <div className="mt-1">
+                             <span className="text-xs bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded border border-blue-100 flex w-fit items-center gap-1">
+                               <MapPin size={10} />
+                               {routes.find(r => r.id === bus.defaultRouteId)?.name || 'Tuyến không tồn tại'}
+                             </span>
+                           </div>
+                        )}
                       </div>
                       <Badge
                         variant={
@@ -373,7 +387,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         {bus.status}
                       </Badge>
                     </div>
-                    <div className="space-y-2 text-sm text-slate-600">
+                    <div className="space-y-2 text-sm text-slate-600 mt-3">
                       <div className="flex justify-between">
                         <span>Loại xe:</span>
                         <span className="font-medium">
@@ -421,6 +435,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         onClose={closeModal}
         onSave={handleSaveBus}
         initialData={editingBus}
+        routes={routes}
       />
 
       {/* MANAGER ROUTE MODAL */}

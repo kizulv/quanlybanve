@@ -83,4 +83,5 @@ export interface Bus {
   seats: number;
   status: "Hoạt động" | "Ngưng hoạt động" | "Đã bán";
   layoutConfig?: BusLayoutConfig;
+  defaultRouteId?: string; // New field added
 }

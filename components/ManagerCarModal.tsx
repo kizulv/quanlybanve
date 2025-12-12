@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Dialog } from "./ui/Dialog";
 import { Button } from "./ui/Button";
-import { Bus, BusType, BusLayoutConfig } from "../types";
+import { Bus, BusType, BusLayoutConfig, Route } from "../types";
 import {
   Save,
   LayoutGrid,
@@ -11,6 +11,7 @@ import {
   X,
   Loader2,
   Phone,
+  MapPin
 } from "lucide-react";
 
 interface ManagerCarModalProps {
@@ -18,6 +19,7 @@ interface ManagerCarModalProps {
   onClose: () => void;
   onSave: (bus: Bus) => Promise<void> | void;
   initialData?: Bus | null;
+  routes: Route[];
 }
 
 export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
@@ -25,10 +27,12 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
   onClose,
   onSave,
   initialData,
+  routes
 }) => {
   // Form State
   const [plate, setPlate] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [defaultRouteId, setDefaultRouteId] = useState("");
   const [type, setType] = useState<BusType>(BusType.CABIN);
   const [status, setStatus] = useState<Bus["status"]>("Hoạt động");
   const [isSaving, setIsSaving] = useState(false);
@@ -54,6 +58,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
     if (initialData) {
       setPlate(initialData.plate);
       setPhoneNumber(initialData.phoneNumber || "");
+      setDefaultRouteId(initialData.defaultRouteId || "");
       setType(initialData.type);
       setStatus(initialData.status);
 
@@ -71,6 +76,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
     } else {
       setPlate("");
       setPhoneNumber("");
+      setDefaultRouteId("");
       setType(BusType.CABIN);
       setStatus("Hoạt động");
       initDefaultConfig(BusType.CABIN);
@@ -80,6 +86,20 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
   }, [initialData, isOpen]);
 
   // --- LOGIC ---
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value.replace(/\D/g, '');
+    let formatted = val;
+    
+    // Format: 0912 076 076 (4-3-3)
+    if (val.length > 7) {
+        formatted = `${val.slice(0, 4)} ${val.slice(4, 7)} ${val.slice(7, 10)}`;
+    } else if (val.length > 4) {
+        formatted = `${val.slice(0, 4)} ${val.slice(4)}`;
+    }
+    setPhoneNumber(formatted);
+  };
+
   const recalculateLabels = (
     activeSeats: string[],
     busTypeOverride?: BusType,
@@ -324,6 +344,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
       id: initialData ? initialData.id : `BUS-${Date.now()}`,
       plate,
       phoneNumber,
+      defaultRouteId: defaultRouteId || undefined,
       type,
       status,
       seats: config.activeSeats.length,
@@ -449,10 +470,32 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
                   </div>
                   <input
                     value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value)}
-                    placeholder="VD: 0868 868 304"
+                    onChange={handlePhoneChange}
+                    placeholder="VD: 0912 076 076"
                     className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none bg-white text-slate-900 shadow-sm"
                   />
+                </div>
+              </div>
+
+              {/* Default Route */}
+              <div>
+                <label className="block text-sm text-slate-700 mb-1.5">
+                  Tuyến hoạt động (Mặc định)
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                     <MapPin size={16} className="text-slate-400" />
+                  </div>
+                  <select
+                    value={defaultRouteId}
+                    onChange={(e) => setDefaultRouteId(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none bg-white text-slate-900 shadow-sm appearance-none"
+                  >
+                     <option value="">-- Chọn tuyến --</option>
+                     {routes.map(r => (
+                       <option key={r.id} value={r.id}>{r.name}</option>
+                     ))}
+                  </select>
                 </div>
               </div>
 
