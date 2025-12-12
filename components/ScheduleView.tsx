@@ -1,7 +1,7 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Bus, BusTrip, Route, BusType } from '../types';
-import { ChevronLeft, ChevronRight, Plus, MapPin, Clock, Trash2, CalendarDays, BusFront, AlertCircle, Zap, Edit2, ArrowRightLeft, AlertTriangle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, MapPin, Clock, Trash2, CalendarDays, BusFront, AlertCircle, Zap, Edit2, ArrowRightLeft, AlertTriangle, Settings, Flower2, Calendar, Ban, Check } from 'lucide-react';
 import { Button } from './ui/Button';
 import { Badge } from './ui/Badge';
 import { getDaysInMonth, daysOfWeek, formatLunarDate, formatTime, isSameDay } from '../utils/dateUtils';
@@ -17,6 +17,12 @@ interface ScheduleViewProps {
   onUpdateTrip: (tripId: string, tripData: Partial<BusTrip>) => Promise<void>;
   onDeleteTrip: (tripId: string) => Promise<void>;
   onUpdateBus: (busId: string, updates: Partial<Bus>) => Promise<void>;
+}
+
+interface ScheduleSettings {
+    shutdownStartDate: string;
+    shutdownEndDate: string;
+    peakDays: string[]; // List of date strings "YYYY-MM-DD"
 }
 
 export const ScheduleView: React.FC<ScheduleViewProps> = ({ 
@@ -36,6 +42,55 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
   
   // State for delete confirmation
   const [tripToDelete, setTripToDelete] = useState<string | null>(null);
+
+  // State for Schedule Settings (Shutdown & Peak)
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [settings, setSettings] = useState<ScheduleSettings>({ 
+      shutdownStartDate: '', 
+      shutdownEndDate: '',
+      peakDays: []
+  });
+
+  // Load settings from local storage on mount
+  useEffect(() => {
+    const savedSettings = localStorage.getItem('vinabus_schedule_settings');
+    if (savedSettings) {
+        try {
+            setSettings(JSON.parse(savedSettings));
+        } catch (e) { console.error(e); }
+    }
+  }, []);
+
+  const handleSaveSettings = () => {
+    localStorage.setItem('vinabus_schedule_settings', JSON.stringify(settings));
+    setIsSettingsOpen(false);
+  };
+
+  // Helper to check if a date is within shutdown range
+  const isShutdownDay = (date: Date) => {
+    if (!settings.shutdownStartDate || !settings.shutdownEndDate) return false;
+    
+    const check = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+    const start = new Date(settings.shutdownStartDate).setHours(0,0,0,0);
+    const end = new Date(settings.shutdownEndDate).setHours(0,0,0,0);
+
+    return check >= start && check <= end;
+  };
+
+  // Helper to check if a date is marked as peak
+  const isPeakDay = (date: Date) => {
+      const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+      return settings.peakDays.includes(dateStr);
+  };
+
+  const togglePeakDay = (date: Date) => {
+      const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+      const newPeakDays = settings.peakDays.includes(dateStr)
+        ? settings.peakDays.filter(d => d !== dateStr)
+        : [...settings.peakDays, dateStr];
+      
+      setSettings({ ...settings, peakDays: newPeakDays });
+  };
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -92,14 +147,6 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
         setTripToDelete(null);
     }
   };
-
-  const getAvailableBusesForRoute = (route: Route) => {
-    return buses.filter(b => {
-        if (b.status !== 'Hoạt động') return false;
-        if (route.isEnhanced) return true;
-        return String(b.defaultRouteId) === String(route.id) || !b.defaultRouteId;
-    });
-  }
 
   const renderTripItem = (trip: BusTrip, route: Route) => {
     const isReturn = trip.direction === 'inbound';
@@ -166,50 +213,102 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
            <h2 className="text-lg font-bold text-slate-800 capitalize">Lịch chạy xe tháng {month + 1}/{year}</h2>
         </div>
         
-        <div className="flex items-center bg-slate-100 rounded-lg p-1">
-          <button onClick={handlePrevMonth} className="p-2 hover:bg-white hover:shadow-sm rounded-md transition-all text-slate-600">
-            <ChevronLeft size={20} />
-          </button>
-          <button onClick={handleToday} className="px-4 py-1.5 text-sm font-medium text-slate-600 hover:text-primary">
-            Hôm nay
-          </button>
-          <button onClick={handleNextMonth} className="p-2 hover:bg-white hover:shadow-sm rounded-md transition-all text-slate-600">
-            <ChevronRight size={20} />
-          </button>
+        <div className="flex items-center gap-2">
+            <div className="flex items-center bg-slate-100 rounded-lg p-1">
+              <button onClick={handlePrevMonth} className="p-2 hover:bg-white hover:shadow-sm rounded-md transition-all text-slate-600">
+                <ChevronLeft size={20} />
+              </button>
+              <button onClick={handleToday} className="px-4 py-1.5 text-sm font-medium text-slate-600 hover:text-primary">
+                Hôm nay
+              </button>
+              <button onClick={handleNextMonth} className="p-2 hover:bg-white hover:shadow-sm rounded-md transition-all text-slate-600">
+                <ChevronRight size={20} />
+              </button>
+            </div>
+            
+            <Button 
+                variant="outline" 
+                size="icon" 
+                className="bg-white border-slate-200 text-slate-600 hover:text-primary hover:border-primary/50"
+                onClick={() => setIsSettingsOpen(true)}
+                title="Cấu hình lịch nghỉ/Cao điểm"
+            >
+                <Settings size={20} />
+            </Button>
         </div>
       </div>
 
       <div className="flex-1 overflow-y-auto space-y-4 pr-1">
         {days.map((day) => {
           const isToday = new Date().toDateString() === day.toDateString();
+          const isShutdown = isShutdownDay(day);
+          const isPeak = isPeakDay(day);
           
           return (
             <div 
               key={day.toISOString()} 
-              className={`flex flex-col md:flex-row bg-white rounded-xl border transition-all ${isToday ? 'border-primary/50 ring-1 ring-primary/20 shadow-sm' : 'border-slate-200'}`}
+              className={`
+                flex flex-col md:flex-row rounded-xl border transition-all 
+                ${isToday ? 'ring-1 ring-primary/20 shadow-sm' : ''}
+                ${isShutdown 
+                    ? 'bg-red-50/40 border-red-200' 
+                    : isPeak 
+                        ? 'bg-orange-50/40 border-orange-200'
+                        : 'bg-white border-slate-200'
+                }
+              `}
             >
               <div className={`
-                md:w-32 p-4 flex flex-row md:flex-col justify-between md:justify-center items-center md:items-start gap-2 border-b md:border-b-0 md:border-r border-slate-100
-                ${isToday ? 'bg-primary/5' : ''}
+                md:w-36 p-4 flex flex-row md:flex-col justify-between md:justify-center items-center md:items-start gap-2 border-b md:border-b-0 md:border-r relative overflow-hidden
+                ${isShutdown 
+                    ? 'border-red-100 bg-red-50' 
+                    : isPeak 
+                        ? 'border-orange-100 bg-orange-50'
+                        : 'border-slate-100 bg-white'
+                }
               `}>
-                 <div className="flex items-center gap-3 md:block">
+                 <div className="flex items-center gap-3 md:block relative z-10">
                    <div className="flex flex-col items-center md:items-center w-full">
-                     <span className={`text-3xl font-bold ${isToday ? 'text-primary' : 'text-slate-700'}`}>
+                     <span className={`text-3xl font-bold ${isShutdown ? 'text-red-500' : isPeak ? 'text-orange-500' : isToday ? 'text-primary' : 'text-slate-700'}`}>
                         {day.getDate()}
                      </span>
-                     <span className="text-xs font-bold text-slate-400 uppercase tracking-wide">
+                     <span className={`text-xs font-bold uppercase tracking-wide ${isShutdown ? 'text-red-400' : isPeak ? 'text-orange-400' : 'text-slate-400'}`}>
                         {daysOfWeek[day.getDay()]}
                      </span>
                    </div>
                  </div>
-                 <div className="flex items-center gap-2 w-full justify-center">
-                   <Badge variant="secondary" className="bg-slate-100 text-slate-500 font-normal text-[10px] px-1.5">
+                 <div className="flex items-center gap-2 w-full justify-center relative z-10">
+                   <Badge variant="secondary" className={`font-normal text-[10px] px-1.5 ${isShutdown ? 'bg-red-100 text-red-600' : isPeak ? 'bg-orange-100 text-orange-600' : 'bg-slate-100 text-slate-500'}`}>
                       {formatLunarDate(day)}
                    </Badge>
                  </div>
+                 
+                 {/* Visual Indicators */}
+                 {isShutdown && (
+                     <div className="mt-2 w-full flex flex-col items-center">
+                         <div className="text-[10px] font-bold text-red-600 uppercase border border-red-200 bg-red-100 px-2 py-0.5 rounded-full flex items-center gap-1">
+                             <Ban size={10} /> Ngưng HĐ
+                         </div>
+                     </div>
+                 )}
+                 {isPeak && !isShutdown && (
+                     <div className="mt-2 w-full flex flex-col items-center">
+                         <div className="text-[10px] font-bold text-orange-600 uppercase border border-orange-200 bg-orange-100 px-2 py-0.5 rounded-full flex items-center gap-1">
+                             <Zap size={10} className="fill-orange-600" /> Cao điểm
+                         </div>
+                     </div>
+                 )}
               </div>
 
-              <div className="flex-1 p-4 space-y-4">
+              <div className="flex-1 p-4 space-y-4 relative">
+                 {isShutdown && (
+                     <div className="absolute inset-0 bg-white/50 z-10 flex items-center justify-center backdrop-blur-[1px] rounded-r-xl">
+                         <div className="text-red-300 font-bold text-4xl -rotate-12 select-none border-4 border-red-200 p-4 rounded-xl opacity-50">
+                             NGƯNG HOẠT ĐỘNG
+                         </div>
+                     </div>
+                 )}
+
                  {displayRoutes.map(route => {
                     // Filter and Sort Trips
                     const routeTrips = trips.filter(t => {
@@ -219,19 +318,16 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                         if (t.routeId && route.id) return String(t.routeId) === String(route.id);
                         return t.route === route.name;
                     }).sort((a, b) => {
-                         // Logic: Outbound first, then Inbound
                          const dirA = a.direction === 'inbound' ? 1 : 0;
                          const dirB = b.direction === 'inbound' ? 1 : 0;
                          if (dirA !== dirB) return dirA - dirB;
-                         // Secondary sort by time
                          return a.departureTime.localeCompare(b.departureTime);
                     });
 
-                    // Check quota for regular routes (Max 2 trips: 1 outbound + 1 inbound effectively, or just length check)
                     const isLimitReached = !route.isEnhanced && routeTrips.length >= 2;
 
                     return (
-                        <div key={`${route.id}-${day.getDate()}`} className="rounded-xl border border-slate-100 p-3 bg-slate-50/30">
+                        <div key={`${route.id}-${day.getDate()}`} className={`rounded-xl border p-3 ${isShutdown ? 'opacity-50' : isPeak ? 'bg-white border-orange-100' : 'bg-slate-50/30 border-slate-100'}`}>
                             {/* Route Title with Action */}
                             <div className="flex items-center justify-between mb-3">
                                 <div className="flex items-center gap-2">
@@ -239,8 +335,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                                     {route.isEnhanced && <Badge variant="warning" className="text-[10px] px-1 h-5">Tăng cường</Badge>}
                                 </div>
                                 
-                                {/* Hide Add button if quota reached for regular routes */}
-                                {!isLimitReached ? (
+                                {!isLimitReached && !isShutdown ? (
                                     <Button 
                                         variant="ghost" 
                                         size="sm" 
@@ -249,6 +344,8 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                                     >
                                         <Plus size={14} className="mr-1" /> Thêm xe
                                     </Button>
+                                ) : isShutdown ? (
+                                     <span className="text-[10px] text-red-400 font-medium px-2">Đã khóa</span>
                                 ) : (
                                     <span className="text-[10px] text-slate-400 italic px-2">Đã đủ chuyến</span>
                                 )}
@@ -325,6 +422,126 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
               Xóa ngay
             </Button>
           </div>
+        </div>
+      </Dialog>
+
+      {/* Settings Dialog (Tet & Peak) */}
+      <Dialog
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        title="Cấu hình lịch trình"
+        className="max-w-2xl"
+        footer={
+           <>
+             <Button variant="outline" onClick={() => setIsSettingsOpen(false)}>Đóng</Button>
+             <Button onClick={handleSaveSettings}>Lưu cấu hình</Button>
+           </>
+        }
+      >
+        <div className="space-y-6 py-2">
+            
+            {/* Section 1: Shutdown Range */}
+            <div className="space-y-3">
+                <div className="bg-red-50 p-3 rounded-lg border border-red-100 flex gap-3 items-start">
+                    <div className="bg-red-100 p-2 rounded-full text-red-600">
+                        <Ban size={18} />
+                    </div>
+                    <div>
+                        <h4 className="text-sm font-bold text-red-800">Lịch Ngưng Hoạt Động (Nghỉ Tết)</h4>
+                        <p className="text-xs text-red-600 mt-1">
+                            Chọn khoảng thời gian toàn bộ hệ thống ngưng hoạt động. Trong những ngày này, <strong>không thể thêm chuyến hoặc đặt vé</strong>.
+                        </p>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 px-2">
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Từ ngày</label>
+                        <input 
+                            type="date"
+                            className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none text-sm"
+                            value={settings.shutdownStartDate}
+                            onChange={(e) => setSettings({...settings, shutdownStartDate: e.target.value})}
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Đến ngày</label>
+                        <input 
+                            type="date"
+                            className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none text-sm"
+                            value={settings.shutdownEndDate}
+                            onChange={(e) => setSettings({...settings, shutdownEndDate: e.target.value})}
+                        />
+                    </div>
+                </div>
+            </div>
+
+            <div className="border-t border-slate-100 my-4"></div>
+
+            {/* Section 2: Peak Days Selection */}
+            <div className="space-y-3">
+                 <div className="bg-orange-50 p-3 rounded-lg border border-orange-100 flex gap-3 items-start">
+                    <div className="bg-orange-100 p-2 rounded-full text-orange-600">
+                        <Zap size={18} className="fill-orange-600" />
+                    </div>
+                    <div>
+                        <h4 className="text-sm font-bold text-orange-800">Cấu hình Ngày Cao Điểm</h4>
+                        <p className="text-xs text-orange-700 mt-1">
+                            Chọn các ngày cụ thể là ngày cao điểm. Các ngày này sẽ được đánh dấu màu cam trên lịch trình để dễ dàng nhận biết.
+                        </p>
+                    </div>
+                </div>
+
+                <div className="bg-white border border-slate-200 rounded-xl p-4">
+                    <div className="flex items-center justify-between mb-4">
+                         <span className="font-bold text-slate-700">Chọn ngày cao điểm (Tháng {month + 1}/{year})</span>
+                         <div className="text-xs text-slate-400 flex items-center gap-2">
+                             <span className="w-3 h-3 rounded-sm bg-orange-500"></span> Đang chọn
+                             <span className="w-3 h-3 rounded-sm bg-slate-100 border border-slate-200 ml-2"></span> Bình thường
+                         </div>
+                    </div>
+                    
+                    {/* Simple Month Grid */}
+                    <div className="grid grid-cols-7 gap-2">
+                         {['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'].map(d => (
+                             <div key={d} className="text-center text-xs font-bold text-slate-400 py-1">{d}</div>
+                         ))}
+                         
+                         {/* Empty slots for start of month */}
+                         {Array.from({ length: new Date(year, month, 1).getDay() }).map((_, i) => (
+                             <div key={`empty-${i}`} />
+                         ))}
+
+                         {/* Days */}
+                         {days.map(d => {
+                             const isPeak = isPeakDay(d);
+                             const isShutdown = isShutdownDay(d);
+                             return (
+                                 <button
+                                    key={d.toISOString()}
+                                    onClick={() => !isShutdown && togglePeakDay(d)}
+                                    disabled={isShutdown}
+                                    className={`
+                                        h-10 rounded-lg flex flex-col items-center justify-center border text-sm transition-all relative
+                                        ${isShutdown 
+                                            ? 'bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed' 
+                                            : isPeak 
+                                                ? 'bg-orange-500 text-white border-orange-600 shadow-sm font-bold' 
+                                                : 'bg-white text-slate-700 border-slate-200 hover:border-orange-300 hover:bg-orange-50'
+                                        }
+                                    `}
+                                 >
+                                     {d.getDate()}
+                                     {isPeak && <div className="absolute top-1 right-1 w-1.5 h-1.5 bg-white rounded-full"></div>}
+                                 </button>
+                             )
+                         })}
+                    </div>
+                    <p className="text-xs text-slate-400 mt-3 text-center italic">
+                        * Bạn đang cấu hình cho tháng {month + 1}/{year}. Đóng bảng này và chuyển tháng ở màn hình chính để cấu hình cho tháng khác.
+                    </p>
+                </div>
+            </div>
         </div>
       </Dialog>
     </div>
