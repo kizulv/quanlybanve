@@ -14,6 +14,7 @@ interface ScheduleViewProps {
   buses: Bus[];
   onAddTrip: (date: Date, tripData: Partial<BusTrip>) => Promise<void>;
   onDeleteTrip: (tripId: string) => Promise<void>;
+  onUpdateBus: (busId: string, updates: Partial<Bus>) => Promise<void>;
 }
 
 export const ScheduleView: React.FC<ScheduleViewProps> = ({ 
@@ -21,7 +22,8 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
   routes, 
   buses, 
   onAddTrip, 
-  onDeleteTrip 
+  onDeleteTrip,
+  onUpdateBus
 }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -73,8 +75,6 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
      // Generate seats
      let seats = [];
      if (bus.layoutConfig) {
-        // Use existing logic from AddTripModal but simplified for quick add
-        // Re-implementing simplified layout generation for quick add
         const config = bus.layoutConfig;
         for (let f = 1; f <= config.floors; f++) {
             for (let r = 0; r < config.rows; r++) {
@@ -90,7 +90,6 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                 }
             }
         }
-        // Add bench logic... (simplified for brevity, realistically should share helper)
         if (config.hasRearBench) {
              for (let f = 1; f <= config.floors; f++) {
                 if(config.benchFloors?.includes(f)) {
@@ -122,6 +121,11 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
      };
 
      await onAddTrip(date, tripData);
+
+     // Auto-save bus assignment for Regular Routes if not already assigned
+     if (!route.isEnhanced && bus.defaultRouteId !== String(route.id)) {
+        await onUpdateBus(bus.id, { defaultRouteId: String(route.id) });
+     }
   }
 
   // Helper to filter buses for dropdown
@@ -130,8 +134,8 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
         if (b.status !== 'Hoạt động') return false;
         // If Enhanced route, show ALL active buses
         if (route.isEnhanced) return true;
-        // If Regular route, show ONLY buses assigned to this route
-        return b.defaultRouteId === route.id;
+        // If Regular route, show ONLY buses assigned to this route OR unassigned buses
+        return String(b.defaultRouteId) === String(route.id) || !b.defaultRouteId;
     });
   }
 
@@ -193,101 +197,102 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
               {/* Trips Content - Iterating by Routes to show Slots */}
               <div className="flex-1 p-4 space-y-3">
                  {displayRoutes.map(route => {
-                    // Find trips for this route on this day
-                    // Note: Matching strictly by name here as per legacy data. 
-                    // Ideally should match by Route ID if we add routeId to Trip.
                     const existingTrips = trips.filter(t => {
                         const tDate = new Date(t.departureTime.split(' ')[0]);
                         return isSameDay(tDate, day) && t.route === route.name;
                     });
 
-                    // 1. Render Existing Trips
-                    if (existingTrips.length > 0) {
-                        return existingTrips.map(trip => (
-                            <div key={trip.id} className="group relative flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-6 p-3 rounded-lg border border-slate-200 hover:border-primary/30 hover:bg-slate-50 transition-all bg-white shadow-sm">
-                                <div className="flex-1 min-w-0">
-                                   <div className="flex items-center gap-2 mb-1">
-                                      <Badge variant="outline" className="bg-slate-100 font-mono text-slate-700 border-slate-200">
-                                         {formatTime(trip.departureTime)}
-                                      </Badge>
-                                      <h4 className="font-bold text-slate-800 text-sm truncate flex items-center gap-2">
-                                          {trip.route}
-                                          {route.isEnhanced && <Zap size={14} className="text-yellow-500 fill-yellow-500" />}
-                                      </h4>
-                                   </div>
-                                   <div className="flex items-center gap-3 text-xs text-slate-500">
-                                      <span className="flex items-center gap-1">
-                                        <MapPin size={12} /> {trip.seats.filter(s => s.status === 'available').length} chỗ trống
-                                      </span>
-                                      <span className="hidden sm:inline">|</span>
-                                      <span className="font-medium text-slate-700">{trip.basePrice.toLocaleString('vi-VN')} đ</span>
-                                   </div>
-                                </div>
-                                
-                                <div className="flex flex-row sm:flex-col items-center sm:items-end gap-2 sm:gap-0.5 min-w-[120px]">
-                                   <span className="font-bold text-slate-800 text-sm">{trip.licensePlate}</span>
-                                   <span className="text-[10px] uppercase bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded border border-slate-200">
-                                      {trip.type === BusType.CABIN ? 'Xe Phòng' : 'Giường nằm'}
-                                   </span>
-                                </div>
-                                
-                                <div className="absolute top-2 right-2 sm:static opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <Button 
-                                      variant="ghost" 
-                                      size="icon" 
-                                      className="h-8 w-8 text-slate-400 hover:text-destructive hover:bg-red-50"
-                                      onClick={() => onDeleteTrip(trip.id)}
-                                    >
-                                       <Trash2 size={16} />
-                                    </Button>
-                                </div>
-                            </div>
-                        ));
-                    }
-
-                    // 2. Render Empty Slot (Quick Assign)
                     const availableBuses = getAvailableBusesForRoute(route);
                     const noBusWarning = availableBuses.length === 0;
 
-                    return (
-                        <div key={`empty-${route.id}-${day.getDate()}`} className="flex flex-col sm:flex-row items-center gap-3 p-3 rounded-lg border border-dashed border-slate-300 bg-slate-50/50">
-                             <div className="flex-1 flex items-center gap-3 w-full">
-                                <div className={`p-2 rounded-full ${route.isEnhanced ? 'bg-yellow-100 text-yellow-600' : 'bg-slate-200 text-slate-400'}`}>
-                                    {route.isEnhanced ? <Zap size={18} className="fill-current" /> : <BusFront size={18} />}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <h4 className={`font-medium text-sm ${route.isEnhanced ? 'text-yellow-700' : 'text-slate-500'}`}>
-                                        {route.name}
-                                    </h4>
-                                    <div className="text-xs text-slate-400 flex items-center gap-2">
-                                        <Clock size={12} /> 
-                                        {route.departureTime || '--:--'}
-                                        {route.isEnhanced && <span className="font-bold text-yellow-600 ml-1">(Tăng cường)</span>}
-                                    </div>
-                                </div>
-                             </div>
+                    const shouldShowAddSlot = route.isEnhanced || existingTrips.length === 0;
 
-                             <div className="w-full sm:w-auto flex items-center gap-2">
-                                {noBusWarning ? (
-                                    <div className="text-xs text-red-500 flex items-center gap-1 px-3 py-1.5 bg-red-50 rounded border border-red-100">
-                                        <AlertCircle size={12} /> Chưa có xe phù hợp
-                                        <Button variant="ghost" size="sm" className="h-auto p-0 ml-1 text-red-600 underline" onClick={() => handleOpenAdd(day, String(route.id))}>Chi tiết</Button>
+                    return (
+                        <div key={`${route.id}-${day.getDate()}`} className="flex flex-col gap-2">
+                            {/* 1. Existing Trips */}
+                            {existingTrips.map(trip => (
+                                <div key={trip.id} className="group relative flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-6 p-3 rounded-lg border border-slate-200 hover:border-primary/30 hover:bg-slate-50 transition-all bg-white shadow-sm">
+                                    <div className="flex-1 min-w-0">
+                                       <div className="flex items-center gap-2 mb-1">
+                                          <Badge variant="outline" className="bg-slate-100 font-mono text-slate-700 border-slate-200">
+                                             {formatTime(trip.departureTime)}
+                                          </Badge>
+                                          <h4 className="font-bold text-slate-800 text-sm truncate flex items-center gap-2">
+                                              {trip.route}
+                                              {route.isEnhanced && <Zap size={14} className="text-yellow-500 fill-yellow-500" />}
+                                          </h4>
+                                       </div>
+                                       <div className="flex items-center gap-3 text-xs text-slate-500">
+                                          <span className="flex items-center gap-1">
+                                            <MapPin size={12} /> {trip.seats.filter(s => s.status === 'available').length} chỗ trống
+                                          </span>
+                                          <span className="hidden sm:inline">|</span>
+                                          <span className="font-medium text-slate-700">{trip.basePrice.toLocaleString('vi-VN')} đ</span>
+                                       </div>
                                     </div>
-                                ) : (
-                                    <select 
-                                        className="h-9 w-full sm:w-[180px] text-sm border-slate-300 rounded-md focus:border-primary focus:ring-primary/20 bg-white"
-                                        onChange={(e) => handleQuickAssign(day, route, e.target.value)}
-                                        value=""
-                                    >
-                                        <option value="" disabled>-- Chọn xe chạy --</option>
-                                        {availableBuses.map(b => (
-                                            <option key={b.id} value={b.id}>
-                                                {b.plate} ({b.type === 'CABIN' ? '22P' : '41G'})
-                                            </option>
-                                        ))}
-                                    </select>
-                                )}
-                             </div>
+                                    
+                                    <div className="flex flex-row sm:flex-col items-center sm:items-end gap-2 sm:gap-0.5 min-w-[120px]">
+                                       <span className="font-bold text-slate-800 text-sm">{trip.licensePlate}</span>
+                                       <span className="text-[10px] uppercase bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded border border-slate-200">
+                                          {trip.type === BusType.CABIN ? 'Xe Phòng' : 'Giường nằm'}
+                                       </span>
+                                    </div>
+                                    
+                                    <div className="absolute top-2 right-2 sm:static opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <Button 
+                                          variant="ghost" 
+                                          size="icon" 
+                                          className="h-8 w-8 text-slate-400 hover:text-destructive hover:bg-red-50"
+                                          onClick={() => onDeleteTrip(trip.id)}
+                                        >
+                                           <Trash2 size={16} />
+                                        </Button>
+                                    </div>
+                                </div>
+                            ))}
+
+                            {/* 2. Empty Slot (Quick Assign) */}
+                            {shouldShowAddSlot && (
+                                <div className="flex flex-col sm:flex-row items-center gap-3 p-3 rounded-lg border border-dashed border-slate-300 bg-slate-50/50">
+                                     <div className="flex-1 flex items-center gap-3 w-full">
+                                        <div className={`p-2 rounded-full ${route.isEnhanced ? 'bg-yellow-100 text-yellow-600' : 'bg-slate-200 text-slate-400'}`}>
+                                            {route.isEnhanced ? <Zap size={18} className="fill-current" /> : <BusFront size={18} />}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <h4 className={`font-medium text-sm ${route.isEnhanced ? 'text-yellow-700' : 'text-slate-500'}`}>
+                                                {route.name}
+                                            </h4>
+                                            <div className="text-xs text-slate-400 flex items-center gap-2">
+                                                <Clock size={12} /> 
+                                                {route.departureTime || '--:--'}
+                                                {route.isEnhanced && <span className="font-bold text-yellow-600 ml-1">(Tăng cường)</span>}
+                                            </div>
+                                        </div>
+                                     </div>
+
+                                     <div className="w-full sm:w-auto flex items-center gap-2">
+                                        {noBusWarning ? (
+                                            <div className="text-xs text-red-500 flex items-center gap-1 px-3 py-1.5 bg-red-50 rounded border border-red-100">
+                                                <AlertCircle size={12} /> Chưa có xe phù hợp
+                                                <Button variant="ghost" size="sm" className="h-auto p-0 ml-1 text-red-600 underline" onClick={() => handleOpenAdd(day, String(route.id))}>Chi tiết</Button>
+                                            </div>
+                                        ) : (
+                                            <select 
+                                                className="h-9 w-full sm:w-[180px] text-sm border-slate-300 rounded-md focus:border-primary focus:ring-primary/20 bg-white"
+                                                onChange={(e) => handleQuickAssign(day, route, e.target.value)}
+                                                value=""
+                                            >
+                                                <option value="" disabled>-- Chọn xe chạy --</option>
+                                                {availableBuses.map(b => (
+                                                    <option key={b.id} value={b.id}>
+                                                        {b.plate} ({b.type === 'CABIN' ? '22P' : '41G'})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        )}
+                                     </div>
+                                </div>
+                            )}
                         </div>
                     );
                  })}

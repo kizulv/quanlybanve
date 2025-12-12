@@ -164,6 +164,15 @@ function App() {
     }
   };
 
+  const handleUpdateBus = async (busId: string, updates: Partial<Bus>) => {
+    try {
+      await api.buses.update(busId, updates);
+      setBuses(prev => prev.map(b => b.id === busId ? { ...b, ...updates } : b));
+    } catch (e) {
+      console.error("Update bus failed", e);
+    }
+  };
+
   // Views
   if (isLoading) {
     return (
@@ -419,6 +428,7 @@ function App() {
           buses={buses}
           onAddTrip={handleAddTrip}
           onDeleteTrip={handleDeleteTrip}
+          onUpdateBus={handleUpdateBus}
         />
       )}
       {activeTab === 'settings' && (

@@ -58,7 +58,7 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
     return buses.filter(bus => {
         if (bus.status !== 'Hoạt động') return false;
         
-        // If no route selected yet, show all active buses (or maybe none?)
+        // If no route selected yet, show all active buses
         if (!selectedRouteId) return true;
 
         const currentRoute = routes.find(r => r.id === selectedRouteId);
@@ -67,8 +67,8 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
         // Requirement: Enhanced routes allow any bus
         if (currentRoute.isEnhanced) return true;
 
-        // Requirement: Regular routes only allow buses configured for that route
-        return bus.defaultRouteId === selectedRouteId;
+        // Requirement: Regular routes allow buses configured for that route OR unassigned buses
+        return String(bus.defaultRouteId) === String(selectedRouteId) || !bus.defaultRouteId;
     });
   }, [buses, selectedRouteId, routes]);
 
