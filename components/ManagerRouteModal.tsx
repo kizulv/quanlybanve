@@ -53,9 +53,24 @@ export const ManagerRouteModal: React.FC<ManagerRouteModalProps> = ({
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]:
-        name === "price" || name === "stops" ? Number(value) : value,
+      [name]: value,
     }));
+  };
+
+  const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Remove all non-numeric characters
+    const rawValue = e.target.value.replace(/\D/g, "");
+    const numberValue = rawValue ? parseInt(rawValue, 10) : 0;
+    
+    setFormData((prev) => ({
+      ...prev,
+      price: numberValue,
+    }));
+  };
+
+  const formatPrice = (price: number | undefined) => {
+    if (!price) return "";
+    return price.toLocaleString('en-US');
   };
 
   const handleSave = async () => {
@@ -126,12 +141,12 @@ export const ManagerRouteModal: React.FC<ManagerRouteModalProps> = ({
               <Banknote size={18} />
             </div>
             <input
-              type="number"
+              type="text"
               name="price"
-              value={formData.price || ''}
-              onChange={handleChange}
+              value={formatPrice(formData.price)}
+              onChange={handlePriceChange}
               placeholder="0"
-              className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none bg-white text-slate-900 shadow-sm font-mono"
+              className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none bg-white text-slate-900 shadow-sm font-mono font-bold"
             />
           </div>
         </div>
@@ -173,46 +188,6 @@ export const ManagerRouteModal: React.FC<ManagerRouteModalProps> = ({
                 className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none bg-white text-slate-900 shadow-sm"
               />
             </div>
-          </div>
-        </div>
-
-        {/* Thông tin bổ sung (Ẩn bớt hoặc làm nhỏ để tập trung vào yêu cầu chính, nhưng giữ lại để không mất dữ liệu) */}
-        <div className="pt-4 border-t border-slate-100 grid grid-cols-3 gap-4">
-           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">
-              Khoảng cách
-            </label>
-            <input
-              name="distance"
-              value={formData.distance}
-              onChange={handleChange}
-              placeholder="300km"
-              className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded bg-slate-50 text-slate-700"
-            />
-          </div>
-           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">
-              Thời gian
-            </label>
-             <input
-              name="duration"
-              value={formData.duration}
-              onChange={handleChange}
-              placeholder="5h30"
-              className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded bg-slate-50 text-slate-700"
-            />
-          </div>
-           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">
-              Điểm dừng
-            </label>
-             <input
-              type="number"
-              name="stops"
-              value={formData.stops || 0}
-              onChange={handleChange}
-              className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded bg-slate-50 text-slate-700"
-            />
           </div>
         </div>
       </div>
