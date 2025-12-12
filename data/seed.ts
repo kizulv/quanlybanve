@@ -1,3 +1,4 @@
+
 import { BusType, BusTrip, Route, Bus } from '../types';
 import { generateCabinLayout, generateSleeperLayout } from '../utils/generators';
 
@@ -29,9 +30,36 @@ const mockSleeperLayout = {
 };
 
 export const INITIAL_ROUTES: Route[] = [
-  { id: 'ROUTE-01', name: 'Hà Nội - Sapa', distance: '320km', duration: '5h30', stops: 2 },
-  { id: 'ROUTE-02', name: 'Hà Nội - Đà Nẵng', distance: '760km', duration: '14h00', stops: 4 },
-  { id: 'ROUTE-03', name: 'Sài Gòn - Đà Lạt', distance: '300km', duration: '6h00', stops: 1 },
+  { 
+    id: 'ROUTE-01', 
+    name: 'Hà Nội - Sapa', 
+    distance: '320km', 
+    duration: '5h30', 
+    stops: 2,
+    price: 450000,
+    departureTime: '07:00',
+    returnTime: '13:30'
+  },
+  { 
+    id: 'ROUTE-02', 
+    name: 'Hà Nội - Đà Nẵng', 
+    distance: '760km', 
+    duration: '14h00', 
+    stops: 4,
+    price: 350000,
+    departureTime: '19:00',
+    returnTime: '16:00'
+  },
+  { 
+    id: 'ROUTE-03', 
+    name: 'Sài Gòn - Đà Lạt', 
+    distance: '300km', 
+    duration: '6h00', 
+    stops: 1,
+    price: 500000,
+    departureTime: '22:00',
+    returnTime: '14:00'
+  },
 ];
 
 export const INITIAL_BUSES: Bus[] = [

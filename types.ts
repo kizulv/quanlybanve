@@ -63,6 +63,10 @@ export interface Route {
   distance: string;
   duration: string;
   stops: number;
+  // New fields
+  price?: number; // Giá vé niêm yết
+  departureTime?: string; // Giờ xuất bến đi
+  returnTime?: string; // Giờ xuất bến đến
 }
 
 export interface BusLayoutConfig {

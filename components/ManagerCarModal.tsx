@@ -100,9 +100,9 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
     };
 
     // Only generate new labels for keys that don't have one yet or if we are resetting
-    // Note: For a true "Smart Rename", we usually only auto-generate if the user explicitly asks, 
+    // Note: For a true "Smart Rename", we usually only auto-generate if the user explicitly asks,
     // but here we ensure consistency when changing layout structure.
-    
+
     if (currentBusType === BusType.CABIN) {
       for (let col = 0; col < colsCount; col++) {
         let prefix = String.fromCharCode(65 + col);
@@ -137,7 +137,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
       });
 
       sortedKeys.forEach((key, index) => {
-         newLabels[key] = (index + 1).toString();
+        newLabels[key] = (index + 1).toString();
       });
     }
     return newLabels;
@@ -171,25 +171,25 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
     }
 
     // Reset labels completely on type change
-    const labels = {}; 
+    const labels = {};
     // We can use a temporary config to calculate initial labels
-    const tempConfigForLabels = { cols, seatLabels: {} }; 
+    const tempConfigForLabels = { cols, seatLabels: {} };
     // Logic extraction needed to avoid circular dependency, but for simplicity we rely on recalculateLabels
     // adapting to the passed args
-    
+
     // Manually run generation for init
     const generatedLabels: Record<string, string> = {};
     if (busType === BusType.CABIN) {
-        // ... same logic as recalculate ...
-        // For init we just let the effect or user interaction handle complex cases,
-        // but let's provide a basic valid set.
-        active.forEach((key, idx) => {
-           // simplified init
-           generatedLabels[key] = String(idx + 1);
-        });
-        // Call proper recalc
+      // ... same logic as recalculate ...
+      // For init we just let the effect or user interaction handle complex cases,
+      // but let's provide a basic valid set.
+      active.forEach((key, idx) => {
+        // simplified init
+        generatedLabels[key] = String(idx + 1);
+      });
+      // Call proper recalc
     }
-    
+
     // Use the main function to get correct initial labels
     // We need to pass the *future* type and cols because state hasn't updated yet
     const finalLabels = recalculateLabels(active, busType, cols);
@@ -215,13 +215,13 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
     } else {
       newActive.push(key);
     }
-    
+
     // We do NOT call recalculateLabels here to preserve custom names.
     // Only generate a default name if it doesn't exist.
     const newLabels = { ...config.seatLabels };
     if (!newLabels[key] && !isActive) {
-        // Assign a temp label
-        newLabels[key] = "??"; 
+      // Assign a temp label
+      newLabels[key] = "??";
     }
 
     setConfig({ ...config, activeSeats: newActive, seatLabels: newLabels });
@@ -246,13 +246,12 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
           for (let c = 0; c < config.cols; c++) {
             const key = `${f}-${r}-${c}`;
             if (!newActive.includes(key)) {
-                newActive.push(key);
+              newActive.push(key);
             }
+          }
         }
       }
-    }
-    }
-    else if (newRows < config.rows) {
+    } else if (newRows < config.rows) {
       newActive = newActive.filter((key) => {
         if (key.includes("bench")) return true;
         const parts = key.split("-");
@@ -264,7 +263,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
     // When structure changes, we might want to recalculate to keep order,
     // OR we trust the user to rename. Let's Auto-Recalculate for structure changes to be helpful.
     const newLabels = recalculateLabels(newActive, type, config.cols);
-    
+
     setConfig({
       ...config,
       rows: newRows,
@@ -285,20 +284,21 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
     } else {
       newActive = newActive.filter((k) => !k.includes("bench"));
     }
-    
+
     // Only recalc labels for new bench seats
     const newLabels = { ...config.seatLabels };
     if (checked) {
-         newActive.forEach(key => {
-             if (key.includes('bench') && !newLabels[key]) {
-                 const parts = key.split('-');
-                 const f = parts[0];
-                 const i = parseInt(parts[2]);
-                 // Default naming for bench
-                 const prefix = f === '1' ? 'A' : 'B'; 
-                 newLabels[key] = type === BusType.CABIN ? `${prefix}-G${i+1}` : `B${f}-${i+1}`;
-             }
-         });
+      newActive.forEach((key) => {
+        if (key.includes("bench") && !newLabels[key]) {
+          const parts = key.split("-");
+          const f = parts[0];
+          const i = parseInt(parts[2]);
+          // Default naming for bench
+          const prefix = f === "1" ? "A" : "B";
+          newLabels[key] =
+            type === BusType.CABIN ? `${prefix}-G${i + 1}` : `B${f}-${i + 1}`;
+        }
+      });
     }
 
     setConfig({
@@ -325,7 +325,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
     } else {
       newActive = newActive.filter((k) => !k.startsWith(`${floor}-bench-`));
     }
-    
+
     setConfig({
       ...config,
       activeSeats: newActive,
@@ -336,34 +336,34 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
 
   const handleSave = async () => {
     if (!plate) return;
-    
+
     setIsSaving(true);
-    
+
     // Sanitization: Ensure we only save labels for seats that are actually active
     const cleanLabels: Record<string, string> = {};
-    config.activeSeats.forEach(key => {
-        // If label exists, keep it. If not, generate a fallback (though UI should prevent this)
-        if (config.seatLabels?.[key]) {
-            cleanLabels[key] = config.seatLabels[key];
-        } else {
-            cleanLabels[key] = key; // Fallback
-        }
+    config.activeSeats.forEach((key) => {
+      // If label exists, keep it. If not, generate a fallback (though UI should prevent this)
+      if (config.seatLabels?.[key]) {
+        cleanLabels[key] = config.seatLabels[key];
+      } else {
+        cleanLabels[key] = key; // Fallback
+      }
     });
 
     const cleanConfig: BusLayoutConfig = {
-        ...config,
-        seatLabels: cleanLabels
+      ...config,
+      seatLabels: cleanLabels,
     };
 
     const newBus: Bus = {
       id: initialData ? initialData.id : `BUS-${Date.now()}`,
       plate,
       type,
-      status, 
+      status,
       seats: config.activeSeats.length,
       layoutConfig: cleanConfig, // Save the sanitized config to DB
     };
-    
+
     try {
       await onSave(newBus);
       onClose();
@@ -429,9 +429,17 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
           <Button variant="outline" onClick={onClose} disabled={isSaving}>
             Đóng
           </Button>
-          <Button onClick={handleSave} className="flex items-center gap-2" disabled={isSaving || !plate}>
-            {isSaving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />} 
-            {isSaving ? 'Đang lưu...' : 'Lưu cấu hình'}
+          <Button
+            onClick={handleSave}
+            className="flex items-center gap-2"
+            disabled={isSaving || !plate}
+          >
+            {isSaving ? (
+              <Loader2 className="animate-spin" size={16} />
+            ) : (
+              <Save size={16} />
+            )}
+            {isSaving ? "Đang lưu..." : "Lưu cấu hình"}
           </Button>
         </>
       }
@@ -474,7 +482,6 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none bg-white text-slate-900 shadow-sm appearance-none"
                   >
                     <option value="Hoạt động">Hoạt động</option>
-                    <option value="Bảo trì">Bảo trì</option>
                     <option value="Ngưng hoạt động">Ngưng hoạt động</option>
                     <option value="Đã bán">Đã bán</option>
                   </select>
