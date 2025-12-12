@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Dialog } from './ui/Dialog';
 import { Button } from './ui/Button';
 import { Bus, Route, BusTrip, BusType, SeatStatus } from '../types';
-import { Loader2, Clock, MapPin, Wallet, Calendar, CheckCircle2, AlertTriangle, ArrowRightLeft } from 'lucide-react';
+import { Loader2, Clock, MapPin, Wallet, Calendar, CheckCircle2, AlertTriangle, ArrowRightLeft, BusFront, LayoutGrid, Info, ArrowRight } from 'lucide-react';
 import { generateCabinLayout, generateSleeperLayout } from '../utils/generators';
 import { isSameDay } from '../utils/dateUtils';
 
@@ -290,13 +290,15 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
     if (!r) return "";
     return r.name;
   }
+  
+  const selectedRoute = routes.find(r => r.id === selectedRouteId);
 
   return (
     <Dialog 
       isOpen={isOpen} 
       onClose={onClose} 
       title={initialData ? "Cập nhật chuyến xe" : "Tạo lịch chạy mới"}
-      className="max-w-lg"
+      className="max-w-4xl"
       footer={
          <>
           <Button variant="outline" onClick={onClose} disabled={isSaving}>Hủy bỏ</Button>
@@ -311,142 +313,186 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
          </>
       }
     >
-      <div className="space-y-5">
-        
-        {/* Date Info */}
-        <div className="bg-blue-50 text-blue-800 px-4 py-3 rounded-lg flex items-center gap-3 border border-blue-100">
-           <Calendar className="text-blue-600" size={20} />
-           <div>
-              <div className="text-xs font-semibold uppercase tracking-wider text-blue-600/80">Ngày khởi hành</div>
-              <div className="font-bold text-lg leading-none">{targetDate.toLocaleDateString('vi-VN')}</div>
-           </div>
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* --- LEFT COLUMN: ROUTE & BUS --- */}
+        <div className="space-y-5">
+            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-4 pb-2 border-b border-slate-200">
+                  <MapPin size={18} className="text-primary"/> Thông tin tuyến
+                </h3>
+                
+                {/* Route Selection */}
+                <div className="mb-4">
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Chọn tuyến đường <span className="text-red-500">*</span></label>
+                    <select 
+                       required
+                       className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none bg-white text-slate-900 shadow-sm"
+                       value={selectedRouteId}
+                       onChange={(e) => setSelectedRouteId(e.target.value)}
+                       disabled={!!preSelectedRouteId && !initialData}
+                    >
+                       <option value="">-- Chọn tuyến --</option>
+                       {routes.filter(r => r.status !== 'inactive').map(r => (
+                         <option key={r.id} value={r.id}>{r.name} {r.isEnhanced ? '(Tăng cường)' : ''}</option>
+                       ))}
+                    </select>
+                </div>
 
-        {/* Route Selection */}
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1.5">Chọn tuyến đường <span className="text-red-500">*</span></label>
-          <div className="relative">
-             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-               <MapPin size={18} />
-             </div>
-             <select 
-               required
-               className="w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none bg-white text-slate-900 appearance-none shadow-sm disabled:bg-slate-100"
-               value={selectedRouteId}
-               onChange={(e) => setSelectedRouteId(e.target.value)}
-               disabled={!!preSelectedRouteId && !initialData}
-             >
-               <option value="">-- Chọn tuyến --</option>
-               {routes.filter(r => r.status !== 'inactive').map(r => (
-                 <option key={r.id} value={r.id}>{r.name} {r.isEnhanced ? '(Tăng cường)' : ''}</option>
-               ))}
-             </select>
-          </div>
-        </div>
-
-        {/* Direction Selection */}
-        <div>
-           <label className="block text-sm font-medium text-slate-700 mb-1.5">Chiều chạy</label>
-           <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setDirection('outbound')}
-                className={`flex items-center justify-center gap-2 px-3 py-2 border rounded-lg text-sm font-medium transition-colors ${
-                  direction === 'outbound' 
-                    ? 'bg-blue-600 text-white border-blue-600 shadow-sm' 
-                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                }`}
-              >
-                 <ArrowRightLeft size={14} className={direction === 'outbound' ? 'rotate-0' : 'text-slate-400'}/>
-                 Chiều đi
-              </button>
-              <button
-                type="button"
-                onClick={() => setDirection('inbound')}
-                className={`flex items-center justify-center gap-2 px-3 py-2 border rounded-lg text-sm font-medium transition-colors ${
-                  direction === 'inbound' 
-                    ? 'bg-orange-600 text-white border-orange-600 shadow-sm' 
-                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                }`}
-              >
-                 <ArrowRightLeft size={14} className={direction === 'inbound' ? 'rotate-180' : 'text-slate-400'}/>
-                 Chiều về
-              </button>
-           </div>
-        </div>
-
-        {/* Bus Selection */}
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1.5">Chọn xe vận hành <span className="text-red-500">*</span></label>
-          {filteredBuses.length === 0 && selectedRouteId ? (
-             <div className="text-sm text-red-600 bg-red-50 p-3 rounded border border-red-100 mb-2 flex items-center gap-2">
-                <AlertTriangle size={16} />
-                Chưa có xe phù hợp.
-             </div>
-          ) : (
-            <select 
-               required
-               className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none bg-white text-slate-900 shadow-sm"
-               value={selectedBusId}
-               onChange={(e) => setSelectedBusId(e.target.value)}
-               disabled={!selectedRouteId}
-            >
-               <option value="">-- Chọn xe --</option>
-               {filteredBuses.map(b => (
-                 <option key={b.id} value={b.id}>
-                   {b.plate} {b.status === 'Xe thuê/Tăng cường' ? '(Thuê)' : ''} - {b.seats} chỗ
-                 </option>
-               ))}
-            </select>
-          )}
-        </div>
-
-        {/* Alert for Conflict */}
-        {conflictWarning && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex items-start gap-3 animate-in fade-in slide-in-from-top-1">
-                <AlertTriangle className="text-yellow-600 shrink-0 mt-0.5" size={18} />
+                {/* Direction Buttons */}
                 <div>
-                    <h4 className="text-sm font-bold text-yellow-800">{conflictWarning.title}</h4>
-                    <p className="text-xs text-yellow-700 mt-0.5">{conflictWarning.message}</p>
+                   <label className="block text-sm font-medium text-slate-700 mb-2">Chiều chạy</label>
+                   <div className="flex gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setDirection('outbound')}
+                        className={`flex-1 flex flex-col items-center justify-center p-3 rounded-lg border-2 transition-all ${
+                          direction === 'outbound' 
+                            ? 'bg-blue-50 border-blue-500 text-blue-700 shadow-sm' 
+                            : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
+                        }`}
+                      >
+                         <div className="flex items-center gap-2 font-bold text-sm">
+                             <span>Chiều đi</span>
+                             <ArrowRight size={14} />
+                         </div>
+                         <div className="text-[10px] mt-1 opacity-80">
+                            {selectedRoute?.origin || "Điểm đi"} ➝ {selectedRoute?.destination || "Điểm đến"}
+                         </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setDirection('inbound')}
+                        className={`flex-1 flex flex-col items-center justify-center p-3 rounded-lg border-2 transition-all ${
+                          direction === 'inbound' 
+                            ? 'bg-orange-50 border-orange-500 text-orange-700 shadow-sm' 
+                            : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
+                        }`}
+                      >
+                         <div className="flex items-center gap-2 font-bold text-sm">
+                             <ArrowRight size={14} className="rotate-180"/>
+                             <span>Chiều về</span>
+                         </div>
+                         <div className="text-[10px] mt-1 opacity-80">
+                            {selectedRoute?.destination || "Điểm đến"} ➝ {selectedRoute?.origin || "Điểm đi"}
+                         </div>
+                      </button>
+                   </div>
                 </div>
             </div>
-        )}
 
-        <div className="grid grid-cols-2 gap-4">
-          {/* Time */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Giờ khởi hành</label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                <Clock size={16} />
-              </div>
-              <input 
-                type="time" 
-                required
-                className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none bg-white text-slate-900 shadow-sm"
-                value={time}
-                onChange={(e) => setTime(e.target.value)}
-              />
+            {/* Bus Selection */}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Chọn xe vận hành <span className="text-red-500">*</span></label>
+              {filteredBuses.length === 0 && selectedRouteId ? (
+                 <div className="text-sm text-red-600 bg-red-50 p-3 rounded border border-red-100 mb-2 flex items-center gap-2">
+                    <AlertTriangle size={16} />
+                    Chưa có xe phù hợp.
+                 </div>
+              ) : (
+                <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                        <BusFront size={18} />
+                    </div>
+                    <select 
+                       required
+                       className="w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none bg-white text-slate-900 shadow-sm"
+                       value={selectedBusId}
+                       onChange={(e) => setSelectedBusId(e.target.value)}
+                       disabled={!selectedRouteId}
+                    >
+                       <option value="">-- Chọn xe --</option>
+                       {filteredBuses.map(b => (
+                         <option key={b.id} value={b.id}>
+                           {b.plate} {b.status === 'Xe thuê/Tăng cường' ? '(Thuê)' : ''} - {b.seats} chỗ
+                         </option>
+                       ))}
+                    </select>
+                </div>
+              )}
             </div>
-          </div>
-          
-          {/* Price */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Giá vé (VNĐ)</label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                <Wallet size={16} />
-              </div>
-              <input 
-                type="text" 
-                required
-                className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none bg-white text-slate-900 font-bold shadow-sm"
-                value={formatPrice(price)}
-                onChange={handlePriceChange}
-                placeholder="0"
-              />
+            
+            {/* Warning Display */}
+            {conflictWarning && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-start gap-3 animate-in fade-in slide-in-from-top-1">
+                    <AlertTriangle className="text-yellow-600 shrink-0 mt-0.5" size={20} />
+                    <div>
+                        <h4 className="text-sm font-bold text-yellow-800">{conflictWarning.title}</h4>
+                        <p className="text-sm text-yellow-700 mt-1">{conflictWarning.message}</p>
+                    </div>
+                </div>
+            )}
+        </div>
+
+        {/* --- RIGHT COLUMN: TIME & PRICE --- */}
+        <div className="space-y-5">
+            <div className="bg-white p-4 rounded-xl border border-slate-200 h-full flex flex-col">
+                <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-4 pb-2 border-b border-slate-100">
+                  <Clock size={18} className="text-primary"/> Thời gian & Giá vé
+                </h3>
+
+                <div className="space-y-5 flex-1">
+                     {/* Date Display */}
+                    <div className="bg-blue-50 text-blue-800 px-4 py-3 rounded-lg flex items-center gap-3 border border-blue-100">
+                       <Calendar className="text-blue-600" size={24} />
+                       <div>
+                          <div className="text-xs font-semibold uppercase tracking-wider text-blue-600/80">Ngày khởi hành</div>
+                          <div className="font-bold text-lg leading-none">{targetDate.toLocaleDateString('vi-VN')}</div>
+                       </div>
+                    </div>
+
+                    {/* Time Input */}
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1.5">Giờ khởi hành</label>
+                        <div className="relative">
+                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                            <Clock size={16} />
+                          </div>
+                          <input 
+                            type="time" 
+                            required
+                            className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none bg-white text-slate-900 shadow-sm font-medium"
+                            value={time}
+                            onChange={(e) => setTime(e.target.value)}
+                          />
+                        </div>
+                        <p className="text-xs text-slate-400 mt-1.5">
+                            {direction === 'outbound' 
+                                ? `Giờ xuất bến mặc định: ${selectedRoute?.departureTime || '--:--'}`
+                                : `Giờ về mặc định: ${selectedRoute?.returnTime || '--:--'}`
+                            }
+                        </p>
+                    </div>
+                    
+                    {/* Price Input */}
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1.5">Giá vé (VNĐ)</label>
+                        <div className="relative">
+                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                            <Wallet size={16} />
+                          </div>
+                          <input 
+                            type="text" 
+                            required
+                            className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none bg-white text-slate-900 font-bold shadow-sm text-lg"
+                            value={formatPrice(price)}
+                            onChange={handlePriceChange}
+                            placeholder="0"
+                          />
+                        </div>
+                         <p className="text-xs text-slate-400 mt-1.5">
+                            Giá niêm yết: {selectedRoute?.price?.toLocaleString('vi-VN') || 0} đ
+                        </p>
+                    </div>
+
+                    <div className="mt-auto pt-4 border-t border-slate-100">
+                        <div className="flex items-start gap-2 text-xs text-slate-500 bg-slate-50 p-2 rounded">
+                            <Info size={14} className="shrink-0 mt-0.5" />
+                            <p>Lịch chạy sẽ được tạo tự động với cấu hình ghế và giá vé đã chọn. Bạn có thể chỉnh sửa ghế sau khi tạo.</p>
+                        </div>
+                    </div>
+                </div>
             </div>
-          </div>
         </div>
       </div>
     </Dialog>

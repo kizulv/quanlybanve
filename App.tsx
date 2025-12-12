@@ -163,13 +163,12 @@ function App() {
   };
 
   const handleDeleteTrip = async (tripId: string) => {
-    if(window.confirm("Bạn có chắc muốn xóa chuyến xe này không?")) {
-       try {
-         await api.trips.delete(tripId);
-         await refreshData();
-       } catch(e) {
-         console.error("Delete trip failed", e);
-       }
+    // Confirmation is now handled by ScheduleView UI Dialog
+    try {
+      await api.trips.delete(tripId);
+      await refreshData();
+    } catch(e) {
+      console.error("Delete trip failed", e);
     }
   };
 

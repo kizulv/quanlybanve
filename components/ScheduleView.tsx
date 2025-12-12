@@ -1,12 +1,13 @@
 
 import React, { useState, useMemo } from 'react';
 import { Bus, BusTrip, Route, BusType } from '../types';
-import { ChevronLeft, ChevronRight, Plus, MapPin, Clock, Trash2, CalendarDays, BusFront, AlertCircle, Zap, Edit2, ArrowRightLeft } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, MapPin, Clock, Trash2, CalendarDays, BusFront, AlertCircle, Zap, Edit2, ArrowRightLeft, AlertTriangle } from 'lucide-react';
 import { Button } from './ui/Button';
 import { Badge } from './ui/Badge';
 import { getDaysInMonth, daysOfWeek, formatLunarDate, formatTime, isSameDay } from '../utils/dateUtils';
 import { AddTripModal } from './AddTripModal';
 import { generateCabinLayout, generateSleeperLayout } from '../utils/generators';
+import { Dialog } from './ui/Dialog';
 
 interface ScheduleViewProps {
   trips: BusTrip[];
@@ -32,6 +33,9 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
   const [selectedDateForAdd, setSelectedDateForAdd] = useState<Date>(new Date());
   const [preSelectedRouteId, setPreSelectedRouteId] = useState<string>('');
   const [editingTrip, setEditingTrip] = useState<BusTrip | undefined>(undefined);
+  
+  // State for delete confirmation
+  const [tripToDelete, setTripToDelete] = useState<string | null>(null);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -79,6 +83,13 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
       await onUpdateTrip(editingTrip.id, tripData);
     } else {
       await onAddTrip(selectedDateForAdd, tripData);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (tripToDelete) {
+        await onDeleteTrip(tripToDelete);
+        setTripToDelete(null);
     }
   };
 
@@ -137,7 +148,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                     variant="ghost" 
                     size="icon" 
                     className="h-6 w-6 text-slate-400 hover:text-destructive"
-                    onClick={() => onDeleteTrip(trip.id)}
+                    onClick={() => setTripToDelete(trip.id)}
                     title="Xóa"
                 >
                     <Trash2 size={12} />
@@ -279,6 +290,43 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
         buses={buses}
         onSave={handleSaveTrip}
       />
+      
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        isOpen={!!tripToDelete}
+        onClose={() => setTripToDelete(null)}
+        title="Xác nhận xóa"
+      >
+        <div className="flex flex-col items-center justify-center p-4 text-center space-y-4">
+          <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center text-red-600">
+            <AlertTriangle size={24} />
+          </div>
+          <div>
+            <h3 className="text-lg font-medium text-slate-900">
+              Bạn có chắc chắn muốn xóa chuyến xe này?
+            </h3>
+            <p className="text-sm text-slate-500 mt-1">
+              Hành động này không thể hoàn tác. Các dữ liệu liên quan đến vé đã đặt cũng sẽ bị xóa.
+            </p>
+          </div>
+          <div className="flex gap-3 w-full mt-4">
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => setTripToDelete(null)}
+            >
+              Hủy bỏ
+            </Button>
+            <Button
+              variant="destructive"
+              className="w-full"
+              onClick={confirmDelete}
+            >
+              Xóa ngay
+            </Button>
+          </div>
+        </div>
+      </Dialog>
     </div>
   );
 };
