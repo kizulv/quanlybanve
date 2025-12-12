@@ -11,6 +11,7 @@ interface AddTripModalProps {
   onClose: () => void;
   targetDate: Date;
   preSelectedRouteId?: string;
+  initialData?: BusTrip;
   routes: Route[];
   buses: Bus[];
   onSave: (tripData: Partial<BusTrip>) => Promise<void>;
@@ -21,6 +22,7 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
   onClose,
   targetDate,
   preSelectedRouteId,
+  initialData,
   routes,
   buses,
   onSave
@@ -31,9 +33,9 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
   const [price, setPrice] = useState<number>(0);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Auto-fill form when Route changes
+  // Auto-fill form when Route changes (only if NOT editing)
   useEffect(() => {
-    if (selectedRouteId) {
+    if (selectedRouteId && !initialData) {
       const route = routes.find(r => r.id === selectedRouteId);
       if (route) {
         if (route.price) setPrice(route.price);
@@ -41,22 +43,41 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
         setSelectedBusId(''); // Reset bus when route changes because availability changes
       }
     }
-  }, [selectedRouteId, routes]);
+  }, [selectedRouteId, routes, initialData]);
 
-  // Reset form on open
+  // Reset/Fill form on open
   useEffect(() => {
     if (isOpen) {
-      setSelectedRouteId(preSelectedRouteId || '');
-      setSelectedBusId('');
-      setTime('07:00');
-      setPrice(0);
+      if (initialData) {
+        // Edit Mode
+        const route = routes.find(r => r.name === initialData.route);
+        setSelectedRouteId(route ? String(route.id) : '');
+        
+        const bus = buses.find(b => b.plate === initialData.licensePlate);
+        setSelectedBusId(bus ? bus.id : '');
+        
+        // Extract time from "YYYY-MM-DD HH:MM"
+        const timePart = initialData.departureTime.split(' ')[1] || '07:00';
+        setTime(timePart);
+        
+        setPrice(initialData.basePrice);
+      } else {
+        // Create Mode
+        setSelectedRouteId(preSelectedRouteId || '');
+        setSelectedBusId('');
+        setTime('07:00');
+        setPrice(0);
+      }
     }
-  }, [isOpen, preSelectedRouteId]);
+  }, [isOpen, preSelectedRouteId, initialData, routes, buses]);
 
   // Filter Buses Logic
   const filteredBuses = useMemo(() => {
     return buses.filter(bus => {
         if (bus.status !== 'Hoạt động') return false;
+        
+        // If editing, always allow the currently assigned bus (even if it violates current route logic)
+        if (initialData && bus.plate === initialData.licensePlate) return true;
         
         // If no route selected yet, show all active buses
         if (!selectedRouteId) return true;
@@ -70,7 +91,7 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
         // Requirement: Regular routes allow buses configured for that route OR unassigned buses
         return String(bus.defaultRouteId) === String(selectedRouteId) || !bus.defaultRouteId;
     });
-  }, [buses, selectedRouteId, routes]);
+  }, [buses, selectedRouteId, routes, initialData]);
 
   const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     // Remove non-numeric chars
@@ -95,68 +116,84 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
         return;
     }
 
-    // Format date string YYYY-MM-DD HH:MM
-    const dateStr = targetDate.toISOString().split('T')[0]; // YYYY-MM-DD
+    // Format date string Manually to avoid UTC issues
+    // Use targetDate for Date part (which comes from ScheduleView)
+    const dateStr = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}-${String(targetDate.getDate()).padStart(2, '0')}`;
     const dateTimeStr = `${dateStr} ${time}`;
 
-    // Generate seats
-    let seats = [];
-    if (bus.layoutConfig) {
-      const config = bus.layoutConfig;
-      for (let f = 1; f <= config.floors; f++) {
-        for (let r = 0; r < config.rows; r++) {
-          for (let c = 0; c < config.cols; c++) {
-            const key = `${f}-${r}-${c}`;
-            if (config.activeSeats.includes(key)) {
-              let label = config.seatLabels?.[key];
-              if (!label) {
-                  if (bus.type === BusType.CABIN) {
-                    const prefix = String.fromCharCode(65 + c);
-                    const num = r * 2 + f;
-                    label = `${prefix}${num}`;
-                  } else {
-                    const seatsPerRow = config.cols * config.floors;
-                    const val = r * seatsPerRow + (f - 1) * config.cols + c + 1;
-                    label = val.toString();
+    // Logic: Do we need to regenerate seats?
+    // 1. If creating new trip -> Yes.
+    // 2. If editing and Bus Changed -> Yes (Layout might be different).
+    // 3. If editing and Bus Same -> Keep existing seats (preserve bookings), unless we want to force reset.
+    //    For now, assume if Bus stays same, we update other metadata but keep seats.
+    
+    let seats = initialData?.seats || [];
+    const busChanged = initialData && initialData.licensePlate !== bus.plate;
+    const isNew = !initialData;
+
+    if (isNew || busChanged) {
+        seats = []; // Reset
+        if (bus.layoutConfig) {
+          const config = bus.layoutConfig;
+          for (let f = 1; f <= config.floors; f++) {
+            for (let r = 0; r < config.rows; r++) {
+              for (let c = 0; c < config.cols; c++) {
+                const key = `${f}-${r}-${c}`;
+                if (config.activeSeats.includes(key)) {
+                  let label = config.seatLabels?.[key];
+                  if (!label) {
+                      if (bus.type === BusType.CABIN) {
+                        const prefix = String.fromCharCode(65 + c);
+                        const num = r * 2 + f;
+                        label = `${prefix}${num}`;
+                      } else {
+                        const seatsPerRow = config.cols * config.floors;
+                        const val = r * seatsPerRow + (f - 1) * config.cols + c + 1;
+                        label = val.toString();
+                      }
                   }
+                  seats.push({
+                    id: label,
+                    label: label,
+                    floor: f as 1 | 2,
+                    status: 'available',
+                    price: price,
+                    row: r,
+                    col: c
+                  });
+                }
               }
-              seats.push({
-                id: label,
-                label: label,
-                floor: f as 1 | 2,
-                status: 'available',
-                price: price,
-                row: r,
-                col: c
-              });
             }
           }
-        }
-      }
-      // Add bench if exists
-      if (config.hasRearBench) {
-        for (let f = 1; f <= config.floors; f++) {
-          if(config.benchFloors?.includes(f)) {
-             for (let i = 0; i < 5; i++) {
-                const key = `${f}-bench-${i}`;
-                if (config.activeSeats.includes(key)) {
-                    let label = config.seatLabels?.[key];
-                    if(!label) {
-                       const prefix = f === 1 ? "A" : "B";
-                       label = bus.type === BusType.CABIN ? `${prefix}-G${i + 1}` : `B${f}-${i + 1}`;
+          // Add bench if exists
+          if (config.hasRearBench) {
+            for (let f = 1; f <= config.floors; f++) {
+              if(config.benchFloors?.includes(f)) {
+                 for (let i = 0; i < 5; i++) {
+                    const key = `${f}-bench-${i}`;
+                    if (config.activeSeats.includes(key)) {
+                        let label = config.seatLabels?.[key];
+                        if(!label) {
+                           const prefix = f === 1 ? "A" : "B";
+                           label = bus.type === BusType.CABIN ? `${prefix}-G${i + 1}` : `B${f}-${i + 1}`;
+                        }
+                        seats.push({
+                          id: label, label, floor: f as 1 | 2, status: 'available', price: price, row: config.rows, col: i
+                        });
                     }
-                    seats.push({
-                      id: label, label, floor: f as 1 | 2, status: 'available', price: price, row: config.rows, col: i
-                    });
-                }
-             }
+                 }
+              }
+            }
           }
+        } else {
+          seats = bus.type === BusType.CABIN 
+            ? generateCabinLayout(price) 
+            : generateSleeperLayout(price);
         }
-      }
     } else {
-      seats = bus.type === BusType.CABIN 
-        ? generateCabinLayout(price) 
-        : generateSleeperLayout(price);
+        // If bus is same, update the price of available seats?
+        // Optional requirement, but good UX.
+        seats = seats.map(s => s.status === 'available' ? { ...s, price: price } : s);
     }
 
     const tripData: Partial<BusTrip> = {
@@ -165,7 +202,6 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
       departureTime: dateTimeStr,
       type: bus.type,
       licensePlate: bus.plate,
-      driver: "", // Removed from UI, default empty
       basePrice: price,
       seats: seats as any
     };
@@ -184,7 +220,7 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
     <Dialog 
       isOpen={isOpen} 
       onClose={onClose} 
-      title="Tạo lịch chạy mới"
+      title={initialData ? "Cập nhật chuyến xe" : "Tạo lịch chạy mới"}
       className="max-w-lg"
       footer={
          <>
@@ -195,7 +231,7 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
             className="min-w-[120px]"
           >
             {isSaving ? <Loader2 className="animate-spin mr-2" size={16} /> : <CheckCircle2 className="mr-2" size={16} />}
-            Lưu chuyến
+            {initialData ? 'Cập nhật' : 'Lưu chuyến'}
           </Button>
          </>
       }
@@ -223,7 +259,7 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
                className="w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none bg-white text-slate-900 appearance-none shadow-sm disabled:bg-slate-100"
                value={selectedRouteId}
                onChange={(e) => setSelectedRouteId(e.target.value)}
-               disabled={!!preSelectedRouteId}
+               disabled={!!preSelectedRouteId && !initialData} // Allow changing route if editing
              >
                <option value="">-- Chọn tuyến --</option>
                {routes.filter(r => r.status !== 'inactive').map(r => (

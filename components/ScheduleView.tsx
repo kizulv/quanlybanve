@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Bus, BusTrip, Route, BusType } from '../types';
-import { ChevronLeft, ChevronRight, Plus, MapPin, Clock, Trash2, CalendarDays, BusFront, AlertCircle, Zap } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, MapPin, Clock, Trash2, CalendarDays, BusFront, AlertCircle, Zap, Edit2 } from 'lucide-react';
 import { Button } from './ui/Button';
 import { Badge } from './ui/Badge';
 import { getDaysInMonth, daysOfWeek, formatLunarDate, formatTime, isSameDay } from '../utils/dateUtils';
@@ -13,6 +13,7 @@ interface ScheduleViewProps {
   routes: Route[];
   buses: Bus[];
   onAddTrip: (date: Date, tripData: Partial<BusTrip>) => Promise<void>;
+  onUpdateTrip: (tripId: string, tripData: Partial<BusTrip>) => Promise<void>;
   onDeleteTrip: (tripId: string) => Promise<void>;
   onUpdateBus: (busId: string, updates: Partial<Bus>) => Promise<void>;
 }
@@ -22,6 +23,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
   routes, 
   buses, 
   onAddTrip, 
+  onUpdateTrip,
   onDeleteTrip,
   onUpdateBus
 }) => {
@@ -29,6 +31,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedDateForAdd, setSelectedDateForAdd] = useState<Date>(new Date());
   const [preSelectedRouteId, setPreSelectedRouteId] = useState<string>('');
+  const [editingTrip, setEditingTrip] = useState<BusTrip | undefined>(undefined);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -55,11 +58,26 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
   const handleOpenAdd = (date: Date, routeId: string = '') => {
     setSelectedDateForAdd(date);
     setPreSelectedRouteId(routeId);
+    setEditingTrip(undefined);
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEdit = (trip: BusTrip) => {
+    const tripDate = new Date(trip.departureTime.split(' ')[0]);
+    setSelectedDateForAdd(tripDate);
+    // Find route ID from trip route name (legacy data fallback)
+    const route = routes.find(r => r.name === trip.route);
+    setPreSelectedRouteId(route ? String(route.id) : '');
+    setEditingTrip(trip);
     setIsModalOpen(true);
   };
 
   const handleSaveTrip = async (tripData: Partial<BusTrip>) => {
-    await onAddTrip(selectedDateForAdd, tripData);
+    if (editingTrip) {
+      await onUpdateTrip(editingTrip.id, tripData);
+    } else {
+      await onAddTrip(selectedDateForAdd, tripData);
+    }
   };
 
   const handleQuickAssign = async (date: Date, route: Route, busId: string) => {
@@ -67,8 +85,8 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
      const bus = buses.find(b => b.id === busId);
      if (!bus) return;
 
-     // Generate date string
-     const dateStr = date.toISOString().split('T')[0];
+     // Generate date string manually to avoid UTC offset issues
+     const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
      const timeStr = route.departureTime || "07:00";
      const dateTimeStr = `${dateStr} ${timeStr}`;
 
@@ -238,12 +256,22 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                                        </span>
                                     </div>
                                     
-                                    <div className="absolute top-2 right-2 sm:static opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <div className="absolute top-2 right-2 sm:static flex items-center gap-1 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity bg-white sm:bg-transparent rounded p-1 sm:p-0 border sm:border-none border-slate-100 shadow-sm sm:shadow-none">
+                                        <Button 
+                                          variant="ghost" 
+                                          size="icon" 
+                                          className="h-8 w-8 text-slate-400 hover:text-primary hover:bg-primary/10"
+                                          onClick={() => handleOpenEdit(trip)}
+                                          title="Chỉnh sửa chuyến"
+                                        >
+                                           <Edit2 size={16} />
+                                        </Button>
                                         <Button 
                                           variant="ghost" 
                                           size="icon" 
                                           className="h-8 w-8 text-slate-400 hover:text-destructive hover:bg-red-50"
                                           onClick={() => onDeleteTrip(trip.id)}
+                                          title="Xóa chuyến"
                                         >
                                            <Trash2 size={16} />
                                         </Button>
@@ -320,6 +348,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
         onClose={() => setIsModalOpen(false)}
         targetDate={selectedDateForAdd}
         preSelectedRouteId={preSelectedRouteId}
+        initialData={editingTrip}
         routes={routes}
         buses={buses}
         onSave={handleSaveTrip}

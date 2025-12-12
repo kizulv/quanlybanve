@@ -153,6 +153,15 @@ function App() {
     }
   };
 
+  const handleUpdateTrip = async (tripId: string, tripData: Partial<BusTrip>) => {
+    try {
+      await api.trips.update(tripId, tripData);
+      await refreshData();
+    } catch (e) {
+      console.error("Update trip failed", e);
+    }
+  };
+
   const handleDeleteTrip = async (tripId: string) => {
     if(window.confirm("Bạn có chắc muốn xóa chuyến xe này không?")) {
        try {
@@ -427,6 +436,7 @@ function App() {
           routes={routes}
           buses={buses}
           onAddTrip={handleAddTrip}
+          onUpdateTrip={handleUpdateTrip}
           onDeleteTrip={handleDeleteTrip}
           onUpdateBus={handleUpdateBus}
         />
