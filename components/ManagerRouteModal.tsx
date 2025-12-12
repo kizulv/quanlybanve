@@ -148,7 +148,7 @@ export const ManagerRouteModal: React.FC<ManagerRouteModalProps> = ({
               value={formatPrice(formData.price)}
               onChange={handlePriceChange}
               placeholder="0"
-              className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none bg-white text-slate-900 shadow-sm font-mono font-bold"
+              className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none bg-white text-slate-900 shadow-sm font-bold"
             />
           </div>
         </div>

@@ -281,7 +281,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
             <div className="overflow-hidden rounded-lg border border-slate-200">
               <table className="w-full text-sm text-left">
-                <thead className="bg-slate-50 text-slate-700 font-semibold">
+                <thead className="bg-slate-50 text-slate-700">
                   <tr>
                     <th className="px-4 py-3">Tên tuyến</th>
                     <th className="px-4 py-3">Giá niêm yết</th>
@@ -292,21 +292,21 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <tbody className="divide-y divide-slate-100">
                   {routes.map((route) => (
                     <tr key={route.id} className="hover:bg-slate-50">
-                      <td className="px-4 py-3 font-medium">{route.name}</td>
+                      <td className="px-4 py-3">{route.name}</td>
                       <td className="px-4 py-3 text-primary font-bold">
                         {route.price
                           ? `${route.price.toLocaleString("vi-VN")} đ`
                           : "-"}
                       </td>
                       <td className="px-4 py-3">
-                        <div className="text-xs">
+                        <div className="text-sm mb-1">
                           <span className="text-slate-500">Đi:</span>{" "}
                           <span className="font-medium text-slate-900">
                             {route.departureTime || "--:--"}
                           </span>
                         </div>
-                        <div className="text-xs">
-                          <span className="text-slate-500">Đến:</span>{" "}
+                        <div className="text-sm">
+                          <span className="text-slate-500">Về:</span>{" "}
                           <span className="font-medium text-slate-900">
                             {route.returnTime || "--:--"}
                           </span>
