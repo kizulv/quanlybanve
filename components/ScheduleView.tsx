@@ -200,16 +200,24 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
 
               <div className="flex-1 p-4 space-y-4">
                  {displayRoutes.map(route => {
+                    // Filter and Sort Trips
                     const routeTrips = trips.filter(t => {
                         const tDate = new Date(t.departureTime.split(' ')[0]);
                         const isSameDayCheck = isSameDay(tDate, day);
                         if (!isSameDayCheck) return false;
                         if (t.routeId && route.id) return String(t.routeId) === String(route.id);
                         return t.route === route.name;
-                    }).sort((a, b) => a.departureTime.localeCompare(b.departureTime));
+                    }).sort((a, b) => {
+                         // Logic: Outbound first, then Inbound
+                         const dirA = a.direction === 'inbound' ? 1 : 0;
+                         const dirB = b.direction === 'inbound' ? 1 : 0;
+                         if (dirA !== dirB) return dirA - dirB;
+                         // Secondary sort by time
+                         return a.departureTime.localeCompare(b.departureTime);
+                    });
 
-                    const availableBuses = getAvailableBusesForRoute(route);
-                    const noBusWarning = availableBuses.length === 0;
+                    // Check quota for regular routes (Max 2 trips: 1 outbound + 1 inbound effectively, or just length check)
+                    const isLimitReached = !route.isEnhanced && routeTrips.length >= 2;
 
                     return (
                         <div key={`${route.id}-${day.getDate()}`} className="rounded-xl border border-slate-100 p-3 bg-slate-50/30">
@@ -219,14 +227,20 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                                     <span className={`font-bold text-sm ${route.isEnhanced ? 'text-yellow-700' : 'text-slate-800'}`}>{route.name}</span>
                                     {route.isEnhanced && <Badge variant="warning" className="text-[10px] px-1 h-5">Tăng cường</Badge>}
                                 </div>
-                                <Button 
-                                    variant="ghost" 
-                                    size="sm" 
-                                    className="h-7 text-xs text-primary hover:bg-primary/10 hover:text-primary"
-                                    onClick={() => handleOpenAdd(day, String(route.id))}
-                                >
-                                    <Plus size={14} className="mr-1" /> Thêm xe
-                                </Button>
+                                
+                                {/* Hide Add button if quota reached for regular routes */}
+                                {!isLimitReached ? (
+                                    <Button 
+                                        variant="ghost" 
+                                        size="sm" 
+                                        className="h-7 text-xs text-primary hover:bg-primary/10 hover:text-primary"
+                                        onClick={() => handleOpenAdd(day, String(route.id))}
+                                    >
+                                        <Plus size={14} className="mr-1" /> Thêm xe
+                                    </Button>
+                                ) : (
+                                    <span className="text-[10px] text-slate-400 italic px-2">Đã đủ chuyến</span>
+                                )}
                             </div>
 
                             {/* Horizontal Trip List */}
@@ -260,6 +274,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
         targetDate={selectedDateForAdd}
         preSelectedRouteId={preSelectedRouteId}
         initialData={editingTrip}
+        existingTrips={trips}
         routes={routes}
         buses={buses}
         onSave={handleSaveTrip}

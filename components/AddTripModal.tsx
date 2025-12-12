@@ -5,6 +5,7 @@ import { Button } from './ui/Button';
 import { Bus, Route, BusTrip, BusType, SeatStatus } from '../types';
 import { Loader2, Clock, MapPin, Wallet, Calendar, CheckCircle2, AlertTriangle, ArrowRightLeft } from 'lucide-react';
 import { generateCabinLayout, generateSleeperLayout } from '../utils/generators';
+import { isSameDay } from '../utils/dateUtils';
 
 interface AddTripModalProps {
   isOpen: boolean;
@@ -12,6 +13,7 @@ interface AddTripModalProps {
   targetDate: Date;
   preSelectedRouteId?: string;
   initialData?: BusTrip;
+  existingTrips: BusTrip[];
   routes: Route[];
   buses: Bus[];
   onSave: (tripData: Partial<BusTrip>) => Promise<void>;
@@ -23,6 +25,7 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
   targetDate,
   preSelectedRouteId,
   initialData,
+  existingTrips,
   routes,
   buses,
   onSave
@@ -104,6 +107,55 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
         return String(bus.defaultRouteId) === String(selectedRouteId) || !bus.defaultRouteId;
     });
   }, [buses, selectedRouteId, routes, initialData]);
+
+  // Warning Check Logic
+  const conflictWarning = useMemo(() => {
+      if (!selectedRouteId || !selectedBusId) return null;
+      
+      const route = routes.find(r => r.id === selectedRouteId);
+      // Skip check for Enhanced routes
+      if (route?.isEnhanced) return null; 
+
+      const selectedBus = buses.find(b => b.id === selectedBusId);
+      if (!selectedBus) return null;
+
+      // Filter trips for this day
+      const tripsOnDay = existingTrips.filter(t => {
+          const tDate = new Date(t.departureTime.split(' ')[0]);
+          return isSameDay(tDate, targetDate) && t.id !== initialData?.id; // Exclude self if editing
+      });
+
+      // Check 1: Same route, opposite direction with same plate
+      const sameRouteTrips = tripsOnDay.filter(t => 
+         (t.routeId && String(t.routeId) === String(selectedRouteId)) || t.route === route?.name
+      );
+      
+      const oppositeDirectionTrip = sameRouteTrips.find(t => 
+         t.direction !== direction && t.licensePlate === selectedBus.plate
+      );
+      
+      if (oppositeDirectionTrip) {
+         return {
+             title: "Xung đột chiều chạy",
+             message: `Xe ${selectedBus.plate} đã được xếp chạy chiều ngược lại (${oppositeDirectionTrip.direction === 'inbound' ? 'Chiều về' : 'Chiều đi'}) trong ngày này.`
+         };
+      }
+
+      // Check 2: Different route with same plate
+      const otherRouteTrip = tripsOnDay.find(t => {
+         const isDifferentRoute = (t.routeId && String(t.routeId) !== String(selectedRouteId)) || (t.route !== route?.name);
+         return isDifferentRoute && t.licensePlate === selectedBus.plate;
+      });
+
+      if (otherRouteTrip) {
+          return {
+             title: "Trùng xe với tuyến khác",
+             message: `Xe ${selectedBus.plate} đã được xếp cho tuyến "${otherRouteTrip.route}" trong ngày này.`
+          };
+      }
+
+      return null;
+  }, [selectedRouteId, selectedBusId, direction, existingTrips, targetDate, routes, buses, initialData]);
 
   const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawValue = e.target.value.replace(/\D/g, "");
@@ -348,6 +400,17 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
             </select>
           )}
         </div>
+
+        {/* Alert for Conflict */}
+        {conflictWarning && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex items-start gap-3 animate-in fade-in slide-in-from-top-1">
+                <AlertTriangle className="text-yellow-600 shrink-0 mt-0.5" size={18} />
+                <div>
+                    <h4 className="text-sm font-bold text-yellow-800">{conflictWarning.title}</h4>
+                    <p className="text-xs text-yellow-700 mt-0.5">{conflictWarning.message}</p>
+                </div>
+            </div>
+        )}
 
         <div className="grid grid-cols-2 gap-4">
           {/* Time */}
