@@ -1,13 +1,21 @@
 import React, { useState } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Ban, Zap } from 'lucide-react';
 
 interface CalendarProps {
   selected?: Date;
   onSelect?: (date: Date) => void;
   className?: string;
+  shutdownRange?: { start: string; end: string };
+  peakDays?: string[];
 }
 
-export const Calendar: React.FC<CalendarProps> = ({ selected, onSelect, className = '' }) => {
+export const Calendar: React.FC<CalendarProps> = ({ 
+  selected, 
+  onSelect, 
+  className = '',
+  shutdownRange,
+  peakDays = []
+}) => {
   const [viewDate, setViewDate] = useState(selected || new Date());
 
   const daysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
@@ -26,16 +34,32 @@ export const Calendar: React.FC<CalendarProps> = ({ selected, onSelect, classNam
     setViewDate(new Date(year, month + 1, 1));
   };
 
+  const isShutdownDay = (date: Date) => {
+    if (!shutdownRange?.start || !shutdownRange?.end) return false;
+    const check = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+    const start = new Date(shutdownRange.start).setHours(0, 0, 0, 0);
+    const end = new Date(shutdownRange.end).setHours(0, 0, 0, 0);
+    return check >= start && check <= end;
+  };
+
+  const isPeakDay = (date: Date) => {
+    const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    return peakDays.includes(dateStr);
+  };
+
   const handleDateClick = (e: React.MouseEvent, day: number) => {
     e.stopPropagation();
+    const newDate = new Date(year, month, day);
+    
+    // Prevent selection if shutdown day
+    if (isShutdownDay(newDate)) return;
+
     if (onSelect) {
-      const newDate = new Date(year, month, day);
       onSelect(newDate);
     }
   };
 
-  // Mock lunar calculation (Simple approximation: solar day +/- 15)
-  // In a real app, integrate a proper 'lunar-date-vi' library here.
+  // Mock lunar calculation
   const getLunarDay = (day: number) => {
     const lunar = day > 15 ? day - 15 : day + 15;
     return lunar; 
@@ -59,24 +83,57 @@ export const Calendar: React.FC<CalendarProps> = ({ selected, onSelect, classNam
       
       const isToday = new Date().toDateString() === currentDate.toDateString();
       const lunarDay = getLunarDay(day);
+      
+      const isShutdown = isShutdownDay(currentDate);
+      const isPeak = isPeakDay(currentDate);
+
+      // Styles
+      let bgClass = "hover:bg-slate-100 text-slate-900";
+      let borderClass = "border-transparent";
+      let textClass = "";
+      
+      if (isShutdown) {
+        bgClass = "bg-slate-100 text-slate-300 cursor-not-allowed decoration-slate-300";
+        borderClass = "border-transparent";
+      } else if (isSelected) {
+        bgClass = "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm";
+      } else if (isPeak) {
+        bgClass = "bg-red-50 hover:bg-red-100 text-red-700 font-bold";
+        borderClass = "border-red-200";
+      } else if (isToday) {
+        textClass = "text-primary font-semibold";
+        bgClass = "bg-primary/5";
+        borderClass = "border-primary/20";
+      }
 
       days.push(
         <button
           key={day}
           onClick={(e) => handleDateClick(e, day)}
+          disabled={isShutdown}
           className={`
-            h-10 w-10 p-1 rounded-md flex flex-col items-center justify-center transition-all border border-transparent
-            ${isSelected 
-              ? 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm' 
-              : 'hover:bg-slate-100 text-slate-900'
-            }
-            ${isToday && !isSelected ? 'text-primary border-primary/20 bg-primary/5 font-semibold' : ''}
+            relative h-10 w-10 p-1 rounded-md flex flex-col items-center justify-center transition-all border
+            ${bgClass}
+            ${borderClass}
+            ${textClass}
           `}
         >
-          <span className={`text-sm leading-none ${isSelected ? 'font-bold' : 'font-medium'}`}>{day}</span>
-          <span className={`text-[0.6rem] leading-none mt-0.5 ${isSelected ? 'text-primary-foreground/80' : 'text-slate-400'}`}>
+          <span className={`text-sm leading-none z-10 ${isSelected ? 'font-bold' : ''}`}>{day}</span>
+          <span className={`text-[0.6rem] leading-none mt-0.5 z-10 ${isSelected ? 'text-primary-foreground/80' : isShutdown ? 'text-slate-300' : 'text-slate-400'}`}>
             {lunarDay}
           </span>
+          
+          {/* Indicators */}
+          {isShutdown && (
+             <div className="absolute inset-0 flex items-center justify-center opacity-20">
+               <Ban size={24} className="text-slate-500" />
+             </div>
+          )}
+          {isPeak && !isShutdown && !isSelected && (
+             <div className="absolute top-0.5 right-0.5">
+               <div className="w-1.5 h-1.5 bg-red-500 rounded-full"></div>
+             </div>
+          )}
         </button>
       );
     }
@@ -105,6 +162,19 @@ export const Calendar: React.FC<CalendarProps> = ({ selected, onSelect, classNam
       </div>
       <div className="grid grid-cols-7 gap-1 text-center justify-items-center">
         {renderDays()}
+      </div>
+      
+      {/* Legend */}
+      <div className="mt-3 pt-3 border-t border-slate-100 flex justify-center gap-4 text-[10px] text-slate-500">
+         <div className="flex items-center gap-1.5">
+            <div className="w-2.5 h-2.5 rounded-sm bg-slate-200"></div> Nghỉ Tết
+         </div>
+         <div className="flex items-center gap-1.5">
+            <div className="w-2.5 h-2.5 rounded-sm bg-red-100 border border-red-200"></div> Cao điểm
+         </div>
+         <div className="flex items-center gap-1.5">
+            <div className="w-2.5 h-2.5 rounded-sm bg-primary"></div> Đang chọn
+         </div>
       </div>
     </div>
   );

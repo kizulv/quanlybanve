@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Bus,
   Calendar as CalendarIcon,
@@ -25,6 +25,12 @@ interface LayoutProps {
   routes: string[];
 }
 
+interface ScheduleSettings {
+  shutdownStartDate: string;
+  shutdownEndDate: string;
+  peakDays: string[];
+}
+
 export const Layout: React.FC<LayoutProps> = ({
   children,
   activeTab,
@@ -37,6 +43,33 @@ export const Layout: React.FC<LayoutProps> = ({
 }) => {
   // Default sidebar state set to false (Hidden by default)
   const [isSidebarOpen, setSidebarOpen] = useState(false);
+  const [scheduleSettings, setScheduleSettings] = useState<ScheduleSettings>({
+    shutdownStartDate: "",
+    shutdownEndDate: "",
+    peakDays: []
+  });
+
+  // Load schedule settings for calendar visualization
+  useEffect(() => {
+    const loadSettings = () => {
+      const saved = localStorage.getItem("vinabus_schedule_settings");
+      if (saved) {
+        try {
+          setScheduleSettings(JSON.parse(saved));
+        } catch (e) {
+          console.error("Failed to parse schedule settings", e);
+        }
+      }
+    };
+
+    loadSettings();
+    // Listen for storage events (if multiple tabs or update from ScheduleView)
+    window.addEventListener('storage', loadSettings);
+    // Custom event listener if we want instant updates within same window
+    // For now simple mount load is enough as switching tabs often re-renders Layout or we can rely on parent updates if we lifted state
+    
+    return () => window.removeEventListener('storage', loadSettings);
+  }, [activeTab]); // Reload when tab changes (e.g. coming back from Schedule tab)
 
   const navItems = [
     { id: "sales", icon: <Bus size={20} />, label: "Bán vé" },
@@ -247,6 +280,11 @@ export const Layout: React.FC<LayoutProps> = ({
                       onDateChange(date);
                       close();
                     }}
+                    shutdownRange={{ 
+                      start: scheduleSettings.shutdownStartDate, 
+                      end: scheduleSettings.shutdownEndDate 
+                    }}
+                    peakDays={scheduleSettings.peakDays}
                   />
                 )}
               />
