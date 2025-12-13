@@ -123,7 +123,17 @@ export const Layout: React.FC<LayoutProps> = ({
 
   // Logic to process Enhanced Routes labels
   const tripOptions = useMemo(() => {
-    // 1. First, map trips to include metadata (isEnhanced status)
+    // 1. Determine Route Sorting Order (Matches ScheduleView: Regular first, then Enhanced)
+    // We sort routes first, then use that order to sort the trips.
+    const sortedRouteIds = [...routes]
+      .sort((a, b) => {
+        // Sort by Enhanced status: Regular (false) < Enhanced (true)
+        if (!!a.isEnhanced !== !!b.isEnhanced) return a.isEnhanced ? 1 : -1;
+        return 0; // Maintain original ID order within same group
+      })
+      .map((r) => String(r.id));
+
+    // 2. Map trips with metadata
     const tripsWithMeta = availableTrips.map((trip) => {
       let isEnhanced = false;
 
@@ -158,20 +168,39 @@ export const Layout: React.FC<LayoutProps> = ({
         ...trip,
         isEnhanced,
         displayTime: trip.departureTime.split(" ")[1],
+        _rank: 0, // Placeholder for sorting rank
       };
     });
 
-    // 2. Sort: Regular trips first, then Enhanced trips. Within each group, sort by time.
-    tripsWithMeta.sort((a, b) => {
-      // Primary sort: isEnhanced (false comes before true)
-      if (a.isEnhanced !== b.isEnhanced) {
-        return a.isEnhanced ? 1 : -1;
+    // 3. Compute Ranks and Sort
+    // We assign a rank to each trip based on its Route's position in `sortedRouteIds`.
+    tripsWithMeta.forEach((t) => {
+      let rank = sortedRouteIds.indexOf(String(t.routeId));
+
+      // Fallback: Try to find by name if ID lookup failed
+      if (rank === -1 && t.route) {
+        const matchingRoute = routes.find((r) => r.name === t.route);
+        if (matchingRoute) {
+          rank = sortedRouteIds.indexOf(String(matchingRoute.id));
+        }
       }
-      // Secondary sort: departureTime
+
+      // If still not found (e.g. unknown route), push to bottom.
+      // Respect enhanced flag for these orphans.
+      if (rank === -1) {
+        rank = t.isEnhanced ? 9999 : 5000;
+      }
+
+      t._rank = rank;
+    });
+
+    // Sort: Primary by Route Rank, Secondary by Time
+    tripsWithMeta.sort((a, b) => {
+      if (a._rank !== b._rank) return a._rank - b._rank;
       return a.departureTime.localeCompare(b.departureTime);
     });
 
-    // 3. Calculate indices for enhanced trips (based on sorted time)
+    // 4. Calculate indices for enhanced trips
     const enhancedCounters: Record<string, number> = {};
 
     return tripsWithMeta.map((trip) => {
