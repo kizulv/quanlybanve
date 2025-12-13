@@ -33,6 +33,7 @@ import {
   Calendar,
   User,
   MoreHorizontal,
+  Users,
 } from "lucide-react";
 import { api } from "./lib/api";
 import { isSameDay } from "./utils/dateUtils";
@@ -129,21 +130,62 @@ function App() {
     );
   }, [bookings, selectedTrip]);
 
-  // Customer History Lookup
-  const customerHistory = useMemo(() => {
-    if (!bookingForm.phone || bookingForm.phone.length < 3) return [];
-    const cleanPhone = bookingForm.phone.replace(/\D/g, "");
+  // --- GROUPED HISTORY (MANIFEST) LOGIC ---
+  // Group bookings by Phone Number for the current trip
+  const groupedTripBookings = useMemo(() => {
+    if (!selectedTrip) return [];
 
-    return bookings
-      .filter((b) => {
-        const bPhone = b.passenger.phone.replace(/\D/g, "");
-        return bPhone.includes(cleanPhone);
-      })
-      .sort(
-        (a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      );
-  }, [bookings, bookingForm.phone]);
+    const groups: Record<
+      string,
+      {
+        phone: string;
+        displayPhone: string;
+        seats: string[];
+        totalPrice: number;
+        paidCash: number;
+        paidTransfer: number;
+        lastCreatedAt: string; // To show the latest booking time
+        passengerName: string;
+      }
+    > = {};
+
+    tripBookings.forEach((b) => {
+      // Normalize phone key
+      const rawPhone = b.passenger.phone || "";
+      const cleanPhone = rawPhone.replace(/\D/g, "");
+      
+      // If no phone (rare), group by "unknown" or skip
+      const key = cleanPhone || "unknown";
+
+      if (!groups[key]) {
+        groups[key] = {
+          phone: cleanPhone,
+          displayPhone: rawPhone,
+          seats: [],
+          totalPrice: 0,
+          paidCash: 0,
+          paidTransfer: 0,
+          lastCreatedAt: b.createdAt,
+          passengerName: b.passenger.name || "Khách lẻ"
+        };
+      }
+
+      groups[key].seats.push(b.seatId);
+      groups[key].totalPrice += b.totalPrice;
+      groups[key].paidCash += b.payment?.paidCash || 0;
+      groups[key].paidTransfer += b.payment?.paidTransfer || 0;
+      
+      // Keep track of the most recent activity for this phone
+      if (new Date(b.createdAt) > new Date(groups[key].lastCreatedAt)) {
+        groups[key].lastCreatedAt = b.createdAt;
+      }
+    });
+
+    // Sort by most recent booking time
+    return Object.values(groups).sort((a, b) => 
+        new Date(b.lastCreatedAt).getTime() - new Date(a.lastCreatedAt).getTime()
+    );
+  }, [tripBookings, selectedTrip]);
 
   // Auto update payment when total changes (optional: keep cash synced if transfer is 0)
   useEffect(() => {
@@ -777,83 +819,85 @@ function App() {
             </div>
           </div>
 
-          {/* CARD 2: CUSTOMER HISTORY (Minimal) */}
+          {/* CARD 2: TRIP BOOKING HISTORY (MANIFEST) */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col flex-1 min-h-0 overflow-hidden">
             <div className="px-3 py-2 bg-white border-b border-slate-100 flex justify-between items-center shrink-0">
               <div className="flex items-center gap-1.5 text-slate-800 font-bold text-xs">
-                <History size={14} className="text-slate-400" />
-                <span>Lịch sử đặt vé</span>
+                <Users size={14} className="text-slate-400" />
+                <span>Lịch sử đặt vé ({groupedTripBookings.length})</span>
               </div>
             </div>
 
             <div className="flex-1 overflow-y-auto p-0 scrollbar-thin scrollbar-thumb-slate-200">
-              {bookingForm.phone.length < 3 ? (
-                <div className="h-full flex flex-col items-center justify-center text-slate-300 p-4">
-                  <User size={24} className="mb-2 opacity-20" />
-                  <span className="text-[10px] text-center">
-                    Nhập SĐT để xem lịch sử
-                  </span>
-                </div>
-              ) : customerHistory.length === 0 ? (
+              {groupedTripBookings.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-slate-300 p-4">
                   <Ticket size={24} className="mb-2 opacity-20" />
                   <span className="text-[10px] text-center">
-                    Khách chưa có vé cũ
+                    Chưa có vé nào được đặt
                   </span>
                 </div>
               ) : (
                 <div className="divide-y divide-slate-50">
-                  {customerHistory.map((h) => {
-                    const hTrip = trips.find((t) => t.id === h.busId);
-                    const dateStr = hTrip
-                      ? hTrip.departureTime.split(" ")[0]
-                      : "";
-                    const timeStr = hTrip
-                      ? hTrip.departureTime.split(" ")[1]
-                      : "";
-                    const formattedDate = dateStr
-                      ? new Date(dateStr).toLocaleDateString("vi-VN")
-                      : "---";
+                  {groupedTripBookings.map((group, idx) => {
+                    const timeStr = new Date(group.lastCreatedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+                    
+                    // Format phone like 0868 868 304
+                    const formatPhone = (phone: string) => {
+                       if(phone.length >= 10) {
+                         return `${phone.slice(0, 4)} ${phone.slice(4, 7)} ${phone.slice(7)}`;
+                       }
+                       return phone;
+                    }
 
                     return (
                       <div
-                        key={h.id}
-                        className="p-2.5 hover:bg-slate-50 transition-colors group"
+                        key={idx}
+                        className="p-3 hover:bg-slate-50 transition-colors group"
                       >
-                        <div className="flex justify-between items-start mb-0.5">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-1 rounded">
-                              {h.seatId}
+                         {/* Row 1: Phone + Time */}
+                         <div className="flex justify-between items-center mb-1">
+                             <span className="text-sm font-bold text-blue-700">
+                                 {formatPhone(group.phone)}
+                             </span>
+                             <span className="text-[10px] text-slate-400 flex items-center">
+                                 <Clock size={10} className="mr-1"/> {timeStr}
+                             </span>
+                         </div>
+                         
+                         {/* Row 2: Ticket Count + Seat List */}
+                         <div className="flex items-start gap-2 mb-1.5">
+                             <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200 shrink-0">
+                                 {group.seats.length} vé
+                             </span>
+                             <div className="text-[11px] font-medium text-slate-700 break-words leading-tight">
+                                 {group.seats.join(", ")}
+                             </div>
+                         </div>
+
+                         {/* Row 3: Total Price */}
+                         <div className="flex justify-between items-baseline mb-1">
+                            <span className="text-[10px] text-slate-500">Tổng tiền:</span>
+                            <span className="text-sm font-bold text-slate-900">
+                                {group.totalPrice.toLocaleString('vi-VN')} đ
                             </span>
-                            <span
-                              className="text-[11px] font-bold text-slate-700 truncate max-w-[120px]"
-                              title={hTrip?.route}
-                            >
-                              {hTrip?.route || "Chuyến cũ"}
-                            </span>
-                          </div>
-                          <span
-                            className={`text-[10px] font-bold ${
-                              h.status === "confirmed"
-                                ? "text-green-600"
-                                : "text-slate-400"
-                            }`}
-                          >
-                            {h.totalPrice.toLocaleString()}đ
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center text-[10px] text-slate-400 group-hover:text-slate-500">
-                          <div className="flex items-center gap-1">
-                            <span>{formattedDate}</span>
-                            <span className="text-slate-300">•</span>
-                            <span>{timeStr}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <span className="truncate max-w-[80px]">
-                              {h.passenger.pickupPoint || ""}
-                            </span>
-                          </div>
-                        </div>
+                         </div>
+                         
+                         {/* Row 4: Breakdown */}
+                         <div className="flex justify-end gap-3 text-[10px]">
+                            {group.paidCash > 0 && (
+                                <span className="text-green-600 font-medium">
+                                    TM: {group.paidCash.toLocaleString()}
+                                </span>
+                            )}
+                            {group.paidTransfer > 0 && (
+                                <span className="text-blue-600 font-medium">
+                                    CK: {group.paidTransfer.toLocaleString()}
+                                </span>
+                            )}
+                            {group.paidCash === 0 && group.paidTransfer === 0 && (
+                                <span className="text-slate-400 italic">Chưa thanh toán</span>
+                            )}
+                         </div>
                       </div>
                     );
                   })}
