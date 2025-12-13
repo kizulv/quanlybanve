@@ -135,7 +135,9 @@ export const Layout: React.FC<LayoutProps> = ({
       let enhancedIndex = 0;
 
       // Check purely by name or a specific property if added later
+      // Cast trip to any to check for isEnhanced property if it exists dynamically
       if (
+        (trip as any).isEnhanced || 
         trip.name.toLowerCase().includes("tăng cường") ||
         trip.route.toLowerCase().includes("tăng cường")
       ) {
@@ -331,7 +333,7 @@ export const Layout: React.FC<LayoutProps> = ({
               <Popover
                 align="right"
                 trigger={
-                  <div className="flex items-center justify-between gap-3 h-9 px-3 border border-slate-200 rounded-md bg-white hover:bg-slate-50 hover:border-slate-300 transition-colors select-none cursor-pointer min-w-[220px] max-w-[300px]">
+                  <div className="flex items-center justify-between gap-3 h-9 px-3 border border-slate-200 rounded-md bg-white hover:bg-slate-50 hover:border-slate-300 transition-colors select-none cursor-pointer min-w-[220px] max-w-[320px]">
                     <div className="flex items-center gap-2 overflow-hidden">
                       <MapPin size={16} className="text-slate-500 shrink-0" />
                       {selectedTripDisplay ? (
@@ -358,7 +360,7 @@ export const Layout: React.FC<LayoutProps> = ({
                   </div>
                 }
                 content={(close) => (
-                  <div className="w-[320px] max-h-[400px] overflow-y-auto bg-white rounded-lg border border-slate-200 shadow-xl p-1">
+                  <div className="w-[340px] max-h-[400px] overflow-y-auto bg-white rounded-lg border border-slate-200 shadow-xl p-1.5">
                     {tripOptions.length === 0 ? (
                       <div className="p-8 text-center text-slate-500">
                         <BusFront
@@ -380,7 +382,7 @@ export const Layout: React.FC<LayoutProps> = ({
                                 onTripChange(trip.id);
                                 close();
                               }}
-                              className={`w-full text-left p-2.5 rounded-md transition-all flex items-start gap-3 group ${
+                              className={`w-full text-left p-2.5 rounded-md transition-all flex items-center gap-3 group ${
                                 isSelected
                                   ? "bg-primary/5 border border-primary/20"
                                   : "hover:bg-slate-50 border border-transparent"
@@ -400,28 +402,28 @@ export const Layout: React.FC<LayoutProps> = ({
                               {/* Info Column */}
                               <div className="flex-1 min-w-0">
                                 <div
-                                  className={`text-sm font-medium truncate ${
+                                  className={`text-sm font-medium flex items-center gap-2 ${
                                     isSelected
                                       ? "text-primary"
                                       : "text-slate-900"
                                   }`}
                                 >
-                                  {trip.route}
+                                  <span className="truncate">{trip.route}</span>
                                   {trip.isEnhanced && (
-                                    <span className="inline-flex items-center ml-1.5 text-[10px] bg-orange-100 text-orange-700 px-1 rounded border border-orange-200 h-4 align-middle">
+                                    <span className="shrink-0 inline-flex items-center text-[9px] font-bold bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded-full border border-orange-200">
                                       <Zap
                                         size={8}
                                         className="mr-0.5 fill-orange-700"
-                                      />{" "}
-                                      #{trip.enhancedIndex}
+                                      />
+                                      Tăng cường {trip.enhancedIndex > 0 ? `#${trip.enhancedIndex}` : ''}
                                     </span>
                                   )}
                                 </div>
                                 <div className="flex items-center gap-2 mt-0.5">
-                                  <span className="text-xs text-slate-500 bg-slate-100 px-1 rounded">
+                                  <span className="text-xs text-slate-500 bg-slate-100 px-1.5 rounded font-mono border border-slate-200/50">
                                     {trip.licensePlate}
                                   </span>
-                                  <span className="text-[10px] text-slate-400 border-l border-slate-200 pl-2">
+                                  <span className="text-[10px] text-slate-400 pl-1 border-l border-slate-200">
                                     {trip.type === BusType.CABIN
                                       ? "Xe Phòng"
                                       : "Giường đơn"}
@@ -433,7 +435,7 @@ export const Layout: React.FC<LayoutProps> = ({
                               {isSelected && (
                                 <Check
                                   size={16}
-                                  className="text-primary mt-1"
+                                  className="text-primary ml-auto"
                                 />
                               )}
                             </button>
