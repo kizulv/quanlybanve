@@ -131,7 +131,7 @@ function App() {
   }, [bookings, selectedTrip]);
 
   // --- GROUPED HISTORY (MANIFEST) LOGIC ---
-  // Group bookings by Phone Number for the current trip
+  // Group bookings by Phone Number + CreatedAt for the current trip
   const groupedTripBookings = useMemo(() => {
     if (!selectedTrip) return [];
 
@@ -154,8 +154,9 @@ function App() {
       const rawPhone = b.passenger.phone || "";
       const cleanPhone = rawPhone.replace(/\D/g, "");
       
-      // If no phone (rare), group by "unknown" or skip
-      const key = cleanPhone || "unknown";
+      // Group by Phone AND Time (to separate different booking sessions)
+      // Key format: PHONE_TIMESTAMP
+      const key = `${cleanPhone || "unknown"}_${b.createdAt}`;
 
       if (!groups[key]) {
         groups[key] = {
@@ -175,7 +176,7 @@ function App() {
       groups[key].paidCash += b.payment?.paidCash || 0;
       groups[key].paidTransfer += b.payment?.paidTransfer || 0;
       
-      // Keep track of the most recent activity for this phone
+      // Update time if somehow out of order (though usually same batch has same time)
       if (new Date(b.createdAt) > new Date(groups[key].lastCreatedAt)) {
         groups[key].lastCreatedAt = b.createdAt;
       }
