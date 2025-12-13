@@ -56,7 +56,7 @@ export const Layout: React.FC<LayoutProps> = ({
   onTripChange,
   selectedDirection = "outbound",
   onDirectionChange,
-  routes,
+  routes = [], // Default empty array to prevent crash
 }) => {
   // Default sidebar state set to false (Hidden by default)
   const [isSidebarOpen, setSidebarOpen] = useState(false);
@@ -133,25 +133,34 @@ export const Layout: React.FC<LayoutProps> = ({
 
     return sorted.map((trip) => {
       const time = trip.departureTime.split(" ")[1];
-      let displayName = `${time} - ${trip.route}`;
       let isEnhanced = false;
       let enhancedIndex = 0;
 
-      // 1. Check if the underlying Route is enhanced
-      const parentRoute = routes.find(
-        (r) => String(r.id) === String(trip.routeId) || r.name === trip.route
-      );
+      // --- LOGIC NHẬN DIỆN TUYẾN TĂNG CƯỜNG ---
+      
+      // 1. Check by ID (Most reliable)
+      const routeById = routes.find(r => String(r.id) === String(trip.routeId));
+      if (routeById?.isEnhanced) {
+        isEnhanced = true;
+      }
+      
+      // 2. Check by Name (Fallback if ID missing/mismatched)
+      if (!isEnhanced && trip.route) {
+         const routeByName = routes.find(r => r.name === trip.route);
+         if (routeByName?.isEnhanced) {
+           isEnhanced = true;
+         }
+      }
 
-      if (parentRoute?.isEnhanced) {
-        isEnhanced = true;
-      } 
-      // 2. Fallback: Check trip properties or name
-      else if (
-        (trip as any).isEnhanced ||
-        trip.name.toLowerCase().includes("tăng cường") ||
-        trip.route.toLowerCase().includes("tăng cường")
-      ) {
-        isEnhanced = true;
+      // 3. Fallback: Check if trip name or route string contains "tăng cường" (Legacy data)
+      if (!isEnhanced) {
+        if (
+          (trip as any).isEnhanced ||
+          trip.name?.toLowerCase().includes("tăng cường") ||
+          trip.route?.toLowerCase().includes("tăng cường")
+        ) {
+          isEnhanced = true;
+        }
       }
 
       // If enhanced, calculate index (e.g., Enhanced Trip #1, #2)
@@ -347,7 +356,7 @@ export const Layout: React.FC<LayoutProps> = ({
               <Popover
                 align="right"
                 trigger={
-                  <div className="flex items-center justify-between gap-3 h-9 px-3 border border-slate-200 rounded-md bg-white hover:bg-slate-50 hover:border-slate-300 transition-colors select-none cursor-pointer min-w-[220px] max-w-[320px]">
+                  <div className="flex items-center justify-between gap-3 h-9 px-3 border border-slate-200 rounded-md bg-white hover:bg-slate-50 hover:border-slate-300 transition-colors select-none cursor-pointer min-w-[220px] max-w-[340px]">
                     <div className="flex items-center gap-2 overflow-hidden">
                       <MapPin size={16} className="text-slate-500 shrink-0" />
                       {selectedTripDisplay ? (
@@ -356,8 +365,9 @@ export const Layout: React.FC<LayoutProps> = ({
                             {selectedTripDisplay.displayTime} - {selectedTripDisplay.route}
                           </span>
                           {selectedTripDisplay.isEnhanced && (
-                            <span className="shrink-0 inline-flex items-center text-[10px] font-bold bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded border border-orange-200">
-                              <Zap size={10} className="mr-0.5 fill-orange-700" /> TC #{selectedTripDisplay.enhancedIndex}
+                            <span className="shrink-0 inline-flex items-center text-[10px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200 whitespace-nowrap">
+                              <Zap size={10} className="mr-0.5 fill-amber-700" /> 
+                              {selectedTripDisplay.enhancedIndex > 0 ? `TC #${selectedTripDisplay.enhancedIndex}` : 'Tăng cường'}
                             </span>
                           )}
                         </div>
@@ -374,7 +384,7 @@ export const Layout: React.FC<LayoutProps> = ({
                   </div>
                 }
                 content={(close) => (
-                  <div className="w-[340px] max-h-[400px] overflow-y-auto bg-white rounded-lg border border-slate-200 shadow-xl p-1.5">
+                  <div className="w-[360px] max-h-[400px] overflow-y-auto bg-white rounded-lg border border-slate-200 shadow-xl p-1.5">
                     {tripOptions.length === 0 ? (
                       <div className="p-8 text-center text-slate-500">
                         <BusFront
@@ -416,7 +426,7 @@ export const Layout: React.FC<LayoutProps> = ({
                               {/* Info Column */}
                               <div className="flex-1 min-w-0">
                                 <div
-                                  className={`text-sm font-medium flex items-center gap-2 ${
+                                  className={`text-sm font-medium flex items-center gap-1.5 ${
                                     isSelected
                                       ? "text-primary"
                                       : "text-slate-900"
@@ -424,10 +434,10 @@ export const Layout: React.FC<LayoutProps> = ({
                                 >
                                   <span className="truncate">{trip.route}</span>
                                   {trip.isEnhanced && (
-                                    <span className="shrink-0 inline-flex items-center text-[9px] font-bold bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded-full border border-orange-200">
+                                    <span className="shrink-0 inline-flex items-center text-[9px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200 shadow-sm ml-auto md:ml-0">
                                       <Zap
-                                        size={8}
-                                        className="mr-0.5 fill-orange-700"
+                                        size={9}
+                                        className="mr-0.5 fill-amber-700"
                                       />
                                       Tăng cường {trip.enhancedIndex > 0 ? `#${trip.enhancedIndex}` : ''}
                                     </span>

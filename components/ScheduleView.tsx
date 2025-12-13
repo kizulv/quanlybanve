@@ -194,14 +194,14 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
     return (
       <div
         key={trip.id}
-        className="group relative flex flex-col items-start gap-2 p-3 rounded-lg border border-slate-200 hover:border-primary/30 hover:bg-slate-50 transition-all bg-white shadow-sm min-w-[160px] md:min-w-[180px]"
+        className="group relative flex flex-col items-start gap-2 p-3 rounded-lg border border-slate-200 hover:border-primary/30 hover:bg-slate-50 transition-all bg-white shadow-sm w-1/2 md:w-1/4"
       >
         {/* Header: Time & Direction Badge */}
         <div className="w-full flex justify-between items-start">
           <div className="flex items-center gap-2">
             <Badge
               variant="outline"
-              className="bg-slate-100 font-mono text-slate-700 border-slate-200"
+              className="bg-slate-100 text-slate-700 border-slate-200"
             >
               {formatTime(trip.departureTime)}
             </Badge>
