@@ -399,9 +399,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                               <div className="font-bold text-slate-900 text-base">
                                 {bus.plate}
                               </div>
-                              <div className="text-xs text-slate-400 font-mono">
-                                ID: {bus.id.slice(-6)}
-                              </div>
                             </div>
                           </div>
                         </td>
@@ -419,7 +416,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                                   className="text-blue-500"
                                 />
                               )}
-                              {isCabin ? "Xe Phòng" : "Giường Đơn"}
+                              {isCabin ? "Xe Phòng VIP" : "Xe Giường Đơn"}
                             </div>
                             <span className="text-xs text-slate-500 pl-6">
                               {bus.seats} chỗ
