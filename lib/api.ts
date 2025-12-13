@@ -73,7 +73,12 @@ export const api = {
       await delay(200);
       return db.bookings.find();
     },
-    create: async (tripId: string, seats: Seat[], passenger: Passenger) => {
+    create: async (
+        tripId: string, 
+        seats: Seat[], 
+        passenger: Passenger, 
+        payment?: { paidCash: number; paidTransfer: number }
+    ) => {
       await delay(400); // Simulate transaction
       
       const trip = await db.trips.findById(tripId);
@@ -84,6 +89,8 @@ export const api = {
 
       // Create booking records
       for (const seat of seats) {
+        // Calculate proportional payment if needed, for now just attaching to first seat or splitting conceptually?
+        // In this simple model, we attach payment info to the booking record.
         const booking: Booking = {
           id: `BK-${Date.now()}-${seat.id}`,
           seatId: seat.id,
@@ -91,7 +98,8 @@ export const api = {
           passenger,
           status: 'confirmed',
           createdAt: now,
-          totalPrice: seat.price
+          totalPrice: seat.price,
+          payment: payment // Attach payment info
         };
         await db.bookings.insertOne(booking);
         newBookings.push(booking);

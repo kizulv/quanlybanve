@@ -26,6 +26,8 @@ export interface Passenger {
   phone: string;
   email?: string;
   note?: string;
+  pickupPoint?: string; // New
+  dropoffPoint?: string; // New
 }
 
 export interface Booking {
@@ -36,6 +38,10 @@ export interface Booking {
   status: "pending" | "confirmed" | "cancelled";
   createdAt: string;
   totalPrice: number;
+  payment?: {
+    paidCash: number;
+    paidTransfer: number;
+  };
 }
 
 export interface BusTrip {
