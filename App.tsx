@@ -32,6 +32,7 @@ import {
   History,
   Calendar,
   User,
+  MoreHorizontal,
 } from "lucide-react";
 import { api } from "./lib/api";
 import { isSameDay } from "./utils/dateUtils";
@@ -431,192 +432,187 @@ function App() {
           </div>
         </div>
 
-        {/* RIGHT COLUMN: SPLIT INTO 2 CARDS (Booking Form & History) */}
-        <div className="w-full md:w-[340px] xl:w-[380px] flex flex-col gap-2 shrink-0 h-full">
+        {/* RIGHT COLUMN: BOOKING FORM & HISTORY (Clean, Flat Design) */}
+        <div className="w-full md:w-[320px] xl:w-[360px] flex flex-col gap-2 shrink-0 h-full">
           
           {/* CARD 1: BOOKING FORM (Top) */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col overflow-hidden shrink-0">
-            <div className="p-2.5 bg-gradient-to-r from-blue-600 to-blue-500 text-white font-bold flex items-center justify-between shadow-sm">
-              <div className="flex items-center gap-2 text-sm">
-                <Ticket size={16} className="text-white/90" />
+            <div className="p-2.5 bg-white border-b border-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm font-bold text-slate-800">
+                <Ticket size={16} className="text-primary" />
                 Thông tin đặt vé
               </div>
-              <div className="text-[10px] bg-white/20 px-2 py-0.5 rounded text-white/90">
-                {selectedSeats.length} vé
+              <div className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                {selectedSeats.length} vé đang chọn
               </div>
             </div>
 
-            <div className="p-2.5 space-y-2 bg-slate-50/30">
-              {/* Selected Seats Summary */}
-              {selectedSeats.length > 0 ? (
-                <div className="bg-white p-2 rounded-lg border border-blue-100 shadow-sm flex flex-wrap gap-1.5">
-                  {selectedSeats.map((s) => (
+            <div className="p-3 space-y-3">
+              {/* Selected Seats */}
+              <div className="flex flex-wrap gap-1 min-h-[24px]">
+                 {selectedSeats.length > 0 ? selectedSeats.map((s) => (
                     <Badge
                       key={s.id}
-                      className="bg-blue-50 text-blue-700 border border-blue-200 shadow-sm text-xs py-0 px-1.5"
+                      className="bg-blue-50 text-blue-700 border border-blue-100 font-mono text-xs py-0.5 px-1.5 rounded-md"
                     >
                       {s.label}
                     </Badge>
-                  ))}
-                </div>
-              ) : (
-                <div className="bg-white border border-dashed border-slate-300 rounded-lg p-2 text-center text-slate-400 text-xs">
-                  Chưa chọn ghế nào
-                </div>
-              )}
+                  )) : (
+                     <span className="text-xs text-slate-400 italic pl-1">Chưa chọn ghế nào...</span>
+                  )}
+              </div>
 
-              <form id="booking-form" onSubmit={handleBookingSubmit} className="space-y-2">
-                {/* Phone Input */}
-                <div className="bg-white p-2 rounded-lg border border-slate-200 shadow-sm">
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                    Số điện thoại <span className="text-red-500">*</span>
-                  </label>
+              <form id="booking-form" onSubmit={handleBookingSubmit} className="space-y-2.5">
+                {/* Phone Input - Flat */}
+                <div>
                   <div className="relative">
-                    <Phone className="absolute left-2 top-2 text-primary" size={14} />
                     <input
                       type="tel"
                       name="phone"
                       value={bookingForm.phone}
                       onChange={handleInputChange}
-                      className="w-full pl-7 pr-2 py-1.5 border border-slate-200 rounded text-sm focus:ring-1 focus:ring-primary/50 outline-none font-bold text-slate-900 placeholder-slate-300 h-8"
-                      placeholder="Nhập SĐT..."
+                      className="w-full pl-8 pr-2 py-1.5 bg-slate-50 border border-transparent rounded-md text-sm font-bold text-slate-900 placeholder-slate-400 focus:bg-white focus:border-primary/30 focus:ring-2 focus:ring-primary/10 outline-none transition-all"
+                      placeholder="Số điện thoại khách..."
                       required
                       autoFocus
                     />
+                    <Phone className="absolute left-2.5 top-2 text-slate-400" size={14} />
                   </div>
                 </div>
 
-                {/* Pickup / Dropoff */}
-                <div className="bg-white p-2 rounded-lg border border-slate-200 shadow-sm space-y-2">
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="flex items-center gap-1 text-[10px] font-bold text-green-700 mb-1">
-                        <MapPin size={10} className="fill-green-600 text-white" /> Điểm đón
-                      </label>
-                      <input
+                {/* Pickup / Dropoff - Grid, Flat */}
+                <div className="grid grid-cols-2 gap-2">
+                    <div className="relative">
+                       <MapPin className="absolute left-2 top-2 text-green-600" size={12} />
+                       <input
                         type="text"
                         name="pickup"
                         value={bookingForm.pickup}
                         onChange={handleInputChange}
-                        className="w-full px-2 py-1.5 border border-slate-200 rounded text-xs focus:ring-1 focus:ring-green-500/50 outline-none h-7"
-                        placeholder="Tại bến..."
+                        className="w-full pl-6 pr-2 py-1.5 bg-slate-50 border border-transparent rounded-md text-xs font-medium focus:bg-white focus:border-green-500/30 focus:ring-2 focus:ring-green-500/10 outline-none transition-all"
+                        placeholder="Điểm đón..."
                       />
                     </div>
-                    <div>
-                      <label className="flex items-center gap-1 text-[10px] font-bold text-red-600 mb-1">
-                        <MapPin size={10} className="fill-red-500 text-white" /> Điểm trả
-                      </label>
-                      <input
+                    <div className="relative">
+                       <MapPin className="absolute left-2 top-2 text-red-500" size={12} />
+                       <input
                         type="text"
                         name="dropoff"
                         value={bookingForm.dropoff}
                         onChange={handleInputChange}
-                        className="w-full px-2 py-1.5 border border-slate-200 rounded text-xs focus:ring-1 focus:ring-red-500/50 outline-none h-7"
-                        placeholder="Tại bến..."
+                        className="w-full pl-6 pr-2 py-1.5 bg-slate-50 border border-transparent rounded-md text-xs font-medium focus:bg-white focus:border-red-500/30 focus:ring-2 focus:ring-red-500/10 outline-none transition-all"
+                        placeholder="Điểm trả..."
                       />
                     </div>
-                  </div>
                 </div>
 
-                {/* Note */}
-                <div className="bg-white p-2 rounded-lg border border-slate-200 shadow-sm">
-                   <div className="relative">
-                      <MessageSquare className="absolute left-2 top-2 text-slate-400" size={14} />
-                      <textarea
-                        name="note"
-                        value={bookingForm.note}
-                        onChange={handleInputChange}
-                        className="w-full pl-7 pr-2 py-1.5 border border-slate-200 rounded text-xs focus:ring-1 focus:ring-primary/50 outline-none resize-none h-8 placeholder-slate-300"
-                        placeholder="Ghi chú..."
-                      />
-                   </div>
+                {/* Note - Flat */}
+                <div className="relative">
+                   <MessageSquare className="absolute left-2.5 top-2 text-slate-400" size={14} />
+                   <textarea
+                    name="note"
+                    value={bookingForm.note}
+                    onChange={handleInputChange}
+                    className="w-full pl-8 pr-2 py-1.5 bg-slate-50 border border-transparent rounded-md text-xs font-medium focus:bg-white focus:border-primary/30 focus:ring-2 focus:ring-primary/10 outline-none resize-none h-8 placeholder-slate-400 transition-all"
+                    placeholder="Ghi chú..."
+                  />
                 </div>
 
-                {/* Payment */}
-                <div className="bg-slate-800 p-2.5 rounded-lg border border-slate-700 text-white shadow-md">
-                  <div className="flex justify-between items-end border-b border-slate-600 pb-1.5 mb-2">
-                    <span className="text-[10px] font-medium text-slate-300">Tổng tiền</span>
-                    <span className="text-base font-bold text-white tracking-tight">
+                {/* Payment - Receipt Style (No heavy box) */}
+                <div className="pt-2 border-t border-dashed border-slate-200">
+                  <div className="flex justify-between items-baseline mb-2 px-1">
+                    <span className="text-[11px] font-bold text-slate-500 uppercase">Tổng tiền</span>
+                    <span className="text-base font-bold text-slate-900">
                       {totalPrice.toLocaleString("vi-VN")} <span className="text-[10px] font-normal text-slate-400">đ</span>
                     </span>
                   </div>
+                  
                   <div className="grid grid-cols-2 gap-2">
                     <div className="relative">
-                      <Banknote className="absolute left-2 top-1.5 text-slate-500" size={12} />
+                      <span className="absolute left-2 top-1.5 text-[10px] font-bold text-slate-400 uppercase">TM</span>
                       <input
                         placeholder="0"
                         type="text"
                         name="paidCash"
                         value={bookingForm.paidCash.toLocaleString("vi-VN")}
                         onChange={handleMoneyChange}
-                        className="w-full pl-6 pr-2 py-1 border border-slate-600 bg-slate-700 rounded text-[11px] font-bold text-right focus:ring-1 focus:ring-green-500/50 outline-none text-white h-7"
+                        className="w-full pl-8 pr-2 py-1 bg-slate-50 border border-slate-200 rounded text-[11px] font-bold text-right focus:border-green-500 focus:ring-1 focus:ring-green-500 outline-none text-slate-900 h-7"
                       />
                     </div>
                     <div className="relative">
-                      <CreditCard className="absolute left-2 top-1.5 text-slate-500" size={12} />
+                      <span className="absolute left-2 top-1.5 text-[10px] font-bold text-slate-400 uppercase">CK</span>
                       <input
                         placeholder="0"
                         type="text"
                         name="paidTransfer"
                         value={bookingForm.paidTransfer.toLocaleString("vi-VN")}
                         onChange={handleMoneyChange}
-                        className="w-full pl-6 pr-2 py-1 border border-slate-600 bg-slate-700 rounded text-[11px] font-bold text-right focus:ring-1 focus:ring-blue-500/50 outline-none text-white h-7"
+                        className="w-full pl-8 pr-2 py-1 bg-slate-50 border border-slate-200 rounded text-[11px] font-bold text-right focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none text-slate-900 h-7"
                       />
                     </div>
                   </div>
+                  
+                   {/* Balance Text */}
+                   <div className="mt-1 text-[10px] text-right px-1 h-4">
+                    {(() => {
+                        const paid = bookingForm.paidCash + bookingForm.paidTransfer;
+                        const diff = totalPrice - paid;
+                        if (totalPrice > 0) {
+                            if (diff === 0) return <span className="text-green-600 font-bold">Đã thanh toán đủ</span>;
+                            if (diff > 0) return <span className="text-red-500 font-medium">Thiếu: {diff.toLocaleString()}đ</span>;
+                            if (diff < 0) return <span className="text-blue-600 font-medium">Thừa: {Math.abs(diff).toLocaleString()}đ</span>;
+                        }
+                        return null;
+                    })()}
+                   </div>
                 </div>
               </form>
             </div>
             
             {/* Action Buttons */}
-            <div className="p-2 bg-white border-t border-slate-200 flex gap-2">
+            <div className="p-2 bg-slate-50 border-t border-slate-200 flex gap-2">
                 <Button
                   type="button"
                   variant="outline"
-                  className="flex-1 border-slate-300 text-slate-600 hover:bg-slate-50 h-8 text-xs"
+                  className="flex-1 bg-white border-slate-200 text-slate-600 hover:bg-slate-100 h-8 text-xs font-medium"
                   onClick={cancelSelection}
                   disabled={selectedSeats.length === 0}
                 >
-                  <RotateCcw size={14} className="mr-1.5" /> Hủy
+                  <RotateCcw size={13} className="mr-1.5" /> Hủy
                 </Button>
                 <Button
                   type="submit"
                   form="booking-form"
-                  className="flex-[2] bg-blue-600 hover:bg-blue-700 text-white font-bold h-8 text-xs shadow-md shadow-blue-500/20"
+                  className="flex-[2] bg-primary hover:bg-primary/90 text-white font-bold h-8 text-xs shadow-sm"
                   disabled={selectedSeats.length === 0}
                 >
-                  <CheckCircle2 size={14} className="mr-1.5" /> Đặt vé
+                  <CheckCircle2 size={13} className="mr-1.5" /> Đặt vé
                 </Button>
             </div>
           </div>
 
-          {/* CARD 2: CUSTOMER HISTORY (Bottom - Fills remaining space) */}
+          {/* CARD 2: CUSTOMER HISTORY (Minimal) */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col flex-1 min-h-0 overflow-hidden">
-             <div className="px-3 py-2 bg-slate-50 border-b border-slate-100 flex justify-between items-center shrink-0">
-                <div className="flex items-center gap-1.5 text-slate-700 font-bold text-xs uppercase">
-                   <History size={14} /> 
+             <div className="px-3 py-2 bg-white border-b border-slate-100 flex justify-between items-center shrink-0">
+                <div className="flex items-center gap-1.5 text-slate-800 font-bold text-xs">
+                   <History size={14} className="text-slate-400" /> 
                    <span>Lịch sử đặt vé</span>
                 </div>
-                {bookingForm.phone.length > 3 && (
-                   <span className="text-[10px] text-slate-400 font-normal">
-                      SĐT: ...{bookingForm.phone.slice(-4)}
-                   </span>
-                )}
              </div>
              
              <div className="flex-1 overflow-y-auto p-0 scrollbar-thin scrollbar-thumb-slate-200">
                 {bookingForm.phone.length < 3 ? (
                     <div className="h-full flex flex-col items-center justify-center text-slate-300 p-4">
-                        <User size={32} className="mb-2 opacity-20" />
-                        <span className="text-xs text-center">Nhập số điện thoại để xem lịch sử</span>
+                        <User size={24} className="mb-2 opacity-20" />
+                        <span className="text-[10px] text-center">Nhập SĐT để xem lịch sử</span>
                     </div>
                 ) : customerHistory.length === 0 ? (
                     <div className="h-full flex flex-col items-center justify-center text-slate-300 p-4">
-                        <Ticket size={32} className="mb-2 opacity-20" />
-                        <span className="text-xs text-center">Khách hàng mới chưa có vé</span>
+                        <Ticket size={24} className="mb-2 opacity-20" />
+                        <span className="text-[10px] text-center">Khách chưa có vé cũ</span>
                     </div>
                 ) : (
-                    <div className="divide-y divide-slate-100">
+                    <div className="divide-y divide-slate-50">
                        {customerHistory.map(h => {
                            const hTrip = trips.find(t => t.id === h.busId);
                            const dateStr = hTrip ? hTrip.departureTime.split(' ')[0] : '';
@@ -624,13 +620,11 @@ function App() {
                            const formattedDate = dateStr ? new Date(dateStr).toLocaleDateString('vi-VN') : '---';
 
                            return (
-                             <div key={h.id} className="p-2.5 hover:bg-slate-50 transition-colors">
-                                <div className="flex justify-between items-start mb-1">
+                             <div key={h.id} className="p-2.5 hover:bg-slate-50 transition-colors group">
+                                <div className="flex justify-between items-start mb-0.5">
                                    <div className="flex items-center gap-1.5">
-                                      <Badge variant="outline" className="text-[10px] px-1 h-4 border-slate-300 text-slate-600 font-mono">
-                                        {h.seatId}
-                                      </Badge>
-                                      <span className="text-xs font-bold text-slate-800 truncate max-w-[140px]" title={hTrip?.route}>
+                                      <span className="font-mono text-[10px] font-bold bg-slate-100 text-slate-600 px-1 rounded">{h.seatId}</span>
+                                      <span className="text-[11px] font-bold text-slate-700 truncate max-w-[120px]" title={hTrip?.route}>
                                          {hTrip?.route || "Chuyến cũ"}
                                       </span>
                                    </div>
@@ -638,15 +632,14 @@ function App() {
                                       {h.totalPrice.toLocaleString()}đ
                                    </span>
                                 </div>
-                                <div className="flex justify-between items-center text-[10px] text-slate-400">
+                                <div className="flex justify-between items-center text-[10px] text-slate-400 group-hover:text-slate-500">
                                     <div className="flex items-center gap-1">
-                                       <Calendar size={10} /> {formattedDate}
-                                       <span className="w-0.5 h-0.5 bg-slate-300 rounded-full mx-0.5"></span>
-                                       <Clock size={10} /> {timeStr}
+                                       <span>{formattedDate}</span>
+                                       <span className="text-slate-300">•</span>
+                                       <span>{timeStr}</span>
                                     </div>
                                     <div className="flex items-center gap-1">
-                                       {h.passenger.pickupPoint && <MapPin size={10} />}
-                                       <span className="truncate max-w-[80px]">{h.passenger.pickupPoint || '---'}</span>
+                                       <span className="truncate max-w-[80px]">{h.passenger.pickupPoint || ''}</span>
                                     </div>
                                 </div>
                              </div>
