@@ -838,7 +838,7 @@ function App() {
                   </span>
                 </div>
               ) : (
-                <div className="divide-y divide-slate-50">
+                <div>
                   {groupedTripBookings.map((group, idx) => {
                     const timeStr = new Date(group.lastCreatedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
                     
@@ -853,52 +853,56 @@ function App() {
                     return (
                       <div
                         key={idx}
-                        className="p-3 hover:bg-slate-50 transition-colors group"
+                        className="p-2 border-b border-slate-100 hover:bg-slate-50 transition-colors group"
                       >
                          {/* Row 1: Phone + Time */}
                          <div className="flex justify-between items-center mb-1">
-                             <span className="text-sm font-bold text-blue-700">
-                                 {formatPhone(group.phone)}
-                             </span>
-                             <span className="text-[10px] text-slate-400 flex items-center">
-                                 <Clock size={10} className="mr-1"/> {timeStr}
+                             <div className="flex items-center gap-1.5">
+                                <span className="text-xs font-bold text-indigo-800">
+                                    {formatPhone(group.phone)}
+                                </span>
+                             </div>
+                             <span className="text-[10px] text-slate-400">
+                                 {timeStr}
                              </span>
                          </div>
                          
-                         {/* Row 2: Ticket Count + Seat List */}
-                         <div className="flex items-start gap-2 mb-1.5">
-                             <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200 shrink-0">
-                                 {group.seats.length} vé
-                             </span>
-                             <div className="text-[11px] font-medium text-slate-700 break-words leading-tight">
-                                 {group.seats.join(", ")}
+                         {/* Row 2: Ticket Count/Seat List + Total Price */}
+                         <div className="flex justify-between items-start mb-0.5">
+                             <div className="flex items-start gap-1.5 pr-1 max-w-[65%]">
+                                 <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-1 rounded border border-slate-200 shrink-0 h-4 flex items-center">
+                                     {group.seats.length}
+                                 </span>
+                                 <div className="text-[11px] font-bold text-slate-800 break-words leading-tight">
+                                     {group.seats.join(", ")}
+                                 </div>
+                             </div>
+                             
+                             <div className="text-xs font-bold text-indigo-600 shrink-0 text-right">
+                                {group.totalPrice.toLocaleString('vi-VN')}
                              </div>
                          </div>
-
-                         {/* Row 3: Total Price */}
-                         <div className="flex justify-between items-baseline mb-1">
-                            <span className="text-[10px] text-slate-500">Tổng tiền:</span>
-                            <span className="text-sm font-bold text-slate-900">
-                                {group.totalPrice.toLocaleString('vi-VN')} đ
-                            </span>
-                         </div>
                          
-                         {/* Row 4: Breakdown */}
-                         <div className="flex justify-end gap-3 text-[10px]">
-                            {group.paidCash > 0 && (
-                                <span className="text-green-600 font-medium">
-                                    TM: {group.paidCash.toLocaleString()}
-                                </span>
-                            )}
-                            {group.paidTransfer > 0 && (
-                                <span className="text-blue-600 font-medium">
-                                    CK: {group.paidTransfer.toLocaleString()}
-                                </span>
-                            )}
-                            {group.paidCash === 0 && group.paidTransfer === 0 && (
-                                <span className="text-slate-400 italic">Chưa thanh toán</span>
-                            )}
-                         </div>
+                         {/* Row 3: Breakdown (Compact) */}
+                         {(group.paidCash > 0 || group.paidTransfer > 0) && (
+                           <div className="flex justify-end gap-2 text-[9px] mt-0.5">
+                              {group.paidCash > 0 && (
+                                  <span className="text-green-600 font-medium">
+                                      TM: {group.paidCash.toLocaleString()}
+                                  </span>
+                              )}
+                              {group.paidTransfer > 0 && (
+                                  <span className="text-blue-600 font-medium">
+                                      CK: {group.paidTransfer.toLocaleString()}
+                                  </span>
+                              )}
+                           </div>
+                         )}
+                         {group.paidCash === 0 && group.paidTransfer === 0 && (
+                           <div className="text-right mt-0.5">
+                             <span className="text-[9px] text-slate-400 italic">Chưa thanh toán</span>
+                           </div>
+                         )}
                       </div>
                     );
                   })}
