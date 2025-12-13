@@ -1,11 +1,9 @@
 import React from "react";
 import { Seat, SeatStatus, BusType, Booking } from "../types";
 import {
-  User,
   Check,
   Phone,
   MapPin,
-  StickyNote,
   MessageSquare,
 } from "lucide-react";
 
@@ -39,7 +37,6 @@ export const SeatMap: React.FC<SeatMapProps> = ({
   };
 
   const formatPhone = (phone: string) => {
-    // phone is expected to be normalized digits or raw string
     const cleaned = phone.replace(/\D/g, "");
     if (cleaned.length === 10) {
       return `${cleaned.slice(0, 4)} ${cleaned.slice(4, 7)} ${cleaned.slice(7)}`;
@@ -124,7 +121,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
                 <div className="flex items-center gap-1 min-w-0">
                   <span className="truncate">{formattedPhone}</span>
                   {groupTotal > 1 && (
-                    <span className="shrink-0 bg-slate-200 text-slate-600 px-1 rounded text-[8px] font-normal leading-tight">
+                    <span className="shrink-0 bg-slate-200 text-slate-600 px-1 rounded text-[8px] font-normal leading-tight ml-1">
                       {groupIndex}/{groupTotal}
                     </span>
                   )}
@@ -185,8 +182,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
     );
   };
 
-  // --- LAYOUT FOR SLEEPER (GIƯỜNG ĐƠN) ---
-  // Render by Floors (Tầng 1, Tầng 2)
+  // --- LAYOUT FOR SLEEPER (Xe Giường: Xếp theo Tầng) ---
   const renderSleeperLayout = () => {
     const renderDeck = (floorNumber: number) => {
       const floorSeats = seats.filter((s) => s.floor === floorNumber);
@@ -282,13 +278,12 @@ export const SeatMap: React.FC<SeatMapProps> = ({
     );
   };
 
-  // --- LAYOUT FOR CABIN (XE PHÒNG) ---
-  // Render by Columns/Aisles (Dãy B, Dãy A)
+  // --- LAYOUT FOR CABIN (Xe Phòng: Xếp theo Dãy B/A) ---
   const renderCabinLayout = () => {
     // Identify dimensions
     const maxCol = Math.max(...seats.map((s) => s.col ?? 0));
     const maxRow = Math.max(...seats.map((s) => s.row ?? 0));
-    const cols = maxCol + 1; // Assuming 0-based index
+    const cols = maxCol + 1; 
     const rows = maxRow + 1;
 
     // Helper to find seat
@@ -298,14 +293,14 @@ export const SeatMap: React.FC<SeatMapProps> = ({
       );
     };
 
-    // Columns to render (Usually 2: B and A)
-    // Using same logic as ManagerCarModal: Col 0 is B (left), Col 1 is A (right)
+    // Determine columns to render (e.g. 0 and 1)
     const columnsToRender = Array.from({ length: cols }, (_, i) => i);
 
     return (
       <div className="flex overflow-x-auto justify-center">
         <div className="flex gap-4 md:gap-8 px-4">
           {columnsToRender.map((colIndex) => {
+            // Labeling: Col 0 -> Dãy B, Col 1 -> Dãy A (Standard Vietnamese bus layout)
             const colName =
               colIndex === 0
                 ? "Dãy B"
@@ -337,7 +332,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
                     const seatLower = findSeat(colIndex, r, 1);
                     const seatUpper = findSeat(colIndex, r, 2);
 
-                    // Skip row if no seats exist (unless we want gaps)
+                    // Skip row if no seats exist in this row for this column
                     if (!seatLower && !seatUpper) return null;
 
                     return (
@@ -353,17 +348,17 @@ export const SeatMap: React.FC<SeatMapProps> = ({
                   })}
                 </div>
                 
-                {/* Driver area decoration (Only for Dãy B / Col 0) */}
+                {/* Decoration: Driver Wheel for Dãy B (Col 0) */}
                 {colIndex === 0 && (
                    <div className="h-10 bg-slate-50 border-t border-slate-100 mt-auto flex justify-center items-center">
-                       <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-slate-300">
+                       <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-slate-300">
                          <circle cx="12" cy="12" r="10" />
                          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
                          <path d="M2 12h20" />
                        </svg>
                    </div>
                 )}
-                 {/* Empty decoration for Dãy A to align heights if needed */}
+                 {/* Empty footer for Dãy A to align heights if needed */}
                  {colIndex !== 0 && (
                    <div className="h-10 bg-slate-50 border-t border-slate-100 mt-auto"></div>
                 )}
