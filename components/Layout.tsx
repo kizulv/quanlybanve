@@ -110,13 +110,12 @@ export const Layout: React.FC<LayoutProps> = ({
     description: "",
   };
 
-  const formatHeaderDate = (date: Date) => {
+  const formatSolarHeader = (date: Date) => {
     const dayName = daysOfWeek[date.getDay()];
     const d = String(date.getDate()).padStart(2, '0');
     const m = String(date.getMonth() + 1).padStart(2, '0');
     const y = date.getFullYear();
-    const lunar = formatLunarDate(date); // Returns "DD/MM ÂL"
-    return `${dayName}, ${d}/${m}/${y} - ${lunar}`;
+    return `${dayName}, ${d}/${m}/${y}`;
   };
 
   // Logic to process Enhanced Routes labels
@@ -276,9 +275,14 @@ export const Layout: React.FC<LayoutProps> = ({
                 trigger={
                   <div className="flex items-center gap-2 h-9 px-3 border border-slate-200 rounded-md bg-white hover:bg-slate-50 hover:border-slate-300 transition-colors select-none cursor-pointer">
                     <CalendarIcon size={16} className="text-slate-500" />
-                    <span className="text-sm font-medium text-slate-700 capitalize whitespace-nowrap">
-                      {formatHeaderDate(selectedDate)}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-slate-700 capitalize whitespace-nowrap">
+                        {formatSolarHeader(selectedDate)}
+                      </span>
+                      <span className="text-[11px] font-medium text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 whitespace-nowrap">
+                        {formatLunarDate(selectedDate)}
+                      </span>
+                    </div>
                   </div>
                 }
                 content={(close) => (
