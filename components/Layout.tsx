@@ -332,23 +332,24 @@ export const Layout: React.FC<LayoutProps> = ({
                 align="right"
                 trigger={
                   <div className="flex items-center justify-between gap-3 h-9 px-3 border border-slate-200 rounded-md bg-white hover:bg-slate-50 hover:border-slate-300 transition-colors select-none cursor-pointer min-w-[220px] max-w-[300px]">
-                    <div className="flex items-center gap-2 truncate">
+                    <div className="flex items-center gap-2 overflow-hidden">
                       <MapPin size={16} className="text-slate-500 shrink-0" />
-                      <span
-                        className={`text-sm font-medium truncate ${
-                          selectedTripId ? "text-slate-900" : "text-slate-500"
-                        }`}
-                      >
-                        {selectedTripDisplay
-                          ? `${selectedTripDisplay.displayTime} - ${
-                              selectedTripDisplay.route
-                            } ${
-                              selectedTripDisplay.isEnhanced
-                                ? `(TC #${selectedTripDisplay.enhancedIndex})`
-                                : ""
-                            }`
-                          : "Chọn chuyến xe..."}
-                      </span>
+                      {selectedTripDisplay ? (
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-sm font-medium text-slate-900 truncate">
+                            {selectedTripDisplay.displayTime} - {selectedTripDisplay.route}
+                          </span>
+                          {selectedTripDisplay.isEnhanced && (
+                            <span className="shrink-0 inline-flex items-center text-[10px] font-bold bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded border border-orange-200">
+                              <Zap size={10} className="mr-0.5 fill-orange-700" /> TC #{selectedTripDisplay.enhancedIndex}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-sm font-medium text-slate-500 truncate">
+                          Chọn chuyến xe...
+                        </span>
+                      )}
                     </div>
                     <ChevronDown
                       size={14}
