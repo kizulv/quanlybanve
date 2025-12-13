@@ -21,14 +21,14 @@ import {
   Ticket,
   Clock,
   Loader2,
-  User,
   Phone,
   MapPin,
-  DollarSign,
   CheckCircle2,
   Banknote,
   CreditCard,
   RotateCcw,
+  MessageSquare,
+  ArrowRight,
 } from "lucide-react";
 import { api } from "./lib/api";
 import { isSameDay } from "./utils/dateUtils";
@@ -77,9 +77,8 @@ function App() {
     "outbound" | "inbound"
   >("outbound");
 
-  // Booking Form State
+  // Booking Form State - Name removed
   const [bookingForm, setBookingForm] = useState({
-    name: "",
     phone: "",
     pickup: "",
     dropoff: "",
@@ -136,11 +135,36 @@ function App() {
   // Handlers
   const handleTripSelect = (tripId: string) => {
     setSelectedTripId(tripId);
+    
+    // Find trip and route to set defaults
+    const trip = trips.find(t => t.id === tripId);
+    let defaultPickup = "";
+    let defaultDropoff = "";
+    
+    if (trip) {
+        // Try finding route by ID
+        let route = routes.find(r => r.id === trip.routeId);
+        // Fallback by name
+        if (!route) {
+             route = routes.find(r => r.name === trip.route);
+        }
+        
+        if (route) {
+            // Swap based on direction
+            if (trip.direction === 'inbound') {
+                defaultPickup = route.destination || "";
+                defaultDropoff = route.origin || "";
+            } else {
+                defaultPickup = route.origin || "";
+                defaultDropoff = route.destination || "";
+            }
+        }
+    }
+
     setBookingForm({
-      name: "",
       phone: "",
-      pickup: "",
-      dropoff: "",
+      pickup: defaultPickup,
+      dropoff: defaultDropoff,
       paidCash: 0,
       paidTransfer: 0,
       note: "",
@@ -183,13 +207,13 @@ function App() {
       alert("Vui lòng chọn ít nhất 1 ghế.");
       return;
     }
-    if (!bookingForm.phone || !bookingForm.name) {
-      alert("Vui lòng nhập tên và số điện thoại.");
+    if (!bookingForm.phone) {
+      alert("Vui lòng nhập số điện thoại.");
       return;
     }
 
     const passenger: Passenger = {
-      name: bookingForm.name,
+      name: "Khách lẻ", // Default name as input is removed
       phone: bookingForm.phone,
       note: bookingForm.note,
       pickupPoint: bookingForm.pickup,
@@ -214,16 +238,8 @@ function App() {
       );
       setBookings([...bookings, ...result.bookings]);
 
-      // Reset form but keep trip selected
-      setBookingForm({
-        name: "",
-        phone: "",
-        pickup: "",
-        dropoff: "",
-        paidCash: 0,
-        paidTransfer: 0,
-        note: "",
-      });
+      // Reset form but keep defaults
+      handleTripSelect(selectedTrip.id);
       alert("Đặt vé thành công!");
     } catch (error) {
       alert("Đặt vé thất bại. Vui lòng thử lại.");
@@ -242,15 +258,9 @@ function App() {
     // Update Local
     const updatedTrip = { ...selectedTrip, seats: updatedSeats };
     setTrips(trips.map((t) => (t.id === selectedTrip.id ? updatedTrip : t)));
-    setBookingForm({
-      name: "",
-      phone: "",
-      pickup: "",
-      dropoff: "",
-      paidCash: 0,
-      paidTransfer: 0,
-      note: "",
-    });
+    
+    // Reset form to defaults
+    handleTripSelect(selectedTrip.id);
 
     // Update DB
     await api.trips.updateSeats(selectedTrip.id, updatedSeats);
@@ -405,151 +415,132 @@ function App() {
           </div>
         </div>
 
-        {/* RIGHT COLUMN: BOOKING FORM (Fixed Width on Desktop) */}
+        {/* RIGHT COLUMN: BOOKING FORM (Refactored) */}
         <div className="w-full md:w-[380px] xl:w-[420px] bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col shrink-0 h-full overflow-hidden">
-          <div className="p-4 bg-slate-50 border-b border-slate-200 font-bold text-slate-800 flex items-center gap-2">
-            <Ticket size={18} className="text-primary" />
-            Thông tin đặt vé
+          <div className="p-3 bg-gradient-to-r from-blue-600 to-blue-500 text-white font-bold flex items-center justify-between shadow-sm">
+            <div className="flex items-center gap-2">
+              <Ticket size={18} className="text-white/90" />
+              Thông tin đặt vé
+            </div>
+            <div className="text-xs bg-white/20 px-2 py-0.5 rounded text-white/90">
+                {selectedSeats.length} vé
+            </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-slate-50/50">
             {/* Selected Seats Summary */}
-            <div className="bg-blue-50/50 p-3 rounded-lg border border-blue-100">
-              <div className="text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wide">
-                Ghế đang chọn
-              </div>
-              {selectedSeats.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
+            {selectedSeats.length > 0 ? (
+              <div className="bg-white p-2.5 rounded-lg border border-blue-100 shadow-sm">
+                 <div className="flex flex-wrap gap-2">
                   {selectedSeats.map((s) => (
                     <Badge
                       key={s.id}
-                      className="bg-white text-primary border border-blue-200 shadow-sm text-sm py-1"
+                      className="bg-blue-50 text-blue-700 border border-blue-200 shadow-sm text-sm py-0.5 px-2"
                     >
                       {s.label}
                     </Badge>
                   ))}
                 </div>
-              ) : (
-                <div className="text-sm text-slate-400 italic">
-                  Chưa chọn ghế nào
+              </div>
+            ) : (
+                <div className="bg-white border border-dashed border-slate-300 rounded-lg p-4 text-center text-slate-400 text-sm">
+                    Chưa chọn ghế nào
                 </div>
-              )}
-            </div>
+            )}
 
             <form
               id="booking-form"
               onSubmit={handleBookingSubmit}
-              className="space-y-4"
+              className="space-y-3"
             >
-              {/* Customer Info */}
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Số điện thoại <span className="text-red-500">*</span>
+              {/* Customer Info - Only Phone */}
+              <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                    Số điện thoại khách <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
                     <Phone
-                      className="absolute left-3 top-2.5 text-slate-400"
-                      size={16}
+                      className="absolute left-3 top-3 text-primary"
+                      size={18}
                     />
                     <input
                       type="tel"
                       name="phone"
                       value={bookingForm.phone}
                       onChange={handleInputChange}
-                      className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary/20 outline-none font-medium"
-                      placeholder="Nhập SĐT khách..."
+                      className="w-full pl-10 pr-3 py-2.5 border border-slate-200 rounded-md text-base focus:ring-2 focus:ring-primary/20 outline-none font-bold text-slate-900 placeholder-slate-300"
+                      placeholder="Nhập SĐT..."
                       required
+                      autoFocus
                     />
                   </div>
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Tên khách hàng <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <User
-                      className="absolute left-3 top-2.5 text-slate-400"
-                      size={16}
-                    />
-                    <input
-                      type="text"
-                      name="name"
-                      value={bookingForm.name}
-                      onChange={handleInputChange}
-                      className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary/20 outline-none font-medium"
-                      placeholder="Nhập tên khách..."
-                      required
-                    />
-                  </div>
-                </div>
               </div>
 
-              <div className="border-t border-slate-100 my-2"></div>
-
-              {/* Trip Info */}
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Điểm đón
-                  </label>
-                  <div className="relative">
-                    <MapPin
-                      className="absolute left-3 top-2.5 text-green-500"
-                      size={16}
-                    />
-                    <input
-                      type="text"
-                      name="pickup"
-                      value={bookingForm.pickup}
-                      onChange={handleInputChange}
-                      className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary/20 outline-none"
-                      placeholder="VD: Bến xe Mỹ Đình"
-                    />
+              {/* Trip Info - Grid Layout */}
+              <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                        <label className="flex items-center gap-1.5 text-xs font-bold text-green-700 mb-1.5">
+                           <MapPin size={12} className="fill-green-600 text-white" /> Điểm đón
+                        </label>
+                        <input
+                            type="text"
+                            name="pickup"
+                            value={bookingForm.pickup}
+                            onChange={handleInputChange}
+                            className="w-full px-2.5 py-2 border border-slate-200 rounded-md text-sm focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none font-medium"
+                            placeholder="Tại bến..."
+                        />
+                    </div>
+                    <div>
+                        <label className="flex items-center gap-1.5 text-xs font-bold text-red-600 mb-1.5">
+                           <MapPin size={12} className="fill-red-500 text-white" /> Điểm trả
+                        </label>
+                        <input
+                            type="text"
+                            name="dropoff"
+                            value={bookingForm.dropoff}
+                            onChange={handleInputChange}
+                            className="w-full px-2.5 py-2 border border-slate-200 rounded-md text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none font-medium"
+                            placeholder="Tại bến..."
+                        />
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Điểm trả
-                  </label>
-                  <div className="relative">
-                    <MapPin
-                      className="absolute left-3 top-2.5 text-red-500"
-                      size={16}
-                    />
-                    <input
-                      type="text"
-                      name="dropoff"
-                      value={bookingForm.dropoff}
-                      onChange={handleInputChange}
-                      className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary/20 outline-none"
-                      placeholder="VD: Khách sạn Sapa..."
-                    />
-                  </div>
-                </div>
               </div>
 
-              <div className="border-t border-slate-100 my-2"></div>
+              {/* Note - Moved Above Price */}
+              <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+                 <label className="flex items-center gap-1.5 text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                    <MessageSquare size={12} /> Ghi chú
+                 </label>
+                 <textarea
+                  name="note"
+                  value={bookingForm.note}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-md text-sm focus:ring-2 focus:ring-primary/20 outline-none resize-none h-14 placeholder-slate-300"
+                  placeholder="Ghi chú thêm (nếu có)..."
+                />
+              </div>
 
-              {/* Payment Info */}
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
-                <div className="flex justify-between items-center border-b border-slate-200 pb-2">
-                  <span className="text-sm font-bold text-slate-600">
-                    Tổng tiền vé
+              {/* Payment Info - Highlighted */}
+              <div className="bg-slate-800 p-4 rounded-xl border border-slate-700 text-white shadow-md">
+                <div className="flex justify-between items-end border-b border-slate-600 pb-3 mb-3">
+                  <span className="text-sm font-medium text-slate-300">
+                    Tổng thanh toán
                   </span>
-                  <span className="text-xl font-bold text-primary">
-                    {totalPrice.toLocaleString("vi-VN")} đ
+                  <span className="text-2xl font-bold text-white tracking-tight">
+                    {totalPrice.toLocaleString("vi-VN")} <span className="text-sm font-normal text-slate-400">đ</span>
                   </span>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase">
+                    <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase">
                       Tiền mặt
                     </label>
                     <div className="relative">
                       <Banknote
-                        className="absolute left-2.5 top-2 text-slate-400"
+                        className="absolute left-2.5 top-2 text-slate-500"
                         size={14}
                       />
                       <input
@@ -558,17 +549,17 @@ function App() {
                         name="paidCash"
                         value={bookingForm.paidCash.toLocaleString("vi-VN")}
                         onChange={handleMoneyChange}
-                        className="w-full pl-8 pr-2 py-1.5 border border-slate-200 rounded text-sm font-bold text-right focus:ring-2 focus:ring-green-500/20 outline-none"
+                        className="w-full pl-8 pr-2 py-1.5 border border-slate-600 bg-slate-700 rounded text-sm font-bold text-right focus:ring-2 focus:ring-green-500/50 outline-none text-white placeholder-slate-500"
                       />
                     </div>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase">
+                    <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase">
                       Chuyển khoản
                     </label>
                     <div className="relative">
                       <CreditCard
-                        className="absolute left-2.5 top-2 text-slate-400"
+                        className="absolute left-2.5 top-2 text-slate-500"
                         size={14}
                       />
                       <input
@@ -577,60 +568,50 @@ function App() {
                         name="paidTransfer"
                         value={bookingForm.paidTransfer.toLocaleString("vi-VN")}
                         onChange={handleMoneyChange}
-                        className="w-full pl-8 pr-2 py-1.5 border border-slate-200 rounded text-sm font-bold text-right focus:ring-2 focus:ring-blue-500/20 outline-none"
+                        className="w-full pl-8 pr-2 py-1.5 border border-slate-600 bg-slate-700 rounded text-sm font-bold text-right focus:ring-2 focus:ring-blue-500/50 outline-none text-white placeholder-slate-500"
                       />
                     </div>
                   </div>
                 </div>
 
                 {/* Payment Status Indicator */}
+                <div className="mt-2 min-h-[20px]">
                 {(() => {
                   const paid = bookingForm.paidCash + bookingForm.paidTransfer;
                   const diff = totalPrice - paid;
                   if (totalPrice > 0) {
                     if (diff === 0)
                       return (
-                        <div className="text-xs text-green-600 font-bold text-right flex items-center justify-end">
-                          <CheckCircle2 size={12} className="mr-1" /> Đã thanh
-                          toán đủ
+                        <div className="text-xs text-green-400 font-bold text-right flex items-center justify-end animate-in fade-in">
+                          <CheckCircle2 size={12} className="mr-1" /> Đã thanh toán đủ
                         </div>
                       );
                     if (diff > 0)
                       return (
-                        <div className="text-xs text-red-500 font-bold text-right">
+                        <div className="text-xs text-red-400 font-bold text-right animate-in fade-in">
                           Còn thiếu: {diff.toLocaleString("vi-VN")} đ
                         </div>
                       );
                     if (diff < 0)
                       return (
-                        <div className="text-xs text-blue-500 font-bold text-right">
+                        <div className="text-xs text-blue-400 font-bold text-right animate-in fade-in">
                           Thừa: {Math.abs(diff).toLocaleString("vi-VN")} đ
                         </div>
                       );
                   }
                   return null;
                 })()}
-              </div>
-
-              {/* Note */}
-              <div>
-                <textarea
-                  name="note"
-                  value={bookingForm.note}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary/20 outline-none resize-none h-16"
-                  placeholder="Ghi chú thêm (nếu có)..."
-                />
+                </div>
               </div>
             </form>
           </div>
 
           {/* Footer Actions */}
-          <div className="p-4 bg-white border-t border-slate-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-10 flex gap-3">
+          <div className="p-3 bg-white border-t border-slate-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-10 flex gap-3">
             <Button
               type="button"
               variant="outline"
-              className="flex-1"
+              className="flex-1 border-slate-300 text-slate-600 hover:bg-slate-50"
               onClick={cancelSelection}
               disabled={selectedSeats.length === 0}
             >
@@ -639,7 +620,7 @@ function App() {
             <Button
               type="submit"
               form="booking-form"
-              className="flex-[2] shadow-lg shadow-primary/20"
+              className="flex-[2] shadow-lg shadow-blue-500/20 bg-blue-600 hover:bg-blue-700 text-white font-bold"
               disabled={selectedSeats.length === 0}
             >
               <CheckCircle2 size={18} className="mr-2" /> Đặt vé

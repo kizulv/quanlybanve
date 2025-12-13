@@ -22,7 +22,7 @@ export interface Seat {
 }
 
 export interface Passenger {
-  name: string;
+  name?: string; // Made Optional
   phone: string;
   email?: string;
   note?: string;

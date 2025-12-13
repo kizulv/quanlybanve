@@ -42,7 +42,9 @@ export const SeatMap: React.FC<SeatMapProps> = ({
     // phone is expected to be normalized digits or raw string
     const cleaned = phone.replace(/\D/g, "");
     if (cleaned.length === 10) {
-      return `${cleaned.slice(0, 4)} ${cleaned.slice(4, 7)} ${cleaned.slice(7)}`;
+      return `${cleaned.slice(0, 4)} ${cleaned.slice(4, 7)} ${cleaned.slice(
+        7
+      )}`;
     }
     return phone;
   };
@@ -88,14 +90,9 @@ export const SeatMap: React.FC<SeatMapProps> = ({
       <div
         key={seat.id}
         onClick={() => isInteractive && onSeatClick(seat)}
-        className={`
-          relative flex flex-col border transition-all duration-200 select-none overflow-hidden
-          ${statusClass} 
-          ${
-            isBench
-              ? "w-[130px] h-[100px] rounded-lg"
-              : "w-full min-w-[130px] h-[100px] rounded-lg"
-          }
+        className={`relative flex flex-col border transition-all duration-200 select-none overflow-hidden ${statusClass} ${
+          isBench ? "w-1/5 h-[100px] rounded-lg" : "w-full h-[100px] rounded-lg"
+        }
         `}
       >
         {/* Header: Seat Label */}
@@ -115,7 +112,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
         </div>
 
         {/* Content Body */}
-        <div className="flex-1 p-2 flex flex-col justify-center text-[10px] leading-tight space-y-1.5">
+        <div className="flex-1 p-2 flex flex-col text-[10px] leading-tight space-y-1.5">
           {isBooked ? (
             <>
               {/* Passenger Phone */}
@@ -137,19 +134,14 @@ export const SeatMap: React.FC<SeatMapProps> = ({
               {/* Route Info */}
               {booking.passenger.pickupPoint ||
               booking.passenger.dropoffPoint ? (
-                <div className="flex items-start gap-1.5 text-slate-600">
+                <div className="flex gap-1.5 text-slate-600">
                   <MapPin size={10} className="shrink-0 opacity-60 mt-0.5" />
-                  <div className="flex flex-col truncate">
+                  <div className="text-wrap">
                     <span
-                      className="truncate"
-                      title={booking.passenger.pickupPoint}
+                      className="truncate text-wrap"
+                      title={`${booking.passenger.pickupPoint} - ${booking.passenger.dropoffPoint}`}
                     >
-                      {booking.passenger.pickupPoint || "---"}
-                    </span>
-                    <span
-                      className="truncate text-slate-400"
-                      title={booking.passenger.dropoffPoint}
-                    >
+                      {booking.passenger.pickupPoint || "---"} -{" "}
                       {booking.passenger.dropoffPoint || "---"}
                     </span>
                   </div>
@@ -195,23 +187,23 @@ export const SeatMap: React.FC<SeatMapProps> = ({
 
     // Get unique rows in this column
     const rows = Array.from(new Set(colSeats.map((s) => s.row ?? 0))).sort(
-      (a, b) => a - b
+      (a: number, b: number) => a - b
     );
 
     return (
-      <div className="relative overflow-hidden flex flex-col w-full md:w-1/2 rounded-xl border border-slate-200 bg-white/50">
+      <div className="relative overflow-hidden flex flex-col w-full md:w-1/2 rounded-xl">
         {/* Header */}
-        <div className="pt-3 text-center bg-slate-50/50 border-b border-slate-100 pb-2">
-          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+        <div className="pt-3 text-center">
+          <span className="text-sm font-bold text-slate-500 uppercase tracking-wider">
             {label}
           </span>
         </div>
 
-        <div className="p-4 flex flex-col items-center gap-3">
+        <div className="px-4 flex flex-col items-center gap-3">
           {/* Sub-header for Floor indication */}
           <div className="flex gap-4 md:gap-8 px-2 text-[10px] font-bold text-slate-400 uppercase w-full justify-center">
-            <span className="w-[130px] text-center">Tầng 1</span>
-            <span className="w-[130px] text-center">Tầng 2</span>
+            <span className="w-full md:w-1/2 text-center">Tầng 1</span>
+            <span className="w-full md:w-1/2 text-center">Tầng 2</span>
           </div>
 
           {/* Render Rows */}
@@ -224,19 +216,19 @@ export const SeatMap: React.FC<SeatMapProps> = ({
             );
 
             return (
-              <div key={rowIndex} className="flex gap-4 md:gap-8">
-                <div className="w-[130px]">
+              <div key={rowIndex} className="flex w-full gap-4">
+                <div className="w-full md:w-1/2">
                   {floor1Seat ? (
                     renderSeat(floor1Seat)
                   ) : (
-                    <div className="w-[130px] h-[100px] border border-dashed border-slate-100 rounded-lg" />
+                    <div className="w-full border border-dashed border-slate-100 rounded-lg" />
                   )}
                 </div>
-                <div className="w-[130px]">
+                <div className="w-full md:w-1/2">
                   {floor2Seat ? (
                     renderSeat(floor2Seat)
                   ) : (
-                    <div className="w-[130px] h-[100px] border border-dashed border-slate-100 rounded-lg" />
+                    <div className="w-full h-[100px] border border-dashed border-slate-100 rounded-lg" />
                   )}
                 </div>
               </div>
@@ -281,7 +273,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
     return (
       <div className="relative overflow-hidden flex flex-col w-full md:w-1/2">
         {/* Header */}
-        <div className="pt-3 text-center">
+        <div className="text-center">
           <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
             TẦNG {floorNumber}
           </span>
@@ -306,11 +298,10 @@ export const SeatMap: React.FC<SeatMapProps> = ({
               ));
             })}
           </div>
-
           {/* Bench Row */}
           {benchRowIndex !== null && (
             <div className="mt-4 pt-3 border-t border-slate-100 border-dashed w-full">
-              <div className="flex justify-center gap-2 flex-wrap">
+              <div className="flex justify-center gap-2">
                 {rows[benchRowIndex]
                   .sort((a, b) => (a.col ?? 0) - (b.col ?? 0))
                   .map((seat) => renderSeat(seat, true))}
@@ -326,7 +317,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
   if (busType === BusType.CABIN) {
     return (
       <div className="flex overflow-x-auto pb-2">
-        <div className="w-full flex gap-4 md:gap-8 min-w-max justify-center">
+        <div className="w-full flex gap-4 justify-center">
           {/* Assuming Col 0 is Dãy B (Left) and Col 1 is Dãy A (Right) based on common layout */}
           {renderCabinColumn(0, "DÃY B")}
           {renderCabinColumn(1, "DÃY A")}
