@@ -372,6 +372,7 @@ function App() {
       onTripChange={handleTripSelect}
       selectedDirection={selectedDirection}
       onDirectionChange={setSelectedDirection}
+      routes={routes}
     >
       {activeTab === 'sales' && renderTicketSales()}
       {activeTab === 'tickets' && renderTickets()}

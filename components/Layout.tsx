@@ -19,7 +19,7 @@ import { Button } from "./ui/Button";
 import { Popover } from "./ui/Popover";
 import { Calendar } from "./ui/Calendar";
 import { formatLunarDate, daysOfWeek } from "../utils/dateUtils";
-import { BusTrip, BusType } from "../types";
+import { BusTrip, BusType, Route } from "../types";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -35,6 +35,8 @@ interface LayoutProps {
   // Direction Props
   selectedDirection?: "outbound" | "inbound";
   onDirectionChange?: (dir: "outbound" | "inbound") => void;
+  // Data Props
+  routes: Route[];
 }
 
 interface ScheduleSettings {
@@ -54,6 +56,7 @@ export const Layout: React.FC<LayoutProps> = ({
   onTripChange,
   selectedDirection = "outbound",
   onDirectionChange,
+  routes,
 }) => {
   // Default sidebar state set to false (Hidden by default)
   const [isSidebarOpen, setSidebarOpen] = useState(false);
@@ -134,14 +137,25 @@ export const Layout: React.FC<LayoutProps> = ({
       let isEnhanced = false;
       let enhancedIndex = 0;
 
-      // Check purely by name or a specific property if added later
-      // Cast trip to any to check for isEnhanced property if it exists dynamically
-      if (
-        (trip as any).isEnhanced || 
+      // 1. Check if the underlying Route is enhanced
+      const parentRoute = routes.find(
+        (r) => String(r.id) === String(trip.routeId) || r.name === trip.route
+      );
+
+      if (parentRoute?.isEnhanced) {
+        isEnhanced = true;
+      } 
+      // 2. Fallback: Check trip properties or name
+      else if (
+        (trip as any).isEnhanced ||
         trip.name.toLowerCase().includes("tăng cường") ||
         trip.route.toLowerCase().includes("tăng cường")
       ) {
         isEnhanced = true;
+      }
+
+      // If enhanced, calculate index (e.g., Enhanced Trip #1, #2)
+      if (isEnhanced) {
         const key = trip.route;
         enhancedCounters[key] = (enhancedCounters[key] || 0) + 1;
         enhancedIndex = enhancedCounters[key];
@@ -154,7 +168,7 @@ export const Layout: React.FC<LayoutProps> = ({
         enhancedIndex,
       };
     });
-  }, [availableTrips]);
+  }, [availableTrips, routes]);
 
   const selectedTripDisplay = tripOptions.find((t) => t.id === selectedTripId);
 
