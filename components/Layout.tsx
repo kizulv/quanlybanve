@@ -492,7 +492,7 @@ export const Layout: React.FC<LayoutProps> = ({
                                   )}
                                 </div>
                                 <div className="flex items-center gap-2 mt-0.5">
-                                  <span className="text-xs text-slate-500 bg-slate-100 px-1.5 rounded font-mono border border-slate-200/50">
+                                  <span className="text-xs text-slate-500 bg-slate-100 px-1.5 rounded border border-slate-200/50">
                                     {trip.licensePlate}
                                   </span>
                                   <span className="text-[10px] text-slate-400 pl-1 border-l border-slate-200">

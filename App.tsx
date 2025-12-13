@@ -718,7 +718,7 @@ function App() {
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <Badge variant="default" className="font-mono">
+                        <Badge variant="default" className="font-base">
                           {booking.seatId}
                         </Badge>
                       </td>
