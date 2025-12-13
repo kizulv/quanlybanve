@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, Ban } from 'lucide-react';
+import { getLunarDate } from '../../utils/dateUtils';
 
 interface CalendarProps {
   selected?: Date;
@@ -23,6 +24,27 @@ export const Calendar: React.FC<CalendarProps> = ({
 
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
+
+  // Calculate Lunar Range for the Header
+  const lunarRangeInfo = useMemo(() => {
+    const start = new Date(year, month, 1);
+    const end = new Date(year, month, daysInMonth(year, month));
+    const startLunar = getLunarDate(start);
+    const endLunar = getLunarDate(end);
+    
+    // Check if month spans across two lunar months or years
+    if (startLunar.month === endLunar.month && startLunar.year === endLunar.year) {
+       return `Tháng ${startLunar.month} ÂL`;
+    }
+    
+    let text = `ÂL: ${startLunar.month}/${startLunar.year}`;
+    if (startLunar.year !== endLunar.year) {
+        text += ` - ${endLunar.month}/${endLunar.year}`;
+    } else {
+        text += ` - ${endLunar.month}`;
+    }
+    return text;
+  }, [year, month]);
 
   const handlePrevMonth = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -59,12 +81,6 @@ export const Calendar: React.FC<CalendarProps> = ({
     }
   };
 
-  // Mock lunar calculation
-  const getLunarDay = (day: number) => {
-    const lunar = day > 15 ? day - 15 : day + 15;
-    return lunar; 
-  };
-
   const renderDays = () => {
     const totalDays = daysInMonth(year, month);
     const startDay = startDayOfMonth(year, month); 
@@ -82,7 +98,13 @@ export const Calendar: React.FC<CalendarProps> = ({
         currentDate.getFullYear() === selected.getFullYear();
       
       const isToday = new Date().toDateString() === currentDate.toDateString();
-      const lunarDay = getLunarDay(day);
+      
+      // Calculate real lunar date
+      const { day: lunarDay, month: lunarMonth } = getLunarDate(currentDate);
+      
+      // Show Month if it's 1st day OR 15th day (Full Moon) OR if it's selected (for clarity)
+      const showMonth = lunarDay === 1 || lunarDay === 15;
+      const lunarText = showMonth ? `${lunarDay}/${lunarMonth}` : lunarDay.toString();
       
       const isShutdown = isShutdownDay(currentDate);
       const isPeak = isPeakDay(currentDate);
@@ -123,9 +145,10 @@ export const Calendar: React.FC<CalendarProps> = ({
           {/* Lunar Date or "Nghỉ Tết" Text */}
           <span className={`text-[0.6rem] leading-tight mt-0.5 z-10 whitespace-nowrap 
             ${isSelected ? 'text-primary-foreground/80' : 
-              isShutdown ? 'text-red-500 font-bold' : 'text-slate-400'
+              isShutdown ? 'text-red-500 font-bold' : 
+              showMonth ? 'text-slate-500 font-medium' : 'text-slate-400'
             }`}>
-            {isShutdown ? "Nghỉ Tết" : lunarDay}
+            {isShutdown ? "Nghỉ Tết" : lunarText}
           </span>
           
           {/* Indicators */}
@@ -151,8 +174,13 @@ export const Calendar: React.FC<CalendarProps> = ({
         <button onClick={handlePrevMonth} className="p-1.5 hover:bg-slate-100 rounded-md text-slate-500 hover:text-slate-900 transition-colors">
           <ChevronLeft className="h-4 w-4" />
         </button>
-        <div className="text-sm font-bold text-slate-900 capitalize">
-          Tháng {month + 1}, {year}
+        <div className="flex flex-col items-center">
+            <div className="text-sm font-bold text-slate-900 capitalize">
+            Tháng {month + 1}, {year}
+            </div>
+            <div className="text-[10px] text-slate-500 font-medium bg-slate-50 px-2 py-0.5 rounded-full mt-0.5">
+                {lunarRangeInfo}
+            </div>
         </div>
         <button onClick={handleNextMonth} className="p-1.5 hover:bg-slate-100 rounded-md text-slate-500 hover:text-slate-900 transition-colors">
           <ChevronRight className="h-4 w-4" />

@@ -11,26 +11,48 @@ export const getDaysInMonth = (year: number, month: number): Date[] => {
   return days;
 };
 
-// Simplified Lunar Date calculation for UI demonstration
-// In a real production app, use a library like 'lunisolar' or 'am-lich'
-export const getLunarDate = (date: Date): { day: number; month: number } => {
-  // Mock logic: Lunar is roughly ~1 month behind solar, sometimes 29, sometimes 30 days
-  // This is a visual approximation for the demo
-  const solarDay = date.getDate();
-  const solarMonth = date.getMonth() + 1;
-  
-  let lunarDay = solarDay - 10;
-  let lunarMonth = solarMonth - 1;
+// Accurate Lunar Date calculation using Native Intl API
+export const getLunarDate = (date: Date): { day: number; month: number; year: number } => {
+  try {
+    // Use en-US with chinese calendar to ensure we get ASCII numeric values
+    // zh-CN might return Chinese characters for numbers which parseInt fails on
+    const formatter = new Intl.DateTimeFormat('en-US-u-ca-chinese', {
+      day: 'numeric',
+      month: 'numeric',
+      year: 'numeric',
+    });
+    
+    const parts = formatter.formatToParts(date);
+    let day = 0;
+    let month = 0;
+    let year = 0;
 
-  if (lunarDay <= 0) {
-    lunarDay += 30;
-    lunarMonth -= 1;
-  }
-  if (lunarMonth <= 0) {
-    lunarMonth += 12;
-  }
+    parts.forEach(p => {
+      if (p.type === 'day') {
+        day = parseInt(p.value, 10);
+      }
+      if (p.type === 'month') {
+        month = parseInt(p.value, 10);
+      }
+      // relatedYear is the numeric year (e.g., 2024), while year might be cyclic
+      if ((p.type as string) === 'relatedYear') {
+        year = parseInt(p.value, 10);
+      } else if (p.type === 'year' && year === 0) {
+        year = parseInt(p.value, 10);
+      }
+    });
 
-  return { day: lunarDay, month: lunarMonth };
+    if (!day || !month || !year) {
+       // Fallback for environments that return non-numeric despite the options
+       throw new Error("Invalid Lunar Date Parts");
+    }
+
+    return { day, month, year };
+  } catch (e) {
+    // Fallback if Intl is not supported or fails
+    // Note: This falls back to Solar date, which might be confusing but better than crashing
+    return { day: date.getDate(), month: date.getMonth() + 1, year: date.getFullYear() };
+  }
 };
 
 export const formatLunarDate = (date: Date): string => {

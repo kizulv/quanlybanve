@@ -14,6 +14,7 @@ import {
 import { Button } from "./ui/Button";
 import { Popover } from "./ui/Popover";
 import { Calendar } from "./ui/Calendar";
+import { formatLunarDate } from "../utils/dateUtils";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -114,15 +115,6 @@ export const Layout: React.FC<LayoutProps> = ({
       year: "numeric",
     };
     return new Intl.DateTimeFormat("vi-VN", options).format(date);
-  };
-
-  // Mock Lunar Date
-  const getLunarDate = (date: Date) => {
-    const lunarDay =
-      date.getDate() > 15 ? date.getDate() - 15 : date.getDate() + 15;
-    const lunarMonth =
-      date.getDate() > 15 ? date.getMonth() + 1 : date.getMonth();
-    return `${lunarDay}/${lunarMonth} ÂL`;
   };
 
   return (
@@ -258,7 +250,7 @@ export const Layout: React.FC<LayoutProps> = ({
                       {formatDate(selectedDate)}
                     </span>
                     <span className="text-xs text-slate-400 font-medium ml-1 bg-slate-100 px-1.5 py-0.5 rounded hidden sm:inline-block">
-                      {getLunarDate(selectedDate)}
+                      {formatLunarDate(selectedDate)}
                     </span>
                   </div>
                 }
