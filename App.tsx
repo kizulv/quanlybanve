@@ -374,55 +374,57 @@ function App() {
 
     return (
       <div className="h-[calc(100vh-140px)] flex flex-col md:flex-row gap-4 animate-in fade-in duration-300">
-        {/* LEFT COLUMN: SEAT MAP (Flexible Width) */}
+        {/* LEFT COLUMN: SEAT MAP (Bright Blue Header, Gentle Background) */}
         <div className="flex-1 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col overflow-hidden">
           {/* Trip Header Info */}
-          <div className="px-4 h-12 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-            <div className="flex inline-flex">
-              <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                {selectedTrip.name}
-                <Badge
-                  variant={
-                    selectedTrip.type === BusType.CABIN ? "warning" : "default"
-                  }
-                >
-                  {selectedTrip.type === BusType.CABIN
-                    ? "Xe Phòng"
-                    : "Xe Giường Đơn"}
-                </Badge>
-              </h2>
-              <div className="flex items-center text-sm text-slate-500 gap-3 ml-2">
-                <span className="flex items-center bg-white px-1.5 border rounded text-slate-600 font-bold">
-                  <BusFront size={12} className="mr-1" />{" "}
+          <div className="px-4 py-3 border-b border-blue-700 flex justify-between items-center bg-blue-600 shadow-sm z-10">
+            <div className="flex flex-col gap-0.5">
+              <div className="flex items-center gap-2">
+                 <h2 className="text-lg font-bold text-white tracking-tight">
+                    {selectedTrip.name}
+                 </h2>
+                 <Badge
+                  variant="secondary"
+                  className="bg-white/20 text-white border-transparent hover:bg-white/30 text-[10px] px-1.5 h-5"
+                 >
+                   {selectedTrip.type === BusType.CABIN ? "Xe Phòng" : "Giường Đơn"}
+                 </Badge>
+              </div>
+              
+              <div className="flex items-center text-xs text-blue-100 gap-3">
+                <span className="flex items-center font-medium opacity-90">
+                  <BusFront size={12} className="mr-1.5 opacity-70" />{" "}
                   {selectedTrip.licensePlate}
                 </span>
-                <span className="flex items-center">
-                  <Clock size={12} className="mr-1" /> Xuất bến:{" "}
+                <span className="w-1 h-1 bg-blue-400 rounded-full"></span>
+                <span className="flex items-center font-medium opacity-90">
+                  <Clock size={12} className="mr-1.5 opacity-70" /> Xuất bến:{" "}
                   {selectedTrip.departureTime.split(" ")[1]}
                 </span>
               </div>
             </div>
-            <div className="flex gap-4 text-[10px] md:text-xs font-medium">
+
+            <div className="flex gap-4 text-[10px] md:text-xs font-medium text-blue-50">
               <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 rounded border border-slate-300 bg-white"></div>{" "}
+                <div className="w-3 h-3 rounded border border-white/50 bg-white/20"></div>{" "}
                 Trống
               </div>
               <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 rounded bg-primary"></div> Đang chọn
+                <div className="w-3 h-3 rounded bg-primary border border-white"></div> Đang chọn
               </div>
               <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 rounded bg-yellow-100 border border-yellow-400"></div>{" "}
+                <div className="w-3 h-3 rounded bg-yellow-400 border border-yellow-500"></div>{" "}
                 Đã đặt
               </div>
               <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 rounded bg-slate-100 border border-slate-200"></div>{" "}
+                <div className="w-3 h-3 rounded bg-slate-400 border border-slate-500"></div>{" "}
                 Đã bán
               </div>
             </div>
           </div>
 
-          {/* Scrollable Map */}
-          <div className="flex-1 overflow-y-auto p-4 bg-slate-50/30">
+          {/* Scrollable Map - Gentle Background */}
+          <div className="flex-1 overflow-y-auto p-4 bg-slate-50">
             <SeatMap
               seats={selectedTrip.seats}
               busType={selectedTrip.type}
