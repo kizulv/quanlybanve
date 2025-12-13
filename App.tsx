@@ -152,6 +152,47 @@ function App() {
     }
   }, [totalPrice]);
 
+  // --- Helper: Standardize Location Name ---
+  const getStandardizedLocation = (input: string) => {
+    if (!input) return "";
+    const lower = input.toLowerCase().trim();
+
+    // Dictionary mappings for common locations -> Bus Stations
+    const mappings: Record<string, string> = {
+      "lai chau": "BX Lai Châu",
+      "lai châu": "BX Lai Châu",
+      "ha tinh": "BX Hà Tĩnh",
+      "hà tĩnh": "BX Hà Tĩnh",
+      "ha noi": "BX Mỹ Đình",
+      "hà nội": "BX Mỹ Đình",
+      "my dinh": "BX Mỹ Đình",
+      "mỹ đình": "BX Mỹ Đình",
+      "giap bat": "BX Giáp Bát",
+      "giáp bát": "BX Giáp Bát",
+      "nuoc ngam": "BX Nước Ngầm",
+      "nước ngầm": "BX Nước Ngầm",
+      "sapa": "BX Sapa",
+      "sa pa": "BX Sapa",
+      "lao cai": "BX Lào Cai",
+      "lào cai": "BX Lào Cai",
+      "da nang": "BX Đà Nẵng",
+      "đà nẵng": "BX Đà Nẵng",
+      "vinh": "BX Vinh",
+      "nghe an": "BX Vinh",
+      "nghệ an": "BX Vinh",
+      "thanh hoa": "BX Thanh Hóa",
+      "thanh hóa": "BX Thanh Hóa",
+      "dien bien": "BX Điện Biên",
+      "điện biên": "BX Điện Biên",
+      "son la": "BX Sơn La",
+      "sơn la": "BX Sơn La",
+      "yen bai": "BX Yên Bái",
+      "yên bái": "BX Yên Bái"
+    };
+
+    return mappings[lower] || input;
+  };
+
   // Handlers
   const handleTripSelect = (tripId: string) => {
     setSelectedTripId(tripId);
@@ -170,14 +211,21 @@ function App() {
       }
 
       if (route) {
+        let rawPickup = "";
+        let rawDropoff = "";
+
         // Swap based on direction
         if (trip.direction === "inbound") {
-          defaultPickup = route.destination || "";
-          defaultDropoff = route.origin || "";
+          rawPickup = route.destination || "";
+          rawDropoff = route.origin || "";
         } else {
-          defaultPickup = route.origin || "";
-          defaultDropoff = route.destination || "";
+          rawPickup = route.origin || "";
+          rawDropoff = route.destination || "";
         }
+
+        // Apply standardization immediately upon selection
+        defaultPickup = getStandardizedLocation(rawPickup);
+        defaultDropoff = getStandardizedLocation(rawDropoff);
       }
     }
 
@@ -316,32 +364,11 @@ function App() {
     const { name, value } = e.target;
     if (!value) return;
 
-    const input = value.toLowerCase().trim();
-
-    // Dictionary mappings for common locations
-    const mappings: Record<string, string> = {
-      "lai chau": "BX Lai Châu",
-      "lai châu": "BX Lai Châu",
-      "ha tinh": "BX Hà Tĩnh",
-      "hà tĩnh": "BX Hà Tĩnh",
-      "ha noi": "BX Mỹ Đình",
-      "hà nội": "BX Mỹ Đình",
-      "sapa": "BX Sapa",
-      "lao cai": "BX Lào Cai",
-      "lào cai": "BX Lào Cai",
-      "da nang": "BX Đà Nẵng",
-      "đà nẵng": "BX Đà Nẵng",
-      "vinh": "BX Vinh",
-      "nghe an": "BX Vinh",
-      "nghệ an": "BX Vinh",
-      "thanh hoa": "BX Thanh Hóa",
-      "thanh hóa": "BX Thanh Hóa",
-      "dien bien": "BX Điện Biên",
-      "điện biên": "BX Điện Biên"
-    };
-
-    if (mappings[input]) {
-      setBookingForm((prev) => ({ ...prev, [name]: mappings[input] }));
+    const standardized = getStandardizedLocation(value);
+    
+    // Only update if changed
+    if (standardized !== value) {
+        setBookingForm((prev) => ({ ...prev, [name]: standardized }));
     }
   };
 
