@@ -1,8 +1,13 @@
 import React, { useState } from 'react';
-import { Route, Bus, BusTrip } from '../types';
+import { Route, Bus, BusTrip, BusType } from '../types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/Tabs';
 import { Button } from './ui/Button';
-import { Plus, Edit, Trash2, MapPin, BusFront, Settings2 } from 'lucide-react';
+import { Badge } from './ui/Badge';
+import { 
+  Plus, Edit, Trash2, MapPin, BusFront, Settings2, 
+  ArrowRight, Clock, Zap, AlertCircle, CheckCircle2, 
+  MoreHorizontal, Phone, LayoutGrid, AlertTriangle
+} from 'lucide-react';
 import { ManagerRouteModal } from './ManagerRouteModal';
 import { ManagerCarModal } from './ManagerCarModal';
 import { api } from '../lib/api';
@@ -35,6 +40,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   // Delete Confirm
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteType, setDeleteType] = useState<'route' | 'bus' | null>(null);
+
+  // Stats
+  const activeBusesCount = buses.filter(b => b.status === 'Hoạt động').length;
+  const activeRoutesCount = routes.filter(r => r.status !== 'inactive').length;
 
   // Handlers for Routes
   const handleAddRoute = () => {
@@ -109,131 +118,249 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto p-4 md:p-8">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div className="max-w-7xl mx-auto p-6 md:p-8 space-y-8 animate-in fade-in duration-500">
+      {/* Header & Stats */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-slate-200 pb-6">
         <div>
-           <h2 className="text-2xl font-bold text-slate-900">Cấu hình hệ thống</h2>
-           <p className="text-slate-500">Quản lý danh sách tuyến đường và đội xe.</p>
+           <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Cấu hình hệ thống</h2>
+           <p className="text-slate-500 mt-2 text-lg">Quản lý tài nguyên vận hành và mạng lưới tuyến đường.</p>
+        </div>
+        
+        <div className="flex gap-4">
+           <div className="bg-white px-5 py-3 rounded-xl border border-slate-200 shadow-sm flex flex-col min-w-[140px]">
+              <div className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">Tổng số xe</div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-bold text-slate-900">{buses.length}</span>
+                <span className="text-sm font-medium text-green-600 bg-green-50 px-1.5 rounded">{activeBusesCount} hoạt động</span>
+              </div>
+           </div>
+           <div className="bg-white px-5 py-3 rounded-xl border border-slate-200 shadow-sm flex flex-col min-w-[140px]">
+              <div className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">Tổng tuyến</div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-bold text-slate-900">{routes.length}</span>
+                <span className="text-sm font-medium text-blue-600 bg-blue-50 px-1.5 rounded">{activeRoutesCount} khai thác</span>
+              </div>
+           </div>
         </div>
       </div>
 
-      <Tabs defaultValue="routes" value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="bg-white border border-slate-200 p-1 rounded-lg">
-          <TabsTrigger value="routes" className="px-4 py-2 data-[state=active]:bg-primary/10 data-[state=active]:text-primary font-medium">
-            <MapPin size={16} className="mr-2"/> Tuyến đường ({routes.length})
-          </TabsTrigger>
-          <TabsTrigger value="buses" className="px-4 py-2 data-[state=active]:bg-primary/10 data-[state=active]:text-primary font-medium">
-            <BusFront size={16} className="mr-2"/> Đội xe ({buses.length})
-          </TabsTrigger>
-        </TabsList>
+      <Tabs defaultValue="routes" value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        {/* Navigation Bar */}
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-4 sticky top-0 bg-slate-50/95 backdrop-blur z-10 py-2">
+          <TabsList className="bg-white border border-slate-200 p-1.5 rounded-xl h-auto shadow-sm">
+            <TabsTrigger 
+              value="routes" 
+              className="px-6 py-2.5 rounded-lg text-sm font-semibold data-[state=active]:bg-primary/10 data-[state=active]:text-primary transition-all"
+            >
+              <MapPin size={18} className="mr-2"/> Quản lý Tuyến đường
+            </TabsTrigger>
+            <TabsTrigger 
+              value="buses" 
+              className="px-6 py-2.5 rounded-lg text-sm font-semibold data-[state=active]:bg-primary/10 data-[state=active]:text-primary transition-all"
+            >
+              <BusFront size={18} className="mr-2"/> Đội xe vận hành
+            </TabsTrigger>
+          </TabsList>
+
+          <Button 
+            onClick={activeTab === 'routes' ? handleAddRoute : handleAddBus} 
+            className="shadow-lg shadow-primary/20 rounded-lg h-11 px-6 font-semibold"
+          >
+             <Plus size={20} className="mr-2"/> 
+             {activeTab === 'routes' ? 'Thêm tuyến mới' : 'Thêm xe mới'}
+          </Button>
+        </div>
 
         {/* ROUTES CONTENT */}
-        <TabsContent value="routes" className="space-y-4">
-          <div className="flex justify-end">
-            <Button onClick={handleAddRoute} className="shadow-sm">
-               <Plus size={18} className="mr-1"/> Thêm tuyến mới
-            </Button>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {routes.map(route => (
-              <div key={route.id} className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 hover:border-primary/50 transition-colors group">
-                 <div className="flex justify-between items-start mb-3">
-                    <div className={`px-2 py-1 rounded text-xs uppercase tracking-wide font-bold ${route.isEnhanced ? 'bg-orange-100 text-orange-700' : 'bg-blue-50 text-blue-700'}`}>
-                      {route.isEnhanced ? 'Tăng cường' : 'Cố định'}
-                    </div>
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-primary" onClick={() => handleEditRoute(route)}>
-                           <Edit size={14}/>
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-destructive" onClick={() => { setDeleteId(String(route.id)); setDeleteType('route'); }}>
-                           <Trash2 size={14}/>
-                        </Button>
-                    </div>
-                 </div>
-                 
-                 <h3 className="font-bold text-lg text-slate-900 mb-1 truncate" title={route.name}>{route.name}</h3>
-                 <div className="flex items-center gap-2 text-sm text-slate-500 mb-4">
-                    <span className="truncate max-w-[40%]">{route.origin}</span>
-                    <span className="text-slate-300">→</span>
-                    <span className="truncate max-w-[40%]">{route.destination}</span>
-                 </div>
+        <TabsContent value="routes" className="space-y-6 focus-visible:outline-none">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            {routes.map(route => {
+              const isActive = route.status !== 'inactive';
+              return (
+                <div 
+                  key={route.id} 
+                  className={`
+                    group relative bg-white rounded-2xl border transition-all duration-300 flex flex-col justify-between overflow-hidden
+                    ${isActive 
+                      ? 'border-slate-200 hover:border-primary/50 hover:shadow-xl hover:shadow-primary/5' 
+                      : 'border-slate-200 bg-slate-50/50 opacity-80'
+                    }
+                  `}
+                >
+                   {/* Card Header */}
+                   <div className="p-5 flex justify-between items-start">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                           <Badge variant={route.isEnhanced ? 'warning' : 'default'} className={route.isEnhanced ? 'bg-amber-100 text-amber-700 border-amber-200' : 'bg-blue-100 text-blue-700 border-blue-200'}>
+                             {route.isEnhanced ? <Zap size={10} className="mr-1 fill-amber-700"/> : null}
+                             {route.isEnhanced ? 'Tăng cường' : 'Cố định'}
+                           </Badge>
+                           {!isActive && (
+                              <Badge variant="destructive" className="bg-red-100 text-red-700 border-red-200">
+                                <AlertCircle size={10} className="mr-1"/> Đã ngưng
+                              </Badge>
+                           )}
+                        </div>
+                      </div>
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity absolute top-4 right-4 bg-white/90 backdrop-blur p-1 rounded-lg border border-slate-100 shadow-sm">
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-500 hover:text-primary hover:bg-blue-50" onClick={() => handleEditRoute(route)}>
+                             <Edit size={14}/>
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-destructive hover:bg-red-50" onClick={() => { setDeleteId(String(route.id)); setDeleteType('route'); }}>
+                             <Trash2 size={14}/>
+                          </Button>
+                      </div>
+                   </div>
+                   
+                   {/* Card Body */}
+                   <div className="px-5 pb-5">
+                      <div className="flex items-center gap-3 mb-4">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${isActive ? 'bg-slate-100 text-slate-600' : 'bg-slate-200 text-slate-400'}`}>
+                              <MapPin size={20} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                              <h3 className={`font-bold text-lg truncate ${isActive ? 'text-slate-900' : 'text-slate-500'}`} title={route.name}>{route.name}</h3>
+                              <div className="flex items-center gap-2 text-xs text-slate-500">
+                                 <span className="truncate max-w-[100px] font-medium">{route.origin}</span>
+                                 <ArrowRight size={12} className="text-slate-300"/>
+                                 <span className="truncate max-w-[100px] font-medium">{route.destination}</span>
+                              </div>
+                          </div>
+                      </div>
 
-                 <div className="flex items-center justify-between pt-4 border-t border-slate-100">
-                    <div className="text-xs text-slate-500">
-                       Giá vé: <span className="font-bold text-slate-700 text-sm">{route.price?.toLocaleString('vi-VN')} đ</span>
-                    </div>
-                    <div className="text-xs font-mono bg-slate-100 px-2 py-1 rounded text-slate-600">
-                       {route.departureTime} / {route.returnTime}
-                    </div>
-                 </div>
-              </div>
-            ))}
-            {routes.length === 0 && (
-                <div className="col-span-full py-12 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded-xl bg-slate-50">
-                   <MapPin size={48} className="mx-auto mb-2 opacity-20"/>
-                   <p>Chưa có tuyến đường nào.</p>
+                      <div className={`rounded-xl p-4 flex justify-between items-center ${isActive ? 'bg-slate-50 border border-slate-100' : 'bg-slate-100 border border-slate-200'}`}>
+                          <div>
+                             <div className="text-xs text-slate-500 mb-1">Giá niêm yết</div>
+                             <div className="text-lg font-bold text-primary">
+                                {route.price?.toLocaleString('vi-VN')} <span className="text-xs font-normal text-slate-500">đ</span>
+                             </div>
+                          </div>
+                          <div className="text-right">
+                             <div className="text-xs text-slate-500 mb-1">Xuất bến</div>
+                             <div className="flex items-center gap-1.5 text-sm font-bold text-slate-700">
+                                <Clock size={14} className="text-slate-400"/> {route.departureTime || '--:--'}
+                             </div>
+                             {route.returnTime && (
+                                <div className="text-[10px] text-slate-400 mt-0.5">Về: {route.returnTime}</div>
+                             )}
+                          </div>
+                      </div>
+                   </div>
                 </div>
-            )}
+              );
+            })}
+            
+            {/* Add New Route Card Placeholder */}
+            <button 
+               onClick={handleAddRoute}
+               className="group relative rounded-2xl border-2 border-dashed border-slate-200 hover:border-primary/50 hover:bg-primary/5 transition-all flex flex-col items-center justify-center min-h-[220px] text-slate-400 hover:text-primary gap-3"
+            >
+               <div className="w-14 h-14 rounded-full bg-slate-50 group-hover:bg-white flex items-center justify-center transition-colors">
+                  <Plus size={24} />
+               </div>
+               <span className="font-semibold">Thêm tuyến mới</span>
+            </button>
           </div>
         </TabsContent>
 
         {/* BUSES CONTENT */}
-        <TabsContent value="buses" className="space-y-4">
-           <div className="flex justify-end">
-            <Button onClick={handleAddBus} className="shadow-sm">
-               <Plus size={18} className="mr-1"/> Thêm xe mới
-            </Button>
-          </div>
-
-          <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+        <TabsContent value="buses" className="space-y-4 focus-visible:outline-none">
+          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
              <div className="overflow-x-auto">
                <table className="w-full text-sm text-left">
-                  <thead className="bg-slate-50 text-slate-600 font-medium border-b border-slate-200">
+                  <thead className="bg-slate-50/70 border-b border-slate-200 text-slate-500 font-semibold text-xs uppercase tracking-wider">
                      <tr>
-                        <th className="px-6 py-4">Biển số</th>
-                        <th className="px-6 py-4">Loại xe</th>
-                        <th className="px-6 py-4">Số ghế</th>
-                        <th className="px-6 py-4">Điện thoại</th>
+                        <th className="px-6 py-4">Thông tin xe</th>
+                        <th className="px-6 py-4">Loại & Sức chứa</th>
+                        <th className="px-6 py-4">Tuyến mặc định</th>
+                        <th className="px-6 py-4">Liên hệ</th>
                         <th className="px-6 py-4">Trạng thái</th>
                         <th className="px-6 py-4 text-right">Thao tác</th>
                      </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                     {buses.map(bus => (
-                        <tr key={bus.id} className="hover:bg-slate-50 transition-colors">
-                           <td className="px-6 py-4 font-bold text-slate-900">{bus.plate}</td>
-                           <td className="px-6 py-4 text-slate-600">
-                              {bus.type === 'CABIN' ? 'Xe Phòng' : 'Giường nằm'}
-                           </td>
-                           <td className="px-6 py-4 text-slate-600">{bus.seats} chỗ</td>
-                           <td className="px-6 py-4 text-slate-500 font-mono">{bus.phoneNumber || '--'}</td>
+                     {buses.map(bus => {
+                        const defaultRoute = routes.find(r => r.id === bus.defaultRouteId);
+                        const isCabin = bus.type === BusType.CABIN;
+                        
+                        return (
+                        <tr key={bus.id} className="group hover:bg-slate-50 transition-colors">
                            <td className="px-6 py-4">
-                              <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium 
-                                ${bus.status === 'Hoạt động' ? 'bg-green-100 text-green-700' : 
-                                  bus.status === 'Xe thuê/Tăng cường' ? 'bg-yellow-100 text-yellow-700' :
-                                  'bg-red-100 text-red-700'
-                                }`}>
+                              <div className="flex items-center gap-3">
+                                 <div className="w-10 h-10 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center font-bold border border-slate-200 shadow-sm">
+                                    <BusFront size={20} />
+                                 </div>
+                                 <div>
+                                    <div className="font-bold text-slate-900 text-base">{bus.plate}</div>
+                                    <div className="text-xs text-slate-400 font-mono">ID: {bus.id.slice(-6)}</div>
+                                 </div>
+                              </div>
+                           </td>
+                           <td className="px-6 py-4">
+                              <div className="flex flex-col gap-1">
+                                 <div className="flex items-center gap-2 font-medium text-slate-700">
+                                    {isCabin ? <LayoutGrid size={16} className="text-indigo-500"/> : <LayoutGrid size={16} className="text-blue-500"/>}
+                                    {isCabin ? 'Xe Phòng VIP' : 'Xe Giường Đơn'}
+                                 </div>
+                                 <span className="text-xs text-slate-500 pl-6">{bus.seats} chỗ</span>
+                              </div>
+                           </td>
+                           <td className="px-6 py-4">
+                              {defaultRoute ? (
+                                <div className="flex items-center gap-2 max-w-[200px]">
+                                   <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-100 truncate">
+                                      {defaultRoute.name}
+                                   </Badge>
+                                </div>
+                              ) : (
+                                <span className="text-slate-400 text-xs italic pl-2">-- Chưa gán --</span>
+                              )}
+                           </td>
+                           <td className="px-6 py-4">
+                              {bus.phoneNumber ? (
+                                <div className="flex items-center gap-2 text-slate-600">
+                                   <Phone size={14} className="text-slate-400"/>
+                                   <span className="font-mono">{bus.phoneNumber}</span>
+                                </div>
+                              ) : (
+                                <span className="text-slate-400 text-xs">--</span>
+                              )}
+                           </td>
+                           <td className="px-6 py-4">
+                              <div className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${
+                                 bus.status === 'Hoạt động' ? 'bg-green-50 text-green-700 border-green-200' : 
+                                 bus.status === 'Xe thuê/Tăng cường' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                 'bg-slate-100 text-slate-600 border-slate-200'
+                              }`}>
+                                 {bus.status === 'Hoạt động' && <CheckCircle2 size={12} className="mr-1.5"/>}
+                                 {bus.status === 'Xe thuê/Tăng cường' && <Zap size={12} className="mr-1.5"/>}
+                                 {bus.status === 'Ngưng hoạt động' && <AlertCircle size={12} className="mr-1.5"/>}
                                  {bus.status}
-                              </span>
+                              </div>
                            </td>
                            <td className="px-6 py-4 text-right">
-                              <div className="flex justify-end gap-2">
-                                 <Button variant="outline" size="sm" onClick={() => handleEditBus(bus)}>
-                                    <Settings2 size={14} className="mr-1"/> Cấu hình
+                              <div className="flex justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+                                 <Button variant="ghost" size="sm" onClick={() => handleEditBus(bus)} className="hover:bg-blue-50 hover:text-blue-600">
+                                    <Settings2 size={16} className="mr-2"/> Cấu hình
                                  </Button>
-                                 <Button variant="ghost" size="icon" className="text-slate-400 hover:text-destructive" onClick={() => { setDeleteId(bus.id); setDeleteType('bus'); }}>
+                                 <Button variant="ghost" size="icon" className="text-slate-400 hover:text-destructive hover:bg-red-50" onClick={() => { setDeleteId(bus.id); setDeleteType('bus'); }}>
                                     <Trash2 size={16}/>
                                  </Button>
                               </div>
                            </td>
                         </tr>
-                     ))}
+                        );
+                     })}
                      {buses.length === 0 && (
                         <tr>
-                           <td colSpan={6} className="py-12 text-center text-slate-400">
-                              <BusFront size={48} className="mx-auto mb-2 opacity-20"/>
-                              <p>Chưa có xe nào trong hệ thống.</p>
+                           <td colSpan={6} className="py-16 text-center text-slate-400 bg-slate-50/30">
+                              <div className="flex flex-col items-center gap-3">
+                                <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center">
+                                  <BusFront size={32} className="opacity-20"/>
+                                </div>
+                                <p className="text-sm font-medium">Chưa có xe nào trong hệ thống.</p>
+                                <Button variant="outline" size="sm" onClick={handleAddBus}>Thêm xe ngay</Button>
+                              </div>
                            </td>
                         </tr>
                      )}
@@ -267,17 +394,19 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         title="Xác nhận xóa"
       >
         <div className="p-6 text-center">
-           <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-600">
-              <Trash2 size={24}/>
+           <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-100 animate-in zoom-in duration-300">
+              <AlertTriangle size={32} className="text-red-500"/>
            </div>
-           <h3 className="text-lg font-bold text-slate-900 mb-2">
-              Bạn có chắc chắn muốn xóa {deleteType === 'route' ? 'tuyến đường' : 'xe'} này?
+           <h3 className="text-xl font-bold text-slate-900 mb-2">
+              Xóa {deleteType === 'route' ? 'tuyến đường' : 'xe'} này?
            </h3>
-           <p className="text-slate-500 mb-6">Hành động này không thể hoàn tác.</p>
+           <p className="text-slate-500 mb-8 leading-relaxed max-w-xs mx-auto">
+             Hành động này sẽ xóa dữ liệu khỏi hệ thống và không thể hoàn tác. Vui lòng kiểm tra kỹ trước khi tiếp tục.
+           </p>
            
            <div className="flex justify-center gap-3">
-              <Button variant="outline" onClick={() => { setDeleteId(null); setDeleteType(null); }}>Hủy bỏ</Button>
-              <Button variant="destructive" onClick={deleteType === 'route' ? handleDeleteRoute : handleDeleteBus}>Xóa ngay</Button>
+              <Button variant="outline" className="min-w-[100px]" onClick={() => { setDeleteId(null); setDeleteType(null); }}>Hủy bỏ</Button>
+              <Button variant="destructive" className="min-w-[100px]" onClick={deleteType === 'route' ? handleDeleteRoute : handleDeleteBus}>Xóa ngay</Button>
            </div>
         </div>
       </Dialog>
