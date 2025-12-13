@@ -395,24 +395,18 @@ export const Layout: React.FC<LayoutProps> = ({
               <Popover
                 align="right"
                 trigger={
-                  <div className="flex items-center justify-between gap-3 h-9 px-3 border border-slate-200 rounded-md bg-white hover:bg-slate-50 hover:border-slate-300 transition-colors select-none cursor-pointer min-w-[220px] max-w-[400px]">
+                  <div className="flex items-center justify-between gap-3 h-9 px-3 border border-slate-200 rounded-md bg-white hover:bg-slate-50 hover:border-slate-300 transition-colors select-none cursor-pointer min-w-[220px] max-w-[340px]">
                     <div className="flex items-center gap-2 overflow-hidden">
                       <MapPin size={16} className="text-slate-500 shrink-0" />
                       {selectedTripDisplay ? (
                         <div className="flex items-center gap-2 min-w-0">
                           <span className="text-sm font-medium text-slate-900 truncate">
-                            {selectedTripDisplay.displayTime} -{" "}
-                            {selectedTripDisplay.route}
+                            {selectedTripDisplay.displayTime} - {selectedTripDisplay.route}
                           </span>
                           {selectedTripDisplay.isEnhanced && (
                             <span className="shrink-0 inline-flex items-center text-[10px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200 whitespace-nowrap">
-                              <Zap
-                                size={10}
-                                className="mr-0.5 fill-amber-700"
-                              />
-                              {selectedTripDisplay.enhancedIndex > 0
-                                ? `Tăng cường #${selectedTripDisplay.enhancedIndex}`
-                                : "Tăng cường"}
+                              <Zap size={10} className="mr-0.5 fill-amber-700" /> 
+                              {selectedTripDisplay.enhancedIndex > 0 ? `TC #${selectedTripDisplay.enhancedIndex}` : 'Tăng cường'}
                             </span>
                           )}
                         </div>
@@ -484,15 +478,12 @@ export const Layout: React.FC<LayoutProps> = ({
                                         size={9}
                                         className="mr-0.5 fill-amber-700"
                                       />
-                                      Tăng cường{" "}
-                                      {trip.enhancedIndex > 0
-                                        ? `#${trip.enhancedIndex}`
-                                        : ""}
+                                      Tăng cường {trip.enhancedIndex > 0 ? `#${trip.enhancedIndex}` : ''}
                                     </span>
                                   )}
                                 </div>
                                 <div className="flex items-center gap-2 mt-0.5">
-                                  <span className="text-xs text-slate-500 bg-slate-100 px-1.5 rounded border border-slate-200/50">
+                                  <span className="text-xs text-slate-500 bg-slate-100 px-1.5 rounded font-mono border border-slate-200/50">
                                     {trip.licensePlate}
                                   </span>
                                   <span className="text-[10px] text-slate-400 pl-1 border-l border-slate-200">

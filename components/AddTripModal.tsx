@@ -1,11 +1,11 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Dialog } from './ui/Dialog';
 import { Button } from './ui/Button';
 import { Bus, Route, BusTrip, BusType, SeatStatus } from '../types';
-import { Loader2, Clock, MapPin, Wallet, Calendar, CheckCircle2, AlertTriangle, ArrowRightLeft, BusFront, LayoutGrid, Info, ArrowRight } from 'lucide-react';
+import { Loader2, Clock, MapPin, Wallet, Calendar, CheckCircle2, AlertTriangle, ArrowRightLeft, BusFront, LayoutGrid, Info, ArrowRight, Zap, Check } from 'lucide-react';
 import { generateCabinLayout, generateSleeperLayout } from '../utils/generators';
 import { isSameDay } from '../utils/dateUtils';
+import { Badge } from './ui/Badge';
 
 interface AddTripModalProps {
   isOpen: boolean;
@@ -391,33 +391,66 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
                 </div>
             </div>
 
-            {/* Bus Selection */}
+            {/* Bus Selection - CARD GRID */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Chọn xe vận hành <span className="text-red-500">*</span></label>
-              {filteredBuses.length === 0 && selectedRouteId ? (
-                 <div className="text-sm text-red-600 bg-red-50 p-3 rounded border border-red-100 mb-2 flex items-center gap-2">
-                    <AlertTriangle size={16} />
-                    Chưa có xe phù hợp.
+              <label className="block text-sm font-medium text-slate-700 mb-2">Chọn xe vận hành <span className="text-red-500">*</span></label>
+              
+              {!selectedRouteId ? (
+                <div className="bg-slate-100 border border-slate-200 border-dashed rounded-lg p-8 flex flex-col items-center justify-center text-slate-400">
+                   <BusFront size={24} className="mb-2 opacity-50"/>
+                   <span className="text-sm">Vui lòng chọn tuyến đường trước</span>
+                </div>
+              ) : filteredBuses.length === 0 ? (
+                 <div className="text-sm text-red-600 bg-red-50 p-4 rounded-lg border border-red-100 flex flex-col items-center gap-2 text-center">
+                    <AlertTriangle size={24} />
+                    <p>Không tìm thấy xe phù hợp cho tuyến này.</p>
+                    <p className="text-xs text-red-500">Hãy kiểm tra lại cấu hình tuyến mặc định của xe hoặc thêm xe tăng cường.</p>
                  </div>
               ) : (
-                <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                        <BusFront size={18} />
-                    </div>
-                    <select 
-                       required
-                       className="w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none bg-white text-slate-900 shadow-sm"
-                       value={selectedBusId}
-                       onChange={(e) => setSelectedBusId(e.target.value)}
-                       disabled={!selectedRouteId}
-                    >
-                       <option value="">-- Chọn xe --</option>
-                       {filteredBuses.map(b => (
-                         <option key={b.id} value={b.id}>
-                           {b.plate} {b.status === 'Xe thuê/Tăng cường' ? '(Thuê)' : ''} - {b.seats} chỗ
-                         </option>
-                       ))}
-                    </select>
+                <div className="grid grid-cols-2 gap-3 max-h-[280px] overflow-y-auto pr-1">
+                   {filteredBuses.map(bus => {
+                      const isSelected = bus.id === selectedBusId;
+                      const isEnhanced = bus.status === 'Xe thuê/Tăng cường';
+                      
+                      return (
+                        <button
+                          key={bus.id}
+                          type="button"
+                          onClick={() => setSelectedBusId(bus.id)}
+                          className={`
+                            relative flex flex-col items-start p-3 rounded-lg border transition-all text-left group
+                            ${isSelected 
+                                ? 'bg-primary/5 border-primary ring-1 ring-primary shadow-sm z-10' 
+                                : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                            }
+                          `}
+                        >
+                           <div className="flex items-start justify-between w-full mb-1">
+                              <span className={`font-bold text-sm ${isSelected ? 'text-primary' : 'text-slate-800'}`}>
+                                 {bus.plate}
+                              </span>
+                              {isEnhanced && (
+                                <span title="Xe thuê/Tăng cường">
+                                   <Zap size={14} className="text-amber-500 fill-amber-500" />
+                                </span>
+                              )}
+                           </div>
+                           
+                           <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-1">
+                              <LayoutGrid size={12}/>
+                              <span>{bus.type === BusType.CABIN ? 'Phòng' : 'Giường'}</span>
+                              <span className="w-1 h-1 rounded-full bg-slate-300 mx-0.5"></span>
+                              <span>{bus.seats} chỗ</span>
+                           </div>
+
+                           {isSelected && (
+                              <div className="absolute top-2 right-2">
+                                 <Check size={16} className="text-primary" />
+                              </div>
+                           )}
+                        </button>
+                      );
+                   })}
                 </div>
               )}
             </div>
