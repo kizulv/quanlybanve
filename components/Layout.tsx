@@ -401,12 +401,18 @@ export const Layout: React.FC<LayoutProps> = ({
                       {selectedTripDisplay ? (
                         <div className="flex items-center gap-2 min-w-0">
                           <span className="text-sm font-medium text-slate-900 truncate">
-                            {selectedTripDisplay.displayTime} - {selectedTripDisplay.route}
+                            {selectedTripDisplay.displayTime} -{" "}
+                            {selectedTripDisplay.route}
                           </span>
                           {selectedTripDisplay.isEnhanced && (
                             <span className="shrink-0 inline-flex items-center text-[10px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200 whitespace-nowrap">
-                              <Zap size={10} className="mr-0.5 fill-amber-700" /> 
-                              {selectedTripDisplay.enhancedIndex > 0 ? `TC #${selectedTripDisplay.enhancedIndex}` : 'Tăng cường'}
+                              <Zap
+                                size={10}
+                                className="mr-0.5 fill-amber-700"
+                              />
+                              {selectedTripDisplay.enhancedIndex > 0
+                                ? `TC #${selectedTripDisplay.enhancedIndex}`
+                                : "Tăng cường"}
                             </span>
                           )}
                         </div>
@@ -478,7 +484,10 @@ export const Layout: React.FC<LayoutProps> = ({
                                         size={9}
                                         className="mr-0.5 fill-amber-700"
                                       />
-                                      Tăng cường {trip.enhancedIndex > 0 ? `#${trip.enhancedIndex}` : ''}
+                                      Tăng cường{" "}
+                                      {trip.enhancedIndex > 0
+                                        ? `#${trip.enhancedIndex}`
+                                        : ""}
                                     </span>
                                   )}
                                 </div>
