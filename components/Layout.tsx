@@ -123,36 +123,27 @@ export const Layout: React.FC<LayoutProps> = ({
 
   // Logic to process Enhanced Routes labels
   const tripOptions = useMemo(() => {
-    // Group counters for enhanced routes
-    const enhancedCounters: Record<string, number> = {};
-
-    // Sort trips by time
-    const sorted = [...availableTrips].sort((a, b) =>
-      a.departureTime.localeCompare(b.departureTime)
-    );
-
-    return sorted.map((trip) => {
-      const time = trip.departureTime.split(" ")[1];
+    // 1. First, map trips to include metadata (isEnhanced status)
+    const tripsWithMeta = availableTrips.map((trip) => {
       let isEnhanced = false;
-      let enhancedIndex = 0;
 
-      // --- LOGIC NHẬN DIỆN TUYẾN TĂNG CƯỜNG ---
-      
-      // 1. Check by ID (Most reliable)
-      const routeById = routes.find(r => String(r.id) === String(trip.routeId));
+      // Check by ID (Most reliable)
+      const routeById = routes.find(
+        (r) => String(r.id) === String(trip.routeId)
+      );
       if (routeById?.isEnhanced) {
         isEnhanced = true;
       }
-      
-      // 2. Check by Name (Fallback if ID missing/mismatched)
+
+      // Check by Name (Fallback)
       if (!isEnhanced && trip.route) {
-         const routeByName = routes.find(r => r.name === trip.route);
-         if (routeByName?.isEnhanced) {
-           isEnhanced = true;
-         }
+        const routeByName = routes.find((r) => r.name === trip.route);
+        if (routeByName?.isEnhanced) {
+          isEnhanced = true;
+        }
       }
 
-      // 3. Fallback: Check if trip name or route string contains "tăng cường" (Legacy data)
+      // Legacy Fallback
       if (!isEnhanced) {
         if (
           (trip as any).isEnhanced ||
@@ -163,8 +154,29 @@ export const Layout: React.FC<LayoutProps> = ({
         }
       }
 
-      // If enhanced, calculate index (e.g., Enhanced Trip #1, #2)
-      if (isEnhanced) {
+      return {
+        ...trip,
+        isEnhanced,
+        displayTime: trip.departureTime.split(" ")[1],
+      };
+    });
+
+    // 2. Sort: Regular trips first, then Enhanced trips. Within each group, sort by time.
+    tripsWithMeta.sort((a, b) => {
+      // Primary sort: isEnhanced (false comes before true)
+      if (a.isEnhanced !== b.isEnhanced) {
+        return a.isEnhanced ? 1 : -1;
+      }
+      // Secondary sort: departureTime
+      return a.departureTime.localeCompare(b.departureTime);
+    });
+
+    // 3. Calculate indices for enhanced trips (based on sorted time)
+    const enhancedCounters: Record<string, number> = {};
+
+    return tripsWithMeta.map((trip) => {
+      let enhancedIndex = 0;
+      if (trip.isEnhanced) {
         const key = trip.route;
         enhancedCounters[key] = (enhancedCounters[key] || 0) + 1;
         enhancedIndex = enhancedCounters[key];
@@ -172,8 +184,6 @@ export const Layout: React.FC<LayoutProps> = ({
 
       return {
         ...trip,
-        displayTime: time,
-        isEnhanced,
         enhancedIndex,
       };
     });
