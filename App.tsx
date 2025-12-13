@@ -432,17 +432,17 @@ function App() {
           </div>
         </div>
 
-        {/* RIGHT COLUMN: BOOKING FORM & HISTORY (Clean, Flat Design) */}
+        {/* RIGHT COLUMN: BOOKING FORM & HISTORY (Dark Blue & Yellow Theme) */}
         <div className="w-full md:w-[320px] xl:w-[360px] flex flex-col gap-2 shrink-0 h-full">
           
-          {/* CARD 1: BOOKING FORM (Top) */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col overflow-hidden shrink-0">
-            <div className="p-2.5 bg-white border-b border-slate-100 flex items-center justify-between">
-              <div className="flex items-center gap-2 text-sm font-bold text-slate-800">
-                <Ticket size={16} className="text-primary" />
+          {/* CARD 1: BOOKING FORM (Top - Deep Blue) */}
+          <div className="bg-indigo-950 rounded-xl shadow-lg border border-indigo-900 flex flex-col overflow-hidden shrink-0">
+            <div className="p-3 bg-indigo-950/50 border-b border-indigo-900 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm font-bold text-white">
+                <Ticket size={16} className="text-yellow-400" />
                 Thông tin đặt vé
               </div>
-              <div className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+              <div className="text-[10px] font-bold text-indigo-950 bg-yellow-400 px-2 py-0.5 rounded-full">
                 {selectedSeats.length} vé đang chọn
               </div>
             </div>
@@ -453,17 +453,17 @@ function App() {
                  {selectedSeats.length > 0 ? selectedSeats.map((s) => (
                     <Badge
                       key={s.id}
-                      className="bg-blue-50 text-blue-700 border border-blue-100 font-mono text-xs py-0.5 px-1.5 rounded-md"
+                      className="bg-indigo-800 text-white border border-indigo-700 font-mono text-xs py-0.5 px-1.5 rounded-md"
                     >
                       {s.label}
                     </Badge>
                   )) : (
-                     <span className="text-xs text-slate-400 italic pl-1">Chưa chọn ghế nào...</span>
+                     <span className="text-xs text-indigo-300 italic pl-1">Chưa chọn ghế nào...</span>
                   )}
               </div>
 
               <form id="booking-form" onSubmit={handleBookingSubmit} className="space-y-2.5">
-                {/* Phone Input - Flat */}
+                {/* Phone Input - Blue Theme */}
                 <div>
                   <div className="relative">
                     <input
@@ -471,83 +471,83 @@ function App() {
                       name="phone"
                       value={bookingForm.phone}
                       onChange={handleInputChange}
-                      className="w-full pl-8 pr-2 py-1.5 bg-slate-50 border border-transparent rounded-md text-sm font-bold text-slate-900 placeholder-slate-400 focus:bg-white focus:border-primary/30 focus:ring-2 focus:ring-primary/10 outline-none transition-all"
+                      className="w-full pl-8 pr-2 py-1.5 bg-indigo-900/50 border border-transparent rounded-md text-sm font-bold text-white placeholder-indigo-300 focus:bg-indigo-900 focus:ring-1 focus:ring-yellow-400 outline-none transition-all"
                       placeholder="Số điện thoại khách..."
                       required
                       autoFocus
                     />
-                    <Phone className="absolute left-2.5 top-2 text-slate-400" size={14} />
+                    <Phone className="absolute left-2.5 top-2 text-indigo-300" size={14} />
                   </div>
                 </div>
 
-                {/* Pickup / Dropoff - Grid, Flat */}
+                {/* Pickup / Dropoff - Grid */}
                 <div className="grid grid-cols-2 gap-2">
                     <div className="relative">
-                       <MapPin className="absolute left-2 top-2 text-green-600" size={12} />
+                       <MapPin className="absolute left-2 top-2 text-green-400" size={12} />
                        <input
                         type="text"
                         name="pickup"
                         value={bookingForm.pickup}
                         onChange={handleInputChange}
-                        className="w-full pl-6 pr-2 py-1.5 bg-slate-50 border border-transparent rounded-md text-xs font-medium focus:bg-white focus:border-green-500/30 focus:ring-2 focus:ring-green-500/10 outline-none transition-all"
+                        className="w-full pl-6 pr-2 py-1.5 bg-indigo-900/50 border border-transparent rounded-md text-xs font-medium text-white placeholder-indigo-300 focus:bg-indigo-900 focus:ring-1 focus:ring-green-400 outline-none transition-all"
                         placeholder="Điểm đón..."
                       />
                     </div>
                     <div className="relative">
-                       <MapPin className="absolute left-2 top-2 text-red-500" size={12} />
+                       <MapPin className="absolute left-2 top-2 text-red-400" size={12} />
                        <input
                         type="text"
                         name="dropoff"
                         value={bookingForm.dropoff}
                         onChange={handleInputChange}
-                        className="w-full pl-6 pr-2 py-1.5 bg-slate-50 border border-transparent rounded-md text-xs font-medium focus:bg-white focus:border-red-500/30 focus:ring-2 focus:ring-red-500/10 outline-none transition-all"
+                        className="w-full pl-6 pr-2 py-1.5 bg-indigo-900/50 border border-transparent rounded-md text-xs font-medium text-white placeholder-indigo-300 focus:bg-indigo-900 focus:ring-1 focus:ring-red-400 outline-none transition-all"
                         placeholder="Điểm trả..."
                       />
                     </div>
                 </div>
 
-                {/* Note - Flat */}
+                {/* Note */}
                 <div className="relative">
-                   <MessageSquare className="absolute left-2.5 top-2 text-slate-400" size={14} />
+                   <MessageSquare className="absolute left-2.5 top-2 text-indigo-300" size={14} />
                    <textarea
                     name="note"
                     value={bookingForm.note}
                     onChange={handleInputChange}
-                    className="w-full pl-8 pr-2 py-1.5 bg-slate-50 border border-transparent rounded-md text-xs font-medium focus:bg-white focus:border-primary/30 focus:ring-2 focus:ring-primary/10 outline-none resize-none h-8 placeholder-slate-400 transition-all"
+                    className="w-full pl-8 pr-2 py-1.5 bg-indigo-900/50 border border-transparent rounded-md text-xs font-medium text-white placeholder-indigo-300 focus:bg-indigo-900 focus:ring-1 focus:ring-yellow-400 outline-none resize-none h-8 transition-all"
                     placeholder="Ghi chú..."
                   />
                 </div>
 
-                {/* Payment - Receipt Style (No heavy box) */}
-                <div className="pt-2 border-t border-dashed border-slate-200">
+                {/* Payment - Receipt Style Blue */}
+                <div className="pt-2 border-t border-dashed border-indigo-800">
                   <div className="flex justify-between items-baseline mb-2 px-1">
-                    <span className="text-[11px] font-bold text-slate-500 uppercase">Tổng tiền</span>
-                    <span className="text-base font-bold text-slate-900">
-                      {totalPrice.toLocaleString("vi-VN")} <span className="text-[10px] font-normal text-slate-400">đ</span>
+                    <span className="text-[11px] font-bold text-indigo-300 uppercase">Tổng tiền</span>
+                    <span className="text-base font-bold text-yellow-400">
+                      {totalPrice.toLocaleString("vi-VN")} <span className="text-[10px] font-normal text-indigo-300">đ</span>
                     </span>
                   </div>
                   
                   <div className="grid grid-cols-2 gap-2">
                     <div className="relative">
-                      <span className="absolute left-2 top-1.5 text-[10px] font-bold text-slate-400 uppercase">TM</span>
+                      <span className="absolute left-2 top-1.5 text-[10px] font-bold text-indigo-400 uppercase">TM</span>
                       <input
                         placeholder="0"
                         type="text"
                         name="paidCash"
                         value={bookingForm.paidCash.toLocaleString("vi-VN")}
                         onChange={handleMoneyChange}
-                        className="w-full pl-8 pr-2 py-1 bg-slate-50 border border-slate-200 rounded text-[11px] font-bold text-right focus:border-green-500 focus:ring-1 focus:ring-green-500 outline-none text-slate-900 h-7"
+                        className="w-full pl-8 pr-2 py-1 bg-indigo-900/50 border border-transparent rounded text-[11px] font-bold text-right focus:ring-1 focus:ring-green-400 outline-none text-white h-7 placeholder-indigo-500"
                       />
                     </div>
                     <div className="relative">
-                      <span className="absolute left-2 top-1.5 text-[10px] font-bold text-slate-400 uppercase">CK</span>
+                      <span className="absolute left-2 top-1.5 text-[10px] font-bold text-indigo-400 uppercase">CK</span>
                       <input
                         placeholder="0"
                         type="text"
                         name="paidTransfer"
                         value={bookingForm.paidTransfer.toLocaleString("vi-VN")}
                         onChange={handleMoneyChange}
-                        className="w-full pl-8 pr-2 py-1 bg-slate-50 border border-slate-200 rounded text-[11px] font-bold text-right focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none text-slate-900 h-7"
+                        className="w-full pl-8 pr-2 py-1 bg-indigo-900/50 border border-transparent rounded text-[11px] font-bold text-right focus:ring-1 focus:ring-blue-400 outline-none text-white h-7 placeholder-indigo-500"
                       />
                     </div>
                   </div>
@@ -558,9 +558,9 @@ function App() {
                         const paid = bookingForm.paidCash + bookingForm.paidTransfer;
                         const diff = totalPrice - paid;
                         if (totalPrice > 0) {
-                            if (diff === 0) return <span className="text-green-600 font-bold">Đã thanh toán đủ</span>;
-                            if (diff > 0) return <span className="text-red-500 font-medium">Thiếu: {diff.toLocaleString()}đ</span>;
-                            if (diff < 0) return <span className="text-blue-600 font-medium">Thừa: {Math.abs(diff).toLocaleString()}đ</span>;
+                            if (diff === 0) return <span className="text-green-400 font-bold">Đã thanh toán đủ</span>;
+                            if (diff > 0) return <span className="text-red-400 font-medium">Thiếu: {diff.toLocaleString()}đ</span>;
+                            if (diff < 0) return <span className="text-blue-300 font-medium">Thừa: {Math.abs(diff).toLocaleString()}đ</span>;
                         }
                         return null;
                     })()}
@@ -570,11 +570,11 @@ function App() {
             </div>
             
             {/* Action Buttons */}
-            <div className="p-2 bg-slate-50 border-t border-slate-200 flex gap-2">
+            <div className="p-2 bg-indigo-950 border-t border-indigo-900 flex gap-2">
                 <Button
                   type="button"
                   variant="outline"
-                  className="flex-1 bg-white border-slate-200 text-slate-600 hover:bg-slate-100 h-8 text-xs font-medium"
+                  className="flex-1 bg-indigo-900/50 border-indigo-800 text-indigo-200 hover:bg-indigo-800 hover:text-white h-8 text-xs font-medium"
                   onClick={cancelSelection}
                   disabled={selectedSeats.length === 0}
                 >
@@ -583,7 +583,7 @@ function App() {
                 <Button
                   type="submit"
                   form="booking-form"
-                  className="flex-[2] bg-primary hover:bg-primary/90 text-white font-bold h-8 text-xs shadow-sm"
+                  className="flex-[2] bg-yellow-500 hover:bg-yellow-400 text-indigo-950 font-bold h-8 text-xs shadow-sm border border-transparent"
                   disabled={selectedSeats.length === 0}
                 >
                   <CheckCircle2 size={13} className="mr-1.5" /> Đặt vé
