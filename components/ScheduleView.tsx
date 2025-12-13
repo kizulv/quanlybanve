@@ -280,18 +280,21 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
         <div className="flex items-center gap-2">
           <div className="flex items-center bg-slate-100 rounded-lg p-1">
             <button
+              title="Tháng trước"
               onClick={handlePrevMonth}
               className="p-2 hover:bg-white hover:shadow-sm rounded-md transition-all text-slate-600"
             >
               <ChevronLeft size={20} />
             </button>
             <button
+              title="Hôm nay"
               onClick={handleToday}
               className="px-4 py-1.5 text-sm font-medium text-slate-600 hover:text-primary"
             >
               Hôm nay
             </button>
             <button
+              title="Tháng sau"
               onClick={handleNextMonth}
               className="p-2 hover:bg-white hover:shadow-sm rounded-md transition-all text-slate-600"
             >
@@ -604,6 +607,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                   Từ ngày
                 </label>
                 <input
+                  title="Chọn ngày bắt đầu nghỉ Tết"
                   type="date"
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none text-sm"
                   value={settings.shutdownStartDate}
@@ -628,6 +632,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                   Đến ngày
                 </label>
                 <input
+                  title="Chọn ngày kết thúc nghỉ Tết"
                   type="date"
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none text-sm"
                   value={settings.shutdownEndDate}
