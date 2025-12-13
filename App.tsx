@@ -34,6 +34,8 @@ import {
   User,
   MoreHorizontal,
   Users,
+  Search,
+  X,
 } from "lucide-react";
 import { api } from "./lib/api";
 import { isSameDay } from "./utils/dateUtils";
@@ -75,6 +77,7 @@ function App() {
 
   // -- LOCAL UI STATE --
   const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
+  const [manifestSearch, setManifestSearch] = useState(""); // Search state for Manifest
 
   // Filter States
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -188,6 +191,21 @@ function App() {
     );
   }, [tripBookings, selectedTrip]);
 
+  // --- FILTERED MANIFEST (SEARCH) ---
+  const filteredManifest = useMemo(() => {
+    if (!manifestSearch.trim()) return groupedTripBookings;
+
+    const query = manifestSearch.toLowerCase();
+    return groupedTripBookings.filter(group => {
+      // Check Phone
+      const phoneMatch = group.phone.includes(query) || group.displayPhone.includes(query);
+      // Check Seats (e.g., query "A1" matches seat "A1")
+      const seatMatch = group.seats.some(s => s.toLowerCase().includes(query));
+      
+      return phoneMatch || seatMatch;
+    });
+  }, [groupedTripBookings, manifestSearch]);
+
   // Auto update payment when total changes (optional: keep cash synced if transfer is 0)
   useEffect(() => {
     if (bookingForm.paidTransfer === 0) {
@@ -200,6 +218,11 @@ function App() {
       }));
     }
   }, [totalPrice]);
+
+  // Reset search when trip changes
+  useEffect(() => {
+    setManifestSearch("");
+  }, [selectedTripId]);
 
   // --- Helper: Standardize Location Name ---
   const getStandardizedLocation = (input: string) => {
@@ -829,17 +852,50 @@ function App() {
               </div>
             </div>
 
+             {/* Search Bar */}
+            <div className="p-2 border-b border-slate-100 bg-slate-50/50">
+               <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
+                     <Search size={14} className="text-slate-400"/>
+                  </div>
+                  <input
+                    type="text"
+                    value={manifestSearch}
+                    onChange={(e) => setManifestSearch(e.target.value)}
+                    placeholder="Tìm SĐT hoặc số ghế..."
+                    className="w-full pl-8 pr-7 py-1.5 text-xs border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-white placeholder-slate-400"
+                  />
+                  {manifestSearch && (
+                      <button 
+                        onClick={() => setManifestSearch("")}
+                        className="absolute inset-y-0 right-0 pr-2 flex items-center cursor-pointer text-slate-400 hover:text-slate-600"
+                      >
+                         <X size={14} />
+                      </button>
+                  )}
+               </div>
+            </div>
+
             <div className="flex-1 overflow-y-auto p-0 scrollbar-thin scrollbar-thumb-slate-200">
-              {groupedTripBookings.length === 0 ? (
+              {filteredManifest.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-slate-300 p-4">
-                  <Ticket size={24} className="mb-2 opacity-20" />
-                  <span className="text-[10px] text-center">
-                    Chưa có vé nào được đặt
-                  </span>
+                  {manifestSearch ? (
+                     <>
+                        <Search size={24} className="mb-2 opacity-20" />
+                        <span className="text-[10px] text-center">Không tìm thấy kết quả</span>
+                     </>
+                  ) : (
+                     <>
+                        <Ticket size={24} className="mb-2 opacity-20" />
+                        <span className="text-[10px] text-center">
+                          Chưa có vé nào được đặt
+                        </span>
+                     </>
+                  )}
                 </div>
               ) : (
                 <div>
-                  {groupedTripBookings.map((group, idx) => {
+                  {filteredManifest.map((group, idx) => {
                     const timeStr = new Date(group.lastCreatedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
                     
                     // Format phone like 0868 868 304
