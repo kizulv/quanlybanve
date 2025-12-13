@@ -47,7 +47,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
     return phone;
   };
 
-  const renderSeat = (seat: Seat, isBench: boolean = false) => {
+  const renderSeat = (seat: Seat, widthClass: string = "w-full min-w-[130px]") => {
     const statusClass = getSeatStatusClass(seat.status);
     const isInteractive =
       seat.status === SeatStatus.AVAILABLE ||
@@ -59,11 +59,14 @@ export const SeatMap: React.FC<SeatMapProps> = ({
     );
     const isBooked = seat.status === SeatStatus.BOOKED && booking;
 
-    let phoneDisplay = "";
+    let formattedPhone = "";
+    let groupIndex = 0;
+    let groupTotal = 0;
+
     if (isBooked && booking) {
       const rawPhone = booking.passenger.phone;
       const normalizedPhone = rawPhone.replace(/\D/g, "");
-      const formatted = formatPhone(normalizedPhone || rawPhone);
+      formattedPhone = formatPhone(normalizedPhone || rawPhone);
 
       // Find siblings (bookings with same phone)
       const siblings = bookings.filter(
@@ -76,9 +79,8 @@ export const SeatMap: React.FC<SeatMapProps> = ({
         // Sort to find index (using seatId for deterministic order)
         siblings.sort((a, b) => a.seatId.localeCompare(b.seatId));
         const index = siblings.findIndex((b) => b.id === booking.id);
-        phoneDisplay = `${formatted} (${index + 1}/${siblings.length})`;
-      } else {
-        phoneDisplay = formatted;
+        groupIndex = index + 1;
+        groupTotal = siblings.length;
       }
     }
 
@@ -89,11 +91,8 @@ export const SeatMap: React.FC<SeatMapProps> = ({
         className={`
           relative flex flex-col border transition-all duration-200 select-none overflow-hidden
           ${statusClass} 
-          ${
-            isBench
-              ? "w-[130px] h-[100px] rounded-lg"
-              : "w-full min-w-[130px] h-[100px] rounded-lg"
-          }
+          ${widthClass}
+          h-[100px] rounded-lg
         `}
       >
         {/* Header: Seat Label */}
@@ -122,7 +121,14 @@ export const SeatMap: React.FC<SeatMapProps> = ({
                 title={booking.passenger.name}
               >
                 <Phone size={10} className="shrink-0 opacity-60" />
-                <span className="truncate">{phoneDisplay}</span>
+                <div className="flex items-center gap-1 min-w-0">
+                  <span className="truncate">{formattedPhone}</span>
+                  {groupTotal > 1 && (
+                    <span className="shrink-0 bg-slate-200 text-slate-600 px-1 rounded text-[8px] font-normal leading-tight">
+                      {groupIndex}/{groupTotal}
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* Route Info */}
@@ -179,96 +185,199 @@ export const SeatMap: React.FC<SeatMapProps> = ({
     );
   };
 
-  // Render a single floor (Deck)
-  const renderDeck = (floorNumber: number) => {
-    const floorSeats = seats.filter((s) => s.floor === floorNumber);
+  // --- LAYOUT FOR SLEEPER (GIƯỜNG ĐƠN) ---
+  // Render by Floors (Tầng 1, Tầng 2)
+  const renderSleeperLayout = () => {
+    const renderDeck = (floorNumber: number) => {
+      const floorSeats = seats.filter((s) => s.floor === floorNumber);
 
-    // Group seats by row
-    const rows = floorSeats.reduce((acc, seat) => {
-      const r = seat.row ?? 0;
-      if (!acc[r]) acc[r] = [];
-      acc[r].push(seat);
-      return acc;
-    }, {} as Record<number, Seat[]>);
+      // Group seats by row
+      const rows = floorSeats.reduce((acc, seat) => {
+        const r = seat.row ?? 0;
+        if (!acc[r]) acc[r] = [];
+        acc[r].push(seat);
+        return acc;
+      }, {} as Record<number, Seat[]>);
 
-    const rowIndices = Object.keys(rows)
-      .map(Number)
-      .sort((a, b) => a - b);
+      const rowIndices = Object.keys(rows)
+        .map(Number)
+        .sort((a, b) => a - b);
 
-    const standardCols = busType === BusType.CABIN ? 2 : 3;
+      const standardCols = 3;
+      let gridRows: number[] = [];
+      let benchRowIndex: number | null = null;
 
-    let gridRows: number[] = [];
-    let benchRowIndex: number | null = null;
+      rowIndices.forEach((r) => {
+        const seatsInRow = rows[r];
+        if (seatsInRow.length > standardCols) {
+          benchRowIndex = r;
+        } else {
+          gridRows.push(r);
+        }
+      });
 
-    rowIndices.forEach((r) => {
-      const seatsInRow = rows[r];
-      if (seatsInRow.length > standardCols) {
-        benchRowIndex = r;
-      } else {
-        gridRows.push(r);
-      }
-    });
-
-    // Determine deck width based on columns + detailed card size
-    // 3 cols * 140px + gaps ~= 450px
-    const deckWidthClass =
-      busType === BusType.CABIN ? "w-full md:w-1/2" : "w-full md:w-1/2";
-
-    return (
-      <div
-        className={`
-        relative overflow-hidden flex flex-col
-        ${deckWidthClass}
-      `}
-      >
-        {/* Header */}
-        <div className="pt-3 text-center">
-          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-            TẦNG {floorNumber}
-          </span>
-        </div>
-
-        <div className="p-4 flex flex-col items-center flex-1">
-          {/* Main Grid */}
-          <div
-            className="grid gap-3 w-full"
-            style={{
-              gridTemplateColumns: `repeat(${standardCols}, 1fr)`,
-            }}
-          >
-            {gridRows.map((rowIndex) => {
-              const rowSeats = rows[rowIndex].sort(
-                (a, b) => (a.col ?? 0) - (b.col ?? 0)
-              );
-              return rowSeats.map((seat) => (
-                <React.Fragment key={seat.id}>
-                  {renderSeat(seat, false)}
-                </React.Fragment>
-              ));
-            })}
+      return (
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-300 relative overflow-hidden flex flex-col w-full md:w-[460px]">
+          {/* Header */}
+          <div className="bg-slate-50 border-b border-slate-100 py-3 text-center">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              TẦNG {floorNumber}
+            </span>
           </div>
 
-          {/* Bench Row */}
-          {benchRowIndex !== null && (
-            <div className="mt-4 pt-3 border-t border-slate-100 border-dashed w-full">
-              <div className="flex justify-center gap-2 flex-wrap">
-                {rows[benchRowIndex]
-                  .sort((a, b) => (a.col ?? 0) - (b.col ?? 0))
-                  .map((seat) => renderSeat(seat, true))}
-              </div>
+          <div className="p-4 flex flex-col items-center flex-1">
+             {/* Driver Icon Placeholder for Floor 1 */}
+             {floorNumber === 1 && (
+               <div className="mb-4 text-slate-300 opacity-50">
+                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                     <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2" />
+                     <circle cx="7" cy="17" r="2" />
+                     <path d="M9 17h6" />
+                     <circle cx="17" cy="17" r="2" />
+                  </svg>
+               </div>
+            )}
+             
+            {/* Main Grid */}
+            <div
+              className="grid gap-3 w-full"
+              style={{
+                gridTemplateColumns: `repeat(${standardCols}, 1fr)`,
+              }}
+            >
+              {gridRows.map((rowIndex) => {
+                const rowSeats = rows[rowIndex].sort(
+                  (a, b) => (a.col ?? 0) - (b.col ?? 0)
+                );
+                return rowSeats.map((seat) => (
+                  <React.Fragment key={seat.id}>
+                    {renderSeat(seat)}
+                  </React.Fragment>
+                ));
+              })}
             </div>
-          )}
+
+            {/* Bench Row */}
+            {benchRowIndex !== null && (
+              <div className="mt-4 pt-3 border-t border-slate-100 border-dashed w-full">
+                <div className="flex justify-center gap-2 flex-wrap">
+                  {rows[benchRowIndex]
+                    .sort((a, b) => (a.col ?? 0) - (b.col ?? 0))
+                    .map((seat) => renderSeat(seat, "w-[130px]"))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    };
+
+    return (
+      <div className="flex overflow-x-auto justify-center">
+        <div className="flex gap-4 md:gap-8 px-4">
+          {renderDeck(1)}
+          {renderDeck(2)}
+        </div>
+      </div>
+    );
+  };
+
+  // --- LAYOUT FOR CABIN (XE PHÒNG) ---
+  // Render by Columns/Aisles (Dãy B, Dãy A)
+  const renderCabinLayout = () => {
+    // Identify dimensions
+    const maxCol = Math.max(...seats.map((s) => s.col ?? 0));
+    const maxRow = Math.max(...seats.map((s) => s.row ?? 0));
+    const cols = maxCol + 1; // Assuming 0-based index
+    const rows = maxRow + 1;
+
+    // Helper to find seat
+    const findSeat = (col: number, row: number, floor: number) => {
+      return seats.find(
+        (s) => (s.col ?? 0) === col && (s.row ?? 0) === row && s.floor === floor
+      );
+    };
+
+    // Columns to render (Usually 2: B and A)
+    // Using same logic as ManagerCarModal: Col 0 is B (left), Col 1 is A (right)
+    const columnsToRender = Array.from({ length: cols }, (_, i) => i);
+
+    return (
+      <div className="flex overflow-x-auto justify-center">
+        <div className="flex gap-4 md:gap-8 px-4">
+          {columnsToRender.map((colIndex) => {
+            const colName =
+              colIndex === 0
+                ? "Dãy B"
+                : colIndex === 1
+                ? "Dãy A"
+                : `Dãy ${String.fromCharCode(65 + colIndex)}`;
+
+            return (
+              <div
+                key={colIndex}
+                className="bg-white rounded-2xl shadow-sm border border-slate-300 relative overflow-hidden flex flex-col w-[300px] md:w-[340px]"
+              >
+                {/* Header */}
+                <div className="bg-slate-50 border-b border-slate-100 py-3 text-center">
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                    {colName}
+                  </span>
+                </div>
+
+                {/* Sub Header for Floor */}
+                <div className="grid grid-cols-2 text-[10px] font-bold text-slate-400 uppercase border-b border-slate-100 bg-slate-50/50">
+                    <div className="text-center py-1.5 border-r border-slate-100">Dưới</div>
+                    <div className="text-center py-1.5">Trên</div>
+                </div>
+
+                <div className="p-4 flex flex-col gap-3 flex-1">
+                  {/* Rows */}
+                  {Array.from({ length: rows }, (_, r) => {
+                    const seatLower = findSeat(colIndex, r, 1);
+                    const seatUpper = findSeat(colIndex, r, 2);
+
+                    // Skip row if no seats exist (unless we want gaps)
+                    if (!seatLower && !seatUpper) return null;
+
+                    return (
+                      <div key={r} className="grid grid-cols-2 gap-3">
+                         <div className="flex justify-center">
+                            {seatLower ? renderSeat(seatLower, "w-full") : <div className="w-full h-[100px] border border-dashed border-slate-200 rounded-lg bg-slate-50/50"></div>}
+                         </div>
+                         <div className="flex justify-center">
+                            {seatUpper ? renderSeat(seatUpper, "w-full") : <div className="w-full h-[100px] border border-dashed border-slate-200 rounded-lg bg-slate-50/50"></div>}
+                         </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                
+                {/* Driver area decoration (Only for Dãy B / Col 0) */}
+                {colIndex === 0 && (
+                   <div className="h-10 bg-slate-50 border-t border-slate-100 mt-auto flex justify-center items-center">
+                       <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-slate-300">
+                         <circle cx="12" cy="12" r="10" />
+                         <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                         <path d="M2 12h20" />
+                       </svg>
+                   </div>
+                )}
+                 {/* Empty decoration for Dãy A to align heights if needed */}
+                 {colIndex !== 0 && (
+                   <div className="h-10 bg-slate-50 border-t border-slate-100 mt-auto"></div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
     );
   };
 
   return (
-    <div className="flex overflow-x-auto">
-      <div className="w-full flex gap-4 md:gap-8">
-        {renderDeck(1)}
-        {renderDeck(2)}
-      </div>
+    <div className="w-full py-4">
+      {busType === BusType.CABIN ? renderCabinLayout() : renderSleeperLayout()}
     </div>
   );
 };
