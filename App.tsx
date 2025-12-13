@@ -374,52 +374,64 @@ function App() {
 
     return (
       <div className="h-[calc(100vh-140px)] flex flex-col md:flex-row gap-4 animate-in fade-in duration-300">
-        {/* LEFT COLUMN: SEAT MAP (Bright Blue Header, Gentle Background) */}
+        {/* LEFT COLUMN: SEAT MAP (Dark Navy Header, Gentle Body) */}
         <div className="flex-1 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col overflow-hidden">
-          {/* Trip Header Info */}
-          <div className="px-4 py-3 border-b border-blue-700 flex justify-between items-center bg-blue-600 shadow-sm z-10">
-            <div className="flex flex-col gap-0.5">
-              <div className="flex items-center gap-2">
-                 <h2 className="text-lg font-bold text-white tracking-tight">
-                    {selectedTrip.name}
-                 </h2>
-                 <Badge
-                  variant="secondary"
-                  className="bg-white/20 text-white border-transparent hover:bg-white/30 text-[10px] px-1.5 h-5"
-                 >
-                   {selectedTrip.type === BusType.CABIN ? "Xe Phòng" : "Giường Đơn"}
-                 </Badge>
-              </div>
-              
-              <div className="flex items-center text-xs text-blue-100 gap-3">
-                <span className="flex items-center font-medium opacity-90">
-                  <BusFront size={12} className="mr-1.5 opacity-70" />{" "}
-                  {selectedTrip.licensePlate}
-                </span>
-                <span className="w-1 h-1 bg-blue-400 rounded-full"></span>
-                <span className="flex items-center font-medium opacity-90">
-                  <Clock size={12} className="mr-1.5 opacity-70" /> Xuất bến:{" "}
-                  {selectedTrip.departureTime.split(" ")[1]}
-                </span>
-              </div>
+          
+          {/* Synchronized Header - Height 54px */}
+          <div className="px-4 h-[54px] border-b border-indigo-900 flex justify-between items-center bg-indigo-950 shadow-sm z-10 shrink-0">
+            {/* Left Side: Icon & Info */}
+            <div className="flex items-center gap-3">
+               <div className="w-8 h-8 rounded-lg bg-indigo-900 flex items-center justify-center text-yellow-400 shrink-0 border border-indigo-800">
+                   <BusFront size={16} />
+               </div>
+               
+               <div>
+                   <div className="flex items-center gap-2">
+                       <h2 className="text-sm font-bold text-white tracking-tight leading-none">
+                          {selectedTrip.name}
+                       </h2>
+                       <Badge
+                        variant="warning"
+                        className="bg-yellow-500 text-indigo-950 border-transparent hover:bg-yellow-400 text-[10px] px-1.5 h-4 font-bold"
+                       >
+                         {selectedTrip.type === BusType.CABIN ? "Xe Phòng" : "Giường Đơn"}
+                       </Badge>
+                   </div>
+                   
+                   <div className="flex items-center text-[10px] text-indigo-300 gap-2 mt-0.5">
+                      <span className="font-mono">{selectedTrip.licensePlate}</span>
+                      <span className="w-0.5 h-2 bg-indigo-800"></span>
+                      <span className="flex items-center">
+                        <Clock size={10} className="mr-1 opacity-70" /> 
+                        {selectedTrip.departureTime.split(" ")[1]}
+                      </span>
+                   </div>
+               </div>
             </div>
 
-            <div className="flex gap-4 text-[10px] md:text-xs font-medium text-blue-50">
+            {/* Right Side: Legend */}
+            <div className="flex gap-4 text-[10px] font-medium text-indigo-200 hidden lg:flex">
               <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 rounded border border-white/50 bg-white/20"></div>{" "}
+                <div className="w-2.5 h-2.5 rounded border border-white/50 bg-white/10"></div>{" "}
                 Trống
               </div>
               <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 rounded bg-primary border border-white"></div> Đang chọn
+                <div className="w-2.5 h-2.5 rounded bg-primary border border-white"></div> Đang chọn
               </div>
               <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 rounded bg-yellow-400 border border-yellow-500"></div>{" "}
+                <div className="w-2.5 h-2.5 rounded bg-yellow-400 border border-yellow-500"></div>{" "}
                 Đã đặt
               </div>
               <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 rounded bg-slate-400 border border-slate-500"></div>{" "}
+                <div className="w-2.5 h-2.5 rounded bg-slate-400 border border-slate-500"></div>{" "}
                 Đã bán
               </div>
+            </div>
+            
+             {/* Legend Mobile (Compressed) */}
+            <div className="lg:hidden flex items-center gap-2 text-[10px] text-indigo-200">
+               <div className="w-2.5 h-2.5 rounded bg-primary border border-white" title="Đang chọn"></div>
+               <div className="w-2.5 h-2.5 rounded bg-yellow-400 border border-yellow-500" title="Đã đặt"></div>
             </div>
           </div>
 
@@ -434,12 +446,13 @@ function App() {
           </div>
         </div>
 
-        {/* RIGHT COLUMN: BOOKING FORM & HISTORY (Dark Blue & Yellow Theme) */}
+        {/* RIGHT COLUMN: BOOKING FORM & HISTORY */}
         <div className="w-full md:w-[320px] xl:w-[360px] flex flex-col gap-2 shrink-0 h-full">
           
-          {/* CARD 1: BOOKING FORM (Top - Deep Blue) */}
+          {/* CARD 1: BOOKING FORM */}
           <div className="bg-indigo-950 rounded-xl shadow-lg border border-indigo-900 flex flex-col overflow-hidden shrink-0">
-            <div className="p-3 bg-indigo-950/50 border-b border-indigo-900 flex items-center justify-between">
+            {/* Header Synchronized - Height 54px */}
+            <div className="px-3 h-[54px] bg-indigo-950/50 border-b border-indigo-900 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2 text-sm font-bold text-white">
                 <Ticket size={16} className="text-yellow-400" />
                 Thông tin đặt vé
@@ -465,7 +478,7 @@ function App() {
               </div>
 
               <form id="booking-form" onSubmit={handleBookingSubmit} className="space-y-2.5">
-                {/* Phone Input - Blue Theme */}
+                {/* Phone Input */}
                 <div>
                   <div className="relative">
                     <input
@@ -482,7 +495,7 @@ function App() {
                   </div>
                 </div>
 
-                {/* Pickup / Dropoff - Grid */}
+                {/* Pickup / Dropoff */}
                 <div className="grid grid-cols-2 gap-2">
                     <div className="relative">
                        <MapPin className="absolute left-2 top-2 text-green-400" size={12} />
@@ -520,7 +533,7 @@ function App() {
                   />
                 </div>
 
-                {/* Payment - Receipt Style Blue */}
+                {/* Payment */}
                 <div className="pt-2 border-t border-dashed border-indigo-800">
                   <div className="flex justify-between items-baseline mb-2 px-1">
                     <span className="text-[11px] font-bold text-indigo-300 uppercase">Tổng tiền</span>
