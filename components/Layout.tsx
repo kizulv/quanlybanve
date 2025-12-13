@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Bus,
   Calendar as CalendarIcon,
@@ -10,11 +10,16 @@ import {
   MapPin,
   ArrowRightLeft,
   Check,
+  ChevronDown,
+  Clock,
+  BusFront,
+  Zap,
 } from "lucide-react";
 import { Button } from "./ui/Button";
 import { Popover } from "./ui/Popover";
 import { Calendar } from "./ui/Calendar";
-import { formatLunarDate } from "../utils/dateUtils";
+import { formatLunarDate, daysOfWeek } from "../utils/dateUtils";
+import { BusTrip, BusType } from "../types";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -23,10 +28,11 @@ interface LayoutProps {
   // Header Props
   selectedDate: Date;
   onDateChange: (date: Date) => void;
-  selectedRoute: string;
-  onRouteChange: (route: string) => void;
-  routes: string[];
-  // New Props for Direction
+  // New Trip Selector Props
+  availableTrips: BusTrip[];
+  selectedTripId: string | null;
+  onTripChange: (tripId: string) => void;
+  // Direction Props
   selectedDirection?: 'outbound' | 'inbound';
   onDirectionChange?: (dir: 'outbound' | 'inbound') => void;
 }
@@ -43,9 +49,9 @@ export const Layout: React.FC<LayoutProps> = ({
   onTabChange,
   selectedDate,
   onDateChange,
-  selectedRoute,
-  onRouteChange,
-  routes,
+  availableTrips,
+  selectedTripId,
+  onTripChange,
   selectedDirection = 'outbound',
   onDirectionChange,
 }) => {
@@ -59,7 +65,7 @@ export const Layout: React.FC<LayoutProps> = ({
     peakDays: []
   });
 
-  // Load schedule settings when tab changes (especially when coming back from Schedule view)
+  // Load schedule settings
   useEffect(() => {
     const loadSettings = () => {
       const saved = localStorage.getItem("vinabus_schedule_settings");
@@ -71,7 +77,6 @@ export const Layout: React.FC<LayoutProps> = ({
         }
       }
     };
-
     loadSettings();
   }, [activeTab]);
 
@@ -81,7 +86,6 @@ export const Layout: React.FC<LayoutProps> = ({
     { id: "schedule", icon: <CalendarIcon size={20} />, label: "Lịch trình" },
   ];
 
-  // Page Info Mapping
   const pageInfo: Record<string, { title: string; description: string }> = {
     sales: {
       title: "Bán vé",
@@ -106,16 +110,47 @@ export const Layout: React.FC<LayoutProps> = ({
     description: "",
   };
 
-  // Helper for Vietnamese Date
-  const formatDate = (date: Date) => {
-    const options: Intl.DateTimeFormatOptions = {
-      weekday: "long",
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    };
-    return new Intl.DateTimeFormat("vi-VN", options).format(date);
+  const formatHeaderDate = (date: Date) => {
+    const dayName = daysOfWeek[date.getDay()];
+    const d = String(date.getDate()).padStart(2, '0');
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const y = date.getFullYear();
+    const lunar = formatLunarDate(date); // Returns "DD/MM ÂL"
+    return `${dayName}, ${d}/${m}/${y} - ${lunar}`;
   };
+
+  // Logic to process Enhanced Routes labels
+  const tripOptions = useMemo(() => {
+    // Group counters for enhanced routes
+    const enhancedCounters: Record<string, number> = {};
+    
+    // Sort trips by time
+    const sorted = [...availableTrips].sort((a, b) => a.departureTime.localeCompare(b.departureTime));
+
+    return sorted.map(trip => {
+      const time = trip.departureTime.split(' ')[1];
+      let displayName = `${time} - ${trip.route}`;
+      let isEnhanced = false;
+      let enhancedIndex = 0;
+
+      // Check purely by name or a specific property if added later
+      if (trip.name.toLowerCase().includes('tăng cường') || trip.route.toLowerCase().includes('tăng cường')) {
+         isEnhanced = true;
+         const key = trip.route;
+         enhancedCounters[key] = (enhancedCounters[key] || 0) + 1;
+         enhancedIndex = enhancedCounters[key];
+      }
+
+      return {
+        ...trip,
+        displayTime: time,
+        isEnhanced,
+        enhancedIndex
+      };
+    });
+  }, [availableTrips]);
+
+  const selectedTripDisplay = tripOptions.find(t => t.id === selectedTripId);
 
   return (
     <div className="min-h-screen bg-slate-50 flex overflow-hidden">
@@ -150,7 +185,6 @@ export const Layout: React.FC<LayoutProps> = ({
               key={item.id}
               onClick={() => {
                 onTabChange(item.id);
-                // Auto close on mobile when clicking item
                 if (window.innerWidth < 768) setSidebarOpen(false);
               }}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${
@@ -179,10 +213,6 @@ export const Layout: React.FC<LayoutProps> = ({
           >
             <Settings size={20} />
             <span>Cài đặt</span>
-          </button>
-          <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium text-red-600 hover:bg-red-50 mt-1 whitespace-nowrap">
-            <LogOut size={20} />
-            <span>Đăng xuất</span>
           </button>
         </div>
       </aside>
@@ -218,13 +248,13 @@ export const Layout: React.FC<LayoutProps> = ({
             </div>
           </div>
 
-          {/* Filters - Only visible on 'sales' tab */}
+          {/* Header Filters for Sales */}
           {activeTab === "sales" && (
-            <div className="flex items-center gap-3 animate-in fade-in slide-in-from-right-4 duration-300 shrink-0 ml-4">
+            <div className="flex items-center gap-2 md:gap-3 animate-in fade-in slide-in-from-right-4 duration-300 shrink-0 ml-4">
               
               {/* 1. Direction Toggle */}
               {onDirectionChange && (
-                 <label className="flex items-center gap-2 cursor-pointer select-none bg-white border border-slate-200 rounded-md px-3 h-9 hover:border-slate-300 transition-colors min-w-[105px]">
+                 <label className="flex items-center gap-2 cursor-pointer select-none bg-white border border-slate-200 rounded-md px-2 md:px-3 h-9 hover:border-slate-300 transition-colors">
                     <div className={`relative flex items-center justify-center w-4 h-4 border rounded bg-white transition-colors ${selectedDirection === 'outbound' ? 'border-primary' : 'border-slate-300'}`}>
                        <input 
                          type="checkbox"
@@ -240,17 +270,14 @@ export const Layout: React.FC<LayoutProps> = ({
                  </label>
               )}
 
-              {/* 2. Date Picker using Custom Popover & Calendar */}
+              {/* 2. Date Picker */}
               <Popover
                 align="right"
                 trigger={
                   <div className="flex items-center gap-2 h-9 px-3 border border-slate-200 rounded-md bg-white hover:bg-slate-50 hover:border-slate-300 transition-colors select-none cursor-pointer">
                     <CalendarIcon size={16} className="text-slate-500" />
                     <span className="text-sm font-medium text-slate-700 capitalize whitespace-nowrap">
-                      {formatDate(selectedDate)}
-                    </span>
-                    <span className="text-xs text-slate-400 font-medium ml-1 bg-slate-100 px-1.5 py-0.5 rounded hidden sm:inline-block">
-                      {formatLunarDate(selectedDate)}
+                      {formatHeaderDate(selectedDate)}
                     </span>
                   </div>
                 }
@@ -261,7 +288,6 @@ export const Layout: React.FC<LayoutProps> = ({
                       onDateChange(date);
                       close();
                     }}
-                    // Pass settings from state
                     shutdownRange={{ 
                       start: scheduleSettings.shutdownStartDate, 
                       end: scheduleSettings.shutdownEndDate 
@@ -271,42 +297,81 @@ export const Layout: React.FC<LayoutProps> = ({
                 )}
               />
 
-              {/* 3. Route Selector */}
-              <div className="relative hidden lg:block group">
-                <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-500">
-                  <MapPin size={16} />
-                </div>
-                <select
-                  value={selectedRoute}
-                  onChange={(e) => onRouteChange(e.target.value)}
-                  className="h-9 pl-9 pr-8 text-sm border border-slate-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 hover:border-slate-300 transition-colors appearance-none cursor-pointer min-w-[200px]"
-                >
-                  {routes.length > 0 ? (
-                    routes.map((r) => (
-                      <option key={r} value={r}>
-                        {r}
-                      </option>
-                    ))
-                  ) : (
-                    <option value="" disabled>Không có tuyến nào</option>
-                  )}
-                </select>
-                <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none text-slate-400">
-                  <svg
-                    width="12"
-                    height="12"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="m6 9 6 6 6-6" />
-                  </svg>
-                </div>
-              </div>
+              {/* 3. New Smart Trip Selector */}
+              <Popover 
+                align="right"
+                trigger={
+                  <div className="flex items-center justify-between gap-3 h-9 px-3 border border-slate-200 rounded-md bg-white hover:bg-slate-50 hover:border-slate-300 transition-colors select-none cursor-pointer min-w-[220px] max-w-[300px]">
+                    <div className="flex items-center gap-2 truncate">
+                       <MapPin size={16} className="text-slate-500 shrink-0" />
+                       <span className={`text-sm font-medium truncate ${selectedTripId ? 'text-slate-900' : 'text-slate-500'}`}>
+                         {selectedTripDisplay 
+                           ? `${selectedTripDisplay.displayTime} - ${selectedTripDisplay.route} ${selectedTripDisplay.isEnhanced ? `(TC #${selectedTripDisplay.enhancedIndex})` : ''}`
+                           : "Chọn chuyến xe..."}
+                       </span>
+                    </div>
+                    <ChevronDown size={14} className="text-slate-400 shrink-0" />
+                  </div>
+                }
+                content={(close) => (
+                  <div className="w-[320px] max-h-[400px] overflow-y-auto bg-white rounded-lg border border-slate-200 shadow-xl p-1">
+                     {tripOptions.length === 0 ? (
+                       <div className="p-8 text-center text-slate-500">
+                          <BusFront size={24} className="mx-auto mb-2 opacity-20"/>
+                          <p className="text-sm">Không có chuyến nào trong ngày này.</p>
+                       </div>
+                     ) : (
+                       <div className="space-y-1">
+                          {tripOptions.map(trip => {
+                            const isSelected = trip.id === selectedTripId;
+                            return (
+                              <button
+                                key={trip.id}
+                                onClick={() => {
+                                  onTripChange(trip.id);
+                                  close();
+                                }}
+                                className={`w-full text-left p-2.5 rounded-md transition-all flex items-start gap-3 group ${
+                                  isSelected 
+                                    ? 'bg-primary/5 border border-primary/20' 
+                                    : 'hover:bg-slate-50 border border-transparent'
+                                }`}
+                              >
+                                {/* Time Column */}
+                                <div className={`flex flex-col items-center justify-center w-12 h-10 rounded border text-xs font-bold shrink-0 ${
+                                   isSelected ? 'bg-white border-primary/30 text-primary' : 'bg-slate-50 border-slate-200 text-slate-600'
+                                }`}>
+                                   {trip.displayTime}
+                                </div>
 
+                                {/* Info Column */}
+                                <div className="flex-1 min-w-0">
+                                   <div className={`text-sm font-medium truncate ${isSelected ? 'text-primary' : 'text-slate-900'}`}>
+                                      {trip.route}
+                                      {trip.isEnhanced && (
+                                         <span className="inline-flex items-center ml-1.5 text-[10px] bg-orange-100 text-orange-700 px-1 rounded border border-orange-200 h-4 align-middle">
+                                            <Zap size={8} className="mr-0.5 fill-orange-700"/> #{trip.enhancedIndex}
+                                         </span>
+                                      )}
+                                   </div>
+                                   <div className="flex items-center gap-2 mt-0.5">
+                                      <span className="text-xs text-slate-500 font-mono bg-slate-100 px-1 rounded">{trip.licensePlate}</span>
+                                      <span className="text-[10px] text-slate-400 border-l border-slate-200 pl-2">
+                                         {trip.type === BusType.CABIN ? 'Xe Phòng' : 'Giường đơn'}
+                                      </span>
+                                   </div>
+                                </div>
+
+                                {/* Checkmark */}
+                                {isSelected && <Check size={16} className="text-primary mt-1" />}
+                              </button>
+                            );
+                          })}
+                       </div>
+                     )}
+                  </div>
+                )}
+              />
             </div>
           )}
         </header>

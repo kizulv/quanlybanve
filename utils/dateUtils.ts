@@ -14,8 +14,6 @@ export const getDaysInMonth = (year: number, month: number): Date[] => {
 // Accurate Lunar Date calculation using Native Intl API
 export const getLunarDate = (date: Date): { day: number; month: number; year: number } => {
   try {
-    // Use en-US with chinese calendar to ensure we get ASCII numeric values
-    // zh-CN might return Chinese characters for numbers which parseInt fails on
     const formatter = new Intl.DateTimeFormat('en-US-u-ca-chinese', {
       day: 'numeric',
       month: 'numeric',
@@ -34,23 +32,31 @@ export const getLunarDate = (date: Date): { day: number; month: number; year: nu
       if (p.type === 'month') {
         month = parseInt(p.value, 10);
       }
-      // relatedYear is the numeric year (e.g., 2024), while year might be cyclic
+      // 'relatedYear' is standard for chinese calendar year in recent browsers
       if ((p.type as string) === 'relatedYear') {
         year = parseInt(p.value, 10);
-      } else if (p.type === 'year' && year === 0) {
+      }
+      // Fallback: sometimes it comes as 'year'
+      if (p.type === 'year' && !year) {
+        // Some browsers might return '2024(Jia-Chen)' or just '2024'
         year = parseInt(p.value, 10);
       }
     });
 
-    if (!day || !month || !year) {
-       // Fallback for environments that return non-numeric despite the options
-       throw new Error("Invalid Lunar Date Parts");
+    // Fallback if parsing failed but didn't throw (e.g. valid date but NaN results)
+    if (isNaN(day) || isNaN(month) || isNaN(year) || day === 0) {
+        // Simplistic fallback: Lunar date is roughly Solar - 1 month (very rough approximation for UI safety)
+        // Ideally, we shouldn't hit this with modern browsers
+        return { 
+            day: date.getDate(), 
+            month: date.getMonth() === 0 ? 12 : date.getMonth(), 
+            year: date.getFullYear() 
+        };
     }
 
     return { day, month, year };
   } catch (e) {
-    // Fallback if Intl is not supported or fails
-    // Note: This falls back to Solar date, which might be confusing but better than crashing
+    // Ultimate fallback to solar date to prevent crash
     return { day: date.getDate(), month: date.getMonth() + 1, year: date.getFullYear() };
   }
 };

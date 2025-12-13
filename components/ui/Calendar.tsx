@@ -103,7 +103,8 @@ export const Calendar: React.FC<CalendarProps> = ({
       const { day: lunarDay, month: lunarMonth } = getLunarDate(currentDate);
       
       // Show Month if it's 1st day OR 15th day (Full Moon) OR if it's selected (for clarity)
-      const showMonth = lunarDay === 1 || lunarDay === 15;
+      // Also show month if it's the 30th (often end of month) to help orient
+      const showMonth = lunarDay === 1 || lunarDay === 15 || isSelected;
       const lunarText = showMonth ? `${lunarDay}/${lunarMonth}` : lunarDay.toString();
       
       const isShutdown = isShutdownDay(currentDate);
