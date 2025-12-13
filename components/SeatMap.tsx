@@ -188,8 +188,67 @@ export const SeatMap: React.FC<SeatMapProps> = ({
     );
   };
 
-  // Render a single floor (Deck)
-  const renderDeck = (floorNumber: number) => {
+  // --- CABIN LOGIC: RENDER BY COLUMN (DÃY) ---
+  const renderCabinColumn = (colIndex: number, label: string) => {
+    // Filter seats for this specific column
+    const colSeats = seats.filter((s) => (s.col ?? 0) === colIndex);
+
+    // Get unique rows in this column
+    const rows = Array.from(new Set(colSeats.map((s) => s.row ?? 0))).sort(
+      (a, b) => a - b
+    );
+
+    return (
+      <div className="relative overflow-hidden flex flex-col w-full md:w-1/2 rounded-xl border border-slate-200 bg-white/50">
+        {/* Header */}
+        <div className="pt-3 text-center bg-slate-50/50 border-b border-slate-100 pb-2">
+          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+            {label}
+          </span>
+        </div>
+
+        <div className="p-4 flex flex-col items-center gap-3">
+          {/* Sub-header for Floor indication */}
+          <div className="flex gap-4 md:gap-8 px-2 text-[10px] font-bold text-slate-400 uppercase w-full justify-center">
+            <span className="w-[130px] text-center">Tầng 1</span>
+            <span className="w-[130px] text-center">Tầng 2</span>
+          </div>
+
+          {/* Render Rows */}
+          {rows.map((rowIndex) => {
+            const floor1Seat = colSeats.find(
+              (s) => s.row === rowIndex && s.floor === 1
+            );
+            const floor2Seat = colSeats.find(
+              (s) => s.row === rowIndex && s.floor === 2
+            );
+
+            return (
+              <div key={rowIndex} className="flex gap-4 md:gap-8">
+                <div className="w-[130px]">
+                  {floor1Seat ? (
+                    renderSeat(floor1Seat)
+                  ) : (
+                    <div className="w-[130px] h-[100px] border border-dashed border-slate-100 rounded-lg" />
+                  )}
+                </div>
+                <div className="w-[130px]">
+                  {floor2Seat ? (
+                    renderSeat(floor2Seat)
+                  ) : (
+                    <div className="w-[130px] h-[100px] border border-dashed border-slate-100 rounded-lg" />
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  // --- SLEEPER LOGIC: RENDER BY DECK (FLOOR) ---
+  const renderSleeperDeck = (floorNumber: number) => {
     const floorSeats = seats.filter((s) => s.floor === floorNumber);
 
     // Group seats by row
@@ -204,7 +263,8 @@ export const SeatMap: React.FC<SeatMapProps> = ({
       .map(Number)
       .sort((a, b) => a - b);
 
-    const standardCols = busType === BusType.CABIN ? 2 : 3;
+    // Standard columns for Sleeper is usually 3
+    const standardCols = 3;
 
     let gridRows: number[] = [];
     let benchRowIndex: number | null = null;
@@ -218,18 +278,8 @@ export const SeatMap: React.FC<SeatMapProps> = ({
       }
     });
 
-    // Determine deck width based on columns + detailed card size
-    // 3 cols * 140px + gaps ~= 450px
-    const deckWidthClass =
-      busType === BusType.CABIN ? "w-full md:w-1/2" : "w-full md:w-1/2";
-
     return (
-      <div
-        className={`
-        relative overflow-hidden flex flex-col
-        ${deckWidthClass}
-      `}
-      >
+      <div className="relative overflow-hidden flex flex-col w-full md:w-1/2">
         {/* Header */}
         <div className="pt-3 text-center">
           <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
@@ -272,11 +322,25 @@ export const SeatMap: React.FC<SeatMapProps> = ({
     );
   };
 
+  // Main Render Switch
+  if (busType === BusType.CABIN) {
+    return (
+      <div className="flex overflow-x-auto pb-2">
+        <div className="w-full flex gap-4 md:gap-8 min-w-max justify-center">
+          {/* Assuming Col 0 is Dãy B (Left) and Col 1 is Dãy A (Right) based on common layout */}
+          {renderCabinColumn(0, "DÃY B")}
+          {renderCabinColumn(1, "DÃY A")}
+        </div>
+      </div>
+    );
+  }
+
+  // Fallback for SLEEPER
   return (
-    <div className="flex overflow-x-auto">
+    <div className="flex overflow-x-auto pb-2">
       <div className="w-full flex gap-4 md:gap-8">
-        {renderDeck(1)}
-        {renderDeck(2)}
+        {renderSleeperDeck(1)}
+        {renderSleeperDeck(2)}
       </div>
     </div>
   );
