@@ -88,6 +88,12 @@ function App() {
   const selectedSeats = selectedTrip?.seats.filter(s => s.status === SeatStatus.SELECTED) || [];
   const totalPrice = selectedSeats.reduce((sum, s) => sum + s.price, 0);
 
+  // Filter bookings for the selected trip to pass to SeatMap
+  const tripBookings = useMemo(() => {
+      if (!selectedTrip) return [];
+      return bookings.filter(b => b.busId === selectedTrip.id && b.status !== 'cancelled');
+  }, [bookings, selectedTrip]);
+
   // Auto update payment when total changes (optional: keep cash synced if transfer is 0)
   useEffect(() => {
      if (bookingForm.paidTransfer === 0) {
@@ -285,7 +291,8 @@ function App() {
                     <SeatMap 
                         seats={selectedTrip.seats} 
                         busType={selectedTrip.type} 
-                        onSeatClick={handleSeatClick} 
+                        onSeatClick={handleSeatClick}
+                        bookings={tripBookings}
                     />
                 </div>
             </div>
