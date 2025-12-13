@@ -33,8 +33,8 @@ interface LayoutProps {
   selectedTripId: string | null;
   onTripChange: (tripId: string) => void;
   // Direction Props
-  selectedDirection?: 'outbound' | 'inbound';
-  onDirectionChange?: (dir: 'outbound' | 'inbound') => void;
+  selectedDirection?: "outbound" | "inbound";
+  onDirectionChange?: (dir: "outbound" | "inbound") => void;
 }
 
 interface ScheduleSettings {
@@ -52,17 +52,17 @@ export const Layout: React.FC<LayoutProps> = ({
   availableTrips,
   selectedTripId,
   onTripChange,
-  selectedDirection = 'outbound',
+  selectedDirection = "outbound",
   onDirectionChange,
 }) => {
   // Default sidebar state set to false (Hidden by default)
   const [isSidebarOpen, setSidebarOpen] = useState(false);
-  
+
   // Schedule settings state
   const [scheduleSettings, setScheduleSettings] = useState<ScheduleSettings>({
     shutdownStartDate: "",
     shutdownEndDate: "",
-    peakDays: []
+    peakDays: [],
   });
 
   // Load schedule settings
@@ -112,8 +112,8 @@ export const Layout: React.FC<LayoutProps> = ({
 
   const formatSolarHeader = (date: Date) => {
     const dayName = daysOfWeek[date.getDay()];
-    const d = String(date.getDate()).padStart(2, '0');
-    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, "0");
+    const m = String(date.getMonth() + 1).padStart(2, "0");
     const y = date.getFullYear();
     return `${dayName}, ${d}/${m}/${y}`;
   };
@@ -122,34 +122,39 @@ export const Layout: React.FC<LayoutProps> = ({
   const tripOptions = useMemo(() => {
     // Group counters for enhanced routes
     const enhancedCounters: Record<string, number> = {};
-    
-    // Sort trips by time
-    const sorted = [...availableTrips].sort((a, b) => a.departureTime.localeCompare(b.departureTime));
 
-    return sorted.map(trip => {
-      const time = trip.departureTime.split(' ')[1];
+    // Sort trips by time
+    const sorted = [...availableTrips].sort((a, b) =>
+      a.departureTime.localeCompare(b.departureTime)
+    );
+
+    return sorted.map((trip) => {
+      const time = trip.departureTime.split(" ")[1];
       let displayName = `${time} - ${trip.route}`;
       let isEnhanced = false;
       let enhancedIndex = 0;
 
       // Check purely by name or a specific property if added later
-      if (trip.name.toLowerCase().includes('tăng cường') || trip.route.toLowerCase().includes('tăng cường')) {
-         isEnhanced = true;
-         const key = trip.route;
-         enhancedCounters[key] = (enhancedCounters[key] || 0) + 1;
-         enhancedIndex = enhancedCounters[key];
+      if (
+        trip.name.toLowerCase().includes("tăng cường") ||
+        trip.route.toLowerCase().includes("tăng cường")
+      ) {
+        isEnhanced = true;
+        const key = trip.route;
+        enhancedCounters[key] = (enhancedCounters[key] || 0) + 1;
+        enhancedIndex = enhancedCounters[key];
       }
 
       return {
         ...trip,
         displayTime: time,
         isEnhanced,
-        enhancedIndex
+        enhancedIndex,
       };
     });
   }, [availableTrips]);
 
-  const selectedTripDisplay = tripOptions.find(t => t.id === selectedTripId);
+  const selectedTripDisplay = tripOptions.find((t) => t.id === selectedTripId);
 
   return (
     <div className="min-h-screen bg-slate-50 flex overflow-hidden">
@@ -250,23 +255,44 @@ export const Layout: React.FC<LayoutProps> = ({
           {/* Header Filters for Sales */}
           {activeTab === "sales" && (
             <div className="flex items-center gap-2 md:gap-3 animate-in fade-in slide-in-from-right-4 duration-300 shrink-0 ml-4">
-              
               {/* 1. Direction Toggle */}
               {onDirectionChange && (
-                 <label className="flex items-center gap-2 cursor-pointer select-none bg-white border border-slate-200 rounded-md px-2 md:px-3 h-9 hover:border-slate-300 transition-colors">
-                    <div className={`relative flex items-center justify-center w-4 h-4 border rounded bg-white transition-colors ${selectedDirection === 'outbound' ? 'border-primary' : 'border-slate-300'}`}>
-                       <input 
-                         type="checkbox"
-                         className="peer appearance-none absolute inset-0 w-full h-full cursor-pointer"
-                         checked={selectedDirection === 'outbound'}
-                         onChange={(e) => onDirectionChange(e.target.checked ? 'outbound' : 'inbound')}
-                       />
-                       {selectedDirection === 'outbound' && <Check size={12} className="text-primary pointer-events-none" strokeWidth={3} />}
-                    </div>
-                    <span className={`text-sm font-medium whitespace-nowrap ${selectedDirection === 'outbound' ? 'text-primary' : 'text-slate-600'}`}>
-                      {selectedDirection === 'outbound' ? 'Chiều đi' : 'Chiều về'}
-                    </span>
-                 </label>
+                <label className="flex items-center gap-2 cursor-pointer select-none bg-white border border-slate-200 rounded-md px-2 md:px-3 h-9 hover:border-slate-300 transition-colors">
+                  <div
+                    className={`relative flex items-center justify-center w-4 h-4 border rounded bg-white transition-colors ${
+                      selectedDirection === "outbound"
+                        ? "border-primary"
+                        : "border-slate-300"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      className="peer appearance-none absolute inset-0 w-full h-full cursor-pointer"
+                      checked={selectedDirection === "outbound"}
+                      onChange={(e) =>
+                        onDirectionChange(
+                          e.target.checked ? "outbound" : "inbound"
+                        )
+                      }
+                    />
+                    {selectedDirection === "outbound" && (
+                      <Check
+                        size={12}
+                        className="text-primary pointer-events-none"
+                        strokeWidth={3}
+                      />
+                    )}
+                  </div>
+                  <span
+                    className={`text-sm font-medium whitespace-nowrap ${
+                      selectedDirection === "outbound"
+                        ? "text-primary"
+                        : "text-slate-600"
+                    }`}
+                  >
+                    {selectedDirection === "outbound" ? "Chiều đi" : "Chiều về"}
+                  </span>
+                </label>
               )}
 
               {/* 2. Date Picker */}
@@ -292,9 +318,9 @@ export const Layout: React.FC<LayoutProps> = ({
                       onDateChange(date);
                       close();
                     }}
-                    shutdownRange={{ 
-                      start: scheduleSettings.shutdownStartDate, 
-                      end: scheduleSettings.shutdownEndDate 
+                    shutdownRange={{
+                      start: scheduleSettings.shutdownStartDate,
+                      end: scheduleSettings.shutdownEndDate,
                     }}
                     peakDays={scheduleSettings.peakDays}
                   />
@@ -302,77 +328,118 @@ export const Layout: React.FC<LayoutProps> = ({
               />
 
               {/* 3. New Smart Trip Selector */}
-              <Popover 
+              <Popover
                 align="right"
                 trigger={
                   <div className="flex items-center justify-between gap-3 h-9 px-3 border border-slate-200 rounded-md bg-white hover:bg-slate-50 hover:border-slate-300 transition-colors select-none cursor-pointer min-w-[220px] max-w-[300px]">
                     <div className="flex items-center gap-2 truncate">
-                       <MapPin size={16} className="text-slate-500 shrink-0" />
-                       <span className={`text-sm font-medium truncate ${selectedTripId ? 'text-slate-900' : 'text-slate-500'}`}>
-                         {selectedTripDisplay 
-                           ? `${selectedTripDisplay.displayTime} - ${selectedTripDisplay.route} ${selectedTripDisplay.isEnhanced ? `(TC #${selectedTripDisplay.enhancedIndex})` : ''}`
-                           : "Chọn chuyến xe..."}
-                       </span>
+                      <MapPin size={16} className="text-slate-500 shrink-0" />
+                      <span
+                        className={`text-sm font-medium truncate ${
+                          selectedTripId ? "text-slate-900" : "text-slate-500"
+                        }`}
+                      >
+                        {selectedTripDisplay
+                          ? `${selectedTripDisplay.displayTime} - ${
+                              selectedTripDisplay.route
+                            } ${
+                              selectedTripDisplay.isEnhanced
+                                ? `(TC #${selectedTripDisplay.enhancedIndex})`
+                                : ""
+                            }`
+                          : "Chọn chuyến xe..."}
+                      </span>
                     </div>
-                    <ChevronDown size={14} className="text-slate-400 shrink-0" />
+                    <ChevronDown
+                      size={14}
+                      className="text-slate-400 shrink-0"
+                    />
                   </div>
                 }
                 content={(close) => (
                   <div className="w-[320px] max-h-[400px] overflow-y-auto bg-white rounded-lg border border-slate-200 shadow-xl p-1">
-                     {tripOptions.length === 0 ? (
-                       <div className="p-8 text-center text-slate-500">
-                          <BusFront size={24} className="mx-auto mb-2 opacity-20"/>
-                          <p className="text-sm">Không có chuyến nào trong ngày này.</p>
-                       </div>
-                     ) : (
-                       <div className="space-y-1">
-                          {tripOptions.map(trip => {
-                            const isSelected = trip.id === selectedTripId;
-                            return (
-                              <button
-                                key={trip.id}
-                                onClick={() => {
-                                  onTripChange(trip.id);
-                                  close();
-                                }}
-                                className={`w-full text-left p-2.5 rounded-md transition-all flex items-start gap-3 group ${
-                                  isSelected 
-                                    ? 'bg-primary/5 border border-primary/20' 
-                                    : 'hover:bg-slate-50 border border-transparent'
+                    {tripOptions.length === 0 ? (
+                      <div className="p-8 text-center text-slate-500">
+                        <BusFront
+                          size={24}
+                          className="mx-auto mb-2 opacity-20"
+                        />
+                        <p className="text-sm">
+                          Không có chuyến nào trong ngày này.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        {tripOptions.map((trip) => {
+                          const isSelected = trip.id === selectedTripId;
+                          return (
+                            <button
+                              key={trip.id}
+                              onClick={() => {
+                                onTripChange(trip.id);
+                                close();
+                              }}
+                              className={`w-full text-left p-2.5 rounded-md transition-all flex items-start gap-3 group ${
+                                isSelected
+                                  ? "bg-primary/5 border border-primary/20"
+                                  : "hover:bg-slate-50 border border-transparent"
+                              }`}
+                            >
+                              {/* Time Column */}
+                              <div
+                                className={`flex flex-col items-center justify-center w-12 h-10 rounded border text-xs font-bold shrink-0 ${
+                                  isSelected
+                                    ? "bg-white border-primary/30 text-primary"
+                                    : "bg-slate-50 border-slate-200 text-slate-600"
                                 }`}
                               >
-                                {/* Time Column */}
-                                <div className={`flex flex-col items-center justify-center w-12 h-10 rounded border text-xs font-bold shrink-0 ${
-                                   isSelected ? 'bg-white border-primary/30 text-primary' : 'bg-slate-50 border-slate-200 text-slate-600'
-                                }`}>
-                                   {trip.displayTime}
-                                </div>
+                                {trip.displayTime}
+                              </div>
 
-                                {/* Info Column */}
-                                <div className="flex-1 min-w-0">
-                                   <div className={`text-sm font-medium truncate ${isSelected ? 'text-primary' : 'text-slate-900'}`}>
-                                      {trip.route}
-                                      {trip.isEnhanced && (
-                                         <span className="inline-flex items-center ml-1.5 text-[10px] bg-orange-100 text-orange-700 px-1 rounded border border-orange-200 h-4 align-middle">
-                                            <Zap size={8} className="mr-0.5 fill-orange-700"/> #{trip.enhancedIndex}
-                                         </span>
-                                      )}
-                                   </div>
-                                   <div className="flex items-center gap-2 mt-0.5">
-                                      <span className="text-xs text-slate-500 font-mono bg-slate-100 px-1 rounded">{trip.licensePlate}</span>
-                                      <span className="text-[10px] text-slate-400 border-l border-slate-200 pl-2">
-                                         {trip.type === BusType.CABIN ? 'Xe Phòng' : 'Giường đơn'}
-                                      </span>
-                                   </div>
+                              {/* Info Column */}
+                              <div className="flex-1 min-w-0">
+                                <div
+                                  className={`text-sm font-medium truncate ${
+                                    isSelected
+                                      ? "text-primary"
+                                      : "text-slate-900"
+                                  }`}
+                                >
+                                  {trip.route}
+                                  {trip.isEnhanced && (
+                                    <span className="inline-flex items-center ml-1.5 text-[10px] bg-orange-100 text-orange-700 px-1 rounded border border-orange-200 h-4 align-middle">
+                                      <Zap
+                                        size={8}
+                                        className="mr-0.5 fill-orange-700"
+                                      />{" "}
+                                      #{trip.enhancedIndex}
+                                    </span>
+                                  )}
                                 </div>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  <span className="text-xs text-slate-500 bg-slate-100 px-1 rounded">
+                                    {trip.licensePlate}
+                                  </span>
+                                  <span className="text-[10px] text-slate-400 border-l border-slate-200 pl-2">
+                                    {trip.type === BusType.CABIN
+                                      ? "Xe Phòng"
+                                      : "Giường đơn"}
+                                  </span>
+                                </div>
+                              </div>
 
-                                {/* Checkmark */}
-                                {isSelected && <Check size={16} className="text-primary mt-1" />}
-                              </button>
-                            );
-                          })}
-                       </div>
-                     )}
+                              {/* Checkmark */}
+                              {isSelected && (
+                                <Check
+                                  size={16}
+                                  className="text-primary mt-1"
+                                />
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 )}
               />
