@@ -149,6 +149,12 @@ function App() {
   useEffect(() => {
     if (bookingForm.paidTransfer === 0) {
       setBookingForm((prev) => ({ ...prev, paidCash: totalPrice }));
+    } else {
+      // If transfer is set, update cash to be the remainder
+      setBookingForm((prev) => ({
+        ...prev,
+        paidCash: Math.max(0, totalPrice - prev.paidTransfer),
+      }));
     }
   }, [totalPrice]);
 
@@ -187,7 +193,7 @@ function App() {
       "son la": "BX Sơn La",
       "sơn la": "BX Sơn La",
       "yen bai": "BX Yên Bái",
-      "yên bái": "BX Yên Bái"
+      "yên bái": "BX Yên Bái",
     };
 
     return mappings[lower] || input;
@@ -356,6 +362,14 @@ function App() {
       return;
     }
 
+    // --- Auto-Capitalize Pickup & Dropoff ---
+    if (name === "pickup" || name === "dropoff") {
+      // Capitalize first letter of each word
+      const formatted = value.replace(/(?:^|\s)\S/g, (a) => a.toUpperCase());
+      setBookingForm((prev) => ({ ...prev, [name]: formatted }));
+      return;
+    }
+
     setBookingForm((prev) => ({ ...prev, [name]: value }));
   };
 
@@ -365,17 +379,38 @@ function App() {
     if (!value) return;
 
     const standardized = getStandardizedLocation(value);
-    
+
     // Only update if changed
     if (standardized !== value) {
-        setBookingForm((prev) => ({ ...prev, [name]: standardized }));
+      setBookingForm((prev) => ({ ...prev, [name]: standardized }));
     }
   };
 
   const handleMoneyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     const numValue = parseInt(value.replace(/\D/g, "") || "0", 10);
-    setBookingForm((prev) => ({ ...prev, [name]: numValue }));
+
+    setBookingForm((prev) => {
+      // If total is 0, just update the field without balancing
+      if (totalPrice === 0) {
+        return { ...prev, [name]: numValue };
+      }
+
+      let newCash = prev.paidCash;
+      let newTransfer = prev.paidTransfer;
+
+      if (name === "paidCash") {
+        newCash = numValue;
+        // Auto balance transfer: Total - Cash
+        newTransfer = Math.max(0, totalPrice - newCash);
+      } else if (name === "paidTransfer") {
+        newTransfer = numValue;
+        // Auto balance cash: Total - Transfer
+        newCash = Math.max(0, totalPrice - newTransfer);
+      }
+
+      return { ...prev, paidCash: newCash, paidTransfer: newTransfer };
+    });
   };
 
   // --- SCHEDULE HANDLERS ---
