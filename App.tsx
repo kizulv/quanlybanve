@@ -10,6 +10,7 @@ import { Button } from './components/ui/Button';
 import { BusTrip, Seat, SeatStatus, Passenger, Booking, Route, Bus, BusType } from './types';
 import { Search, Filter, BusFront, Armchair, Banknote, CalendarDays, Ticket, Clock, MapPin, Loader2, ArrowRightLeft } from 'lucide-react';
 import { api } from './lib/api';
+import { isSameDay } from './utils/dateUtils';
 
 function App() {
   const [activeTab, setActiveTab] = useState('sales');
@@ -51,26 +52,54 @@ function App() {
   
   // Filter States
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [selectedRoute, setSelectedRoute] = useState<string>('all');
+  const [selectedDirection, setSelectedDirection] = useState<'outbound' | 'inbound'>('outbound');
+  const [selectedRoute, setSelectedRoute] = useState<string>('');
 
-  // Derived state
+  // Derived state for Filter Logic
+  // 1. Find routes that actually have trips on the selected date and direction
+  const availableRouteNames = useMemo(() => {
+    const matchingTrips = trips.filter(trip => {
+      const tripDate = new Date(trip.departureTime.split(' ')[0]);
+      const dateMatch = isSameDay(tripDate, selectedDate);
+      // Fallback direction to outbound if missing (legacy data support)
+      const tripDir = trip.direction || 'outbound'; 
+      return dateMatch && tripDir === selectedDirection;
+    });
+
+    const routeNames = [...new Set(matchingTrips.map(t => t.route))];
+    return routeNames.sort();
+  }, [trips, selectedDate, selectedDirection]);
+
+  // 2. Auto-select the first available route if the current one is invalid
+  useEffect(() => {
+    if (activeTab === 'sales') {
+      if (availableRouteNames.length > 0) {
+        if (!selectedRoute || !availableRouteNames.includes(selectedRoute)) {
+          setSelectedRoute(availableRouteNames[0]);
+        }
+      } else {
+        setSelectedRoute('');
+      }
+    }
+  }, [availableRouteNames, selectedRoute, activeTab]);
+
   const selectedTrip = trips.find(t => t.id === selectedTripId) || null;
   const selectedSeats = selectedTrip?.seats.filter(s => s.status === SeatStatus.SELECTED) || [];
-  
-  // Extract route names from the Routes configuration
-  const availableRouteNames = useMemo(() => {
-    return routes.map(r => r.name);
-  }, [routes]);
 
   const filteredTrips = useMemo(() => {
     return trips.filter(trip => {
-      // Logic for sales tab: Filter by date AND route
+      // Logic for sales tab: Filter by date AND route AND direction
       const tripDate = new Date(trip.departureTime.split(' ')[0]);
-      const dateMatch = tripDate.toDateString() === selectedDate.toDateString();
-      const routeMatch = selectedRoute === 'all' || trip.route === selectedRoute;
-      return dateMatch && routeMatch;
+      const dateMatch = isSameDay(tripDate, selectedDate);
+      const tripDir = trip.direction || 'outbound';
+      const dirMatch = tripDir === selectedDirection;
+      
+      // Strict route match (no more "all")
+      const routeMatch = trip.route === selectedRoute;
+
+      return dateMatch && dirMatch && routeMatch;
     });
-  }, [trips, selectedRoute, selectedDate]);
+  }, [trips, selectedRoute, selectedDate, selectedDirection]);
 
   // Handlers
   const handleTripSelect = (tripId: string) => {
@@ -163,10 +192,10 @@ function App() {
   };
 
   const handleDeleteTrip = async (tripId: string) => {
-    // Confirmation is now handled by ScheduleView UI Dialog
     try {
       await api.trips.delete(tripId);
       await refreshData();
+      if(selectedTripId === tripId) setSelectedTripId(null);
     } catch(e) {
       console.error("Delete trip failed", e);
     }
@@ -202,7 +231,7 @@ function App() {
             <div className="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center shrink-0">
                <div className="font-semibold text-slate-700 flex items-center gap-2">
                 <BusFront size={18} className="text-primary" />
-                Danh sách chuyến
+                Kết quả tìm kiếm
               </div>
               <Badge variant="default" className="bg-slate-200 text-slate-700 hover:bg-slate-300 border-none">
                 {filteredTrips.length} chuyến
@@ -213,7 +242,8 @@ function App() {
               {filteredTrips.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-slate-400 p-8 text-center">
                   <Search size={40} className="mb-2 opacity-50" />
-                  <p>Không tìm thấy chuyến xe nào trong ngày này</p>
+                  <p className="font-medium text-slate-600">Không tìm thấy chuyến xe nào</p>
+                  <p className="text-xs mt-1">Vui lòng kiểm tra lại ngày, chiều đi hoặc tuyến đường.</p>
                 </div>
               ) : (
                 filteredTrips.map(trip => {
@@ -432,6 +462,8 @@ function App() {
       selectedRoute={selectedRoute}
       onRouteChange={setSelectedRoute}
       routes={availableRouteNames}
+      selectedDirection={selectedDirection}
+      onDirectionChange={setSelectedDirection}
     >
       {activeTab === 'sales' && renderTicketSales()}
       {activeTab === 'tickets' && renderTickets()}

@@ -8,6 +8,8 @@ import {
   Ticket,
   Menu,
   MapPin,
+  ArrowRightLeft,
+  Check,
 } from "lucide-react";
 import { Button } from "./ui/Button";
 import { Popover } from "./ui/Popover";
@@ -23,6 +25,9 @@ interface LayoutProps {
   selectedRoute: string;
   onRouteChange: (route: string) => void;
   routes: string[];
+  // New Props for Direction
+  selectedDirection?: 'outbound' | 'inbound';
+  onDirectionChange?: (dir: 'outbound' | 'inbound') => void;
 }
 
 interface ScheduleSettings {
@@ -40,6 +45,8 @@ export const Layout: React.FC<LayoutProps> = ({
   selectedRoute,
   onRouteChange,
   routes,
+  selectedDirection = 'outbound',
+  onDirectionChange,
 }) => {
   // Default sidebar state set to false (Hidden by default)
   const [isSidebarOpen, setSidebarOpen] = useState(false);
@@ -222,40 +229,26 @@ export const Layout: React.FC<LayoutProps> = ({
           {/* Filters - Only visible on 'sales' tab */}
           {activeTab === "sales" && (
             <div className="flex items-center gap-3 animate-in fade-in slide-in-from-right-4 duration-300 shrink-0 ml-4">
-              {/* Route Selector */}
-              <div className="relative hidden lg:block group">
-                <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-500">
-                  <MapPin size={16} />
-                </div>
-                <select
-                  value={selectedRoute}
-                  onChange={(e) => onRouteChange(e.target.value)}
-                  className="h-9 pl-9 pr-8 text-sm border border-slate-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 hover:border-slate-300 transition-colors appearance-none cursor-pointer min-w-[200px]"
-                >
-                  <option value="all">Tất cả tuyến</option>
-                  {routes.map((r) => (
-                    <option key={r} value={r}>
-                      {r}
-                    </option>
-                  ))}
-                </select>
-                <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none text-slate-400">
-                  <svg
-                    width="12"
-                    height="12"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="m6 9 6 6 6-6" />
-                  </svg>
-                </div>
-              </div>
+              
+              {/* 1. Direction Toggle */}
+              {onDirectionChange && (
+                 <label className="flex items-center gap-2 cursor-pointer select-none bg-white border border-slate-200 rounded-md px-3 h-9 hover:border-slate-300 transition-colors min-w-[105px]">
+                    <div className={`relative flex items-center justify-center w-4 h-4 border rounded bg-white transition-colors ${selectedDirection === 'outbound' ? 'border-primary' : 'border-slate-300'}`}>
+                       <input 
+                         type="checkbox"
+                         className="peer appearance-none absolute inset-0 w-full h-full cursor-pointer"
+                         checked={selectedDirection === 'outbound'}
+                         onChange={(e) => onDirectionChange(e.target.checked ? 'outbound' : 'inbound')}
+                       />
+                       {selectedDirection === 'outbound' && <Check size={12} className="text-primary pointer-events-none" strokeWidth={3} />}
+                    </div>
+                    <span className={`text-sm font-medium whitespace-nowrap ${selectedDirection === 'outbound' ? 'text-primary' : 'text-slate-600'}`}>
+                      {selectedDirection === 'outbound' ? 'Chiều đi' : 'Chiều về'}
+                    </span>
+                 </label>
+              )}
 
-              {/* Date Picker using Custom Popover & Calendar */}
+              {/* 2. Date Picker using Custom Popover & Calendar */}
               <Popover
                 align="right"
                 trigger={
@@ -285,6 +278,43 @@ export const Layout: React.FC<LayoutProps> = ({
                   />
                 )}
               />
+
+              {/* 3. Route Selector */}
+              <div className="relative hidden lg:block group">
+                <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-500">
+                  <MapPin size={16} />
+                </div>
+                <select
+                  value={selectedRoute}
+                  onChange={(e) => onRouteChange(e.target.value)}
+                  className="h-9 pl-9 pr-8 text-sm border border-slate-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 hover:border-slate-300 transition-colors appearance-none cursor-pointer min-w-[200px]"
+                >
+                  {routes.length > 0 ? (
+                    routes.map((r) => (
+                      <option key={r} value={r}>
+                        {r}
+                      </option>
+                    ))
+                  ) : (
+                    <option value="" disabled>Không có tuyến nào</option>
+                  )}
+                </select>
+                <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none text-slate-400">
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="m6 9 6 6 6-6" />
+                  </svg>
+                </div>
+              </div>
+
             </div>
           )}
         </header>
