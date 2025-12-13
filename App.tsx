@@ -290,7 +290,59 @@ function App() {
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     const { name, value } = e.target;
+
+    // --- Phone Number Formatting Logic ---
+    if (name === "phone") {
+      const raw = value.replace(/\D/g, ""); // Keep only numbers
+      if (raw.length > 15) return; // Basic length limit
+
+      let formatted = raw;
+      if (raw.length > 4) {
+        formatted = `${raw.slice(0, 4)} ${raw.slice(4)}`;
+      }
+      if (raw.length > 7) {
+        formatted = `${raw.slice(0, 4)} ${raw.slice(4, 7)} ${raw.slice(7)}`;
+      }
+
+      setBookingForm((prev) => ({ ...prev, [name]: formatted }));
+      return;
+    }
+
     setBookingForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  // --- Location Auto-Complete on Blur ---
+  const handleLocationBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    if (!value) return;
+
+    const input = value.toLowerCase().trim();
+
+    // Dictionary mappings for common locations
+    const mappings: Record<string, string> = {
+      "lai chau": "BX Lai Châu",
+      "lai châu": "BX Lai Châu",
+      "ha tinh": "BX Hà Tĩnh",
+      "hà tĩnh": "BX Hà Tĩnh",
+      "ha noi": "BX Mỹ Đình",
+      "hà nội": "BX Mỹ Đình",
+      "sapa": "BX Sapa",
+      "lao cai": "BX Lào Cai",
+      "lào cai": "BX Lào Cai",
+      "da nang": "BX Đà Nẵng",
+      "đà nẵng": "BX Đà Nẵng",
+      "vinh": "BX Vinh",
+      "nghe an": "BX Vinh",
+      "nghệ an": "BX Vinh",
+      "thanh hoa": "BX Thanh Hóa",
+      "thanh hóa": "BX Thanh Hóa",
+      "dien bien": "BX Điện Biên",
+      "điện biên": "BX Điện Biên"
+    };
+
+    if (mappings[input]) {
+      setBookingForm((prev) => ({ ...prev, [name]: mappings[input] }));
+    }
   };
 
   const handleMoneyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -528,6 +580,7 @@ function App() {
                       name="pickup"
                       value={bookingForm.pickup}
                       onChange={handleInputChange}
+                      onBlur={handleLocationBlur}
                       className="w-full pl-6 pr-2 py-1.5 bg-indigo-900/50 border border-transparent rounded-md text-xs text-white placeholder-indigo-300 focus:bg-indigo-900 focus:ring-1 focus:ring-green-400 outline-none transition-all"
                       placeholder="Điểm đón"
                     />
@@ -542,6 +595,7 @@ function App() {
                       name="dropoff"
                       value={bookingForm.dropoff}
                       onChange={handleInputChange}
+                      onBlur={handleLocationBlur}
                       className="w-full pl-6 pr-2 py-1.5 bg-indigo-900/50 border border-transparent rounded-md text-xs text-white placeholder-indigo-300 focus:bg-indigo-900 focus:ring-1 focus:ring-red-400 outline-none transition-all"
                       placeholder="Điểm trả"
                     />
