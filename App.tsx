@@ -29,6 +29,8 @@ import {
   RotateCcw,
   MessageSquare,
   ArrowRight,
+  History,
+  Calendar,
 } from "lucide-react";
 import { api } from "./lib/api";
 import { isSameDay } from "./utils/dateUtils";
@@ -124,6 +126,19 @@ function App() {
       (b) => b.busId === selectedTrip.id && b.status !== "cancelled"
     );
   }, [bookings, selectedTrip]);
+
+  // Customer History Lookup
+  const customerHistory = useMemo(() => {
+    if (!bookingForm.phone || bookingForm.phone.length < 3) return [];
+    const cleanPhone = bookingForm.phone.replace(/\D/g, "");
+    
+    return bookings
+      .filter((b) => {
+        const bPhone = b.passenger.phone.replace(/\D/g, "");
+        return bPhone.includes(cleanPhone);
+      })
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [bookings, bookingForm.phone]);
 
   // Auto update payment when total changes (optional: keep cash synced if transfer is 0)
   useEffect(() => {
@@ -415,27 +430,27 @@ function App() {
           </div>
         </div>
 
-        {/* RIGHT COLUMN: BOOKING FORM (Refactored) */}
-        <div className="w-full md:w-[380px] xl:w-[420px] bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col shrink-0 h-full overflow-hidden">
-          <div className="p-3 bg-gradient-to-r from-blue-600 to-blue-500 text-white font-bold flex items-center justify-between shadow-sm">
-            <div className="flex items-center gap-2">
-              <Ticket size={18} className="text-white/90" />
+        {/* RIGHT COLUMN: BOOKING FORM (Compact & History) */}
+        <div className="w-full md:w-[360px] xl:w-[400px] bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col shrink-0 h-full overflow-hidden">
+          <div className="p-2.5 bg-gradient-to-r from-blue-600 to-blue-500 text-white font-bold flex items-center justify-between shadow-sm">
+            <div className="flex items-center gap-2 text-sm">
+              <Ticket size={16} className="text-white/90" />
               Thông tin đặt vé
             </div>
-            <div className="text-xs bg-white/20 px-2 py-0.5 rounded text-white/90">
+            <div className="text-[10px] bg-white/20 px-2 py-0.5 rounded text-white/90">
                 {selectedSeats.length} vé
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-slate-50/50">
+          <div className="flex-1 overflow-y-auto p-2.5 space-y-2 bg-slate-50/50">
             {/* Selected Seats Summary */}
             {selectedSeats.length > 0 ? (
-              <div className="bg-white p-2.5 rounded-lg border border-blue-100 shadow-sm">
-                 <div className="flex flex-wrap gap-2">
+              <div className="bg-white p-2 rounded-lg border border-blue-100 shadow-sm">
+                 <div className="flex flex-wrap gap-1.5">
                   {selectedSeats.map((s) => (
                     <Badge
                       key={s.id}
-                      className="bg-blue-50 text-blue-700 border border-blue-200 shadow-sm text-sm py-0.5 px-2"
+                      className="bg-blue-50 text-blue-700 border border-blue-200 shadow-sm text-xs py-0 px-1.5"
                     >
                       {s.label}
                     </Badge>
@@ -443,7 +458,7 @@ function App() {
                 </div>
               </div>
             ) : (
-                <div className="bg-white border border-dashed border-slate-300 rounded-lg p-4 text-center text-slate-400 text-sm">
+                <div className="bg-white border border-dashed border-slate-300 rounded-lg p-3 text-center text-slate-400 text-xs">
                     Chưa chọn ghế nào
                 </div>
             )}
@@ -451,24 +466,24 @@ function App() {
             <form
               id="booking-form"
               onSubmit={handleBookingSubmit}
-              className="space-y-3"
+              className="space-y-2"
             >
-              {/* Customer Info - Only Phone */}
-              <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                    Số điện thoại khách <span className="text-red-500">*</span>
+              {/* Customer Info - Only Phone (Compact) */}
+              <div className="bg-white p-2.5 rounded-lg border border-slate-200 shadow-sm">
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                    Số điện thoại <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
                     <Phone
-                      className="absolute left-3 top-3 text-primary"
-                      size={18}
+                      className="absolute left-2.5 top-2.5 text-primary"
+                      size={14}
                     />
                     <input
                       type="tel"
                       name="phone"
                       value={bookingForm.phone}
                       onChange={handleInputChange}
-                      className="w-full pl-10 pr-3 py-2.5 border border-slate-200 rounded-md text-base focus:ring-2 focus:ring-primary/20 outline-none font-bold text-slate-900 placeholder-slate-300"
+                      className="w-full pl-8 pr-2 py-1.5 border border-slate-200 rounded-md text-sm focus:ring-2 focus:ring-primary/20 outline-none font-bold text-slate-900 placeholder-slate-300"
                       placeholder="Nhập SĐT..."
                       required
                       autoFocus
@@ -476,72 +491,72 @@ function App() {
                   </div>
               </div>
 
-              {/* Trip Info - Grid Layout */}
-              <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
+              {/* Trip Info - Grid Layout (Compact) */}
+              <div className="bg-white p-2.5 rounded-lg border border-slate-200 shadow-sm space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
                     <div>
-                        <label className="flex items-center gap-1.5 text-xs font-bold text-green-700 mb-1.5">
-                           <MapPin size={12} className="fill-green-600 text-white" /> Điểm đón
+                        <label className="flex items-center gap-1 text-[10px] font-bold text-green-700 mb-1">
+                           <MapPin size={10} className="fill-green-600 text-white" /> Điểm đón
                         </label>
                         <input
                             type="text"
                             name="pickup"
                             value={bookingForm.pickup}
                             onChange={handleInputChange}
-                            className="w-full px-2.5 py-2 border border-slate-200 rounded-md text-sm focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none font-medium"
+                            className="w-full px-2 py-1.5 border border-slate-200 rounded-md text-xs focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none font-medium"
                             placeholder="Tại bến..."
                         />
                     </div>
                     <div>
-                        <label className="flex items-center gap-1.5 text-xs font-bold text-red-600 mb-1.5">
-                           <MapPin size={12} className="fill-red-500 text-white" /> Điểm trả
+                        <label className="flex items-center gap-1 text-[10px] font-bold text-red-600 mb-1">
+                           <MapPin size={10} className="fill-red-500 text-white" /> Điểm trả
                         </label>
                         <input
                             type="text"
                             name="dropoff"
                             value={bookingForm.dropoff}
                             onChange={handleInputChange}
-                            className="w-full px-2.5 py-2 border border-slate-200 rounded-md text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none font-medium"
+                            className="w-full px-2 py-1.5 border border-slate-200 rounded-md text-xs focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none font-medium"
                             placeholder="Tại bến..."
                         />
                     </div>
                   </div>
               </div>
 
-              {/* Note - Moved Above Price */}
-              <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
-                 <label className="flex items-center gap-1.5 text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                    <MessageSquare size={12} /> Ghi chú
+              {/* Note (Compact) */}
+              <div className="bg-white p-2.5 rounded-lg border border-slate-200 shadow-sm">
+                 <label className="flex items-center gap-1 text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                    <MessageSquare size={10} /> Ghi chú
                  </label>
                  <textarea
                   name="note"
                   value={bookingForm.note}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-md text-sm focus:ring-2 focus:ring-primary/20 outline-none resize-none h-14 placeholder-slate-300"
-                  placeholder="Ghi chú thêm (nếu có)..."
+                  className="w-full px-2 py-1.5 border border-slate-200 rounded-md text-xs focus:ring-2 focus:ring-primary/20 outline-none resize-none h-10 placeholder-slate-300"
+                  placeholder="Ghi chú thêm..."
                 />
               </div>
 
-              {/* Payment Info - Highlighted */}
-              <div className="bg-slate-800 p-4 rounded-xl border border-slate-700 text-white shadow-md">
-                <div className="flex justify-between items-end border-b border-slate-600 pb-3 mb-3">
-                  <span className="text-sm font-medium text-slate-300">
-                    Tổng thanh toán
+              {/* Payment Info - Highlighted (Compact) */}
+              <div className="bg-slate-800 p-3 rounded-lg border border-slate-700 text-white shadow-md">
+                <div className="flex justify-between items-end border-b border-slate-600 pb-2 mb-2">
+                  <span className="text-xs font-medium text-slate-300">
+                    Tổng tiền
                   </span>
-                  <span className="text-2xl font-bold text-white tracking-tight">
-                    {totalPrice.toLocaleString("vi-VN")} <span className="text-sm font-normal text-slate-400">đ</span>
+                  <span className="text-xl font-bold text-white tracking-tight">
+                    {totalPrice.toLocaleString("vi-VN")} <span className="text-[10px] font-normal text-slate-400">đ</span>
                   </span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase">
+                    <label className="block text-[9px] font-bold text-slate-400 mb-0.5 uppercase">
                       Tiền mặt
                     </label>
                     <div className="relative">
                       <Banknote
-                        className="absolute left-2.5 top-2 text-slate-500"
-                        size={14}
+                        className="absolute left-2 top-2 text-slate-500"
+                        size={12}
                       />
                       <input
                         placeholder="0"
@@ -549,18 +564,18 @@ function App() {
                         name="paidCash"
                         value={bookingForm.paidCash.toLocaleString("vi-VN")}
                         onChange={handleMoneyChange}
-                        className="w-full pl-8 pr-2 py-1.5 border border-slate-600 bg-slate-700 rounded text-sm font-bold text-right focus:ring-2 focus:ring-green-500/50 outline-none text-white placeholder-slate-500"
+                        className="w-full pl-6 pr-2 py-1 border border-slate-600 bg-slate-700 rounded text-xs font-bold text-right focus:ring-2 focus:ring-green-500/50 outline-none text-white placeholder-slate-500"
                       />
                     </div>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase">
+                    <label className="block text-[9px] font-bold text-slate-400 mb-0.5 uppercase">
                       Chuyển khoản
                     </label>
                     <div className="relative">
                       <CreditCard
-                        className="absolute left-2.5 top-2 text-slate-500"
-                        size={14}
+                        className="absolute left-2 top-2 text-slate-500"
+                        size={12}
                       />
                       <input
                         placeholder="0"
@@ -568,62 +583,92 @@ function App() {
                         name="paidTransfer"
                         value={bookingForm.paidTransfer.toLocaleString("vi-VN")}
                         onChange={handleMoneyChange}
-                        className="w-full pl-8 pr-2 py-1.5 border border-slate-600 bg-slate-700 rounded text-sm font-bold text-right focus:ring-2 focus:ring-blue-500/50 outline-none text-white placeholder-slate-500"
+                        className="w-full pl-6 pr-2 py-1 border border-slate-600 bg-slate-700 rounded text-xs font-bold text-right focus:ring-2 focus:ring-blue-500/50 outline-none text-white placeholder-slate-500"
                       />
                     </div>
                   </div>
                 </div>
-
-                {/* Payment Status Indicator */}
-                <div className="mt-2 min-h-[20px]">
+                
+                 <div className="mt-1 min-h-[16px] text-[10px] text-right">
                 {(() => {
                   const paid = bookingForm.paidCash + bookingForm.paidTransfer;
                   const diff = totalPrice - paid;
                   if (totalPrice > 0) {
                     if (diff === 0)
-                      return (
-                        <div className="text-xs text-green-400 font-bold text-right flex items-center justify-end animate-in fade-in">
-                          <CheckCircle2 size={12} className="mr-1" /> Đã thanh toán đủ
-                        </div>
-                      );
+                      return <span className="text-green-400 font-bold">Đủ tiền</span>;
                     if (diff > 0)
-                      return (
-                        <div className="text-xs text-red-400 font-bold text-right animate-in fade-in">
-                          Còn thiếu: {diff.toLocaleString("vi-VN")} đ
-                        </div>
-                      );
+                      return <span className="text-red-400 font-bold">Thiếu: {diff.toLocaleString("vi-VN")}</span>;
                     if (diff < 0)
-                      return (
-                        <div className="text-xs text-blue-400 font-bold text-right animate-in fade-in">
-                          Thừa: {Math.abs(diff).toLocaleString("vi-VN")} đ
-                        </div>
-                      );
+                      return <span className="text-blue-400 font-bold">Thừa: {Math.abs(diff).toLocaleString("vi-VN")}</span>;
                   }
                   return null;
                 })()}
                 </div>
               </div>
             </form>
+
+             {/* Customer History Section */}
+             {customerHistory.length > 0 && (
+              <div className="border border-slate-200 rounded-lg overflow-hidden bg-white mt-1">
+                 <div className="bg-slate-50 px-2.5 py-1.5 border-b border-slate-100 flex justify-between items-center">
+                    <div className="flex items-center gap-1.5">
+                       <History size={12} className="text-slate-500" />
+                       <span className="font-bold text-[10px] text-slate-600 uppercase">Lịch sử đặt vé ({customerHistory.length})</span>
+                    </div>
+                 </div>
+                 <div className="max-h-[140px] overflow-y-auto divide-y divide-slate-50">
+                    {customerHistory.map(h => {
+                       // Find route info
+                       const hTrip = trips.find(t => t.id === h.busId);
+                       const dateStr = hTrip ? hTrip.departureTime.split(' ')[0] : '---';
+                       const timeStr = hTrip ? hTrip.departureTime.split(' ')[1] : '';
+                       const formattedDate = new Date(dateStr).toLocaleDateString('vi-VN');
+
+                       return (
+                        <div key={h.id} className="p-2 hover:bg-slate-50 text-xs">
+                           <div className="flex justify-between items-start mb-0.5">
+                              <span className="font-medium text-slate-800 truncate max-w-[140px]" title={hTrip?.route}>
+                                 {hTrip?.route || "Chuyến không xác định"}
+                              </span>
+                              <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 border-slate-200 text-slate-500">
+                                 {h.seatId}
+                              </Badge>
+                           </div>
+                           <div className="flex justify-between items-center text-[10px] text-slate-400">
+                              <div className="flex items-center gap-1">
+                                 <Calendar size={10} /> {formattedDate} {timeStr}
+                              </div>
+                              <span className={h.status === 'confirmed' ? 'text-green-600 font-medium' : 'text-slate-400'}>
+                                 {h.status === 'confirmed' ? 'Đã đặt' : h.status}
+                              </span>
+                           </div>
+                        </div>
+                       )
+                    })}
+                 </div>
+              </div>
+            )}
+
           </div>
 
           {/* Footer Actions */}
-          <div className="p-3 bg-white border-t border-slate-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-10 flex gap-3">
+          <div className="p-3 bg-white border-t border-slate-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-10 flex gap-2">
             <Button
               type="button"
               variant="outline"
-              className="flex-1 border-slate-300 text-slate-600 hover:bg-slate-50"
+              className="flex-1 border-slate-300 text-slate-600 hover:bg-slate-50 h-9 text-xs"
               onClick={cancelSelection}
               disabled={selectedSeats.length === 0}
             >
-              <RotateCcw size={16} className="mr-2" /> Hủy
+              <RotateCcw size={14} className="mr-1.5" /> Hủy
             </Button>
             <Button
               type="submit"
               form="booking-form"
-              className="flex-[2] shadow-lg shadow-blue-500/20 bg-blue-600 hover:bg-blue-700 text-white font-bold"
+              className="flex-[2] shadow-lg shadow-blue-500/20 bg-blue-600 hover:bg-blue-700 text-white font-bold h-9 text-xs"
               disabled={selectedSeats.length === 0}
             >
-              <CheckCircle2 size={18} className="mr-2" /> Đặt vé
+              <CheckCircle2 size={14} className="mr-1.5" /> Đặt vé
             </Button>
           </div>
         </div>
