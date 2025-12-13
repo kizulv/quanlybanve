@@ -38,6 +38,15 @@ export const SeatMap: React.FC<SeatMapProps> = ({
     }
   };
 
+  const formatPhone = (phone: string) => {
+    // phone is expected to be normalized digits or raw string
+    const cleaned = phone.replace(/\D/g, "");
+    if (cleaned.length === 10) {
+      return `${cleaned.slice(0, 4)} ${cleaned.slice(4, 7)} ${cleaned.slice(7)}`;
+    }
+    return phone;
+  };
+
   const renderSeat = (seat: Seat, isBench: boolean = false) => {
     const statusClass = getSeatStatusClass(seat.status);
     const isInteractive =
@@ -49,6 +58,29 @@ export const SeatMap: React.FC<SeatMapProps> = ({
       (b) => b.seatId === seat.id && b.status !== "cancelled"
     );
     const isBooked = seat.status === SeatStatus.BOOKED && booking;
+
+    let phoneDisplay = "";
+    if (isBooked && booking) {
+      const rawPhone = booking.passenger.phone;
+      const normalizedPhone = rawPhone.replace(/\D/g, "");
+      const formatted = formatPhone(normalizedPhone || rawPhone);
+
+      // Find siblings (bookings with same phone)
+      const siblings = bookings.filter(
+        (b) =>
+          b.passenger.phone.replace(/\D/g, "") === normalizedPhone &&
+          b.status !== "cancelled"
+      );
+
+      if (siblings.length > 1) {
+        // Sort to find index (using seatId for deterministic order)
+        siblings.sort((a, b) => a.seatId.localeCompare(b.seatId));
+        const index = siblings.findIndex((b) => b.id === booking.id);
+        phoneDisplay = `${formatted} (${index + 1}/${siblings.length})`;
+      } else {
+        phoneDisplay = formatted;
+      }
+    }
 
     return (
       <div
@@ -90,7 +122,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
                 title={booking.passenger.name}
               >
                 <Phone size={10} className="shrink-0 opacity-60" />
-                <span className="truncate">{booking.passenger.phone}</span>
+                <span className="truncate">{phoneDisplay}</span>
               </div>
 
               {/* Route Info */}
