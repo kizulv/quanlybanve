@@ -30,9 +30,9 @@ export const SeatMap: React.FC<SeatMapProps> = ({
       case SeatStatus.SELECTED:
         return "bg-primary border-primary text-white shadow-md transform scale-105 cursor-pointer z-10";
       case SeatStatus.BOOKED:
-        return "bg-yellow-50 border-yellow-300 text-yellow-900 cursor-not-allowed";
+        return "bg-yellow-50 border-yellow-300 text-yellow-900 cursor-pointer hover:bg-yellow-100"; // Changed to pointer
       case SeatStatus.SOLD:
-        return "bg-slate-100 border-slate-200 text-slate-300 cursor-not-allowed";
+        return "bg-slate-100 border-slate-300 text-slate-600 cursor-not-allowed"; // SOLD visuals
       default:
         return "bg-white border-slate-200";
     }
@@ -51,21 +51,26 @@ export const SeatMap: React.FC<SeatMapProps> = ({
 
   const renderSeat = (seat: Seat, isBench: boolean = false) => {
     const statusClass = getSeatStatusClass(seat.status);
+    
+    // Interactive if Available, Selected, OR Booked (for payment)
     const isInteractive =
       seat.status === SeatStatus.AVAILABLE ||
-      seat.status === SeatStatus.SELECTED;
+      seat.status === SeatStatus.SELECTED ||
+      seat.status === SeatStatus.BOOKED;
 
-    // Find booking info if booked
+    // Find booking info if booked or sold
     const booking = bookings.find(
       (b) => b.seatId === seat.id && b.status !== "cancelled"
     );
-    const isBooked = seat.status === SeatStatus.BOOKED && booking;
+    
+    // Treat SOLD same as BOOKED for info display
+    const hasInfo = (seat.status === SeatStatus.BOOKED || seat.status === SeatStatus.SOLD) && booking;
 
     let formattedPhone = "";
     let groupIndex = 0;
     let groupTotal = 0;
 
-    if (isBooked && booking) {
+    if (hasInfo && booking) {
       const rawPhone = booking.passenger.phone;
       const normalizedPhone = rawPhone.replace(/\D/g, "");
       formattedPhone = formatPhone(normalizedPhone || rawPhone);
@@ -102,6 +107,8 @@ export const SeatMap: React.FC<SeatMapProps> = ({
               ? "border-primary/50 bg-primary/10"
               : seat.status === SeatStatus.BOOKED
               ? "border-yellow-200 bg-yellow-100/50"
+              : seat.status === SeatStatus.SOLD
+              ? "border-slate-200 bg-slate-200/50"
               : "border-slate-100 bg-slate-50/50"
           }`}
         >
@@ -113,18 +120,18 @@ export const SeatMap: React.FC<SeatMapProps> = ({
 
         {/* Content Body */}
         <div className="flex-1 p-2 flex flex-col text-[10px] leading-tight space-y-1.5">
-          {isBooked ? (
+          {hasInfo ? (
             <>
               {/* Passenger Phone */}
               <div
-                className="flex items-center gap-1.5 font-bold"
+                className={`flex items-center gap-1.5 font-bold ${seat.status === SeatStatus.SOLD ? 'text-slate-700' : 'text-yellow-900'}`}
                 title={booking.passenger.name}
               >
                 <Phone size={10} className="shrink-0 opacity-60" />
                 <div className="flex items-center gap-1 min-w-0">
                   <span className="truncate">{formattedPhone}</span>
                   {groupTotal > 1 && (
-                    <span className="shrink-0 bg-slate-200 text-slate-600 px-1 rounded text-[8px] font-normal leading-tight">
+                    <span className="shrink-0 bg-white/50 text-inherit px-1 rounded text-[8px] font-normal leading-tight border border-current opacity-70">
                       {groupIndex}/{groupTotal}
                     </span>
                   )}
@@ -134,7 +141,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
               {/* Route Info */}
               {booking.passenger.pickupPoint ||
               booking.passenger.dropoffPoint ? (
-                <div className="flex gap-1.5 text-slate-600">
+                <div className={`flex gap-1.5 ${seat.status === SeatStatus.SOLD ? 'text-slate-500' : 'text-yellow-800'}`}>
                   <MapPin size={10} className="shrink-0 opacity-60 mt-0.5" />
                   <div className="text-wrap">
                     <span
@@ -147,7 +154,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
                   </div>
                 </div>
               ) : (
-                <div className="text-slate-400 italic pl-4">
+                <div className="opacity-50 italic pl-4">
                   Chưa có điểm đón
                 </div>
               )}

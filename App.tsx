@@ -97,8 +97,13 @@ function App() {
     note: "",
   });
 
-  // Payment Modal State
+  // Payment Modal State & Context
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [pendingPaymentContext, setPendingPaymentContext] = useState<{
+    type: 'new' | 'update';
+    bookingIds?: string[];
+    totalPrice: number;
+  } | null>(null);
 
   // History Search Suggestion State
   const [showHistory, setShowHistory] = useState(false);
@@ -232,6 +237,7 @@ function App() {
         phone: string;
         displayPhone: string;
         seats: string[];
+        bookingIds: string[];
         totalPrice: number;
         paidCash: number;
         paidTransfer: number;
@@ -250,6 +256,7 @@ function App() {
           phone: cleanPhone,
           displayPhone: rawPhone,
           seats: [],
+          bookingIds: [],
           totalPrice: 0,
           paidCash: 0,
           paidTransfer: 0,
@@ -259,6 +266,7 @@ function App() {
       }
 
       groups[key].seats.push(b.seatId);
+      groups[key].bookingIds.push(b.id);
       groups[key].totalPrice += b.totalPrice;
       groups[key].paidCash += b.payment?.paidCash || 0;
       groups[key].paidTransfer += b.payment?.paidTransfer || 0;
@@ -293,6 +301,9 @@ function App() {
 
   // Auto update payment when total changes
   useEffect(() => {
+    // Only auto-update if we are in "new booking" mode
+    if (pendingPaymentContext && pendingPaymentContext.type === 'update') return;
+
     if (bookingForm.paidTransfer === 0) {
       setBookingForm((prev) => ({ ...prev, paidCash: totalPrice }));
     } else {
@@ -392,6 +403,31 @@ function App() {
   const handleSeatClick = async (clickedSeat: Seat) => {
     if (!selectedTrip) return;
 
+    // Logic for interacting with ALREADY BOOKED seats
+    if (clickedSeat.status === SeatStatus.BOOKED) {
+      const booking = tripBookings.find(b => b.seatId === clickedSeat.id);
+      if (booking) {
+        // Prepare Payment Modal for UPDATE
+        const currentPaid = (booking.payment?.paidCash || 0) + (booking.payment?.paidTransfer || 0);
+        // If not fully paid, allow payment
+        if (currentPaid < booking.totalPrice) {
+           setPendingPaymentContext({
+             type: 'update',
+             bookingIds: [booking.id],
+             totalPrice: booking.totalPrice
+           });
+           setBookingForm(prev => ({
+             ...prev,
+             paidCash: booking.totalPrice, // Default to full price for quick payment
+             paidTransfer: 0
+           }));
+           setIsPaymentModalOpen(true);
+        }
+      }
+      return;
+    }
+
+    // Default Selection Logic
     const updatedSeats = selectedTrip.seats.map((seat) => {
       if (seat.id === clickedSeat.id) {
         return {
@@ -461,7 +497,7 @@ function App() {
     }
   };
 
-  // 2. Initiate Payment (Open Modal)
+  // 2. Initiate Payment (Open Modal) for NEW Selection
   const handleInitiatePayment = () => {
     if (!selectedTrip) return;
     if (selectedSeats.length === 0) {
@@ -472,20 +508,16 @@ function App() {
       alert("Vui lòng nhập số điện thoại.");
       return;
     }
+    setPendingPaymentContext({
+      type: 'new',
+      totalPrice: totalPrice
+    });
     setIsPaymentModalOpen(true);
   };
 
-  // 3. Confirm Payment (From Modal) -> Status SOLD (Gray) if paid enough
+  // 3. Confirm Payment (From Modal) -> Handles both NEW and UPDATE
   const handleConfirmPayment = async () => {
-    if (!selectedTrip) return;
-
-    const passenger: Passenger = {
-      name: "Khách lẻ",
-      phone: bookingForm.phone,
-      note: bookingForm.note,
-      pickupPoint: bookingForm.pickup,
-      dropoffPoint: bookingForm.dropoff,
-    };
+    if (!selectedTrip || !pendingPaymentContext) return;
 
     const payment = {
       paidCash: bookingForm.paidCash,
@@ -493,25 +525,86 @@ function App() {
     };
 
     try {
-      const result = await api.bookings.create(
-        selectedTrip.id,
-        selectedSeats,
-        passenger,
-        payment
-      );
+      if (pendingPaymentContext.type === 'new') {
+        // Create New Bookings
+        const passenger: Passenger = {
+          name: "Khách lẻ",
+          phone: bookingForm.phone,
+          note: bookingForm.note,
+          pickupPoint: bookingForm.pickup,
+          dropoffPoint: bookingForm.dropoff,
+        };
 
-      setTrips(
-        trips.map((t) => (t.id === selectedTrip.id ? result.updatedTrip : t))
-      );
-      setBookings([...bookings, ...result.bookings]);
+        const result = await api.bookings.create(
+          selectedTrip.id,
+          selectedSeats,
+          passenger,
+          payment
+        );
+
+        setTrips(
+          trips.map((t) => (t.id === selectedTrip.id ? result.updatedTrip : t))
+        );
+        setBookings([...bookings, ...result.bookings]);
+        alert("Thanh toán & Đặt vé thành công!");
+      } else {
+        // Update Existing Bookings (Pay later)
+        if (!pendingPaymentContext.bookingIds) return;
+        
+        const result = await api.bookings.updatePayment(
+          pendingPaymentContext.bookingIds,
+          payment
+        );
+        
+        // Refresh local state
+        setBookings(result.updatedBookings);
+        setTrips(
+          trips.map((t) => (t.id === selectedTrip.id ? result.updatedTrip : t))
+        );
+        alert("Cập nhật thanh toán thành công!");
+      }
 
       // Reset
       setIsPaymentModalOpen(false);
-      handleTripSelect(selectedTrip.id);
-      alert("Thanh toán thành công!");
+      setPendingPaymentContext(null);
+      // Only reset form if it was a new booking, but resetting everything ensures clean state
+      if (pendingPaymentContext.type === 'new') {
+         handleTripSelect(selectedTrip.id);
+      }
     } catch (error) {
       alert("Thanh toán thất bại. Vui lòng thử lại.");
+      console.error(error);
     }
+  };
+
+  // Handle clicking on a Manifest Group (Consolidated Payment)
+  const handleManifestGroupClick = (bookingIds: string[], groupTotal: number, groupPaid: number) => {
+    // Check if there's anything left to pay
+    const remaining = groupTotal - groupPaid;
+    if (remaining <= 0) return; // Already paid
+
+    // Find valid bookings that are NOT fully paid (optional logic, or just pay bulk)
+    // Here we just take the IDs provided by the group logic which includes all bookings in that batch
+    
+    setPendingPaymentContext({
+      type: 'update',
+      bookingIds: bookingIds,
+      totalPrice: groupTotal // We want to show the full price, and let user pay the full amount
+    });
+    
+    // Set form to remaining amount or full amount? 
+    // Usually standard is "Total Transaction Amount". 
+    // If the previous payment was 0, we pay full. 
+    // If previous was partial, we usually replace the payment record with full payment or add to it. 
+    // For simplicity in this app: The modal asks for "Paid Cash" and "Paid Transfer". 
+    // We should pre-fill with the Total Price so the user just hits "Confirm" if paying in full.
+    setBookingForm(prev => ({
+      ...prev,
+      paidCash: groupTotal, 
+      paidTransfer: 0
+    }));
+    
+    setIsPaymentModalOpen(true);
   };
 
   const cancelSelection = async () => {
@@ -563,9 +656,10 @@ function App() {
   const handleMoneyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     const numValue = parseInt(value.replace(/\D/g, "") || "0", 10);
+    const targetTotal = pendingPaymentContext?.totalPrice || totalPrice;
 
     setBookingForm((prev) => {
-      if (totalPrice === 0) {
+      if (targetTotal === 0) {
         return { ...prev, [name]: numValue };
       }
 
@@ -574,10 +668,10 @@ function App() {
 
       if (name === "paidCash") {
         newCash = numValue;
-        newTransfer = Math.max(0, totalPrice - newCash);
+        newTransfer = Math.max(0, targetTotal - newCash);
       } else if (name === "paidTransfer") {
         newTransfer = numValue;
-        newCash = Math.max(0, totalPrice - newTransfer);
+        newCash = Math.max(0, targetTotal - newTransfer);
       }
 
       return { ...prev, paidCash: newCash, paidTransfer: newTransfer };
@@ -1050,7 +1144,10 @@ function App() {
                     return (
                       <div
                         key={idx}
-                        className="p-2 border-b border-slate-100 hover:bg-slate-50 transition-colors group"
+                        onClick={() => handleManifestGroupClick(group.bookingIds, group.totalPrice, totalPaid)}
+                        className={`p-2 border-b border-slate-100 transition-colors group cursor-pointer ${
+                          !isFullyPaid ? 'hover:bg-yellow-50 bg-white' : 'hover:bg-slate-50 bg-slate-50/30'
+                        }`}
                       >
                         {/* Row 1: Phone + Time */}
                         <div className="flex justify-between items-center mb-1">
@@ -1092,9 +1189,12 @@ function App() {
       {/* Payment Modal */}
       <PaymentModal 
         isOpen={isPaymentModalOpen}
-        onClose={() => setIsPaymentModalOpen(false)}
+        onClose={() => {
+          setIsPaymentModalOpen(false);
+          setPendingPaymentContext(null);
+        }}
         onConfirm={handleConfirmPayment}
-        totalPrice={totalPrice}
+        totalPrice={pendingPaymentContext?.totalPrice || totalPrice}
         paidCash={bookingForm.paidCash}
         paidTransfer={bookingForm.paidTransfer}
         onMoneyChange={handleMoneyChange}

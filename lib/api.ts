@@ -126,6 +126,51 @@ export const api = {
       await db.trips.updateOne(tripId, { seats: updatedSeats });
 
       return { bookings: newBookings, updatedTrip: { ...trip, seats: updatedSeats } };
+    },
+
+    updatePayment: async (
+      bookingIds: string[],
+      payment: { paidCash: number; paidTransfer: number }
+    ) => {
+      await delay(300);
+      const allBookings = await db.bookings.find();
+      const targetBookings = allBookings.filter(b => bookingIds.includes(b.id));
+      
+      if (targetBookings.length === 0) throw new Error("No bookings found");
+      
+      const tripId = targetBookings[0].busId;
+      const trip = await db.trips.findById(tripId);
+      if (!trip) throw new Error("Trip not found");
+
+      const totalPrice = targetBookings.reduce((sum, b) => sum + b.totalPrice, 0);
+      const totalPaid = payment.paidCash + payment.paidTransfer;
+      const isFullyPaid = totalPaid >= totalPrice;
+      const targetStatus = isFullyPaid ? SeatStatus.SOLD : SeatStatus.BOOKED;
+
+      // Update bookings
+      for (const booking of targetBookings) {
+        // In a real app, split payment proportionally. Here we just update metadata
+        // Assuming the payment passed is the TOTAL for these specific bookings
+        await db.bookings.updateOne(booking.id, { 
+          payment: payment 
+        });
+      }
+
+      // Update Trip Seats
+      const updatedSeats = trip.seats.map(s => {
+        const matchingBooking = targetBookings.find(b => b.seatId === s.id);
+        if (matchingBooking) {
+          return { ...s, status: targetStatus };
+        }
+        return s;
+      });
+
+      await db.trips.updateOne(tripId, { seats: updatedSeats });
+      
+      return { 
+        updatedBookings: await db.bookings.find(), // return all for refresh
+        updatedTrip: { ...trip, seats: updatedSeats } 
+      };
     }
   },
 
