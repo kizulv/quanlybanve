@@ -40,6 +40,7 @@ import {
 } from "lucide-react";
 import { api } from "./lib/api";
 import { isSameDay } from "./utils/dateUtils";
+import { PaymentModal } from "./components/PaymentModal";
 
 function App() {
   const [activeTab, setActiveTab] = useState("sales");
@@ -95,6 +96,9 @@ function App() {
     paidTransfer: 0,
     note: "",
   });
+
+  // Payment Modal State
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
 
   // History Search Suggestion State
   const [showHistory, setShowHistory] = useState(false);
@@ -411,8 +415,8 @@ function App() {
     }
   };
 
-  const handleBookingSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // 1. Booking Only (No Payment yet) -> Status BOOKED (Yellow)
+  const handleBookingOnly = async () => {
     if (!selectedTrip) return;
     if (selectedSeats.length === 0) {
       alert("Vui lòng chọn ít nhất 1 ghế.");
@@ -422,6 +426,58 @@ function App() {
       alert("Vui lòng nhập số điện thoại.");
       return;
     }
+
+    const passenger: Passenger = {
+      name: "Khách lẻ",
+      phone: bookingForm.phone,
+      note: bookingForm.note,
+      pickupPoint: bookingForm.pickup,
+      dropoffPoint: bookingForm.dropoff,
+    };
+
+    // Pay 0
+    const payment = {
+      paidCash: 0,
+      paidTransfer: 0,
+    };
+
+    try {
+      const result = await api.bookings.create(
+        selectedTrip.id,
+        selectedSeats,
+        passenger,
+        payment
+      );
+
+      setTrips(
+        trips.map((t) => (t.id === selectedTrip.id ? result.updatedTrip : t))
+      );
+      setBookings([...bookings, ...result.bookings]);
+
+      handleTripSelect(selectedTrip.id);
+      alert("Đặt vé thành công!");
+    } catch (error) {
+      alert("Đặt vé thất bại. Vui lòng thử lại.");
+    }
+  };
+
+  // 2. Initiate Payment (Open Modal)
+  const handleInitiatePayment = () => {
+    if (!selectedTrip) return;
+    if (selectedSeats.length === 0) {
+      alert("Vui lòng chọn ít nhất 1 ghế.");
+      return;
+    }
+    if (!bookingForm.phone) {
+      alert("Vui lòng nhập số điện thoại.");
+      return;
+    }
+    setIsPaymentModalOpen(true);
+  };
+
+  // 3. Confirm Payment (From Modal) -> Status SOLD (Gray) if paid enough
+  const handleConfirmPayment = async () => {
+    if (!selectedTrip) return;
 
     const passenger: Passenger = {
       name: "Khách lẻ",
@@ -449,10 +505,12 @@ function App() {
       );
       setBookings([...bookings, ...result.bookings]);
 
+      // Reset
+      setIsPaymentModalOpen(false);
       handleTripSelect(selectedTrip.id);
-      alert("Đặt vé thành công!");
+      alert("Thanh toán thành công!");
     } catch (error) {
-      alert("Đặt vé thất bại. Vui lòng thử lại.");
+      alert("Thanh toán thất bại. Vui lòng thử lại.");
     }
   };
 
@@ -583,6 +641,7 @@ function App() {
 
   const renderTicketSales = () => {
     return (
+      <>
       <div className="h-[calc(100vh-140px)] flex flex-col md:flex-row gap-4 animate-in fade-in duration-300">
         {/* LEFT COLUMN: SEAT MAP */}
         <div className="flex-1 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col overflow-hidden">
@@ -691,8 +750,18 @@ function App() {
                 <Ticket size={16} className="text-yellow-400" />
                 Thông tin đặt vé
               </div>
-              <div className="text-[10px] font-bold text-indigo-950 bg-yellow-400 px-2 py-0.5 rounded-full">
-                {selectedSeats.length} vé đang chọn
+              <div className="flex items-center gap-2">
+                 <button 
+                    onClick={cancelSelection}
+                    disabled={!selectedTrip || selectedSeats.length === 0}
+                    title="Hủy chọn"
+                    className="text-indigo-300 hover:text-white hover:bg-indigo-800 p-1.5 rounded-full transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                 >
+                    <RotateCcw size={14} />
+                 </button>
+                 <div className="text-[10px] font-bold text-indigo-950 bg-yellow-400 px-2 py-0.5 rounded-full">
+                    {selectedSeats.length} vé đang chọn
+                 </div>
               </div>
             </div>
 
@@ -717,7 +786,6 @@ function App() {
 
               <form
                 id="booking-form"
-                onSubmit={handleBookingSubmit}
                 className={`space-y-2.5 ${
                   !selectedTrip ? "opacity-50 pointer-events-none" : ""
                 }`}
@@ -861,9 +929,9 @@ function App() {
                   />
                 </div>
 
-                {/* Payment */}
+                {/* Total Price Display Only */}
                 <div className="pt-2 border-t border-dashed border-indigo-800">
-                  <div className="flex justify-between items-baseline mb-2 px-1">
+                  <div className="flex justify-between items-baseline mb-1 px-1">
                     <span className="text-[11px] font-bold text-indigo-300 uppercase">
                       Tổng tiền
                     </span>
@@ -874,37 +942,6 @@ function App() {
                       </span>
                     </span>
                   </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="relative">
-                      <span className="absolute left-2 top-1.5 text-[10px] font-bold text-indigo-400 uppercase">
-                        Tiền mặt
-                      </span>
-                      <input
-                        placeholder="0"
-                        type="text"
-                        name="paidCash"
-                        value={bookingForm.paidCash.toLocaleString("vi-VN")}
-                        onChange={handleMoneyChange}
-                        className="w-full pl-8 pr-2 py-1 bg-indigo-900/100 border border-transparent rounded text-[11px] font-bold text-right focus:ring-1 focus:ring-green-400 outline-none text-white h-7 placeholder-indigo-500 disabled:cursor-not-allowed"
-                        disabled={!selectedTrip}
-                      />
-                    </div>
-                    <div className="relative">
-                      <span className="absolute left-2 top-1.5 text-[10px] font-bold text-indigo-400 uppercase">
-                        Tài khoản
-                      </span>
-                      <input
-                        placeholder="0"
-                        type="text"
-                        name="paidTransfer"
-                        value={bookingForm.paidTransfer.toLocaleString("vi-VN")}
-                        onChange={handleMoneyChange}
-                        className="w-full pl-8 pr-2 py-1 bg-indigo-900/100 border border-transparent rounded text-[11px] font-bold text-right focus:ring-1 focus:ring-blue-400 outline-none text-white h-7 placeholder-indigo-500 disabled:cursor-not-allowed"
-                        disabled={!selectedTrip}
-                      />
-                    </div>
-                  </div>
                 </div>
               </form>
             </div>
@@ -913,20 +950,19 @@ function App() {
             <div className="p-2 bg-indigo-950 border-t border-indigo-900 flex gap-2 rounded-b-xl">
               <Button
                 type="button"
-                variant="outline"
-                className="flex-1 bg-indigo-900/100 border-indigo-800 text-indigo-200 hover:bg-indigo-800 hover:text-white h-8 text-xs font-medium"
-                onClick={cancelSelection}
-                disabled={!selectedTrip || selectedSeats.length === 0}
-              >
-                <RotateCcw size={13} className="mr-1.5" /> Hủy
-              </Button>
-              <Button
-                type="submit"
-                form="booking-form"
-                className="flex-[2] bg-yellow-500 hover:bg-yellow-400 text-indigo-950 font-bold h-8 text-xs shadow-sm border border-transparent"
+                className="flex-1 bg-yellow-500 hover:bg-yellow-400 text-indigo-950 font-bold h-9 text-xs shadow-sm border border-transparent"
+                onClick={handleBookingOnly}
                 disabled={!selectedTrip || selectedSeats.length === 0}
               >
                 <CheckCircle2 size={13} className="mr-1.5" /> Đặt vé
+              </Button>
+              <Button
+                type="button"
+                className="flex-1 bg-green-600 hover:bg-green-500 text-white font-bold h-9 text-xs shadow-sm border border-transparent"
+                onClick={handleInitiatePayment}
+                disabled={!selectedTrip || selectedSeats.length === 0}
+              >
+                <Banknote size={13} className="mr-1.5" /> Thanh toán
               </Button>
             </div>
           </div>
@@ -1049,6 +1085,18 @@ function App() {
           </div>
         </div>
       </div>
+      
+      {/* Payment Modal */}
+      <PaymentModal 
+        isOpen={isPaymentModalOpen}
+        onClose={() => setIsPaymentModalOpen(false)}
+        onConfirm={handleConfirmPayment}
+        totalPrice={totalPrice}
+        paidCash={bookingForm.paidCash}
+        paidTransfer={bookingForm.paidTransfer}
+        onMoneyChange={handleMoneyChange}
+      />
+      </>
     );
   };
 

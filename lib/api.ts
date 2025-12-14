@@ -87,10 +87,20 @@ export const api = {
       const newBookings: Booking[] = [];
       const now = new Date().toISOString();
 
+      // Determine Status based on Payment
+      const totalPrice = seats.reduce((sum, s) => sum + s.price, 0);
+      const totalPaid = (payment?.paidCash || 0) + (payment?.paidTransfer || 0);
+      
+      // Logic: If fully paid -> SOLD (Gray), Else -> BOOKED (Yellow)
+      const isFullyPaid = totalPaid >= totalPrice;
+      const targetStatus = isFullyPaid ? SeatStatus.SOLD : SeatStatus.BOOKED;
+
       // Create booking records
       for (const seat of seats) {
-        // Calculate proportional payment if needed, for now just attaching to first seat or splitting conceptually?
-        // In this simple model, we attach payment info to the booking record.
+        // Calculate proportional payment or assign to first seat? 
+        // For simplicity, we attach the full payment info to the booking metadata, 
+        // but in a real app we might split it. Here we just store what was passed.
+        
         const booking: Booking = {
           id: `BK-${Date.now()}-${seat.id}`,
           seatId: seat.id,
@@ -108,7 +118,7 @@ export const api = {
       // Update trip seat status
       const updatedSeats = trip.seats.map(s => {
         if (seats.find(selected => selected.id === s.id)) {
-          return { ...s, status: SeatStatus.BOOKED };
+          return { ...s, status: targetStatus };
         }
         return s;
       });
