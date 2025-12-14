@@ -1,19 +1,15 @@
 import React, { useState, useEffect, useMemo } from "react";
 import {
-  Bus,
   Calendar as CalendarIcon,
-  LayoutDashboard,
   Settings,
-  LogOut,
   Ticket,
   Menu,
   MapPin,
-  ArrowRightLeft,
   Check,
   ChevronDown,
-  Clock,
   BusFront,
   Zap,
+  Bus,
 } from "lucide-react";
 import { Button } from "./ui/Button";
 import { Popover } from "./ui/Popover";
@@ -37,6 +33,8 @@ interface LayoutProps {
   onDirectionChange?: (dir: "outbound" | "inbound") => void;
   // Data Props
   routes: Route[];
+  // Slot for right-aligned header content
+  headerRight?: React.ReactNode;
 }
 
 interface ScheduleSettings {
@@ -56,7 +54,8 @@ export const Layout: React.FC<LayoutProps> = ({
   onTripChange,
   selectedDirection = "outbound",
   onDirectionChange,
-  routes = [], // Default empty array to prevent crash
+  routes = [],
+  headerRight,
 }) => {
   // Default sidebar state set to false (Hidden by default)
   const [isSidebarOpen, setSidebarOpen] = useState(false);
@@ -293,7 +292,7 @@ export const Layout: React.FC<LayoutProps> = ({
       >
         {/* Header */}
         <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-8 sticky top-0 z-10 shadow-sm">
-          <div className="flex items-center gap-4 flex-1 min-w-0">
+          <div className="flex items-center gap-4 min-w-0 mr-4">
             <Button
               variant="ghost"
               size="icon"
@@ -316,210 +315,206 @@ export const Layout: React.FC<LayoutProps> = ({
             </div>
           </div>
 
-          {/* Header Filters for Sales */}
-          {activeTab === "sales" && (
-            <div className="flex items-center gap-2 md:gap-3 animate-in fade-in slide-in-from-right-4 duration-300 shrink-0 ml-4">
-              {/* 1. Direction Toggle */}
-              {onDirectionChange && (
-                <label className="flex items-center gap-2 cursor-pointer select-none bg-white border border-slate-200 rounded-md px-2 md:px-3 h-9 hover:border-slate-300 transition-colors">
-                  <div
-                    className={`relative flex items-center justify-center w-4 h-4 border rounded bg-white transition-colors ${
-                      selectedDirection === "outbound"
-                        ? "border-primary"
-                        : "border-slate-300"
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      className="peer appearance-none absolute inset-0 w-full h-full cursor-pointer"
-                      checked={selectedDirection === "outbound"}
-                      onChange={(e) =>
-                        onDirectionChange(
-                          e.target.checked ? "outbound" : "inbound"
-                        )
-                      }
-                    />
-                    {selectedDirection === "outbound" && (
-                      <Check
-                        size={12}
-                        className="text-primary pointer-events-none"
-                        strokeWidth={3}
+          {/* Right Actions Wrapper */}
+          <div className="flex items-center gap-2 md:gap-3 shrink-0 ml-auto">
+            {/* Header Filters for Sales */}
+            {activeTab === "sales" && (
+              <div className="flex items-center gap-2 md:gap-3 animate-in fade-in slide-in-from-right-4 duration-300">
+                {/* 1. Direction Toggle */}
+                {onDirectionChange && (
+                  <label className="flex items-center gap-2 cursor-pointer select-none bg-white border border-slate-200 rounded-md px-2 md:px-3 h-9 hover:border-slate-300 transition-colors hidden sm:flex">
+                    <div
+                      className={`relative flex items-center justify-center w-4 h-4 border rounded bg-white transition-colors ${
+                        selectedDirection === "outbound"
+                          ? "border-primary"
+                          : "border-slate-300"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        className="peer appearance-none absolute inset-0 w-full h-full cursor-pointer"
+                        checked={selectedDirection === "outbound"}
+                        onChange={(e) =>
+                          onDirectionChange(
+                            e.target.checked ? "outbound" : "inbound"
+                          )
+                        }
                       />
-                    )}
-                  </div>
-                  <span
-                    className={`text-sm font-medium whitespace-nowrap ${
-                      selectedDirection === "outbound"
-                        ? "text-primary"
-                        : "text-slate-600"
-                    }`}
-                  >
-                    {selectedDirection === "outbound" ? "Chiều đi" : "Chiều về"}
-                  </span>
-                </label>
-              )}
-
-              {/* 2. Date Picker */}
-              <Popover
-                align="right"
-                trigger={
-                  <div className="flex items-center gap-2 h-9 px-3 border border-slate-200 rounded-md bg-white hover:bg-slate-50 hover:border-slate-300 transition-colors select-none cursor-pointer">
-                    <CalendarIcon size={16} className="text-slate-500" />
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-slate-700 capitalize whitespace-nowrap">
-                        {formatSolarHeader(selectedDate)}
-                      </span>
-                      <span className="text-[11px] font-medium text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 whitespace-nowrap">
-                        {formatLunarDate(selectedDate)}
-                      </span>
-                    </div>
-                  </div>
-                }
-                content={(close) => (
-                  <Calendar
-                    selected={selectedDate}
-                    onSelect={(date) => {
-                      onDateChange(date);
-                      close();
-                    }}
-                    shutdownRange={{
-                      start: scheduleSettings.shutdownStartDate,
-                      end: scheduleSettings.shutdownEndDate,
-                    }}
-                    peakDays={scheduleSettings.peakDays}
-                  />
-                )}
-              />
-
-              {/* 3. New Smart Trip Selector */}
-              <Popover
-                align="right"
-                trigger={
-                  <div className="flex items-center justify-between gap-3 h-9 px-3 border border-slate-200 rounded-md bg-white hover:bg-slate-50 hover:border-slate-300 transition-colors select-none cursor-pointer min-w-[220px] max-w-[340px]">
-                    <div className="flex items-center gap-2 overflow-hidden">
-                      <MapPin size={16} className="text-slate-500 shrink-0" />
-                      {selectedTripDisplay ? (
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className="text-sm font-medium text-slate-900 truncate">
-                            {selectedTripDisplay.displayTime} -{" "}
-                            {selectedTripDisplay.route}
-                          </span>
-                          {selectedTripDisplay.isEnhanced && (
-                            <span className="shrink-0 inline-flex items-center text-[10px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200 whitespace-nowrap">
-                              <Zap
-                                size={10}
-                                className="mr-0.5 fill-amber-700"
-                              />
-                              {selectedTripDisplay.enhancedIndex > 0
-                                ? `TC #${selectedTripDisplay.enhancedIndex}`
-                                : "Tăng cường"}
-                            </span>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-sm font-medium text-slate-500 truncate">
-                          Chọn chuyến xe...
-                        </span>
+                      {selectedDirection === "outbound" && (
+                        <Check
+                          size={12}
+                          className="text-primary pointer-events-none"
+                          strokeWidth={3}
+                        />
                       )}
                     </div>
-                    <ChevronDown
-                      size={14}
-                      className="text-slate-400 shrink-0"
-                    />
-                  </div>
-                }
-                content={(close) => (
-                  <div className="w-[360px] max-h-[400px] overflow-y-auto bg-white rounded-lg border border-slate-200 shadow-xl p-1.5">
-                    {tripOptions.length === 0 ? (
-                      <div className="p-8 text-center text-slate-500">
-                        <BusFront
-                          size={24}
-                          className="mx-auto mb-2 opacity-20"
-                        />
-                        <p className="text-sm">
-                          Không có chuyến nào trong ngày này.
-                        </p>
+                    <span
+                      className={`text-sm font-medium whitespace-nowrap ${
+                        selectedDirection === "outbound"
+                          ? "text-primary"
+                          : "text-slate-600"
+                      }`}
+                    >
+                      {selectedDirection === "outbound"
+                        ? "Chiều đi"
+                        : "Chiều về"}
+                    </span>
+                  </label>
+                )}
+
+                {/* 2. Date Picker */}
+                <Popover
+                  align="right"
+                  trigger={
+                    <div className="flex items-center gap-2 h-9 px-3 border border-slate-200 rounded-md bg-white hover:bg-slate-50 hover:border-slate-300 transition-colors select-none cursor-pointer">
+                      <CalendarIcon size={16} className="text-slate-500" />
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-slate-700 capitalize whitespace-nowrap hidden sm:inline-block">
+                          {formatSolarHeader(selectedDate)}
+                        </span>
+                        <span className="text-[11px] font-medium text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 whitespace-nowrap">
+                          {formatLunarDate(selectedDate)}
+                        </span>
                       </div>
-                    ) : (
-                      <div className="space-y-1">
-                        {tripOptions.map((trip) => {
-                          const isSelected = trip.id === selectedTripId;
-                          return (
-                            <button
-                              key={trip.id}
-                              onClick={() => {
-                                onTripChange(trip.id);
-                                close();
-                              }}
-                              className={`w-full text-left p-2.5 rounded-md transition-all flex items-center gap-3 group ${
-                                isSelected
-                                  ? "bg-primary/5 border border-primary/20"
-                                  : "hover:bg-slate-50 border border-transparent"
-                              }`}
-                            >
-                              {/* Time Column */}
-                              <div
-                                className={`flex flex-col items-center justify-center w-12 h-10 rounded border text-xs font-bold shrink-0 ${
+                    </div>
+                  }
+                  content={(close) => (
+                    <Calendar
+                      selected={selectedDate}
+                      onSelect={(date) => {
+                        onDateChange(date);
+                        close();
+                      }}
+                      shutdownRange={{
+                        start: scheduleSettings.shutdownStartDate,
+                        end: scheduleSettings.shutdownEndDate,
+                      }}
+                      peakDays={scheduleSettings.peakDays}
+                    />
+                  )}
+                />
+
+                {/* 3. New Smart Trip Selector */}
+                <Popover
+                  align="right"
+                  trigger={
+                    <div className="flex items-center justify-between gap-3 h-9 px-3 border border-slate-200 rounded-md bg-white hover:bg-slate-50 hover:border-slate-300 transition-colors select-none cursor-pointer min-w-[200px] max-w-[340px]">
+                      <div className="flex items-center gap-2 overflow-hidden">
+                        <MapPin size={16} className="text-slate-500 shrink-0" />
+                        {selectedTripDisplay ? (
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="text-sm font-medium text-slate-900 truncate">
+                              {selectedTripDisplay.displayTime} -{" "}
+                              {selectedTripDisplay.route}
+                            </span>
+                            {selectedTripDisplay.isEnhanced && (
+                              <span className="shrink-0 inline-flex items-center text-[10px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200 whitespace-nowrap hidden lg:inline-flex">
+                                <Zap size={10} className="mr-0.5 fill-amber-700" />
+                                {selectedTripDisplay.enhancedIndex > 0
+                                  ? `TC #${selectedTripDisplay.enhancedIndex}`
+                                  : "Tăng cường"}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-sm font-medium text-slate-500 truncate">
+                            Chọn chuyến xe...
+                          </span>
+                        )}
+                      </div>
+                      <ChevronDown size={14} className="text-slate-400 shrink-0" />
+                    </div>
+                  }
+                  content={(close) => (
+                    <div className="w-[360px] max-h-[400px] overflow-y-auto bg-white rounded-lg border border-slate-200 shadow-xl p-1.5">
+                      {tripOptions.length === 0 ? (
+                        <div className="p-8 text-center text-slate-500">
+                          <BusFront size={24} className="mx-auto mb-2 opacity-20" />
+                          <p className="text-sm">
+                            Không có chuyến nào trong ngày này.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-1">
+                          {tripOptions.map((trip) => {
+                            const isSelected = trip.id === selectedTripId;
+                            return (
+                              <button
+                                key={trip.id}
+                                onClick={() => {
+                                  onTripChange(trip.id);
+                                  close();
+                                }}
+                                className={`w-full text-left p-2.5 rounded-md transition-all flex items-center gap-3 group ${
                                   isSelected
-                                    ? "bg-white border-primary/30 text-primary"
-                                    : "bg-slate-50 border-slate-200 text-slate-600"
+                                    ? "bg-primary/5 border border-primary/20"
+                                    : "hover:bg-slate-50 border border-transparent"
                                 }`}
                               >
-                                {trip.displayTime}
-                              </div>
-
-                              {/* Info Column */}
-                              <div className="flex-1 min-w-0">
+                                {/* Time Column */}
                                 <div
-                                  className={`text-sm font-medium flex items-center gap-1.5 ${
+                                  className={`flex flex-col items-center justify-center w-12 h-10 rounded border text-xs font-bold shrink-0 ${
                                     isSelected
-                                      ? "text-primary"
-                                      : "text-slate-900"
+                                      ? "bg-white border-primary/30 text-primary"
+                                      : "bg-slate-50 border-slate-200 text-slate-600"
                                   }`}
                                 >
-                                  <span className="truncate">{trip.route}</span>
-                                  {trip.isEnhanced && (
-                                    <span className="shrink-0 inline-flex items-center text-[9px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200 shadow-sm ml-auto md:ml-0">
-                                      <Zap
-                                        size={9}
-                                        className="mr-0.5 fill-amber-700"
-                                      />
-                                      Tăng cường{" "}
-                                      {trip.enhancedIndex > 0
-                                        ? `#${trip.enhancedIndex}`
-                                        : ""}
-                                    </span>
-                                  )}
+                                  {trip.displayTime}
                                 </div>
-                                <div className="flex items-center gap-2 mt-0.5">
-                                  <span className="text-xs text-slate-500 bg-slate-100 px-1.5 rounded border border-slate-200/50">
-                                    {trip.licensePlate}
-                                  </span>
-                                  <span className="text-[10px] text-slate-400 pl-1 border-l border-slate-200">
-                                    {trip.type === BusType.CABIN
-                                      ? "Xe Phòng"
-                                      : "Giường đơn"}
-                                  </span>
-                                </div>
-                              </div>
 
-                              {/* Checkmark */}
-                              {isSelected && (
-                                <Check
-                                  size={16}
-                                  className="text-primary ml-auto"
-                                />
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                )}
-              />
-            </div>
-          )}
+                                {/* Info Column */}
+                                <div className="flex-1 min-w-0">
+                                  <div
+                                    className={`text-sm font-medium flex items-center gap-1.5 ${
+                                      isSelected
+                                        ? "text-primary"
+                                        : "text-slate-900"
+                                    }`}
+                                  >
+                                    <span className="truncate">{trip.route}</span>
+                                    {trip.isEnhanced && (
+                                      <span className="shrink-0 inline-flex items-center text-[9px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200 shadow-sm ml-auto md:ml-0">
+                                        <Zap
+                                          size={9}
+                                          className="mr-0.5 fill-amber-700"
+                                        />
+                                        Tăng cường{" "}
+                                        {trip.enhancedIndex > 0
+                                          ? `#${trip.enhancedIndex}`
+                                          : ""}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-2 mt-0.5">
+                                    <span className="text-xs text-slate-500 bg-slate-100 px-1.5 rounded border border-slate-200/50">
+                                      {trip.licensePlate}
+                                    </span>
+                                    <span className="text-[10px] text-slate-400 pl-1 border-l border-slate-200">
+                                      {trip.type === BusType.CABIN
+                                        ? "Xe Phòng"
+                                        : "Giường đơn"}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {/* Checkmark */}
+                                {isSelected && (
+                                  <Check size={16} className="text-primary ml-auto" />
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                />
+              </div>
+            )}
+            
+            {/* INJECTED HEADER RIGHT CONTENT */}
+            {headerRight}
+          </div>
         </header>
 
         <main className="flex-1 p-4 md:p-8 overflow-y-auto bg-slate-50/50">

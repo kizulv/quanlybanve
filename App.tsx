@@ -6,7 +6,14 @@ import { ScheduleView } from "./components/ScheduleView";
 import { Badge } from "./components/ui/Badge";
 import { Button } from "./components/ui/Button";
 import { ToastProvider, useToast } from "./components/ui/Toast";
-import { RightSidebar, ActivityLog } from "./components/RightSidebar";
+import { ActivityLog } from "./components/RightSidebar"; // We still import the Type, but we'll inline the UI or use Sheet
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "./components/ui/Sheet";
 import {
   BusTrip,
   Seat,
@@ -18,26 +25,18 @@ import {
   BusType,
 } from "./types";
 import {
-  Filter,
   BusFront,
   Ticket,
-  Clock,
   Loader2,
   Phone,
-  MapPin,
-  CheckCircle2,
   Banknote,
   RotateCcw,
-  MessageSquare,
-  ArrowRight,
   History,
   Users,
   Search,
   X,
-  Clock3,
-  CalendarDays,
   Zap,
-  List,
+  Clock,
 } from "lucide-react";
 import { api } from "./lib/api";
 import { isSameDay, formatLunarDate } from "./utils/dateUtils";
@@ -111,8 +110,7 @@ function AppContent() {
   // History Search Suggestion State
   const [showHistory, setShowHistory] = useState(false);
 
-  // Right Sidebar State
-  const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
+  // Activity Log State
   const [recentActivities, setRecentActivities] = useState<ActivityLog[]>([]);
 
   // -- CALCULATED STATES (BASKET) --
@@ -359,23 +357,8 @@ function AppContent() {
       dropoffPoint: bookingForm.dropoff,
     };
 
-    // Calculate Payment for EACH trip (Proportional or just full if paid)
-    // Simpler approach: If isPaid, we mark all as paid. If not, all unpaid.
-    // However, if partial payment is supported, it gets complex with multi-trip.
-    // Here we assume "Confirm Payment" means Full Payment for now, or use the form values distributed.
-    // *Constraint*: The PaymentModal returns a total cash/transfer. We need to distribute this?
-    // Let's assume the user pays specifically for the *Total Basket*.
-
     const totalPaid = isPaid ? (bookingForm.paidCash + bookingForm.paidTransfer) : 0;
     
-    // We will distribute the payment proportionally or just create bookings with paid status if total matches?
-    // Ideally, api.bookings.create should handle a batch. Since it doesn't, we loop.
-    
-    // Strategy: We will create bookings for each trip.
-    // If "isPaid" is true, we flag the payment for each seat as full price (Sold). 
-    // If not, 0 (Booked).
-    // Note: This simplifies partial payment logic for multi-trip. 
-
     try {
       const newBookings: Booking[] = [];
       const updatedTripsMap = new Map<string, BusTrip>();
@@ -390,8 +373,6 @@ function AppContent() {
              paidTransfer: 0
          } : { paidCash: 0, paidTransfer: 0 };
          
-         // Use the form payment if it's exact?
-         // Let's stick to the prompt requirement: "Cập nhật riêng lẻ".
          
          const result = await api.bookings.create(
             item.trip.id,
@@ -567,6 +548,81 @@ function AppContent() {
     });
   };
 
+  // --- ACTIVITY LOG SHEET UI ---
+  const activityLogSheet = (
+    <Sheet>
+      <SheetTrigger asChild>
+        <Button 
+          variant="outline" 
+          size="icon" 
+          className="bg-white border-slate-200 text-slate-600 hover:text-primary hover:border-primary/50 shrink-0"
+          title="Lịch sử phiên"
+        >
+            <History size={20} />
+        </Button>
+      </SheetTrigger>
+      <SheetContent side="right">
+        <SheetHeader>
+          <SheetTitle>Lịch sử phiên làm việc</SheetTitle>
+        </SheetHeader>
+        <div className="flex-1 overflow-y-auto mt-4 space-y-4 h-[calc(100vh-100px)]">
+          {recentActivities.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-40 text-slate-400 text-sm text-center">
+              <History size={32} className="mb-2 opacity-20" />
+              <p>Chưa có hoạt động nào<br/>trong phiên này.</p>
+            </div>
+          ) : (
+            recentActivities.map((log) => (
+              <div
+                key={log.id}
+                className="border border-slate-200 rounded-xl p-3 bg-white shadow-sm relative overflow-hidden group"
+              >
+                {/* Header */}
+                <div className="flex justify-between items-start mb-2 pb-2 border-b border-slate-100">
+                  <div className="flex items-center gap-1.5 font-bold text-primary">
+                    <Phone size={14} />
+                    <span>{log.phone}</span>
+                  </div>
+                  <div className="flex items-center gap-1 text-[10px] text-slate-400">
+                      <Clock size={10} />
+                      {log.timestamp.toLocaleTimeString("vi-VN", { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                </div>
+
+                {/* Details List */}
+                <div className="space-y-2">
+                  {log.details.map((detail, idx) => (
+                      <div key={idx} className="text-xs">
+                          <div className="font-medium text-slate-700 truncate" title={detail.tripInfo}>{detail.tripInfo}</div>
+                          <div className="flex justify-between items-start mt-0.5">
+                              <div className="flex items-center gap-1">
+                                  <Badge variant="secondary" className="px-1 py-0 h-4 text-[10px]">
+                                      {detail.seats.length} vé
+                                  </Badge>
+                                  <span className="text-slate-500 font-medium">{detail.seats.join(", ")}</span>
+                              </div>
+                              <div className={`font-bold ${detail.isPaid ? 'text-green-600' : 'text-yellow-600'}`}>
+                                  {detail.isPaid ? detail.totalPrice.toLocaleString("vi-VN") : "Vé đặt"}
+                              </div>
+                          </div>
+                      </div>
+                  ))}
+                </div>
+                
+                <div className="absolute top-0 left-0 w-1 h-full bg-primary/20"></div>
+              </div>
+            ))
+          )}
+          <div className="pt-4 text-center">
+             <div className="text-[10px] text-slate-400 bg-slate-50 p-2 rounded border border-slate-100">
+                 Danh sách này sẽ được làm mới khi tải lại trang.
+             </div>
+          </div>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+
   // --- RENDERERS ---
 
   if (isLoading) {
@@ -592,25 +648,9 @@ function AppContent() {
       selectedDirection={selectedDirection}
       onDirectionChange={setSelectedDirection}
       routes={routes}
+      headerRight={activityLogSheet}
     >
-      {/* Right Sidebar */}
-      <div className="fixed top-4 right-4 z-[50]">
-         <Button 
-            variant="outline" 
-            size="icon" 
-            className="bg-white shadow-md border-slate-200 text-slate-600"
-            onClick={() => setIsRightSidebarOpen(true)}
-            title="Lịch sử phiên"
-         >
-             <List size={20} />
-         </Button>
-      </div>
-      <RightSidebar 
-         isOpen={isRightSidebarOpen} 
-         onClose={() => setIsRightSidebarOpen(false)}
-         activities={recentActivities}
-      />
-
+      
       {activeTab === "sales" && (
         <div className="h-[calc(100vh-140px)] flex flex-col md:flex-row gap-4 animate-in fade-in duration-300">
           {/* LEFT: SEAT MAP */}
@@ -780,7 +820,7 @@ function AppContent() {
                     onClick={handleBookingOnly}
                     disabled={selectionBasket.length === 0}
                   >
-                    <CheckCircle2 size={13} className="mr-1.5" /> Đặt vé
+                    <Ticket size={13} className="mr-1.5" /> Đặt vé
                   </Button>
                   <Button
                     className="flex-1 bg-green-600 hover:bg-green-500 text-white font-bold h-9 text-xs"
