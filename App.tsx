@@ -1043,6 +1043,9 @@ function App() {
                       }
                       return phone;
                     };
+                    
+                    const totalPaid = group.paidCash + group.paidTransfer;
+                    const isFullyPaid = totalPaid >= group.totalPrice;
 
                     return (
                       <div
@@ -1072,8 +1075,8 @@ function App() {
                             </div>
                           </div>
 
-                          <div className="text-xs font-bold text-indigo-600 shrink-0 text-right">
-                            {group.totalPrice.toLocaleString("vi-VN")}
+                          <div className={`text-xs font-bold shrink-0 text-right ${isFullyPaid ? 'text-indigo-600' : 'text-yellow-600'}`}>
+                            {isFullyPaid ? group.totalPrice.toLocaleString("vi-VN") : "Vé đặt"}
                           </div>
                         </div>
                       </div>
@@ -1139,6 +1142,9 @@ function App() {
               ) : (
                 bookings.map((booking) => {
                   const trip = trips.find((t) => t.id === booking.busId);
+                  const totalPaid = (booking.payment?.paidCash || 0) + (booking.payment?.paidTransfer || 0);
+                  const isFullyPaid = totalPaid >= booking.totalPrice;
+
                   return (
                     <tr
                       key={booking.id}
@@ -1173,10 +1179,10 @@ function App() {
                         </Badge>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="font-bold text-slate-900">
-                          {booking.totalPrice.toLocaleString("vi-VN")} đ
+                        <div className={`font-bold ${isFullyPaid ? 'text-slate-900' : 'text-yellow-600'}`}>
+                          {isFullyPaid ? `${booking.totalPrice.toLocaleString("vi-VN")} đ` : "Vé đặt"}
                         </div>
-                        {booking.payment && (
+                        {booking.payment && totalPaid > 0 && (
                           <div className="text-[10px] text-slate-500 mt-0.5">
                             {booking.payment.paidCash > 0 &&
                               `TM: ${booking.payment.paidCash.toLocaleString()} `}
