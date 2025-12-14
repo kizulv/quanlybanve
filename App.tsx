@@ -99,7 +99,7 @@ function AppContent() {
     totalPrice: number;
   } | null>(null);
 
-  // Activity Log State
+  // Activity Log State (Kept for internal logic if needed, but removed from UI)
   const [recentActivities, setRecentActivities] = useState<ActivityLog[]>([]);
 
   // -- CALCULATED STATES (BASKET) --
@@ -560,7 +560,7 @@ function AppContent() {
       selectedDirection={selectedDirection}
       onDirectionChange={setSelectedDirection}
       routes={routes}
-      headerRight={<RightSheet activities={recentActivities} />}
+      headerRight={<RightSheet bookings={bookings} trips={trips} />}
     >
       
       {activeTab === "sales" && (
