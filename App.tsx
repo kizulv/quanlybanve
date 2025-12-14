@@ -99,6 +99,20 @@ function App() {
   // History Search Suggestion State
   const [showHistory, setShowHistory] = useState(false);
 
+  // -- UTILS --
+  const formatPhoneNumber = (value: string) => {
+    const raw = value.replace(/\D/g, "");
+    if (raw.length > 15) return raw.slice(0, 15); 
+    
+    if (raw.length > 7) {
+      return `${raw.slice(0, 4)} ${raw.slice(4, 7)} ${raw.slice(7)}`;
+    }
+    if (raw.length > 4) {
+      return `${raw.slice(0, 4)} ${raw.slice(4)}`;
+    }
+    return raw;
+  };
+
   // -- HISTORY SEARCH LOGIC --
   const passengerHistory = useMemo(() => {
     const cleanInput = bookingForm.phone.replace(/\D/g, "");
@@ -138,7 +152,7 @@ function App() {
         uniqueRoutes.set(key, {
           pickup,
           dropoff,
-          phone: b.passenger.phone,
+          phone: formatPhoneNumber(b.passenger.phone), // Ensure formatted
           lastDate: b.createdAt,
           count: 1,
           lastTripName: trip?.route || "Chuyến cũ",
@@ -151,6 +165,7 @@ function App() {
           // Prefer the capitalization of the most recent booking
           existing.pickup = pickup;
           existing.dropoff = dropoff;
+          existing.phone = formatPhoneNumber(b.passenger.phone);
         }
       }
     });
@@ -166,7 +181,7 @@ function App() {
   const applyHistory = (item: (typeof passengerHistory)[0]) => {
     setBookingForm((prev) => ({
       ...prev,
-      phone: item.phone, // Use full historical phone
+      phone: item.phone, // Already formatted in useMemo
       pickup: item.pickup,
       dropoff: item.dropoff,
     }));
@@ -470,17 +485,7 @@ function App() {
     const { name, value } = e.target;
 
     if (name === "phone") {
-      const raw = value.replace(/\D/g, "");
-      if (raw.length > 15) return;
-
-      let formatted = raw;
-      if (raw.length > 4) {
-        formatted = `${raw.slice(0, 4)} ${raw.slice(4)}`;
-      }
-      if (raw.length > 7) {
-        formatted = `${raw.slice(0, 4)} ${raw.slice(4, 7)} ${raw.slice(7)}`;
-      }
-
+      const formatted = formatPhoneNumber(value);
       setBookingForm((prev) => ({ ...prev, [name]: formatted }));
       // Trigger history dropdown
       setShowHistory(true);
