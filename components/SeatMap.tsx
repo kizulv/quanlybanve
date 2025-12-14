@@ -316,7 +316,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
   // Main Render Switch
   if (busType === BusType.CABIN) {
     return (
-      <div className="flex overflow-x-auto pb-2">
+      <div className="flex overflow-x-auto py-2">
         <div className="w-full flex gap-4 justify-center">
           {/* Assuming Col 0 is Dãy B (Left) and Col 1 is Dãy A (Right) based on common layout */}
           {renderCabinColumn(0, "DÃY B")}
@@ -328,7 +328,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
 
   // Fallback for SLEEPER
   return (
-    <div className="flex overflow-x-auto pb-2">
+    <div className="flex overflow-x-auto py-2">
       <div className="w-full flex gap-4 md:gap-8">
         {renderSleeperDeck(1)}
         {renderSleeperDeck(2)}

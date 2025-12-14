@@ -156,7 +156,7 @@ function App() {
       // Normalize phone key
       const rawPhone = b.passenger.phone || "";
       const cleanPhone = rawPhone.replace(/\D/g, "");
-      
+
       // Group by Phone AND Time (to separate different booking sessions)
       // Key format: PHONE_TIMESTAMP
       const key = `${cleanPhone || "unknown"}_${b.createdAt}`;
@@ -170,7 +170,7 @@ function App() {
           paidCash: 0,
           paidTransfer: 0,
           lastCreatedAt: b.createdAt,
-          passengerName: b.passenger.name || "Khách lẻ"
+          passengerName: b.passenger.name || "Khách lẻ",
         };
       }
 
@@ -178,7 +178,7 @@ function App() {
       groups[key].totalPrice += b.totalPrice;
       groups[key].paidCash += b.payment?.paidCash || 0;
       groups[key].paidTransfer += b.payment?.paidTransfer || 0;
-      
+
       // Update time if somehow out of order (though usually same batch has same time)
       if (new Date(b.createdAt) > new Date(groups[key].lastCreatedAt)) {
         groups[key].lastCreatedAt = b.createdAt;
@@ -186,8 +186,10 @@ function App() {
     });
 
     // Sort by most recent booking time
-    return Object.values(groups).sort((a, b) => 
-        new Date(b.lastCreatedAt).getTime() - new Date(a.lastCreatedAt).getTime()
+    return Object.values(groups).sort(
+      (a, b) =>
+        new Date(b.lastCreatedAt).getTime() -
+        new Date(a.lastCreatedAt).getTime()
     );
   }, [tripBookings, selectedTrip]);
 
@@ -196,12 +198,15 @@ function App() {
     if (!manifestSearch.trim()) return groupedTripBookings;
 
     const query = manifestSearch.toLowerCase();
-    return groupedTripBookings.filter(group => {
+    return groupedTripBookings.filter((group) => {
       // Check Phone
-      const phoneMatch = group.phone.includes(query) || group.displayPhone.includes(query);
+      const phoneMatch =
+        group.phone.includes(query) || group.displayPhone.includes(query);
       // Check Seats (e.g., query "A1" matches seat "A1")
-      const seatMatch = group.seats.some(s => s.toLowerCase().includes(query));
-      
+      const seatMatch = group.seats.some((s) =>
+        s.toLowerCase().includes(query)
+      );
+
       return phoneMatch || seatMatch;
     });
   }, [groupedTripBookings, manifestSearch]);
@@ -243,13 +248,13 @@ function App() {
       "giáp bát": "BX Giáp Bát",
       "nuoc ngam": "BX Nước Ngầm",
       "nước ngầm": "BX Nước Ngầm",
-      "sapa": "BX Sapa",
+      sapa: "BX Sapa",
       "sa pa": "BX Sapa",
       "lao cai": "BX Lào Cai",
       "lào cai": "BX Lào Cai",
       "da nang": "BX Đà Nẵng",
       "đà nẵng": "BX Đà Nẵng",
-      "vinh": "BX Vinh",
+      vinh: "BX Vinh",
       "nghe an": "BX Vinh",
       "nghệ an": "BX Vinh",
       "thanh hoa": "BX Thanh Hóa",
@@ -540,7 +545,7 @@ function App() {
         {/* LEFT COLUMN: SEAT MAP (Dark Navy Header, Gentle Body) */}
         <div className="flex-1 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col overflow-hidden">
           {/* Synchronized Header - Height 54px */}
-          <div className="px-4 h-[54px] border-b border-indigo-900 flex justify-between items-center bg-indigo-950 shadow-sm z-10 shrink-0">
+          <div className="px-4 h-[54px] bg-gradient-to-r from-indigo-950 via-indigo-900 to-indigo-950 flex justify-between items-center shadow-sm z-10 shrink-0">
             {/* Left Side: Icon & Info */}
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-indigo-900 flex items-center justify-center text-yellow-400 shrink-0 border border-indigo-800">
@@ -575,14 +580,14 @@ function App() {
                   </div>
                 </div>
               ) : (
-                <div className="text-white/60 text-sm font-medium">
+                <div className="text-white text-sm font-medium">
                   Chưa chọn chuyến xe
                 </div>
               )}
             </div>
 
             {/* Right Side: Legend */}
-            <div className="flex gap-4 text-[10px] font-medium text-indigo-200 hidden lg:flex">
+            <div className="flex gap-4 text-[12px] text-white hidden lg:flex">
               <div className="flex items-center gap-1.5">
                 <div className="w-2.5 h-2.5 rounded border border-white/50 bg-white/10"></div>{" "}
                 Trống
@@ -615,7 +620,7 @@ function App() {
           </div>
 
           {/* Scrollable Map - Gentle Background */}
-          <div className="flex-1 overflow-y-auto p-4 bg-slate-50">
+          <div className="flex-1 overflow-y-auto">
             {selectedTrip ? (
               <SeatMap
                 seats={selectedTrip.seats}
@@ -639,7 +644,7 @@ function App() {
           {/* CARD 1: BOOKING FORM */}
           <div className="bg-indigo-950 rounded-xl shadow-lg border border-indigo-900 flex flex-col overflow-hidden shrink-0">
             {/* Header Synchronized - Height 54px */}
-            <div className="px-3 h-[54px] bg-indigo-950/50 border-b border-indigo-900 flex items-center justify-between shrink-0">
+            <div className="px-3 h-[54px] bg-gradient-to-r from-indigo-950 via-indigo-900 to-indigo-950 border-b border-indigo-900 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2 text-sm font-bold text-white">
                 <Ticket size={16} className="text-yellow-400" />
                 Thông tin đặt vé
@@ -671,7 +676,9 @@ function App() {
               <form
                 id="booking-form"
                 onSubmit={handleBookingSubmit}
-                className={`space-y-2.5 ${!selectedTrip ? "opacity-50 pointer-events-none" : ""}`}
+                className={`space-y-2.5 ${
+                  !selectedTrip ? "opacity-50 pointer-events-none" : ""
+                }`}
               >
                 {/* Phone Input */}
                 <div>
@@ -681,7 +688,7 @@ function App() {
                       name="phone"
                       value={bookingForm.phone}
                       onChange={handleInputChange}
-                      className="w-full pl-6 pr-2 py-1.5 bg-indigo-900/50 border border-transparent rounded-md text-xs text-white placeholder-indigo-300 focus:bg-indigo-900 focus:ring-1 focus:ring-yellow-400 outline-none transition-all disabled:cursor-not-allowed"
+                      className="w-full pl-6 pr-2 py-1.5 bg-indigo-900/100 border border-transparent rounded-md text-xs text-white placeholder-indigo-300 focus:bg-indigo-900 focus:ring-1 focus:ring-yellow-400 outline-none transition-all disabled:cursor-not-allowed"
                       placeholder="Số điện thoại"
                       required
                       autoFocus
@@ -707,7 +714,7 @@ function App() {
                       value={bookingForm.pickup}
                       onChange={handleInputChange}
                       onBlur={handleLocationBlur}
-                      className="w-full pl-6 pr-2 py-1.5 bg-indigo-900/50 border border-transparent rounded-md text-xs text-white placeholder-indigo-300 focus:bg-indigo-900 focus:ring-1 focus:ring-green-400 outline-none transition-all disabled:cursor-not-allowed"
+                      className="w-full pl-6 pr-2 py-1.5 bg-indigo-900/100 border border-transparent rounded-md text-xs text-white placeholder-indigo-300 focus:bg-indigo-900 focus:ring-1 focus:ring-green-400 outline-none transition-all disabled:cursor-not-allowed"
                       placeholder="Điểm đón"
                       disabled={!selectedTrip}
                     />
@@ -723,7 +730,7 @@ function App() {
                       value={bookingForm.dropoff}
                       onChange={handleInputChange}
                       onBlur={handleLocationBlur}
-                      className="w-full pl-6 pr-2 py-1.5 bg-indigo-900/50 border border-transparent rounded-md text-xs text-white placeholder-indigo-300 focus:bg-indigo-900 focus:ring-1 focus:ring-red-400 outline-none transition-all disabled:cursor-not-allowed"
+                      className="w-full pl-6 pr-2 py-1.5 bg-indigo-900/100 border border-transparent rounded-md text-xs text-white placeholder-indigo-300 focus:bg-indigo-900 focus:ring-1 focus:ring-red-400 outline-none transition-all disabled:cursor-not-allowed"
                       placeholder="Điểm trả"
                       disabled={!selectedTrip}
                     />
@@ -740,7 +747,7 @@ function App() {
                     name="note"
                     value={bookingForm.note}
                     onChange={handleInputChange}
-                    className="w-full pl-6 pr-2 py-1.5 bg-indigo-900/50 border border-transparent rounded-md text-xs font-medium text-white placeholder-indigo-300 focus:bg-indigo-900 focus:ring-1 focus:ring-yellow-400 outline-none resize-none h-8 transition-all disabled:cursor-not-allowed"
+                    className="w-full pl-6 pr-2 py-1.5 bg-indigo-900/100 border border-transparent rounded-md text-xs font-medium text-white placeholder-indigo-300 focus:bg-indigo-900 focus:ring-1 focus:ring-yellow-400 outline-none resize-none h-8 transition-all disabled:cursor-not-allowed"
                     placeholder="Ghi chú..."
                     disabled={!selectedTrip}
                   />
@@ -771,7 +778,7 @@ function App() {
                         name="paidCash"
                         value={bookingForm.paidCash.toLocaleString("vi-VN")}
                         onChange={handleMoneyChange}
-                        className="w-full pl-8 pr-2 py-1 bg-indigo-900/50 border border-transparent rounded text-[11px] font-bold text-right focus:ring-1 focus:ring-green-400 outline-none text-white h-7 placeholder-indigo-500 disabled:cursor-not-allowed"
+                        className="w-full pl-8 pr-2 py-1 bg-indigo-900/100 border border-transparent rounded text-[11px] font-bold text-right focus:ring-1 focus:ring-green-400 outline-none text-white h-7 placeholder-indigo-500 disabled:cursor-not-allowed"
                         disabled={!selectedTrip}
                       />
                     </div>
@@ -785,7 +792,7 @@ function App() {
                         name="paidTransfer"
                         value={bookingForm.paidTransfer.toLocaleString("vi-VN")}
                         onChange={handleMoneyChange}
-                        className="w-full pl-8 pr-2 py-1 bg-indigo-900/50 border border-transparent rounded text-[11px] font-bold text-right focus:ring-1 focus:ring-blue-400 outline-none text-white h-7 placeholder-indigo-500 disabled:cursor-not-allowed"
+                        className="w-full pl-8 pr-2 py-1 bg-indigo-900/100 border border-transparent rounded text-[11px] font-bold text-right focus:ring-1 focus:ring-blue-400 outline-none text-white h-7 placeholder-indigo-500 disabled:cursor-not-allowed"
                         disabled={!selectedTrip}
                       />
                     </div>
@@ -829,7 +836,7 @@ function App() {
               <Button
                 type="button"
                 variant="outline"
-                className="flex-1 bg-indigo-900/50 border-indigo-800 text-indigo-200 hover:bg-indigo-800 hover:text-white h-8 text-xs font-medium"
+                className="flex-1 bg-indigo-900/100 border-indigo-800 text-indigo-200 hover:bg-indigo-800 hover:text-white h-8 text-xs font-medium"
                 onClick={cancelSelection}
                 disabled={!selectedTrip || selectedSeats.length === 0}
               >
@@ -855,114 +862,129 @@ function App() {
               </div>
             </div>
 
-             {/* Search Bar */}
+            {/* Search Bar */}
             <div className="p-2 border-b border-slate-100 bg-slate-50/50">
-               <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
-                     <Search size={14} className="text-slate-400"/>
-                  </div>
-                  <input
-                    type="text"
-                    value={manifestSearch}
-                    onChange={(e) => setManifestSearch(e.target.value)}
-                    placeholder="Tìm SĐT hoặc số ghế..."
-                    className="w-full pl-8 pr-7 py-1.5 text-xs border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-white placeholder-slate-400 disabled:bg-slate-50 disabled:text-slate-400"
-                    disabled={!selectedTrip}
-                  />
-                  {manifestSearch && (
-                      <button 
-                        onClick={() => setManifestSearch("")}
-                        className="absolute inset-y-0 right-0 pr-2 flex items-center cursor-pointer text-slate-400 hover:text-slate-600"
-                      >
-                         <X size={14} />
-                      </button>
-                  )}
-               </div>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
+                  <Search size={14} className="text-slate-400" />
+                </div>
+                <input
+                  type="text"
+                  value={manifestSearch}
+                  onChange={(e) => setManifestSearch(e.target.value)}
+                  placeholder="Tìm SĐT hoặc số ghế..."
+                  className="w-full pl-8 pr-7 py-1.5 text-xs border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-white placeholder-slate-400 disabled:bg-slate-50 disabled:text-slate-400"
+                  disabled={!selectedTrip}
+                />
+                {manifestSearch && (
+                  <button
+                    title="Tìm SĐT hoặc số ghế"
+                    onClick={() => setManifestSearch("")}
+                    className="absolute inset-y-0 right-0 pr-2 flex items-center cursor-pointer text-slate-400 hover:text-slate-600"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="flex-1 overflow-y-auto p-0 scrollbar-thin scrollbar-thumb-slate-200">
               {filteredManifest.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-slate-300 p-4">
                   {manifestSearch ? (
-                     <>
-                        <Search size={24} className="mb-2 opacity-20" />
-                        <span className="text-[10px] text-center">Không tìm thấy kết quả</span>
-                     </>
+                    <>
+                      <Search size={24} className="mb-2 opacity-20" />
+                      <span className="text-[10px] text-center">
+                        Không tìm thấy kết quả
+                      </span>
+                    </>
                   ) : (
-                     <>
-                        <Ticket size={24} className="mb-2 opacity-20" />
-                        <span className="text-[10px] text-center">
-                          {selectedTrip ? "Chưa có vé nào được đặt" : "Chưa chọn chuyến xe"}
-                        </span>
-                     </>
+                    <>
+                      <Ticket size={24} className="mb-2 opacity-20" />
+                      <span className="text-[10px] text-center">
+                        {selectedTrip
+                          ? "Chưa có vé nào được đặt"
+                          : "Chưa chọn chuyến xe"}
+                      </span>
+                    </>
                   )}
                 </div>
               ) : (
                 <div>
                   {filteredManifest.map((group, idx) => {
-                    const timeStr = new Date(group.lastCreatedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-                    
+                    const timeStr = new Date(
+                      group.lastCreatedAt
+                    ).toLocaleTimeString("vi-VN", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    });
+
                     // Format phone like 0868 868 304
                     const formatPhone = (phone: string) => {
-                       if(phone.length >= 10) {
-                         return `${phone.slice(0, 4)} ${phone.slice(4, 7)} ${phone.slice(7)}`;
-                       }
-                       return phone;
-                    }
+                      if (phone.length >= 10) {
+                        return `${phone.slice(0, 4)} ${phone.slice(
+                          4,
+                          7
+                        )} ${phone.slice(7)}`;
+                      }
+                      return phone;
+                    };
 
                     return (
                       <div
                         key={idx}
                         className="p-2 border-b border-slate-100 hover:bg-slate-50 transition-colors group"
                       >
-                         {/* Row 1: Phone + Time */}
-                         <div className="flex justify-between items-center mb-1">
-                             <div className="flex items-center gap-1.5">
-                                <span className="text-xs font-bold text-indigo-800">
-                                    {formatPhone(group.phone)}
-                                </span>
-                             </div>
-                             <span className="text-[10px] text-slate-400">
-                                 {timeStr}
-                             </span>
-                         </div>
-                         
-                         {/* Row 2: Ticket Count/Seat List + Total Price */}
-                         <div className="flex justify-between items-start mb-0.5">
-                             <div className="flex items-start gap-1.5 pr-1 max-w-[65%]">
-                                 <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-1 rounded border border-slate-200 shrink-0 h-4 flex items-center">
-                                     {group.seats.length}
-                                 </span>
-                                 <div className="text-[11px] font-bold text-slate-800 break-words leading-tight">
-                                     {group.seats.join(", ")}
-                                 </div>
-                             </div>
-                             
-                             <div className="text-xs font-bold text-indigo-600 shrink-0 text-right">
-                                {group.totalPrice.toLocaleString('vi-VN')}
-                             </div>
-                         </div>
-                         
-                         {/* Row 3: Breakdown (Compact) */}
-                         {(group.paidCash > 0 || group.paidTransfer > 0) && (
-                           <div className="flex justify-end gap-2 text-[9px] mt-0.5">
-                              {group.paidCash > 0 && (
-                                  <span className="text-green-600 font-medium">
-                                      TM: {group.paidCash.toLocaleString()}
-                                  </span>
-                              )}
-                              {group.paidTransfer > 0 && (
-                                  <span className="text-blue-600 font-medium">
-                                      CK: {group.paidTransfer.toLocaleString()}
-                                  </span>
-                              )}
-                           </div>
-                         )}
-                         {group.paidCash === 0 && group.paidTransfer === 0 && (
-                           <div className="text-right mt-0.5">
-                             <span className="text-[9px] text-slate-400 italic">Chưa thanh toán</span>
-                           </div>
-                         )}
+                        {/* Row 1: Phone + Time */}
+                        <div className="flex justify-between items-center mb-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-bold text-indigo-800">
+                              {formatPhone(group.phone)}
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-slate-400">
+                            {timeStr}
+                          </span>
+                        </div>
+
+                        {/* Row 2: Ticket Count/Seat List + Total Price */}
+                        <div className="flex justify-between items-start mb-0.5">
+                          <div className="flex items-start gap-1.5 pr-1 max-w-[65%]">
+                            <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-1 rounded border border-slate-200 shrink-0 h-4 flex items-center">
+                              {group.seats.length}
+                            </span>
+                            <div className="text-[11px] font-bold text-slate-800 break-words leading-tight">
+                              {group.seats.join(", ")}
+                            </div>
+                          </div>
+
+                          <div className="text-xs font-bold text-indigo-600 shrink-0 text-right">
+                            {group.totalPrice.toLocaleString("vi-VN")}
+                          </div>
+                        </div>
+
+                        {/* Row 3: Breakdown (Compact) */}
+                        {(group.paidCash > 0 || group.paidTransfer > 0) && (
+                          <div className="flex justify-end gap-2 text-[9px] mt-0.5">
+                            {group.paidCash > 0 && (
+                              <span className="text-green-600 font-medium">
+                                TM: {group.paidCash.toLocaleString()}
+                              </span>
+                            )}
+                            {group.paidTransfer > 0 && (
+                              <span className="text-blue-600 font-medium">
+                                CK: {group.paidTransfer.toLocaleString()}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        {group.paidCash === 0 && group.paidTransfer === 0 && (
+                          <div className="text-right mt-0.5">
+                            <span className="text-[9px] text-slate-400 italic">
+                              Chưa thanh toán
+                            </span>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
