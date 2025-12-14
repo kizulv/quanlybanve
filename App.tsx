@@ -36,6 +36,7 @@ import {
   Users,
   Search,
   X,
+  Clock3,
 } from "lucide-react";
 import { api } from "./lib/api";
 import { isSameDay } from "./utils/dateUtils";
@@ -85,7 +86,7 @@ function App() {
     "outbound" | "inbound"
   >("outbound");
 
-  // Booking Form State - Name removed
+  // Booking Form State
   const [bookingForm, setBookingForm] = useState({
     phone: "",
     pickup: "",
@@ -94,6 +95,83 @@ function App() {
     paidTransfer: 0,
     note: "",
   });
+
+  // History Search Suggestion State
+  const [showHistory, setShowHistory] = useState(false);
+
+  // -- HISTORY SEARCH LOGIC --
+  const passengerHistory = useMemo(() => {
+    const cleanInput = bookingForm.phone.replace(/\D/g, "");
+    if (cleanInput.length < 3) return []; // Start searching after 3 digits
+
+    // Filter all bookings matches phone
+    const matches = bookings.filter((b) =>
+      b.passenger.phone.replace(/\D/g, "").includes(cleanInput)
+    );
+
+    // Group by unique route (Pickup -> Dropoff)
+    // Map key: "Pickup|Dropoff"
+    const uniqueRoutes = new Map<
+      string,
+      {
+        pickup: string;
+        dropoff: string;
+        phone: string;
+        lastDate: string;
+        count: number;
+        lastTripName: string;
+      }
+    >();
+
+    matches.forEach((b) => {
+      const pickup = b.passenger.pickupPoint || "";
+      const dropoff = b.passenger.dropoffPoint || "";
+      if (!pickup && !dropoff) return; // Skip empty ones
+
+      // Normalize key to avoid duplicates with case sensitivity
+      const key = `${pickup.toLowerCase()}|${dropoff.toLowerCase()}`;
+
+      // Find trip name for context
+      const trip = trips.find((t) => t.id === b.busId);
+
+      if (!uniqueRoutes.has(key)) {
+        uniqueRoutes.set(key, {
+          pickup,
+          dropoff,
+          phone: b.passenger.phone,
+          lastDate: b.createdAt,
+          count: 1,
+          lastTripName: trip?.route || "Chuyến cũ",
+        });
+      } else {
+        const existing = uniqueRoutes.get(key)!;
+        existing.count++;
+        if (new Date(b.createdAt) > new Date(existing.lastDate)) {
+          existing.lastDate = b.createdAt;
+          // Prefer the capitalization of the most recent booking
+          existing.pickup = pickup;
+          existing.dropoff = dropoff;
+        }
+      }
+    });
+
+    return Array.from(uniqueRoutes.values())
+      .sort(
+        (a, b) =>
+          new Date(b.lastDate).getTime() - new Date(a.lastDate).getTime()
+      )
+      .slice(0, 5); // Take top 5 recent
+  }, [bookings, bookingForm.phone, trips]);
+
+  const applyHistory = (item: (typeof passengerHistory)[0]) => {
+    setBookingForm((prev) => ({
+      ...prev,
+      phone: item.phone, // Use full historical phone
+      pickup: item.pickup,
+      dropoff: item.dropoff,
+    }));
+    setShowHistory(false);
+  };
 
   // Logic: Find all trips matching Date & Direction
   const availableTripsForDate = useMemo(() => {
@@ -134,7 +212,6 @@ function App() {
   }, [bookings, selectedTrip]);
 
   // --- GROUPED HISTORY (MANIFEST) LOGIC ---
-  // Group bookings by Phone Number + CreatedAt for the current trip
   const groupedTripBookings = useMemo(() => {
     if (!selectedTrip) return [];
 
@@ -147,18 +224,14 @@ function App() {
         totalPrice: number;
         paidCash: number;
         paidTransfer: number;
-        lastCreatedAt: string; // To show the latest booking time
+        lastCreatedAt: string;
         passengerName: string;
       }
     > = {};
 
     tripBookings.forEach((b) => {
-      // Normalize phone key
       const rawPhone = b.passenger.phone || "";
       const cleanPhone = rawPhone.replace(/\D/g, "");
-
-      // Group by Phone AND Time (to separate different booking sessions)
-      // Key format: PHONE_TIMESTAMP
       const key = `${cleanPhone || "unknown"}_${b.createdAt}`;
 
       if (!groups[key]) {
@@ -179,13 +252,11 @@ function App() {
       groups[key].paidCash += b.payment?.paidCash || 0;
       groups[key].paidTransfer += b.payment?.paidTransfer || 0;
 
-      // Update time if somehow out of order (though usually same batch has same time)
       if (new Date(b.createdAt) > new Date(groups[key].lastCreatedAt)) {
         groups[key].lastCreatedAt = b.createdAt;
       }
     });
 
-    // Sort by most recent booking time
     return Object.values(groups).sort(
       (a, b) =>
         new Date(b.lastCreatedAt).getTime() -
@@ -199,10 +270,8 @@ function App() {
 
     const query = manifestSearch.toLowerCase();
     return groupedTripBookings.filter((group) => {
-      // Check Phone
       const phoneMatch =
         group.phone.includes(query) || group.displayPhone.includes(query);
-      // Check Seats (e.g., query "A1" matches seat "A1")
       const seatMatch = group.seats.some((s) =>
         s.toLowerCase().includes(query)
       );
@@ -211,12 +280,11 @@ function App() {
     });
   }, [groupedTripBookings, manifestSearch]);
 
-  // Auto update payment when total changes (optional: keep cash synced if transfer is 0)
+  // Auto update payment when total changes
   useEffect(() => {
     if (bookingForm.paidTransfer === 0) {
       setBookingForm((prev) => ({ ...prev, paidCash: totalPrice }));
     } else {
-      // If transfer is set, update cash to be the remainder
       setBookingForm((prev) => ({
         ...prev,
         paidCash: Math.max(0, totalPrice - prev.paidTransfer),
@@ -234,7 +302,6 @@ function App() {
     if (!input) return "";
     const lower = input.toLowerCase().trim();
 
-    // Dictionary mappings for common locations -> Bus Stations
     const mappings: Record<string, string> = {
       "lai chau": "BX Lai Châu",
       "lai châu": "BX Lai Châu",
@@ -270,19 +337,15 @@ function App() {
     return mappings[lower] || input;
   };
 
-  // Handlers
   const handleTripSelect = (tripId: string) => {
     setSelectedTripId(tripId);
 
-    // Find trip and route to set defaults
     const trip = trips.find((t) => t.id === tripId);
     let defaultPickup = "";
     let defaultDropoff = "";
 
     if (trip) {
-      // Try finding route by ID
       let route = routes.find((r) => r.id === trip.routeId);
-      // Fallback by name
       if (!route) {
         route = routes.find((r) => r.name === trip.route);
       }
@@ -291,7 +354,6 @@ function App() {
         let rawPickup = "";
         let rawDropoff = "";
 
-        // Swap based on direction
         if (trip.direction === "inbound") {
           rawPickup = route.destination || "";
           rawDropoff = route.origin || "";
@@ -300,7 +362,6 @@ function App() {
           rawDropoff = route.destination || "";
         }
 
-        // Apply standardization immediately upon selection
         defaultPickup = getStandardizedLocation(rawPickup);
         defaultDropoff = getStandardizedLocation(rawDropoff);
       }
@@ -314,12 +375,12 @@ function App() {
       paidTransfer: 0,
       note: "",
     });
+    setShowHistory(false);
   };
 
   const handleSeatClick = async (clickedSeat: Seat) => {
     if (!selectedTrip) return;
 
-    // Optimistic Update
     const updatedSeats = selectedTrip.seats.map((seat) => {
       if (seat.id === clickedSeat.id) {
         return {
@@ -333,11 +394,9 @@ function App() {
       return seat;
     });
 
-    // Update Local State immediately
     const updatedTrip = { ...selectedTrip, seats: updatedSeats };
     setTrips(trips.map((t) => (t.id === selectedTrip.id ? updatedTrip : t)));
 
-    // Persist
     try {
       await api.trips.updateSeats(selectedTrip.id, updatedSeats);
     } catch (e) {
@@ -358,7 +417,7 @@ function App() {
     }
 
     const passenger: Passenger = {
-      name: "Khách lẻ", // Default name as input is removed
+      name: "Khách lẻ",
       phone: bookingForm.phone,
       note: bookingForm.note,
       pickupPoint: bookingForm.pickup,
@@ -383,7 +442,6 @@ function App() {
       );
       setBookings([...bookings, ...result.bookings]);
 
-      // Reset form but keep defaults
       handleTripSelect(selectedTrip.id);
       alert("Đặt vé thành công!");
     } catch (error) {
@@ -400,14 +458,9 @@ function App() {
       return seat;
     });
 
-    // Update Local
     const updatedTrip = { ...selectedTrip, seats: updatedSeats };
     setTrips(trips.map((t) => (t.id === selectedTrip.id ? updatedTrip : t)));
-
-    // Reset form to defaults
     handleTripSelect(selectedTrip.id);
-
-    // Update DB
     await api.trips.updateSeats(selectedTrip.id, updatedSeats);
   };
 
@@ -416,10 +469,9 @@ function App() {
   ) => {
     const { name, value } = e.target;
 
-    // --- Phone Number Formatting Logic ---
     if (name === "phone") {
-      const raw = value.replace(/\D/g, ""); // Keep only numbers
-      if (raw.length > 15) return; // Basic length limit
+      const raw = value.replace(/\D/g, "");
+      if (raw.length > 15) return;
 
       let formatted = raw;
       if (raw.length > 4) {
@@ -430,12 +482,12 @@ function App() {
       }
 
       setBookingForm((prev) => ({ ...prev, [name]: formatted }));
+      // Trigger history dropdown
+      setShowHistory(true);
       return;
     }
 
-    // --- Auto-Capitalize Pickup & Dropoff ---
     if (name === "pickup" || name === "dropoff") {
-      // Capitalize first letter of each word
       const formatted = value.replace(/(?:^|\s)\S/g, (a) => a.toUpperCase());
       setBookingForm((prev) => ({ ...prev, [name]: formatted }));
       return;
@@ -444,14 +496,10 @@ function App() {
     setBookingForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  // --- Location Auto-Complete on Blur ---
   const handleLocationBlur = (e: React.FocusEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     if (!value) return;
-
     const standardized = getStandardizedLocation(value);
-
-    // Only update if changed
     if (standardized !== value) {
       setBookingForm((prev) => ({ ...prev, [name]: standardized }));
     }
@@ -462,7 +510,6 @@ function App() {
     const numValue = parseInt(value.replace(/\D/g, "") || "0", 10);
 
     setBookingForm((prev) => {
-      // If total is 0, just update the field without balancing
       if (totalPrice === 0) {
         return { ...prev, [name]: numValue };
       }
@@ -472,11 +519,9 @@ function App() {
 
       if (name === "paidCash") {
         newCash = numValue;
-        // Auto balance transfer: Total - Cash
         newTransfer = Math.max(0, totalPrice - newCash);
       } else if (name === "paidTransfer") {
         newTransfer = numValue;
-        // Auto balance cash: Total - Transfer
         newCash = Math.max(0, totalPrice - newTransfer);
       }
 
@@ -542,9 +587,9 @@ function App() {
   const renderTicketSales = () => {
     return (
       <div className="h-[calc(100vh-140px)] flex flex-col md:flex-row gap-4 animate-in fade-in duration-300">
-        {/* LEFT COLUMN: SEAT MAP (Dark Navy Header, Gentle Body) */}
+        {/* LEFT COLUMN: SEAT MAP */}
         <div className="flex-1 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col overflow-hidden">
-          {/* Synchronized Header - Height 54px */}
+          {/* Synchronized Header */}
           <div className="px-4 h-[54px] bg-gradient-to-r from-indigo-950 via-indigo-900 to-indigo-950 flex justify-between items-center shadow-sm z-10 shrink-0">
             {/* Left Side: Icon & Info */}
             <div className="flex items-center gap-3">
@@ -606,7 +651,7 @@ function App() {
               </div>
             </div>
 
-            {/* Legend Mobile (Compressed) */}
+            {/* Legend Mobile */}
             <div className="lg:hidden flex items-center gap-2 text-[10px] text-indigo-200">
               <div
                 className="w-2.5 h-2.5 rounded bg-primary border border-white"
@@ -619,7 +664,7 @@ function App() {
             </div>
           </div>
 
-          {/* Scrollable Map - Gentle Background */}
+          {/* Scrollable Map */}
           <div className="flex-1 overflow-y-auto">
             {selectedTrip ? (
               <SeatMap
@@ -642,9 +687,9 @@ function App() {
         {/* RIGHT COLUMN: BOOKING FORM & HISTORY */}
         <div className="w-full md:w-[320px] xl:w-[360px] flex flex-col gap-2 shrink-0 h-full">
           {/* CARD 1: BOOKING FORM */}
-          <div className="bg-indigo-950 rounded-xl shadow-lg border border-indigo-900 flex flex-col overflow-hidden shrink-0">
-            {/* Header Synchronized - Height 54px */}
-            <div className="px-3 h-[54px] bg-gradient-to-r from-indigo-950 via-indigo-900 to-indigo-950 border-b border-indigo-900 flex items-center justify-between shrink-0">
+          <div className="bg-indigo-950 rounded-xl shadow-lg border border-indigo-900 flex flex-col overflow-visible shrink-0 z-20">
+            {/* Header */}
+            <div className="px-3 h-[54px] bg-gradient-to-r from-indigo-950 via-indigo-900 to-indigo-950 border-b border-indigo-900 flex items-center justify-between shrink-0 rounded-t-xl">
               <div className="flex items-center gap-2 text-sm font-bold text-white">
                 <Ticket size={16} className="text-yellow-400" />
                 Thông tin đặt vé
@@ -654,7 +699,7 @@ function App() {
               </div>
             </div>
 
-            <div className="p-3 space-y-3">
+            <div className="p-3 space-y-3 relative">
               {/* Selected Seats */}
               <div className="flex flex-wrap gap-1 min-h-[24px]">
                 {selectedSeats.length > 0 ? (
@@ -680,25 +725,83 @@ function App() {
                   !selectedTrip ? "opacity-50 pointer-events-none" : ""
                 }`}
               >
-                {/* Phone Input */}
-                <div>
+                {/* Phone Input with History Dropdown */}
+                <div className="relative">
                   <div className="relative">
                     <input
                       type="tel"
                       name="phone"
                       value={bookingForm.phone}
                       onChange={handleInputChange}
+                      onFocus={() => {
+                        if (bookingForm.phone.length >= 3) setShowHistory(true);
+                      }}
                       className="w-full pl-6 pr-2 py-1.5 bg-indigo-900/100 border border-transparent rounded-md text-xs text-white placeholder-indigo-300 focus:bg-indigo-900 focus:ring-1 focus:ring-yellow-400 outline-none transition-all disabled:cursor-not-allowed"
                       placeholder="Số điện thoại"
                       required
                       autoFocus
                       disabled={!selectedTrip}
+                      autoComplete="off"
                     />
                     <Phone
                       className="absolute left-2 top-2 text-indigo-300"
                       size={12}
                     />
                   </div>
+
+                  {/* HISTORY DROPDOWN */}
+                  {showHistory && passengerHistory.length > 0 && (
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-lg shadow-xl border border-slate-200 overflow-hidden z-[50] animate-in fade-in zoom-in-95 duration-200">
+                      <div className="bg-slate-50 px-3 py-1.5 border-b border-slate-100 flex justify-between items-center">
+                        <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 uppercase">
+                          <History size={10} /> Lịch sử di chuyển
+                        </div>
+                        <button
+                          type="button"
+                          onMouseDown={(e) => {
+                            e.preventDefault(); // Prevent input blur
+                            setShowHistory(false);
+                          }}
+                          className="text-slate-400 hover:text-slate-600"
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                      <div className="max-h-[200px] overflow-y-auto">
+                        {passengerHistory.map((item, idx) => (
+                          <div
+                            key={idx}
+                            onMouseDown={(e) => {
+                              e.preventDefault(); // Prevent blur before click
+                              applyHistory(item);
+                            }}
+                            className="px-3 py-2 hover:bg-indigo-50 cursor-pointer border-b border-slate-50 last:border-0 group"
+                          >
+                            <div className="flex justify-between items-start mb-0.5">
+                              <span className="text-xs font-bold text-indigo-700">
+                                {item.phone}
+                              </span>
+                              <span className="text-[9px] text-slate-400 flex items-center gap-1">
+                                <Clock3 size={9} />
+                                {new Date(item.lastDate).toLocaleDateString(
+                                  "vi-VN"
+                                )}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1.5 text-[10px] text-slate-600">
+                              <span className="truncate max-w-[45%] font-medium">
+                                {item.pickup}
+                              </span>
+                              <ArrowRight size={10} className="text-slate-300" />
+                              <span className="truncate max-w-[45%] font-medium">
+                                {item.dropoff}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Pickup / Dropoff */}
@@ -802,7 +905,7 @@ function App() {
             </div>
 
             {/* Action Buttons */}
-            <div className="p-2 bg-indigo-950 border-t border-indigo-900 flex gap-2">
+            <div className="p-2 bg-indigo-950 border-t border-indigo-900 flex gap-2 rounded-b-xl">
               <Button
                 type="button"
                 variant="outline"
