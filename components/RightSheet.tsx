@@ -7,7 +7,7 @@ import {
   SheetTrigger,
 } from "./ui/Sheet";
 import { Button } from "./ui/Button";
-import { History, Phone, Clock, Search, X, MapPin, Calendar, CheckCircle2 } from "lucide-react";
+import { History, Phone, Clock, Search, X, Calendar } from "lucide-react";
 import { Badge } from "./ui/Badge";
 import { Booking, BusTrip } from "../types";
 
@@ -44,7 +44,6 @@ export const RightSheet: React.FC<RightSheetProps> = ({ bookings, trips }) => {
 
     sortedBookings.forEach((b) => {
       // Create a unique key for grouping. 
-      // We assume bookings created at the exact same time (iso string) for the same bus & phone are one order.
       const key = `${b.passenger.phone}_${b.busId}_${b.createdAt}`;
 
       if (!groups[key]) {
@@ -64,9 +63,6 @@ export const RightSheet: React.FC<RightSheetProps> = ({ bookings, trips }) => {
 
       groups[key].seats.push(b.seatId);
       groups[key].totalPrice += b.totalPrice;
-      // Payments are typically stored per booking in this mock DB, 
-      // but usually represented as a total for the group. 
-      // We sum them up, assuming the API splits them or creates duplicates.
       groups[key].paidCash += b.payment?.paidCash || 0;
       groups[key].paidTransfer += b.payment?.paidTransfer || 0;
     });
@@ -92,6 +88,19 @@ export const RightSheet: React.FC<RightSheetProps> = ({ bookings, trips }) => {
     });
   }, [groupedBookings, searchTerm]);
 
+  // Group by Date for Display Headers
+  const listByDate = useMemo(() => {
+     const groups: Record<string, typeof filteredList> = {};
+     filteredList.forEach(item => {
+         // Group by Booking Created Date
+         const date = new Date(item.createdAt);
+         const dateStr = date.toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
+         if (!groups[dateStr]) groups[dateStr] = [];
+         groups[dateStr].push(item);
+     });
+     return groups;
+  }, [filteredList]);
+
   return (
     <Sheet>
       <SheetTrigger asChild>
@@ -104,119 +113,136 @@ export const RightSheet: React.FC<RightSheetProps> = ({ bookings, trips }) => {
           <History size={20} />
         </Button>
       </SheetTrigger>
-      <SheetContent side="right" className="flex flex-col h-full w-full sm:w-[400px] p-0 gap-0">
-        <SheetHeader className="px-4 py-3 border-b border-slate-100 shrink-0">
-          <SheetTitle className="text-base">Danh sách đặt vé ({groupedBookings.length})</SheetTitle>
+      <SheetContent side="right" className="flex flex-col h-full w-full sm:w-[450px] p-0 gap-0 border-l shadow-2xl">
+        <SheetHeader className="px-5 py-4 border-b border-slate-100 shrink-0 bg-white">
+          <SheetTitle className="text-lg font-bold flex items-center gap-2">
+             <History className="text-primary" size={20}/>
+             Lịch sử đặt vé
+             <Badge variant="secondary" className="ml-auto text-xs font-normal">
+                {groupedBookings.length} đơn
+             </Badge>
+          </SheetTitle>
         </SheetHeader>
 
         {/* Search Bar */}
-        <div className="p-3 bg-slate-50 border-b border-slate-100 shrink-0">
+        <div className="p-4 bg-slate-50 border-b border-slate-100 shrink-0">
           <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
-              <Search size={14} className="text-slate-400" />
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Search size={16} className="text-slate-400" />
             </div>
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Tìm SĐT, ngày đi, tên khách..."
-              className="w-full pl-8 pr-8 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white placeholder-slate-400"
+              placeholder="Tìm SĐT, tên khách, ngày đi..."
+              className="w-full pl-9 pr-9 py-2.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white placeholder-slate-400 shadow-sm"
             />
             {searchTerm && (
               <button
                 onClick={() => setSearchTerm("")}
-                className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-slate-600"
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
               >
-                <X size={14} />
+                <X size={16} />
               </button>
             )}
           </div>
         </div>
 
         {/* Scrollable List */}
-        <div className="flex-1 overflow-y-auto p-0 scrollbar-thin bg-slate-50/30">
-          {filteredList.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-40 text-slate-400 text-sm text-center">
-              <History size={32} className="mb-2 opacity-20" />
+        <div className="flex-1 overflow-y-auto p-0 scrollbar-thin bg-slate-50/50">
+          {Object.keys(listByDate).length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-64 text-slate-400 text-sm text-center p-8">
+              <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-3">
+                 <Search size={24} className="opacity-30" />
+              </div>
               <p>Không tìm thấy kết quả phù hợp.</p>
             </div>
           ) : (
-            <div className="divide-y divide-slate-100">
-              {filteredList.map((group) => {
-                const isFullyPaid = (group.paidCash + group.paidTransfer) >= group.totalPrice;
-                const tripDate = group.trip 
-                    ? new Date(group.trip.departureTime).toLocaleDateString('vi-VN', {day: '2-digit', month: '2-digit'}) 
-                    : '--/--';
-                const tripTime = group.trip
-                    ? group.trip.departureTime.split(' ')[1]
-                    : '--:--';
+            <div className="pb-4">
+              {Object.entries(listByDate).map(([dateStr, items]) => (
+                <div key={dateStr}>
+                   <div className="sticky top-0 z-10 px-5 py-2 bg-slate-100/95 backdrop-blur border-y border-slate-200 text-xs font-bold text-slate-600 uppercase tracking-wider shadow-sm flex items-center gap-2">
+                      <Calendar size={12} />
+                      {dateStr}
+                   </div>
+                   <div className="divide-y divide-slate-100 border-b border-slate-100 bg-white">
+                      {items.map((group) => {
+                        const isFullyPaid = (group.paidCash + group.paidTransfer) >= group.totalPrice;
+                        const tripDate = group.trip 
+                            ? new Date(group.trip.departureTime).toLocaleDateString('vi-VN', {day: '2-digit', month: '2-digit'}) 
+                            : '--/--';
+                        const tripTime = group.trip
+                            ? group.trip.departureTime.split(' ')[1]
+                            : '--:--';
 
-                return (
-                  <div
-                    key={group.id}
-                    className="p-3 bg-white hover:bg-slate-50 transition-colors group cursor-default"
-                  >
-                    {/* Top Row: Phone & Booking Time */}
-                    <div className="flex justify-between items-start mb-1.5">
-                      <div className="flex flex-col">
-                         <div className="flex items-center gap-1.5">
-                            <Phone size={12} className="text-slate-400" />
-                            <span className="text-sm font-bold text-slate-900">{group.phone}</span>
-                         </div>
-                         <span className="text-[11px] text-slate-500 pl-[18px] truncate max-w-[150px]">{group.passengerName}</span>
-                      </div>
-                      <div className="flex flex-col items-end">
-                         <div className="flex items-center gap-1 text-[10px] text-slate-400">
-                             <Clock size={10} />
-                             {new Date(group.createdAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit'})} {new Date(group.createdAt).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})}
-                         </div>
-                         {isFullyPaid ? (
-                             <Badge variant="success" className="h-4 px-1 text-[9px] bg-green-50 text-green-700 border-green-100 mt-1">
-                                Đã thanh toán
-                             </Badge>
-                         ) : (
-                             <Badge variant="warning" className="h-4 px-1 text-[9px] bg-yellow-50 text-yellow-700 border-yellow-100 mt-1">
-                                Chưa thanh toán
-                             </Badge>
-                         )}
-                      </div>
-                    </div>
-
-                    {/* Middle Row: Route Info */}
-                    <div className="mb-2 bg-slate-50 p-2 rounded border border-slate-100 flex items-center gap-2">
-                       <div className="bg-white border border-slate-200 w-8 h-8 rounded flex flex-col items-center justify-center shrink-0">
-                           <span className="text-[8px] font-bold text-slate-400">NGÀY</span>
-                           <span className="text-xs font-bold text-slate-800 leading-none">{tripDate.split('/')[0]}</span>
-                       </div>
-                       <div className="flex-1 min-w-0">
-                           <div className="text-xs font-bold text-slate-700 truncate">{group.trip?.route || 'Không xác định'}</div>
-                           <div className="text-[10px] text-slate-500 flex items-center gap-1">
-                              <span className="text-primary font-bold">{tripTime}</span>
-                              <span>•</span>
-                              <span>{group.trip?.licensePlate}</span>
-                           </div>
-                       </div>
-                    </div>
-
-                    {/* Bottom Row: Seats & Price */}
-                    <div className="flex justify-between items-center">
-                      <div className="flex flex-wrap gap-1">
-                        {group.seats.map((seat) => (
-                          <span
-                            key={seat}
-                            className="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-100"
+                        return (
+                          <div
+                            key={group.id}
+                            className="p-4 hover:bg-blue-50/50 transition-colors group cursor-default"
                           >
-                            {seat}
-                          </span>
-                        ))}
-                      </div>
-                      <div className="text-sm font-bold text-slate-900">
-                        {group.totalPrice.toLocaleString("vi-VN")} <span className="text-[10px] font-normal text-slate-500">đ</span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+                            {/* Top Row: Passenger & Time */}
+                            <div className="flex justify-between items-start mb-3">
+                              <div className="flex flex-col gap-0.5">
+                                 <div className="flex items-center gap-2">
+                                    <Phone size={14} className="text-slate-400" />
+                                    <span className="text-sm font-bold text-slate-900">{group.phone}</span>
+                                 </div>
+                                 <span className="text-xs text-slate-500 pl-6 truncate max-w-[180px]">{group.passengerName}</span>
+                              </div>
+                              <div className="text-right">
+                                 <div className="flex items-center justify-end gap-1.5 text-xs font-medium text-slate-500">
+                                     <Clock size={12} />
+                                     {new Date(group.createdAt).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})}
+                                 </div>
+                                 <div className={`text-[10px] font-bold mt-1 ${isFullyPaid ? 'text-green-600' : 'text-orange-600'}`}>
+                                     {isFullyPaid ? 'Đã thanh toán' : 'Chưa thanh toán'}
+                                 </div>
+                              </div>
+                            </div>
+
+                            {/* Trip Info Card */}
+                            <div className="mb-3 bg-slate-50 p-2.5 rounded-lg border border-slate-100 flex items-center gap-3">
+                               <div className="bg-white border border-slate-200 w-10 h-10 rounded-lg flex flex-col items-center justify-center shrink-0 shadow-sm">
+                                   <span className="text-[9px] font-bold text-slate-400 uppercase">Ngày</span>
+                                   <span className="text-sm font-bold text-slate-800 leading-none">{tripDate.split('/')[0]}</span>
+                               </div>
+                               <div className="flex-1 min-w-0">
+                                   <div className="text-sm font-bold text-slate-700 truncate" title={group.trip?.route}>
+                                       {group.trip?.route || 'Không xác định'}
+                                   </div>
+                                   <div className="text-xs text-slate-500 flex items-center gap-2 mt-0.5">
+                                      <span className="font-medium text-primary bg-primary/5 px-1 rounded">{tripTime}</span>
+                                      <span className="text-slate-300">|</span>
+                                      <span>{group.trip?.licensePlate}</span>
+                                   </div>
+                               </div>
+                            </div>
+
+                            {/* Footer: Seats & Price */}
+                            <div className="flex justify-between items-end">
+                              <div className="flex flex-wrap gap-1.5 max-w-[60%]">
+                                {group.seats.map((seat) => (
+                                  <span
+                                    key={seat}
+                                    className="inline-flex items-center justify-center px-2 py-1 rounded-md text-[11px] font-bold bg-white border border-slate-200 text-slate-700 shadow-sm"
+                                  >
+                                    {seat}
+                                  </span>
+                                ))}
+                              </div>
+                              <div className="text-right">
+                                <div className="text-xs text-slate-400 mb-0.5">Tổng tiền</div>
+                                <div className="text-base font-bold text-slate-900">
+                                  {group.totalPrice.toLocaleString("vi-VN")} <span className="text-xs font-normal text-slate-500">đ</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                   </div>
+                </div>
+              ))}
             </div>
           )}
         </div>
