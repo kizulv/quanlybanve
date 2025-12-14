@@ -10,9 +10,6 @@ import {
   BusFront,
   Zap,
   Bus,
-  LayoutGrid,
-  CheckCircle2,
-  Clock,
 } from "lucide-react";
 import { Button } from "./ui/Button";
 import { Popover } from "./ui/Popover";
@@ -73,10 +70,10 @@ export const Layout: React.FC<LayoutProps> = ({
   // Load schedule settings
   useEffect(() => {
     const loadSettings = () => {
-      const savedSettings = localStorage.getItem("vinabus_schedule_settings");
-      if (savedSettings) {
+      const saved = localStorage.getItem("vinabus_schedule_settings");
+      if (saved) {
         try {
-          setScheduleSettings(JSON.parse(savedSettings));
+          setScheduleSettings(JSON.parse(saved));
         } catch (e) {
           console.error("Failed to parse schedule settings", e);
         }
@@ -294,7 +291,7 @@ export const Layout: React.FC<LayoutProps> = ({
         }`}
       >
         {/* Header */}
-        <header className="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-8 sticky top-0 z-10 shadow-sm">
+        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-8 sticky top-0 z-10 shadow-sm">
           <div className="flex items-center gap-4 min-w-0 mr-4">
             <Button
               variant="ghost"
@@ -305,8 +302,8 @@ export const Layout: React.FC<LayoutProps> = ({
               <Menu size={20} />
             </Button>
 
-            {/* Title and Description - Hidden on small screens when sales tab active to save space */}
-            <div className={`flex flex-col justify-center min-w-0 ${activeTab === 'sales' ? 'hidden lg:flex' : ''}`}>
+            {/* Title and Description */}
+            <div className="flex flex-col justify-center min-w-0">
               <h1 className="text-sm md:text-base font-bold text-slate-900 truncate">
                 {currentInfo.title}
               </h1>
@@ -323,41 +320,8 @@ export const Layout: React.FC<LayoutProps> = ({
             {/* Header Filters for Sales */}
             {activeTab === "sales" && (
               <div className="flex items-center gap-2 md:gap-3 animate-in fade-in slide-in-from-right-4 duration-300">
-                {/* 1. Date Picker (Still needed to change date, but visual is less prominent) */}
-                <Popover
-                  align="right"
-                  trigger={
-                    <button className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-slate-100 text-slate-500 transition-colors">
-                      <CalendarIcon size={20} />
-                    </button>
-                  }
-                  content={(close) => (
-                    <Calendar
-                      selected={selectedDate}
-                      onSelect={(date) => {
-                        onDateChange(date);
-                        close();
-                      }}
-                      shutdownRange={{
-                        start: scheduleSettings.shutdownStartDate,
-                        end: scheduleSettings.shutdownEndDate,
-                      }}
-                      peakDays={scheduleSettings.peakDays}
-                    />
-                  )}
-                />
-
-                {/* 2. Direction Toggle (Compact) */}
+                {/* 1. Direction Toggle */}
                 {onDirectionChange && (
-                  <button 
-                     onClick={() => onDirectionChange(selectedDirection === 'outbound' ? 'inbound' : 'outbound')}
-                     className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-slate-100 text-slate-500 transition-colors sm:hidden"
-                     title="Đổi chiều"
-                  >
-                     <Clock size={20} />
-                  </button>
-                )}
-                 {onDirectionChange && (
                   <label className="flex items-center gap-2 cursor-pointer select-none bg-white border border-slate-200 rounded-md px-2 md:px-3 h-9 hover:border-slate-300 transition-colors hidden sm:flex">
                     <div
                       className={`relative flex items-center justify-center w-4 h-4 border rounded bg-white transition-colors ${
@@ -398,78 +362,80 @@ export const Layout: React.FC<LayoutProps> = ({
                   </label>
                 )}
 
-                {/* 3. New Trip Selector TRIGGER (Redesigned Card Style) */}
+                {/* 2. Date Picker */}
                 <Popover
                   align="right"
                   trigger={
-                    <div className="relative group cursor-pointer select-none">
-                      {/* Card Container */}
-                      <div className="flex flex-col items-start bg-white border border-slate-200 border-l-[4px] border-l-yellow-400 shadow-sm rounded-lg p-2.5 min-w-[220px] sm:min-w-[280px] hover:shadow-md transition-all">
-                        {selectedTripDisplay ? (
-                          <>
-                            {/* Row 1: Dates (Badges) */}
-                            <div className="flex items-center gap-2 mb-1.5">
-                              <span className="inline-flex items-center justify-center bg-slate-100 text-slate-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-slate-200/50">
-                                {selectedDate.getDate()}/{selectedDate.getMonth() + 1}
-                              </span>
-                              <span className="inline-flex items-center justify-center bg-slate-100 text-slate-600 text-[10px] font-bold px-2 py-0.5 rounded-full border border-slate-200/50">
-                                {formatLunarDate(selectedDate).replace(" Âm Lịch", " ÂL")}
-                              </span>
-                            </div>
-
-                            {/* Row 2: Route Name */}
-                            <div className="font-bold text-slate-900 text-sm mb-2 line-clamp-1 pr-4">
-                              {selectedTripDisplay.route}
-                            </div>
-
-                            {/* Row 3: Badges (Purple style as requested) */}
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="inline-flex items-center justify-center bg-indigo-100 text-indigo-700 text-[11px] font-bold px-1.5 py-0.5 rounded border border-indigo-200">
-                                {selectedTripDisplay.displayTime}
-                              </span>
-                              <span className="inline-flex items-center justify-center bg-indigo-100 text-indigo-700 text-[11px] font-bold px-1.5 py-0.5 rounded border border-indigo-200">
-                                {selectedTripDisplay.licensePlate}
-                              </span>
-                              {selectedTripDisplay.isEnhanced && (
-                                <span className="inline-flex items-center justify-center bg-amber-100 text-amber-700 text-[10px] font-bold px-1.5 py-0.5 rounded border border-amber-200">
-                                  <Zap size={8} className="mr-0.5 fill-amber-700" /> TC
-                                </span>
-                              )}
-                            </div>
-                          </>
-                        ) : (
-                          /* Empty State */
-                          <div className="flex flex-col justify-center h-full w-full py-1">
-                             <div className="flex items-center gap-2 mb-1">
-                                <span className="inline-flex items-center justify-center bg-slate-100 text-slate-700 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                                    {selectedDate.getDate()}/{selectedDate.getMonth() + 1}
-                                </span>
-                             </div>
-                             <span className="text-slate-400 text-sm font-medium">Chọn chuyến xe...</span>
-                          </div>
-                        )}
-                        
-                        {/* Chevron (Absolute) */}
-                        <div className="absolute top-3 right-2 text-slate-300 group-hover:text-slate-500 transition-colors">
-                            <ChevronDown size={16} />
-                        </div>
+                    <div className="flex items-center gap-2 h-9 px-3 border border-slate-200 rounded-md bg-white hover:bg-slate-50 hover:border-slate-300 transition-colors select-none cursor-pointer">
+                      <CalendarIcon size={16} className="text-slate-500" />
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-slate-700 capitalize whitespace-nowrap hidden sm:inline-block">
+                          {formatSolarHeader(selectedDate)}
+                        </span>
+                        <span className="text-[11px] font-medium text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 whitespace-nowrap">
+                          {formatLunarDate(selectedDate)}
+                        </span>
                       </div>
                     </div>
                   }
                   content={(close) => (
-                    <div className="w-[380px] max-h-[450px] overflow-y-auto bg-white rounded-lg border border-slate-200 shadow-xl p-2">
+                    <Calendar
+                      selected={selectedDate}
+                      onSelect={(date) => {
+                        onDateChange(date);
+                        close();
+                      }}
+                      shutdownRange={{
+                        start: scheduleSettings.shutdownStartDate,
+                        end: scheduleSettings.shutdownEndDate,
+                      }}
+                      peakDays={scheduleSettings.peakDays}
+                    />
+                  )}
+                />
+
+                {/* 3. New Smart Trip Selector */}
+                <Popover
+                  align="right"
+                  trigger={
+                    <div className="flex items-center justify-between gap-3 h-9 px-3 border border-slate-200 rounded-md bg-white hover:bg-slate-50 hover:border-slate-300 transition-colors select-none cursor-pointer min-w-[200px] max-w-[340px]">
+                      <div className="flex items-center gap-2 overflow-hidden">
+                        <MapPin size={16} className="text-slate-500 shrink-0" />
+                        {selectedTripDisplay ? (
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="text-sm font-medium text-slate-900 truncate">
+                              {selectedTripDisplay.displayTime} -{" "}
+                              {selectedTripDisplay.route}
+                            </span>
+                            {selectedTripDisplay.isEnhanced && (
+                              <span className="shrink-0 inline-flex items-center text-[10px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200 whitespace-nowrap hidden lg:inline-flex">
+                                <Zap size={10} className="mr-0.5 fill-amber-700" />
+                                {selectedTripDisplay.enhancedIndex > 0
+                                  ? `TC #${selectedTripDisplay.enhancedIndex}`
+                                  : "Tăng cường"}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-sm font-medium text-slate-500 truncate">
+                            Chọn chuyến xe...
+                          </span>
+                        )}
+                      </div>
+                      <ChevronDown size={14} className="text-slate-400 shrink-0" />
+                    </div>
+                  }
+                  content={(close) => (
+                    <div className="w-[360px] max-h-[400px] overflow-y-auto bg-white rounded-lg border border-slate-200 shadow-xl p-1.5">
                       {tripOptions.length === 0 ? (
                         <div className="p-8 text-center text-slate-500">
-                          <BusFront
-                            size={24}
-                            className="mx-auto mb-2 opacity-20"
-                          />
+                          <BusFront size={24} className="mx-auto mb-2 opacity-20" />
                           <p className="text-sm">
                             Không có chuyến nào trong ngày này.
                           </p>
                         </div>
                       ) : (
-                        <div className="space-y-2">
+                        <div className="space-y-1">
                           {tripOptions.map((trip) => {
                             const isSelected = trip.id === selectedTripId;
                             return (
@@ -479,81 +445,62 @@ export const Layout: React.FC<LayoutProps> = ({
                                   onTripChange(trip.id);
                                   close();
                                 }}
-                                className={`
-                                    relative w-full flex flex-col items-start p-3 rounded-lg border transition-all text-left group
-                                    ${
-                                      isSelected
-                                        ? "bg-primary/5 border-primary ring-1 ring-primary shadow-sm z-10"
-                                        : "bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50"
-                                    }
-                                `}
+                                className={`w-full text-left p-2.5 rounded-md transition-all flex items-center gap-3 group ${
+                                  isSelected
+                                    ? "bg-primary/5 border border-primary/20"
+                                    : "hover:bg-slate-50 border border-transparent"
+                                }`}
                               >
-                                {/* Top Row: Time & Plate */}
-                                <div className="flex justify-between items-center w-full mb-1">
-                                  <div className="flex items-center gap-2">
-                                    <div
-                                      className={`px-2 py-0.5 rounded text-xs font-bold border ${
-                                        isSelected
-                                          ? "bg-primary text-white border-primary"
-                                          : "bg-slate-100 text-slate-600 border-slate-200"
-                                      }`}
-                                    >
-                                      {trip.displayTime}
-                                    </div>
-                                    <span
-                                      className={`font-bold text-sm ${
-                                        isSelected
-                                          ? "text-primary"
-                                          : "text-slate-900"
-                                      }`}
-                                    >
-                                      {trip.licensePlate}
-                                    </span>
-                                  </div>
-                                  {/* Enhanced Badge */}
-                                  {trip.isEnhanced && (
-                                    <div className="flex items-center gap-1 bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200 text-[10px] font-bold">
-                                      <Zap
-                                        size={10}
-                                        className="fill-amber-700"
-                                      />
-                                      <span>
-                                        TC
+                                {/* Time Column */}
+                                <div
+                                  className={`flex flex-col items-center justify-center w-12 h-10 rounded border text-xs font-bold shrink-0 ${
+                                    isSelected
+                                      ? "bg-white border-primary/30 text-primary"
+                                      : "bg-slate-50 border-slate-200 text-slate-600"
+                                  }`}
+                                >
+                                  {trip.displayTime}
+                                </div>
+
+                                {/* Info Column */}
+                                <div className="flex-1 min-w-0">
+                                  <div
+                                    className={`text-sm font-medium flex items-center gap-1.5 ${
+                                      isSelected
+                                        ? "text-primary"
+                                        : "text-slate-900"
+                                    }`}
+                                  >
+                                    <span className="truncate">{trip.route}</span>
+                                    {trip.isEnhanced && (
+                                      <span className="shrink-0 inline-flex items-center text-[9px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200 shadow-sm ml-auto md:ml-0">
+                                        <Zap
+                                          size={9}
+                                          className="mr-0.5 fill-amber-700"
+                                        />
+                                        Tăng cường{" "}
                                         {trip.enhancedIndex > 0
-                                          ? ` #${trip.enhancedIndex}`
+                                          ? `#${trip.enhancedIndex}`
                                           : ""}
                                       </span>
-                                    </div>
-                                  )}
-                                </div>
-
-                                {/* Middle: Route Name */}
-                                <div
-                                  className="text-sm font-medium text-slate-700 mb-2 line-clamp-1 w-full"
-                                  title={trip.route}
-                                >
-                                  {trip.route}
-                                </div>
-
-                                {/* Bottom: Bus Type & Selection Check */}
-                                <div className="flex items-center justify-between w-full pt-2 border-t border-slate-100 border-dashed">
-                                  <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                                    <LayoutGrid size={12} />
-                                    <span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-2 mt-0.5">
+                                    <span className="text-xs text-slate-500 bg-slate-100 px-1.5 rounded border border-slate-200/50">
+                                      {trip.licensePlate}
+                                    </span>
+                                    <span className="text-[10px] text-slate-400 pl-1 border-l border-slate-200">
                                       {trip.type === BusType.CABIN
-                                        ? "Phòng VIP"
+                                        ? "Xe Phòng"
                                         : "Giường đơn"}
                                     </span>
-                                    <span className="w-1 h-1 rounded-full bg-slate-300 mx-0.5" />
-                                    <span>{trip.seats.length} chỗ</span>
                                   </div>
-                                  {isSelected && (
-                                    <CheckCircle2
-                                      size={16}
-                                      className="text-primary"
-                                    />
-                                  )}
                                 </div>
+
+                                {/* Checkmark */}
+                                {isSelected && (
+                                  <Check size={16} className="text-primary ml-auto" />
+                                )}
                               </button>
                             );
                           })}
@@ -564,7 +511,7 @@ export const Layout: React.FC<LayoutProps> = ({
                 />
               </div>
             )}
-
+            
             {/* INJECTED HEADER RIGHT CONTENT */}
             {headerRight}
           </div>
