@@ -10,6 +10,8 @@ import {
   BusFront,
   Zap,
   Bus,
+  LayoutGrid,
+  CheckCircle2,
 } from "lucide-react";
 import { Button } from "./ui/Button";
 import { Popover } from "./ui/Popover";
@@ -70,10 +72,10 @@ export const Layout: React.FC<LayoutProps> = ({
   // Load schedule settings
   useEffect(() => {
     const loadSettings = () => {
-      const saved = localStorage.getItem("vinabus_schedule_settings");
-      if (saved) {
+      const savedSettings = localStorage.getItem("vinabus_schedule_settings");
+      if (savedSettings) {
         try {
-          setScheduleSettings(JSON.parse(saved));
+          setScheduleSettings(JSON.parse(savedSettings));
         } catch (e) {
           console.error("Failed to parse schedule settings", e);
         }
@@ -394,7 +396,7 @@ export const Layout: React.FC<LayoutProps> = ({
                   )}
                 />
 
-                {/* 3. New Smart Trip Selector */}
+                {/* 3. New Smart Trip Selector (Styled like AddTripModal Cards) */}
                 <Popover
                   align="right"
                   trigger={
@@ -409,7 +411,10 @@ export const Layout: React.FC<LayoutProps> = ({
                             </span>
                             {selectedTripDisplay.isEnhanced && (
                               <span className="shrink-0 inline-flex items-center text-[10px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200 whitespace-nowrap hidden lg:inline-flex">
-                                <Zap size={10} className="mr-0.5 fill-amber-700" />
+                                <Zap
+                                  size={10}
+                                  className="mr-0.5 fill-amber-700"
+                                />
                                 {selectedTripDisplay.enhancedIndex > 0
                                   ? `TC #${selectedTripDisplay.enhancedIndex}`
                                   : "Tăng cường"}
@@ -422,20 +427,26 @@ export const Layout: React.FC<LayoutProps> = ({
                           </span>
                         )}
                       </div>
-                      <ChevronDown size={14} className="text-slate-400 shrink-0" />
+                      <ChevronDown
+                        size={14}
+                        className="text-slate-400 shrink-0"
+                      />
                     </div>
                   }
                   content={(close) => (
-                    <div className="w-[360px] max-h-[400px] overflow-y-auto bg-white rounded-lg border border-slate-200 shadow-xl p-1.5">
+                    <div className="w-[380px] max-h-[450px] overflow-y-auto bg-white rounded-lg border border-slate-200 shadow-xl p-2">
                       {tripOptions.length === 0 ? (
                         <div className="p-8 text-center text-slate-500">
-                          <BusFront size={24} className="mx-auto mb-2 opacity-20" />
+                          <BusFront
+                            size={24}
+                            className="mx-auto mb-2 opacity-20"
+                          />
                           <p className="text-sm">
                             Không có chuyến nào trong ngày này.
                           </p>
                         </div>
                       ) : (
-                        <div className="space-y-1">
+                        <div className="space-y-2">
                           {tripOptions.map((trip) => {
                             const isSelected = trip.id === selectedTripId;
                             return (
@@ -445,62 +456,81 @@ export const Layout: React.FC<LayoutProps> = ({
                                   onTripChange(trip.id);
                                   close();
                                 }}
-                                className={`w-full text-left p-2.5 rounded-md transition-all flex items-center gap-3 group ${
-                                  isSelected
-                                    ? "bg-primary/5 border border-primary/20"
-                                    : "hover:bg-slate-50 border border-transparent"
-                                }`}
-                              >
-                                {/* Time Column */}
-                                <div
-                                  className={`flex flex-col items-center justify-center w-12 h-10 rounded border text-xs font-bold shrink-0 ${
-                                    isSelected
-                                      ? "bg-white border-primary/30 text-primary"
-                                      : "bg-slate-50 border-slate-200 text-slate-600"
-                                  }`}
-                                >
-                                  {trip.displayTime}
-                                </div>
-
-                                {/* Info Column */}
-                                <div className="flex-1 min-w-0">
-                                  <div
-                                    className={`text-sm font-medium flex items-center gap-1.5 ${
+                                className={`
+                                    relative w-full flex flex-col items-start p-3 rounded-lg border transition-all text-left group
+                                    ${
                                       isSelected
-                                        ? "text-primary"
-                                        : "text-slate-900"
-                                    }`}
-                                  >
-                                    <span className="truncate">{trip.route}</span>
-                                    {trip.isEnhanced && (
-                                      <span className="shrink-0 inline-flex items-center text-[9px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200 shadow-sm ml-auto md:ml-0">
-                                        <Zap
-                                          size={9}
-                                          className="mr-0.5 fill-amber-700"
-                                        />
-                                        Tăng cường{" "}
-                                        {trip.enhancedIndex > 0
-                                          ? `#${trip.enhancedIndex}`
-                                          : ""}
-                                      </span>
-                                    )}
-                                  </div>
-                                  <div className="flex items-center gap-2 mt-0.5">
-                                    <span className="text-xs text-slate-500 bg-slate-100 px-1.5 rounded border border-slate-200/50">
+                                        ? "bg-primary/5 border-primary ring-1 ring-primary shadow-sm z-10"
+                                        : "bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50"
+                                    }
+                                `}
+                              >
+                                {/* Top Row: Time & Plate */}
+                                <div className="flex justify-between items-center w-full mb-1">
+                                  <div className="flex items-center gap-2">
+                                    <div
+                                      className={`px-2 py-0.5 rounded text-xs font-bold border ${
+                                        isSelected
+                                          ? "bg-primary text-white border-primary"
+                                          : "bg-slate-100 text-slate-600 border-slate-200"
+                                      }`}
+                                    >
+                                      {trip.displayTime}
+                                    </div>
+                                    <span
+                                      className={`font-bold text-sm ${
+                                        isSelected
+                                          ? "text-primary"
+                                          : "text-slate-900"
+                                      }`}
+                                    >
                                       {trip.licensePlate}
                                     </span>
-                                    <span className="text-[10px] text-slate-400 pl-1 border-l border-slate-200">
-                                      {trip.type === BusType.CABIN
-                                        ? "Xe Phòng"
-                                        : "Giường đơn"}
-                                    </span>
                                   </div>
+                                  {/* Enhanced Badge */}
+                                  {trip.isEnhanced && (
+                                    <div className="flex items-center gap-1 bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200 text-[10px] font-bold">
+                                      <Zap
+                                        size={10}
+                                        className="fill-amber-700"
+                                      />
+                                      <span>
+                                        TC
+                                        {trip.enhancedIndex > 0
+                                          ? ` #${trip.enhancedIndex}`
+                                          : ""}
+                                      </span>
+                                    </div>
+                                  )}
                                 </div>
 
-                                {/* Checkmark */}
-                                {isSelected && (
-                                  <Check size={16} className="text-primary ml-auto" />
-                                )}
+                                {/* Middle: Route Name */}
+                                <div
+                                  className="text-sm font-medium text-slate-700 mb-2 line-clamp-1 w-full"
+                                  title={trip.route}
+                                >
+                                  {trip.route}
+                                </div>
+
+                                {/* Bottom: Bus Type & Selection Check */}
+                                <div className="flex items-center justify-between w-full pt-2 border-t border-slate-100 border-dashed">
+                                  <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                                    <LayoutGrid size={12} />
+                                    <span>
+                                      {trip.type === BusType.CABIN
+                                        ? "Phòng VIP"
+                                        : "Giường đơn"}
+                                    </span>
+                                    <span className="w-1 h-1 rounded-full bg-slate-300 mx-0.5" />
+                                    <span>{trip.seats.length} chỗ</span>
+                                  </div>
+                                  {isSelected && (
+                                    <CheckCircle2
+                                      size={16}
+                                      className="text-primary"
+                                    />
+                                  )}
+                                </div>
                               </button>
                             );
                           })}
@@ -511,7 +541,7 @@ export const Layout: React.FC<LayoutProps> = ({
                 />
               </div>
             )}
-            
+
             {/* INJECTED HEADER RIGHT CONTENT */}
             {headerRight}
           </div>
