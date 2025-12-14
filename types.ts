@@ -97,3 +97,15 @@ export interface Bus {
   layoutConfig?: BusLayoutConfig;
   defaultRouteId?: string; // New field added
 }
+
+export interface ActivityLog {
+  id: string;
+  phone: string;
+  timestamp: Date;
+  details: {
+    tripInfo: string;
+    seats: string[];
+    totalPrice: number;
+    isPaid: boolean; // true if fully paid, false if booking only
+  }[];
+}

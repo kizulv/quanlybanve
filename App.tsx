@@ -6,14 +6,7 @@ import { ScheduleView } from "./components/ScheduleView";
 import { Badge } from "./components/ui/Badge";
 import { Button } from "./components/ui/Button";
 import { ToastProvider, useToast } from "./components/ui/Toast";
-import { ActivityLog } from "./components/RightSidebar"; // We still import the Type, but we'll inline the UI or use Sheet
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "./components/ui/Sheet";
+import { RightSheet } from "./components/RightSheet";
 import {
   BusTrip,
   Seat,
@@ -23,6 +16,7 @@ import {
   Route,
   Bus,
   BusType,
+  ActivityLog,
 } from "./types";
 import {
   BusFront,
@@ -31,12 +25,10 @@ import {
   Phone,
   Banknote,
   RotateCcw,
-  History,
   Users,
   Search,
   X,
   Zap,
-  Clock,
 } from "lucide-react";
 import { api } from "./lib/api";
 import { isSameDay, formatLunarDate } from "./utils/dateUtils";
@@ -106,9 +98,6 @@ function AppContent() {
     bookingIds?: string[];
     totalPrice: number;
   } | null>(null);
-
-  // History Search Suggestion State
-  const [showHistory, setShowHistory] = useState(false);
 
   // Activity Log State
   const [recentActivities, setRecentActivities] = useState<ActivityLog[]>([]);
@@ -265,7 +254,6 @@ function AppContent() {
   const handleTripSelect = (tripId: string) => {
     setSelectedTripId(tripId);
     setManifestSearch("");
-    setShowHistory(false);
     
     // Auto-fill location based on route if form is empty
     const trip = trips.find((t) => t.id === tripId);
@@ -521,7 +509,6 @@ function AppContent() {
     const { name, value } = e.target;
     if (name === "phone") {
         setBookingForm(prev => ({ ...prev, [name]: formatPhoneNumber(value) }));
-        setShowHistory(true);
         return;
     }
     setBookingForm(prev => ({ ...prev, [name]: value }));
@@ -548,81 +535,6 @@ function AppContent() {
     });
   };
 
-  // --- ACTIVITY LOG SHEET UI ---
-  const activityLogSheet = (
-    <Sheet>
-      <SheetTrigger asChild>
-        <Button 
-          variant="outline" 
-          size="icon" 
-          className="bg-white border-slate-200 text-slate-600 hover:text-primary hover:border-primary/50 shrink-0"
-          title="Lịch sử phiên"
-        >
-            <History size={20} />
-        </Button>
-      </SheetTrigger>
-      <SheetContent side="right">
-        <SheetHeader>
-          <SheetTitle>Lịch sử phiên làm việc</SheetTitle>
-        </SheetHeader>
-        <div className="flex-1 overflow-y-auto mt-4 space-y-4 h-[calc(100vh-100px)]">
-          {recentActivities.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-40 text-slate-400 text-sm text-center">
-              <History size={32} className="mb-2 opacity-20" />
-              <p>Chưa có hoạt động nào<br/>trong phiên này.</p>
-            </div>
-          ) : (
-            recentActivities.map((log) => (
-              <div
-                key={log.id}
-                className="border border-slate-200 rounded-xl p-3 bg-white shadow-sm relative overflow-hidden group"
-              >
-                {/* Header */}
-                <div className="flex justify-between items-start mb-2 pb-2 border-b border-slate-100">
-                  <div className="flex items-center gap-1.5 font-bold text-primary">
-                    <Phone size={14} />
-                    <span>{log.phone}</span>
-                  </div>
-                  <div className="flex items-center gap-1 text-[10px] text-slate-400">
-                      <Clock size={10} />
-                      {log.timestamp.toLocaleTimeString("vi-VN", { hour: '2-digit', minute: '2-digit' })}
-                  </div>
-                </div>
-
-                {/* Details List */}
-                <div className="space-y-2">
-                  {log.details.map((detail, idx) => (
-                      <div key={idx} className="text-xs">
-                          <div className="font-medium text-slate-700 truncate" title={detail.tripInfo}>{detail.tripInfo}</div>
-                          <div className="flex justify-between items-start mt-0.5">
-                              <div className="flex items-center gap-1">
-                                  <Badge variant="secondary" className="px-1 py-0 h-4 text-[10px]">
-                                      {detail.seats.length} vé
-                                  </Badge>
-                                  <span className="text-slate-500 font-medium">{detail.seats.join(", ")}</span>
-                              </div>
-                              <div className={`font-bold ${detail.isPaid ? 'text-green-600' : 'text-yellow-600'}`}>
-                                  {detail.isPaid ? detail.totalPrice.toLocaleString("vi-VN") : "Vé đặt"}
-                              </div>
-                          </div>
-                      </div>
-                  ))}
-                </div>
-                
-                <div className="absolute top-0 left-0 w-1 h-full bg-primary/20"></div>
-              </div>
-            ))
-          )}
-          <div className="pt-4 text-center">
-             <div className="text-[10px] text-slate-400 bg-slate-50 p-2 rounded border border-slate-100">
-                 Danh sách này sẽ được làm mới khi tải lại trang.
-             </div>
-          </div>
-        </div>
-      </SheetContent>
-    </Sheet>
-  );
-
   // --- RENDERERS ---
 
   if (isLoading) {
@@ -648,7 +560,7 @@ function AppContent() {
       selectedDirection={selectedDirection}
       onDirectionChange={setSelectedDirection}
       routes={routes}
-      headerRight={activityLogSheet}
+      headerRight={<RightSheet activities={recentActivities} />}
     >
       
       {activeTab === "sales" && (
