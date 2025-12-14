@@ -535,26 +535,6 @@ function App() {
   }
 
   const renderTicketSales = () => {
-    if (!selectedTrip) {
-      return (
-        <div className="h-[calc(100vh-140px)] flex items-center justify-center">
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-12 flex flex-col items-center justify-center text-slate-400 border-dashed max-w-lg text-center">
-            <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mb-6 animate-in zoom-in duration-300">
-              <BusFront size={48} className="opacity-20 text-slate-900" />
-            </div>
-            <h3 className="text-xl font-medium text-slate-700">
-              Chưa chọn chuyến xe
-            </h3>
-            <p className="mt-2 text-sm text-slate-500">
-              Vui lòng chọn <strong>Chiều đi/về</strong>, <strong>Ngày</strong>{" "}
-              và <strong>Chuyến xe</strong> trên thanh công cụ phía trên để bắt
-              đầu bán vé.
-            </p>
-          </div>
-        </div>
-      );
-    }
-
     return (
       <div className="h-[calc(100vh-140px)] flex flex-col md:flex-row gap-4 animate-in fade-in duration-300">
         {/* LEFT COLUMN: SEAT MAP (Dark Navy Header, Gentle Body) */}
@@ -567,30 +547,38 @@ function App() {
                 <BusFront size={16} />
               </div>
 
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-sm font-bold text-white tracking-tight leading-none">
-                    {selectedTrip.name}
-                  </h2>
-                  <Badge
-                    variant="warning"
-                    className="bg-yellow-500 text-indigo-950 border-transparent hover:bg-yellow-400 text-[10px] px-1.5 h-4 font-bold"
-                  >
-                    {selectedTrip.type === BusType.CABIN
-                      ? "Xe Phòng"
-                      : "Giường Đơn"}
-                  </Badge>
-                </div>
+              {selectedTrip ? (
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-sm font-bold text-white tracking-tight leading-none">
+                      {selectedTrip.name}
+                    </h2>
+                    <Badge
+                      variant="warning"
+                      className="bg-yellow-500 text-indigo-950 border-transparent hover:bg-yellow-400 text-[10px] px-1.5 h-4 font-bold"
+                    >
+                      {selectedTrip.type === BusType.CABIN
+                        ? "Xe Phòng"
+                        : "Giường Đơn"}
+                    </Badge>
+                  </div>
 
-                <div className="flex items-center text-[10px] text-white gap-2 mt-0.5">
-                  <span className="font-bold">{selectedTrip.licensePlate}</span>
-                  <span className="w-0.5 h-2 bg-indigo-800"></span>
-                  <span className="flex items-center">
-                    <Clock size={10} className="mr-1 opacity-70" />
-                    {selectedTrip.departureTime.split(" ")[1]}
-                  </span>
+                  <div className="flex items-center text-[10px] text-white gap-2 mt-0.5">
+                    <span className="font-bold">
+                      {selectedTrip.licensePlate}
+                    </span>
+                    <span className="w-0.5 h-2 bg-indigo-800"></span>
+                    <span className="flex items-center">
+                      <Clock size={10} className="mr-1 opacity-70" />
+                      {selectedTrip.departureTime.split(" ")[1]}
+                    </span>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="text-white/60 text-sm font-medium">
+                  Chưa chọn chuyến xe
+                </div>
+              )}
             </div>
 
             {/* Right Side: Legend */}
@@ -628,12 +616,21 @@ function App() {
 
           {/* Scrollable Map - Gentle Background */}
           <div className="flex-1 overflow-y-auto p-4 bg-slate-50">
-            <SeatMap
-              seats={selectedTrip.seats}
-              busType={selectedTrip.type}
-              onSeatClick={handleSeatClick}
-              bookings={tripBookings}
-            />
+            {selectedTrip ? (
+              <SeatMap
+                seats={selectedTrip.seats}
+                busType={selectedTrip.type}
+                onSeatClick={handleSeatClick}
+                bookings={tripBookings}
+              />
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-slate-300">
+                <BusFront size={48} className="mb-4 opacity-20" />
+                <p className="text-sm font-medium">
+                  Vui lòng chọn chuyến xe để xem sơ đồ ghế
+                </p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -674,7 +671,7 @@ function App() {
               <form
                 id="booking-form"
                 onSubmit={handleBookingSubmit}
-                className="space-y-2.5"
+                className={`space-y-2.5 ${!selectedTrip ? "opacity-50 pointer-events-none" : ""}`}
               >
                 {/* Phone Input */}
                 <div>
@@ -684,10 +681,11 @@ function App() {
                       name="phone"
                       value={bookingForm.phone}
                       onChange={handleInputChange}
-                      className="w-full pl-6 pr-2 py-1.5 bg-indigo-900/50 border border-transparent rounded-md text-xs text-white placeholder-indigo-300 focus:bg-indigo-900 focus:ring-1 focus:ring-yellow-400 outline-none transition-all"
+                      className="w-full pl-6 pr-2 py-1.5 bg-indigo-900/50 border border-transparent rounded-md text-xs text-white placeholder-indigo-300 focus:bg-indigo-900 focus:ring-1 focus:ring-yellow-400 outline-none transition-all disabled:cursor-not-allowed"
                       placeholder="Số điện thoại"
                       required
                       autoFocus
+                      disabled={!selectedTrip}
                     />
                     <Phone
                       className="absolute left-2 top-2 text-indigo-300"
@@ -709,8 +707,9 @@ function App() {
                       value={bookingForm.pickup}
                       onChange={handleInputChange}
                       onBlur={handleLocationBlur}
-                      className="w-full pl-6 pr-2 py-1.5 bg-indigo-900/50 border border-transparent rounded-md text-xs text-white placeholder-indigo-300 focus:bg-indigo-900 focus:ring-1 focus:ring-green-400 outline-none transition-all"
+                      className="w-full pl-6 pr-2 py-1.5 bg-indigo-900/50 border border-transparent rounded-md text-xs text-white placeholder-indigo-300 focus:bg-indigo-900 focus:ring-1 focus:ring-green-400 outline-none transition-all disabled:cursor-not-allowed"
                       placeholder="Điểm đón"
+                      disabled={!selectedTrip}
                     />
                   </div>
                   <div className="relative">
@@ -724,8 +723,9 @@ function App() {
                       value={bookingForm.dropoff}
                       onChange={handleInputChange}
                       onBlur={handleLocationBlur}
-                      className="w-full pl-6 pr-2 py-1.5 bg-indigo-900/50 border border-transparent rounded-md text-xs text-white placeholder-indigo-300 focus:bg-indigo-900 focus:ring-1 focus:ring-red-400 outline-none transition-all"
+                      className="w-full pl-6 pr-2 py-1.5 bg-indigo-900/50 border border-transparent rounded-md text-xs text-white placeholder-indigo-300 focus:bg-indigo-900 focus:ring-1 focus:ring-red-400 outline-none transition-all disabled:cursor-not-allowed"
                       placeholder="Điểm trả"
+                      disabled={!selectedTrip}
                     />
                   </div>
                 </div>
@@ -740,8 +740,9 @@ function App() {
                     name="note"
                     value={bookingForm.note}
                     onChange={handleInputChange}
-                    className="w-full pl-6 pr-2 py-1.5 bg-indigo-900/50 border border-transparent rounded-md text-xs font-medium text-white placeholder-indigo-300 focus:bg-indigo-900 focus:ring-1 focus:ring-yellow-400 outline-none resize-none h-8 transition-all"
+                    className="w-full pl-6 pr-2 py-1.5 bg-indigo-900/50 border border-transparent rounded-md text-xs font-medium text-white placeholder-indigo-300 focus:bg-indigo-900 focus:ring-1 focus:ring-yellow-400 outline-none resize-none h-8 transition-all disabled:cursor-not-allowed"
                     placeholder="Ghi chú..."
+                    disabled={!selectedTrip}
                   />
                 </div>
 
@@ -770,7 +771,8 @@ function App() {
                         name="paidCash"
                         value={bookingForm.paidCash.toLocaleString("vi-VN")}
                         onChange={handleMoneyChange}
-                        className="w-full pl-8 pr-2 py-1 bg-indigo-900/50 border border-transparent rounded text-[11px] font-bold text-right focus:ring-1 focus:ring-green-400 outline-none text-white h-7 placeholder-indigo-500"
+                        className="w-full pl-8 pr-2 py-1 bg-indigo-900/50 border border-transparent rounded text-[11px] font-bold text-right focus:ring-1 focus:ring-green-400 outline-none text-white h-7 placeholder-indigo-500 disabled:cursor-not-allowed"
+                        disabled={!selectedTrip}
                       />
                     </div>
                     <div className="relative">
@@ -783,7 +785,8 @@ function App() {
                         name="paidTransfer"
                         value={bookingForm.paidTransfer.toLocaleString("vi-VN")}
                         onChange={handleMoneyChange}
-                        className="w-full pl-8 pr-2 py-1 bg-indigo-900/50 border border-transparent rounded text-[11px] font-bold text-right focus:ring-1 focus:ring-blue-400 outline-none text-white h-7 placeholder-indigo-500"
+                        className="w-full pl-8 pr-2 py-1 bg-indigo-900/50 border border-transparent rounded text-[11px] font-bold text-right focus:ring-1 focus:ring-blue-400 outline-none text-white h-7 placeholder-indigo-500 disabled:cursor-not-allowed"
+                        disabled={!selectedTrip}
                       />
                     </div>
                   </div>
@@ -828,7 +831,7 @@ function App() {
                 variant="outline"
                 className="flex-1 bg-indigo-900/50 border-indigo-800 text-indigo-200 hover:bg-indigo-800 hover:text-white h-8 text-xs font-medium"
                 onClick={cancelSelection}
-                disabled={selectedSeats.length === 0}
+                disabled={!selectedTrip || selectedSeats.length === 0}
               >
                 <RotateCcw size={13} className="mr-1.5" /> Hủy
               </Button>
@@ -836,7 +839,7 @@ function App() {
                 type="submit"
                 form="booking-form"
                 className="flex-[2] bg-yellow-500 hover:bg-yellow-400 text-indigo-950 font-bold h-8 text-xs shadow-sm border border-transparent"
-                disabled={selectedSeats.length === 0}
+                disabled={!selectedTrip || selectedSeats.length === 0}
               >
                 <CheckCircle2 size={13} className="mr-1.5" /> Đặt vé
               </Button>
@@ -863,7 +866,8 @@ function App() {
                     value={manifestSearch}
                     onChange={(e) => setManifestSearch(e.target.value)}
                     placeholder="Tìm SĐT hoặc số ghế..."
-                    className="w-full pl-8 pr-7 py-1.5 text-xs border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-white placeholder-slate-400"
+                    className="w-full pl-8 pr-7 py-1.5 text-xs border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-white placeholder-slate-400 disabled:bg-slate-50 disabled:text-slate-400"
+                    disabled={!selectedTrip}
                   />
                   {manifestSearch && (
                       <button 
@@ -888,7 +892,7 @@ function App() {
                      <>
                         <Ticket size={24} className="mb-2 opacity-20" />
                         <span className="text-[10px] text-center">
-                          Chưa có vé nào được đặt
+                          {selectedTrip ? "Chưa có vé nào được đặt" : "Chưa chọn chuyến xe"}
                         </span>
                      </>
                   )}
