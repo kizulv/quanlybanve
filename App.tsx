@@ -114,17 +114,21 @@ function App() {
   };
 
   // -- HISTORY SEARCH LOGIC --
-  const passengerHistory = useMemo(() => {
+  
+  // 1. Get ALL matches (for total count badge)
+  const historyMatches = useMemo(() => {
     const cleanInput = bookingForm.phone.replace(/\D/g, "");
     if (cleanInput.length < 3) return []; // Start searching after 3 digits
 
-    // Filter all bookings matches phone
-    const matches = bookings.filter((b) =>
+    return bookings.filter((b) =>
       b.passenger.phone.replace(/\D/g, "").includes(cleanInput)
     );
+  }, [bookings, bookingForm.phone]);
 
-    // Group by unique route (Pickup -> Dropoff)
-    // Map key: "Pickup|Dropoff"
+  // 2. Process for Display (Unique Routes List)
+  const passengerHistory = useMemo(() => {
+    // Group by unique route (Pickup -> Dropoff) to avoid duplicates
+    // We only keep the MOST RECENT usage of a specific route pair
     const uniqueRoutes = new Map<
       string,
       {
@@ -132,41 +136,29 @@ function App() {
         dropoff: string;
         phone: string;
         lastDate: string;
-        count: number;
-        lastTripName: string;
       }
     >();
 
-    matches.forEach((b) => {
+    historyMatches.forEach((b) => {
       const pickup = b.passenger.pickupPoint || "";
       const dropoff = b.passenger.dropoffPoint || "";
-      if (!pickup && !dropoff) return; // Skip empty ones
+      
+      // Skip if both are empty as it's not useful history
+      if (!pickup && !dropoff) return;
 
-      // Normalize key to avoid duplicates with case sensitivity
-      const key = `${pickup.toLowerCase()}|${dropoff.toLowerCase()}`;
+      // Normalize key: remove spaces, lowercase to ensure exact duplicate detection
+      const key = `${pickup.toLowerCase().trim()}|${dropoff.toLowerCase().trim()}`;
+      
+      const existing = uniqueRoutes.get(key);
+      const isNewer = existing ? new Date(b.createdAt) > new Date(existing.lastDate) : true;
 
-      // Find trip name for context
-      const trip = trips.find((t) => t.id === b.busId);
-
-      if (!uniqueRoutes.has(key)) {
+      if (!existing || isNewer) {
         uniqueRoutes.set(key, {
-          pickup,
-          dropoff,
-          phone: formatPhoneNumber(b.passenger.phone), // Ensure formatted
+          pickup: b.passenger.pickupPoint || "", // Keep original casing
+          dropoff: b.passenger.dropoffPoint || "", // Keep original casing
+          phone: formatPhoneNumber(b.passenger.phone), // Ensure consistent format
           lastDate: b.createdAt,
-          count: 1,
-          lastTripName: trip?.route || "Chuyến cũ",
         });
-      } else {
-        const existing = uniqueRoutes.get(key)!;
-        existing.count++;
-        if (new Date(b.createdAt) > new Date(existing.lastDate)) {
-          existing.lastDate = b.createdAt;
-          // Prefer the capitalization of the most recent booking
-          existing.pickup = pickup;
-          existing.dropoff = dropoff;
-          existing.phone = formatPhoneNumber(b.passenger.phone);
-        }
       }
     });
 
@@ -175,8 +167,8 @@ function App() {
         (a, b) =>
           new Date(b.lastDate).getTime() - new Date(a.lastDate).getTime()
       )
-      .slice(0, 5); // Take top 5 recent
-  }, [bookings, bookingForm.phone, trips]);
+      .slice(0, 5); // Take top 5 recent unique routes
+  }, [historyMatches]);
 
   const applyHistory = (item: (typeof passengerHistory)[0]) => {
     setBookingForm((prev) => ({
@@ -759,7 +751,11 @@ function App() {
                     <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-lg shadow-xl border border-slate-200 overflow-hidden z-[50] animate-in fade-in zoom-in-95 duration-200">
                       <div className="bg-slate-50 px-3 py-1.5 border-b border-slate-100 flex justify-between items-center">
                         <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 uppercase">
-                          <History size={10} /> Lịch sử
+                          <History size={10} /> 
+                          Lịch sử
+                          <span className="ml-1 bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded-full text-[9px] min-w-[16px] text-center">
+                            {historyMatches.length}
+                          </span>
                         </div>
                         <button
                           title="Đóng"
