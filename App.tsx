@@ -1031,11 +1031,11 @@ function App() {
 
                         {/* Row 2: Ticket Count/Seat List + Total Price */}
                         <div className="flex justify-between items-start mb-0.5">
-                          <div className="flex items-start gap-1.5 pr-1 max-w-[65%]">
+                          <div className="flex items-start gap-1.5 pr-1">
                             <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-1 rounded border border-slate-200 shrink-0 h-4 flex items-center">
-                              {group.seats.length}
+                              {group.seats.length} Vé
                             </span>
-                            <div className="text-[11px] font-bold text-slate-800 break-words leading-tight">
+                            <div className="flex items-center text-[11px] font-bold text-slate-800 break-words leading-tight">
                               {group.seats.join(", ")}
                             </div>
                           </div>
@@ -1044,29 +1044,6 @@ function App() {
                             {group.totalPrice.toLocaleString("vi-VN")}
                           </div>
                         </div>
-
-                        {/* Row 3: Breakdown (Compact) */}
-                        {(group.paidCash > 0 || group.paidTransfer > 0) && (
-                          <div className="flex justify-end gap-2 text-[9px] mt-0.5">
-                            {group.paidCash > 0 && (
-                              <span className="text-green-600 font-medium">
-                                TM: {group.paidCash.toLocaleString()}
-                              </span>
-                            )}
-                            {group.paidTransfer > 0 && (
-                              <span className="text-blue-600 font-medium">
-                                CK: {group.paidTransfer.toLocaleString()}
-                              </span>
-                            )}
-                          </div>
-                        )}
-                        {group.paidCash === 0 && group.paidTransfer === 0 && (
-                          <div className="text-right mt-0.5">
-                            <span className="text-[9px] text-slate-400 italic">
-                              Chưa thanh toán
-                            </span>
-                          </div>
-                        )}
                       </div>
                     );
                   })}
