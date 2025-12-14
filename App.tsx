@@ -797,36 +797,6 @@ function App() {
                       />
                     </div>
                   </div>
-
-                  {/* Balance Text */}
-                  <div className="mt-1 text-[10px] text-right px-1 h-4">
-                    {(() => {
-                      const paid =
-                        bookingForm.paidCash + bookingForm.paidTransfer;
-                      const diff = totalPrice - paid;
-                      if (totalPrice > 0) {
-                        if (diff === 0)
-                          return (
-                            <span className="text-green-400 font-bold">
-                              Đã thanh toán đủ
-                            </span>
-                          );
-                        if (diff > 0)
-                          return (
-                            <span className="text-red-400 font-medium">
-                              Thiếu: {diff.toLocaleString()}đ
-                            </span>
-                          );
-                        if (diff < 0)
-                          return (
-                            <span className="text-blue-300 font-medium">
-                              Thừa: {Math.abs(diff).toLocaleString()}đ
-                            </span>
-                          );
-                      }
-                      return null;
-                    })()}
-                  </div>
                 </div>
               </form>
             </div>
@@ -858,7 +828,7 @@ function App() {
             <div className="px-3 py-2 bg-white border-b border-slate-100 flex justify-between items-center shrink-0">
               <div className="flex items-center gap-1.5 text-slate-800 font-bold text-xs">
                 <Users size={14} className="text-slate-400" />
-                <span>Lịch sử đặt vé ({groupedTripBookings.length})</span>
+                <span>Danh sách đặt vé ({groupedTripBookings.length})</span>
               </div>
             </div>
 
