@@ -102,8 +102,8 @@ function App() {
   // -- UTILS --
   const formatPhoneNumber = (value: string) => {
     const raw = value.replace(/\D/g, "");
-    if (raw.length > 15) return raw.slice(0, 15); 
-    
+    if (raw.length > 15) return raw.slice(0, 15);
+
     if (raw.length > 7) {
       return `${raw.slice(0, 4)} ${raw.slice(4, 7)} ${raw.slice(7)}`;
     }
@@ -759,9 +759,10 @@ function App() {
                     <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-lg shadow-xl border border-slate-200 overflow-hidden z-[50] animate-in fade-in zoom-in-95 duration-200">
                       <div className="bg-slate-50 px-3 py-1.5 border-b border-slate-100 flex justify-between items-center">
                         <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 uppercase">
-                          <History size={10} /> Lịch sử di chuyển
+                          <History size={10} /> Lịch sử
                         </div>
                         <button
+                          title="Đóng"
                           type="button"
                           onMouseDown={(e) => {
                             e.preventDefault(); // Prevent input blur
@@ -797,7 +798,10 @@ function App() {
                               <span className="truncate max-w-[45%] font-medium">
                                 {item.pickup}
                               </span>
-                              <ArrowRight size={10} className="text-slate-300" />
+                              <ArrowRight
+                                size={10}
+                                className="text-slate-300"
+                              />
                               <span className="truncate max-w-[45%] font-medium">
                                 {item.dropoff}
                               </span>
