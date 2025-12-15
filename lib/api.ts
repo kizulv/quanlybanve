@@ -146,4 +146,8 @@ export const api = {
         body: JSON.stringify({ key, value }),
       }),
   },
+
+  maintenance: {
+    fixSeats: () => fetchJson(`${API_URL}/maintenance/fix-seats`, { method: "POST" }),
+  }
 };

@@ -364,8 +364,6 @@ app.put("/api/bookings/:id", async (req, res) => {
           finalStatus = "cancelled"; // Hủy hết ghế -> Đã hủy
       } else {
           finalStatus = "modified"; // Có thay đổi -> Đã thay đổi
-          // Note: If user wants to keep "confirmed" if fully paid, logic can be added here.
-          // But requirement is "Khi chỉnh sửa... trạng thái -> Đã thay đổi"
       }
 
       const seatStatus = isFullyPaid ? "sold" : "booked";
@@ -412,21 +410,11 @@ app.put("/api/bookings/:id", async (req, res) => {
 app.put("/api/bookings/payment", async (req, res) => {
   try {
     const { bookingIds, payment } = req.body;
-
-    // When just updating payment, we usually want to check if it becomes confirmed
-    // But if it was 'modified', we might want to keep it 'modified' or switch to 'confirmed'.
-    // For simplicity, let's switch to 'confirmed' if paid, or 'pending' if not, 
-    // UNLESS it was 'cancelled'.
     
-    // However, the simplest logic that fits general needs:
-    // Update payment -> Check if paid -> 'confirmed' else 'pending'.
-    // If it was 'modified', paying it effectively confirms the new state.
-    
-    // We need to fetch bookings first to check current status
     const targetBookings = await Booking.find({ _id: { $in: bookingIds } });
     
     for (const b of targetBookings) {
-        if (b.status === 'cancelled') continue; // Don't revive cancelled via payment endpoint
+        if (b.status === 'cancelled') continue; 
 
         const totalPaid = (payment.paidCash || 0) + (payment.paidTransfer || 0);
         const newStatus = totalPaid >= b.totalPrice ? "confirmed" : "pending";
@@ -471,6 +459,57 @@ app.put("/api/bookings/payment", async (req, res) => {
     
     res.json({ updatedBookings, updatedTrips: allTrips });
   } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// MAINTENANCE: Fix Ghost Seats
+app.post("/api/maintenance/fix-seats", async (req, res) => {
+  try {
+    // 1. Get all active bookings (not cancelled)
+    const activeBookings = await Booking.find({ status: { $ne: 'cancelled' } });
+
+    // 2. Build a Set of occupied seats: "tripId_seatId"
+    const occupiedMap = new Set();
+    activeBookings.forEach(b => {
+      b.items.forEach(item => {
+        item.seatIds.forEach(seatId => {
+          occupiedMap.add(`${item.tripId}_${seatId}`);
+        });
+      });
+    });
+
+    // 3. Iterate all trips and fix seat statuses
+    const trips = await Trip.find();
+    let fixedCount = 0;
+    const fixedTrips = [];
+
+    for (const trip of trips) {
+      let isModified = false;
+      trip.seats = trip.seats.map(s => {
+        // Only target 'booked' or 'sold' statuses.
+        // Ignore 'held' (manually held without booking) and 'available'.
+        if (s.status === 'booked' || s.status === 'sold') {
+          const key = `${trip.id}_${s.id}`;
+          if (!occupiedMap.has(key)) {
+            // This seat is marked as taken but has no valid booking!
+            isModified = true;
+            fixedCount++;
+            return { ...s, status: 'available' };
+          }
+        }
+        return s;
+      });
+
+      if (isModified) {
+        await trip.save();
+        fixedTrips.push(trip.id);
+      }
+    }
+
+    res.json({ success: true, fixedCount, fixedTrips });
+  } catch (e) {
+    console.error(e);
     res.status(500).json({ error: e.message });
   }
 });

@@ -6,12 +6,13 @@ import { Badge } from './ui/Badge';
 import { 
   Plus, Edit, Trash2, MapPin, BusFront, Settings2, 
   ArrowRight, Clock, Zap, AlertCircle, CheckCircle2, 
-  MoreHorizontal, Phone, LayoutGrid, AlertTriangle
+  MoreHorizontal, Phone, LayoutGrid, AlertTriangle, ShieldCheck, RefreshCw
 } from 'lucide-react';
 import { ManagerRouteModal } from './ManagerRouteModal';
 import { ManagerCarModal } from './ManagerCarModal';
 import { api } from '../lib/api';
 import { Dialog } from './ui/Dialog';
+import { useToast } from './ui/Toast';
 
 interface SettingsViewProps {
   routes: Route[];
@@ -28,6 +29,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   buses, 
   onDataChange 
 }) => {
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('routes');
   
   // Modal States
@@ -40,6 +42,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   // Delete Confirm
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteType, setDeleteType] = useState<'route' | 'bus' | null>(null);
+
+  // Maintenance State
+  const [isFixing, setIsFixing] = useState(false);
 
   // Stats
   const activeBusesCount = buses.filter(b => b.status === 'Hoạt động').length;
@@ -117,6 +122,27 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     }
   };
 
+  const handleFixSeats = async () => {
+    setIsFixing(true);
+    try {
+      const result = await api.maintenance.fixSeats();
+      toast({
+        type: 'success',
+        title: 'Bảo trì hoàn tất',
+        message: `Đã sửa lỗi cho ${result.fixedCount} ghế không hợp lệ.`
+      });
+      await onDataChange();
+    } catch (e) {
+      toast({
+        type: 'error',
+        title: 'Lỗi',
+        message: 'Không thể thực hiện bảo trì.'
+      });
+    } finally {
+      setIsFixing(false);
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto p-6 md:p-8 space-y-8 animate-in fade-in duration-500">
       {/* Header & Stats */}
@@ -160,15 +186,23 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             >
               <BusFront size={18} className="mr-2"/> Đội xe vận hành
             </TabsTrigger>
+            <TabsTrigger 
+              value="system" 
+              className="px-6 py-2.5 rounded-lg text-sm font-semibold data-[state=active]:bg-primary/10 data-[state=active]:text-primary transition-all"
+            >
+              <ShieldCheck size={18} className="mr-2"/> Hệ thống
+            </TabsTrigger>
           </TabsList>
 
-          <Button 
-            onClick={activeTab === 'routes' ? handleAddRoute : handleAddBus} 
-            className="shadow-lg shadow-primary/20 rounded-lg h-11 px-6 font-semibold"
-          >
-             <Plus size={20} className="mr-2"/> 
-             {activeTab === 'routes' ? 'Thêm tuyến mới' : 'Thêm xe mới'}
-          </Button>
+          {activeTab !== 'system' && (
+            <Button 
+              onClick={activeTab === 'routes' ? handleAddRoute : handleAddBus} 
+              className="shadow-lg shadow-primary/20 rounded-lg h-11 px-6 font-semibold"
+            >
+              <Plus size={20} className="mr-2"/> 
+              {activeTab === 'routes' ? 'Thêm tuyến mới' : 'Thêm xe mới'}
+            </Button>
+          )}
         </div>
 
         {/* ROUTES CONTENT */}
@@ -368,6 +402,32 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                </table>
              </div>
           </div>
+        </TabsContent>
+        
+        {/* SYSTEM CONTENT */}
+        <TabsContent value="system" className="space-y-4 focus-visible:outline-none">
+           <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm">
+               <div className="flex items-start gap-6">
+                  <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center text-blue-600 shrink-0">
+                     <RefreshCw size={32} className={isFixing ? "animate-spin" : ""} />
+                  </div>
+                  <div className="flex-1">
+                      <h3 className="text-lg font-bold text-slate-900 mb-2">Bảo trì dữ liệu ghế (Fix Ghost Seats)</h3>
+                      <p className="text-slate-500 mb-6 leading-relaxed max-w-2xl">
+                          Chức năng này sẽ tự động quét toàn bộ hệ thống để tìm các ghế đang ở trạng thái 
+                          <strong> Đã đặt</strong> hoặc <strong>Đã bán</strong> nhưng không thuộc về bất kỳ đơn hàng nào đang hoạt động 
+                          (do lỗi hệ thống hoặc thao tác dang dở). Các ghế lỗi này sẽ được đặt lại thành <strong>Trống (Available)</strong>.
+                      </p>
+                      <Button 
+                        onClick={handleFixSeats} 
+                        disabled={isFixing}
+                        className="bg-blue-600 hover:bg-blue-700"
+                      >
+                         {isFixing ? 'Đang xử lý...' : 'Quét & Sửa lỗi ghế'}
+                      </Button>
+                  </div>
+               </div>
+           </div>
         </TabsContent>
       </Tabs>
 
