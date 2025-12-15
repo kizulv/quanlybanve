@@ -34,6 +34,7 @@ import {
   Clock3,
   ArrowRight,
   History,
+  AlertCircle,
 } from "lucide-react";
 import { api } from "./lib/api";
 import { isSameDay, formatLunarDate, formatTime } from "./utils/dateUtils";
@@ -104,6 +105,8 @@ function AppContent() {
     "booking" | "payment" | "hold"
   >("booking");
 
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+
   // Payment Modal State
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [pendingPaymentContext, setPendingPaymentContext] = useState<{
@@ -147,6 +150,14 @@ function AppContent() {
       return `${raw.slice(0, 4)} ${raw.slice(4)}`;
     }
     return raw;
+  };
+
+  const validatePhoneNumber = (phone: string): string | null => {
+    const raw = phone.replace(/\D/g, "");
+    if (raw.length === 0) return "Vui lòng nhập số điện thoại";
+    if (!raw.startsWith("0")) return "SĐT phải bắt đầu bằng số 0";
+    if (raw.length !== 10) return "SĐT phải đủ 10 số";
+    return null;
   };
 
   // -- HISTORY SEARCH LOGIC --
@@ -217,6 +228,7 @@ function AppContent() {
       pickup: item.pickup,
       dropoff: item.dropoff,
     }));
+    setPhoneError(null); // Clear error if picking from history (assumed valid)
     setShowHistory(false);
   };
 
@@ -361,21 +373,6 @@ function AppContent() {
 
     // Check if seat is HELD
     if (clickedSeat.status === SeatStatus.HELD) {
-      // Option: allow unholding by clicking?
-      // For simplicity, treat as selected logic (toggle) for now, allowing admin to select it to perform other actions?
-      // Or strictly block?
-      // Let's allow selecting it so you can "Release" it by changing status back to Available,
-      // OR simply toggle its status locally.
-      // For now, treat HELD like SELECTED -> clicking it makes it AVAILABLE (un-hold)
-      // But better to treat it like SELECTED but with specific visual.
-
-      // Actually, if it's HELD in DB, it comes as HELD.
-      // To Unhold, we select it, then save as Available?
-      // Let's stick to standard behavior: If HELD, clicking it selects it (if we want to process it) or toggles it.
-      // Simplified: Clicking HELD turns it into SELECTED (so we can re-process it).
-      // Clicking SELECTED turns it into AVAILABLE.
-      // Clicking AVAILABLE turns it into SELECTED.
-
       const updatedSeats = selectedTrip.seats.map((seat) => {
         if (seat.id === clickedSeat.id) {
           // If it was HELD, make it SELECTED so we can operate on it
@@ -434,6 +431,19 @@ function AppContent() {
       });
       return;
     }
+
+    // Validate Phone Strict
+    const error = validatePhoneNumber(bookingForm.phone);
+    if (error) {
+      setPhoneError(error);
+      toast({
+        type: "error",
+        title: "Số điện thoại không hợp lệ",
+        message: error,
+      });
+      return;
+    }
+
     if (!bookingForm.phone) {
       toast({
         type: "warning",
@@ -473,10 +483,7 @@ function AppContent() {
       );
 
       // Update Local State with returned data
-      // result.bookings contains the single created booking
-      // result.updatedTrips contains all affected trips with new seat statuses
-
-      const updatedTripsMap = new Map(
+      const updatedTripsMap = new Map<string, BusTrip>(
         result.updatedTrips.map((t: BusTrip) => [t.id, t])
       );
       setTrips((prev) => prev.map((t) => updatedTripsMap.get(t.id) || t));
@@ -487,6 +494,7 @@ function AppContent() {
       setIsPaymentModalOpen(false);
       setPendingPaymentContext(null);
       setBookingForm((prev) => ({ ...prev, note: "", phone: "" })); // Keep location?
+      setPhoneError(null);
 
       if (selectedTrip) handleTripSelect(selectedTrip.id);
 
@@ -565,6 +573,18 @@ function AppContent() {
       });
       return;
     }
+    
+    const error = validatePhoneNumber(bookingForm.phone);
+    if (error) {
+      setPhoneError(error);
+      toast({
+        type: "error",
+        title: "Số điện thoại không hợp lệ",
+        message: error,
+      });
+      return;
+    }
+
     if (!bookingForm.phone) {
       toast({
         type: "warning",
@@ -606,7 +626,7 @@ function AppContent() {
         );
         setBookings(result.updatedBookings);
         // Sync trips from result.updatedTrips
-        const updatedTripsMap = new Map(
+        const updatedTripsMap = new Map<string, BusTrip>(
           result.updatedTrips.map((t: BusTrip) => [t.id, t])
         );
         setTrips((prev) => prev.map((t) => updatedTripsMap.get(t.id) || t));
@@ -663,6 +683,7 @@ function AppContent() {
         title: "Đã hủy chọn",
         message: "Đã hủy chọn tất cả ghế.",
       });
+      setPhoneError(null);
     } catch (e) {
       console.error(e);
     }
@@ -675,6 +696,7 @@ function AppContent() {
     const { name, value } = e.target;
     if (name === "phone") {
       setBookingForm((prev) => ({ ...prev, [name]: formatPhoneNumber(value) }));
+      setPhoneError(null); // Clear error on change
       setShowHistory(true);
       return;
     }
@@ -684,6 +706,14 @@ function AppContent() {
       return;
     }
     setBookingForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handlePhoneBlur = () => {
+    // Only validate if there is content
+    if (bookingForm.phone.length > 0) {
+      const error = validatePhoneNumber(bookingForm.phone);
+      setPhoneError(error);
+    }
   };
 
   const handleMoneyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -994,16 +1024,24 @@ function AppContent() {
                         name="phone"
                         value={bookingForm.phone}
                         onChange={handleInputChange}
+                        onBlur={handlePhoneBlur}
                         onFocus={() => {
                           if (bookingForm.phone.length >= 3)
                             setShowHistory(true);
                         }}
-                        className="w-full pl-7 pr-2 py-1.5 text-xs rounded bg-indigo-950 border border-indigo-800 text-white placeholder-indigo-400 focus:border-yellow-400 outline-none"
+                        className={`w-full pl-7 pr-2 py-1.5 text-xs rounded bg-indigo-950 border text-white placeholder-indigo-400 outline-none transition-colors
+                          ${
+                            phoneError
+                              ? "border-red-500 focus:border-red-500"
+                              : "border-indigo-800 focus:border-yellow-400"
+                          }`}
                         placeholder="Số điện thoại"
                       />
                       <Phone
                         size={12}
-                        className="absolute left-2 top-2 text-indigo-400"
+                        className={`absolute left-2 top-2 ${
+                          phoneError ? "text-red-500" : "text-indigo-400"
+                        }`}
                       />
 
                       {/* HISTORY DROPDOWN */}
@@ -1068,6 +1106,11 @@ function AppContent() {
                         </div>
                       )}
                     </div>
+                    {phoneError && (
+                      <div className="text-[10px] text-red-400 px-1 flex items-center gap-1">
+                        <AlertCircle size={10} /> {phoneError}
+                      </div>
+                    )}
                     <div className="grid grid-cols-2 gap-2">
                       <input
                         type="text"
