@@ -99,6 +99,23 @@ export const BookingForm: React.FC<BookingFormProps> = ({
     return value.replace(/(?:^|\s)\S/g, (a) => a.toUpperCase());
   };
 
+  // --- HANDLER FOR MODE SWITCHING ---
+  const handleModeSwitch = (mode: "booking" | "payment" | "hold") => {
+      setBookingMode(mode);
+      
+      // Auto-logic for payment fields
+      if (mode === 'payment') {
+          // If switching to payment, autofill full price if currently 0
+          if (bookingForm.paidCash === 0 && bookingForm.paidTransfer === 0) {
+              setBookingForm(prev => ({ ...prev, paidCash: totalPrice, paidTransfer: 0 }));
+          }
+      } else {
+          // If switching to Booking/Hold, clear payment (assume unpaid)
+          // Unless user manually keeps it, but usually switching mode means changing intent
+          setBookingForm(prev => ({ ...prev, paidCash: 0, paidTransfer: 0 }));
+      }
+  };
+
   // --- HISTORY LOGIC ---
   const historyMatches = useMemo(() => {
     const cleanInput = bookingForm.phone.replace(/\D/g, "");
@@ -320,43 +337,41 @@ export const BookingForm: React.FC<BookingFormProps> = ({
          </div>
       )}
 
-      {/* 3. Mode Selector - HIDE if editing */}
-      {!editingBooking && (
-        <div className="px-3 pb-3 bg-indigo-950">
-            <div className="bg-indigo-900/50 p-1 rounded-lg flex border border-indigo-800">
-            <button
-                onClick={() => setBookingMode("booking")}
-                className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-xs font-bold rounded-md transition-all ${
-                bookingMode === "booking"
-                    ? "bg-yellow-500 text-indigo-950 shadow-sm"
-                    : "text-indigo-300 hover:text-white"
-                }`}
-            >
-                <Ticket size={12} /> Đặt vé
-            </button>
-            <button
-                onClick={() => setBookingMode("payment")}
-                className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-xs font-bold rounded-md transition-all ${
-                bookingMode === "payment"
-                    ? "bg-green-600 text-white shadow-sm"
-                    : "text-indigo-300 hover:text-white"
-                }`}
-            >
-                <Banknote size={12} /> Mua vé
-            </button>
-            <button
-                onClick={() => setBookingMode("hold")}
-                className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-xs font-bold rounded-md transition-all ${
-                bookingMode === "hold"
-                    ? "bg-purple-500 text-white shadow-sm"
-                    : "text-indigo-300 hover:text-white"
-                }`}
-            >
-                <Lock size={12} /> Giữ vé
-            </button>
-            </div>
+      {/* 3. Mode Selector - ALWAYS VISIBLE now */}
+      <div className="px-3 pb-3 bg-indigo-950">
+        <div className="bg-indigo-900/50 p-1 rounded-lg flex border border-indigo-800">
+        <button
+            onClick={() => handleModeSwitch("booking")}
+            className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-xs font-bold rounded-md transition-all ${
+            bookingMode === "booking"
+                ? "bg-yellow-500 text-indigo-950 shadow-sm"
+                : "text-indigo-300 hover:text-white"
+            }`}
+        >
+            <Ticket size={12} /> Đặt vé
+        </button>
+        <button
+            onClick={() => handleModeSwitch("payment")}
+            className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-xs font-bold rounded-md transition-all ${
+            bookingMode === "payment"
+                ? "bg-green-600 text-white shadow-sm"
+                : "text-indigo-300 hover:text-white"
+            }`}
+        >
+            <Banknote size={12} /> Mua vé
+        </button>
+        <button
+            onClick={() => handleModeSwitch("hold")}
+            className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-xs font-bold rounded-md transition-all ${
+            bookingMode === "hold"
+                ? "bg-purple-500 text-white shadow-sm"
+                : "text-indigo-300 hover:text-white"
+            }`}
+        >
+            <Lock size={12} /> Giữ vé
+        </button>
         </div>
-      )}
+      </div>
 
       {/* 4. Input Fields */}
       <div className="p-3 border-t bg-indigo-900/50 border-indigo-900 space-y-2 relative">
@@ -380,8 +395,8 @@ export const BookingForm: React.FC<BookingFormProps> = ({
               />
               <Phone size={12} className={`absolute left-2 top-2 ${phoneError ? "text-red-500" : "text-indigo-400"}`} />
 
-              {/* HISTORY DROPDOWN */}
-              {showHistory && passengerHistory.length > 0 && !editingBooking && (
+              {/* HISTORY DROPDOWN - ALWAYS VISIBLE if matches exist, even in edit mode */}
+              {showHistory && passengerHistory.length > 0 && (
                 <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-lg shadow-xl border border-slate-200 overflow-hidden z-[50] animate-in fade-in zoom-in-95 duration-200">
                   <div className="bg-slate-50 px-3 py-1.5 border-b border-slate-100 flex justify-between items-center">
                     <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 uppercase">

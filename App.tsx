@@ -258,22 +258,6 @@ function AppContent() {
       if (editingBooking && booking && booking.id === editingBooking.id) {
          // It matches! This means user wants to REMOVE this seat from the edit session
          // We simply treat it as a toggle -> Change status back to AVAILABLE in the local trip state
-         // Because we 'populated' selectionBasket with these seats as 'SELECTED' in handleSelectBookingFromHistory,
-         // but they are physically 'BOOKED' in the trip data.
-         
-         // SPECIAL LOGIC: 
-         // When editing, we should have temporarily marked these seats as 'SELECTED' in the `trips` state 
-         // inside handleSelectBookingFromHistory to allow normal toggling.
-         
-         // Since they are currently 'SELECTED' (due to basket population), the normal toggle logic below (2.)
-         // will act on them if they are 'SELECTED'. 
-         
-         // BUT, if they are still 'BOOKED' in the global `trips` state, we need to force them to be 'SELECTED' first?
-         // No, the better way is: When selecting a booking to edit, we visually convert those booked seats to SELECTED in the state.
-         
-         // If we are here, it means the seat status is BOOKED/SOLD. 
-         // If it belongs to editingBooking, we should treat it as 'Deselecting'.
-         // We need to update the trip state to mark it as AVAILABLE (effectively removing from basket)
          
          const updatedSeats = selectedTrip.seats.map((seat) => {
             if (seat.id === clickedSeat.id) {
@@ -332,17 +316,10 @@ function AppContent() {
     setTrips((prevTrips) =>
       prevTrips.map((t) => (t.id === selectedTrip.id ? updatedTrip : t))
     );
-
-    // Sync with backend (optional, but good for persistence if implemented)
-    // We skip updating backend for simple selections to keep it snappy, unless essential
   };
 
   const handleSelectBookingFromHistory = (booking: Booking) => {
       setEditingBooking(booking);
-      
-      // 1. Clear current selection first
-      // But we don't want to call API reset, just local state clear
-      // Actually, we need to merge the booking items into the `trips` state as SELECTED seats
       
       // Reset all CURRENTLY SELECTED seats to AVAILABLE first to avoid mixing
       const resetTrips = trips.map(t => ({
@@ -369,6 +346,11 @@ function AppContent() {
       });
 
       setTrips(newTripsState);
+
+      const paid = (booking.payment?.paidCash || 0) + (booking.payment?.paidTransfer || 0);
+      const isFullyPaid = paid >= booking.totalPrice;
+
+      setBookingMode(isFullyPaid ? "payment" : "booking");
 
       setBookingForm({
           phone: booking.passenger.phone,
