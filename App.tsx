@@ -31,7 +31,7 @@ import {
   Zap,
 } from "lucide-react";
 import { api } from "./lib/api";
-import { isSameDay, formatLunarDate } from "./utils/dateUtils";
+import { isSameDay, formatLunarDate, formatTime } from "./utils/dateUtils";
 import { PaymentModal } from "./components/PaymentModal";
 
 function AppContent() {
@@ -147,17 +147,14 @@ function AppContent() {
     });
   }, [trips, selectedDate, selectedDirection]);
 
-  // Update selectedTripId when date changes if needed, 
-  // BUT we don't want to reset it aggressively if the user is just browsing.
-  // However, the Layout needs to know if the selectedTrip is in the current date to highlight it.
-
   const selectedTrip = trips.find((t) => t.id === selectedTripId) || null;
 
   // Filter bookings for the selected trip to pass to SeatMap
+  // UPDATED: Must check inside nested `items` array
   const tripBookings = useMemo(() => {
     if (!selectedTrip) return [];
     return bookings.filter(
-      (b) => b.busId === selectedTrip.id && b.status !== "cancelled"
+      (b) => b.items.some(item => item.tripId === selectedTrip.id) && b.status !== "cancelled"
     );
   }, [bookings, selectedTrip]);
 
@@ -168,11 +165,15 @@ function AppContent() {
     const query = manifestSearch.toLowerCase();
     return tripBookings.filter((b) => {
       const phoneMatch = b.passenger.phone.includes(query);
-      // Check seat IDs in the array
-      const seatMatch = b.seatIds && b.seatIds.some((s) => s.toLowerCase().includes(query));
-      return phoneMatch || seatMatch;
+      const nameMatch = (b.passenger.name || "").toLowerCase().includes(query);
+      // Check seat IDs in the array for THIS trip
+      const seatMatch = b.items.some(item => 
+        item.tripId === selectedTrip?.id && 
+        item.seatIds.some(s => s.toLowerCase().includes(query))
+      );
+      return phoneMatch || nameMatch || seatMatch;
     });
-  }, [tripBookings, manifestSearch]);
+  }, [tripBookings, manifestSearch, selectedTrip]);
 
   // Auto update payment when total changes
   useEffect(() => {
@@ -221,8 +222,11 @@ function AppContent() {
 
     // 1. Check if seat is BOOKED (Payment Update Logic)
     if (clickedSeat.status === SeatStatus.BOOKED) {
-      // Find the booking that contains this seat ID
-      const booking = tripBookings.find(b => b.seatIds && b.seatIds.includes(clickedSeat.id));
+      // Find the booking that contains this seat ID for this trip
+      const booking = tripBookings.find(b => 
+        b.items.some(item => item.tripId === selectedTrip.id && item.seatIds.includes(clickedSeat.id))
+      );
+      
       if (booking) {
         const currentPaid = (booking.payment?.paidCash || 0) + (booking.payment?.paidTransfer || 0);
         if (currentPaid < booking.totalPrice) {
@@ -288,66 +292,44 @@ function AppContent() {
       dropoffPoint: bookingForm.dropoff,
     };
 
-    const totalPaid = isPaid ? (bookingForm.paidCash + bookingForm.paidTransfer) : 0;
+    const payment = isPaid ? {
+       paidCash: bookingForm.paidCash,
+       paidTransfer: bookingForm.paidTransfer
+    } : { paidCash: 0, paidTransfer: 0 };
     
+    // Prepare items for single API call
+    const bookingItems = selectionBasket.map(item => ({
+        tripId: item.trip.id,
+        seats: item.seats
+    }));
+
     try {
-      const newBookings: Booking[] = [];
-      const updatedTripsMap = new Map<string, BusTrip>();
+      // Single API Call
+      const result = await api.bookings.create(
+         bookingItems,
+         passenger,
+         payment
+      );
+
+      // Update Local State with returned data
+      // result.bookings contains the single created booking
+      // result.updatedTrips contains all affected trips with new seat statuses
       
-      const activityDetails: ActivityLog['details'] = [];
-
-      // Execute sequentially to avoid race conditions or use Promise.all
-      for (const item of selectionBasket) {
-         const tripTotal = item.seats.reduce((sum, s) => sum + s.price, 0);
-         const paymentForTrip = isPaid ? {
-             paidCash: item.seats.length * item.seats[0].price, // Simplified: assuming equal price or handled by logic
-             paidTransfer: 0
-         } : { paidCash: 0, paidTransfer: 0 };
-         
-         // Use 4 separate arguments as expected by the API
-         const result = await api.bookings.create(
-            item.trip.id,
-            item.seats,
-            passenger,
-            paymentForTrip
-         );
-
-         newBookings.push(...result.bookings);
-         updatedTripsMap.set(item.trip.id, result.updatedTrip);
-         
-         // Log detail
-         const dateStr = new Date(item.trip.departureTime).toLocaleDateString('vi-VN', {day:'2-digit', month:'2-digit'});
-         activityDetails.push({
-             tripInfo: `${item.trip.route} (${dateStr})`,
-             seats: item.seats.map(s => s.label),
-             totalPrice: tripTotal,
-             isPaid: isPaid
-         });
-      }
-
-      // Update Local State
+      const updatedTripsMap = new Map(result.updatedTrips.map((t: BusTrip) => [t.id, t]));
       setTrips(prev => prev.map(t => updatedTripsMap.get(t.id) || t));
-      setBookings(prev => [...prev, ...newBookings]);
-
-      // Add to Activity Log
-      setRecentActivities(prev => [{
-          id: `ACT-${Date.now()}`,
-          phone: bookingForm.phone,
-          timestamp: new Date(),
-          details: activityDetails
-      }, ...prev]);
+      
+      setBookings(prev => [...prev, ...result.bookings]);
 
       // Reset
       setIsPaymentModalOpen(false);
       setPendingPaymentContext(null);
       
-      // Clean up form slightly but keep context if needed
       if (selectedTrip) handleTripSelect(selectedTrip.id);
       
       toast({ 
           type: 'success', 
           title: isPaid ? "Thanh toán thành công" : "Đặt vé thành công", 
-          message: `Đã tạo ${newBookings.length} đơn cho ${selectionBasket.length} chuyến.`
+          message: `Đã tạo 1 đơn hàng gồm ${selectionBasket.reduce((a,b)=>a+b.seats.length,0)} vé.`
       });
 
     } catch (error) {
@@ -385,7 +367,9 @@ function AppContent() {
              };
              const result = await api.bookings.updatePayment(pendingPaymentContext.bookingIds, payment);
              setBookings(result.updatedBookings);
-             setTrips(prev => prev.map(t => t.id === result.updatedTrip.id ? result.updatedTrip : t));
+             // Sync trips from result.updatedTrips
+             const updatedTripsMap = new Map(result.updatedTrips.map((t: BusTrip) => [t.id, t]));
+             setTrips(prev => prev.map(t => updatedTripsMap.get(t.id) || t));
              
              setIsPaymentModalOpen(false);
              setPendingPaymentContext(null);
@@ -437,7 +421,6 @@ function AppContent() {
   };
   
   const handleMoneyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Same logic as before
     const { name, value } = e.target;
     const numValue = parseInt(value.replace(/\D/g, "") || "0", 10);
     const targetTotal = pendingPaymentContext?.totalPrice || totalBasketPrice;
@@ -461,20 +444,13 @@ function AppContent() {
     let val = bookingForm[field].trim();
     if (!val) return;
 
-    // 1. Title Case (Tự động viết hoa chữ cái đầu)
-    val = val
-      .toLowerCase()
-      .split(" ")
-      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-      .join(" ");
+    val = val.toLowerCase().split(" ").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
 
-    // 2. Mapping cụ thể: Nghệ An -> BX Vinh
     if (val === "Nghệ An") {
       setBookingForm((prev) => ({ ...prev, [field]: "BX Vinh" }));
       return;
     }
 
-    // 3. Tự động thêm BX nếu trùng tên tuyến/địa danh phổ biến
     const commonLocations = [
       "Lai Châu", "Hà Tĩnh", "Sapa", "Hà Nội", "Đà Nẵng", "Sài Gòn", "Đà Lạt",
       "Lào Cai", "Yên Bái", "Sơn La", "Điện Biên", "Cao Bằng", "Thanh Hóa",
@@ -489,8 +465,6 @@ function AppContent() {
 
     setBookingForm((prev) => ({ ...prev, [field]: val }));
   };
-
-  // --- RENDERERS ---
 
   if (isLoading) {
     return (
@@ -507,7 +481,6 @@ function AppContent() {
       selectedDate={selectedDate}
       onDateChange={(d) => {
           setSelectedDate(d);
-          // Don't clear selections when changing date to allow multi-day selection
       }}
       availableTrips={availableTripsForDate}
       selectedTripId={selectedTripId}
@@ -522,9 +495,7 @@ function AppContent() {
         <div className="h-[calc(100vh-140px)] flex flex-col md:flex-row gap-4 animate-in fade-in duration-300">
           {/* LEFT: SEAT MAP */}
           <div className="flex-1 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col overflow-hidden">
-             {/* ... Header & SeatMap (Keep mostly same, just slight visual tweaks) ... */}
               <div className="px-4 h-[54px] bg-gradient-to-r from-indigo-950 via-indigo-900 to-indigo-950 flex justify-between items-center shadow-sm z-10 shrink-0">
-                 {/* Left Info */}
                  <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-lg bg-indigo-900 flex items-center justify-center text-yellow-400 shrink-0 border border-indigo-800">
                         <BusFront size={16} />
@@ -547,7 +518,6 @@ function AppContent() {
                         <div className="text-white text-sm font-medium">Chọn chuyến để xem ghế</div>
                     )}
                  </div>
-                 {/* Legend (Hidden on small screens) */}
                  <div className="flex gap-4 text-[12px] text-white hidden lg:flex">
                     <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded border border-white/50 bg-white/10"></div> Trống</div>
                     <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded bg-primary border border-white"></div> Đang chọn</div>
@@ -563,6 +533,7 @@ function AppContent() {
                     busType={selectedTrip.type}
                     onSeatClick={handleSeatClick}
                     bookings={tripBookings}
+                    currentTripId={selectedTrip.id}
                   />
                 ) : (
                   <div className="h-full flex flex-col items-center justify-center text-slate-300">
@@ -573,9 +544,10 @@ function AppContent() {
               </div>
           </div>
 
-          {/* RIGHT: BOOKING FORM (UPDATED FOR MULTI-TRIP) */}
+          {/* RIGHT: BOOKING FORM */}
           <div className="w-full md:w-[320px] xl:w-[360px] flex flex-col gap-2 shrink-0 h-full">
             <div className="bg-indigo-950 rounded-xl shadow-lg border border-indigo-900 flex flex-col overflow-visible shrink-0 z-20 max-h-[60%]">
+               {/* Basket Header & List similar to before... */}
                <div className="px-3 h-[50px] bg-gradient-to-r from-indigo-950 via-indigo-900 to-indigo-950 border-b border-indigo-900 flex items-center justify-between shrink-0 rounded-t-xl">
                   <div className="flex items-center gap-2 text-sm font-bold text-white">
                       <Ticket size={16} className="text-yellow-400" />
@@ -597,7 +569,6 @@ function AppContent() {
                </div>
 
                <div className="p-3 overflow-y-auto flex-1 space-y-3 bg-indigo-950">
-                  {/* BASKET ITEMS LIST */}
                   {selectionBasket.length === 0 ? (
                       <div className="text-center py-6 text-indigo-300/50 italic text-sm border-2 border-dashed border-indigo-900 rounded-lg">
                           Chưa chọn ghế nào
@@ -644,8 +615,8 @@ function AppContent() {
                       </div>
                   )}
                </div>
-
-               {/* FORM INPUTS */}
+               
+               {/* Input Form... same as before */}
                <div className="p-3 bg-indigo-900/50 border-t border-indigo-900 space-y-2">
                    <div className="relative">
                       <input 
@@ -707,7 +678,7 @@ function AppContent() {
                </div>
             </div>
 
-            {/* MANIFEST LIST (Simplified) */}
+            {/* MANIFEST LIST */}
              <div className="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col flex-1 min-h-0 overflow-hidden">
                 <div className="px-3 py-2 bg-white border-b border-slate-100 flex justify-between items-center shrink-0">
                   <div className="flex items-center gap-1.5 text-slate-800 font-bold text-xs">
@@ -715,7 +686,7 @@ function AppContent() {
                     <span>Danh sách đặt vé ({tripBookings.length})</span>
                   </div>
                 </div>
-                 {/* Search Bar */}
+                
                 <div className="p-2 border-b border-slate-100 bg-slate-50/50">
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
@@ -741,11 +712,14 @@ function AppContent() {
                         const totalPaid = (booking.payment?.paidCash || 0) + (booking.payment?.paidTransfer || 0);
                         const isFullyPaid = totalPaid >= booking.totalPrice;
                         const timeStr = new Date(booking.createdAt).toLocaleTimeString("vi-VN", {hour: "2-digit", minute: "2-digit"});
+                        
+                        // Extract seats for THIS selected trip
+                        const tripItem = booking.items.find(i => i.tripId === selectedTrip?.id);
+                        const seatsToShow = tripItem ? tripItem.seatIds : [];
 
                         return (
                              <div
                                 key={idx}
-                                // Click to pay remaining
                                 onClick={() => {
                                     const remaining = booking.totalPrice - totalPaid;
                                     if(remaining > 0) {
@@ -754,7 +728,7 @@ function AppContent() {
                                             bookingIds: [booking.id],
                                             totalPrice: booking.totalPrice
                                         });
-                                        setBookingForm(prev => ({ ...prev, paidCash: booking.totalPrice, paidTransfer: 0 }));
+                                        setBookingForm(prev => ({ ...prev, paidCash: booking.totalPrice - (booking.payment?.paidTransfer||0), paidTransfer: booking.payment?.paidTransfer||0 }));
                                         setIsPaymentModalOpen(true);
                                     }
                                 }}
@@ -766,7 +740,7 @@ function AppContent() {
                                 </div>
                                 <div className="flex justify-between items-start">
                                      <div className="flex gap-1 text-[11px] text-slate-600 font-medium w-[70%] flex-wrap">
-                                         {booking.seatIds && booking.seatIds.map(s => <span key={s} className="bg-slate-100 px-1 rounded">{s}</span>)}
+                                         {seatsToShow.map(s => <span key={s} className="bg-slate-100 px-1 rounded">{s}</span>)}
                                      </div>
                                      <div className={`text-xs font-bold ${isFullyPaid ? 'text-indigo-600' : 'text-yellow-600'}`}>
                                          {isFullyPaid ? booking.totalPrice.toLocaleString('vi-VN') : 'Vé đặt'}
@@ -781,11 +755,9 @@ function AppContent() {
         </div>
       )}
 
-      {/* ... Other Tabs (Tickets, Schedule, Settings) ... */}
-      
+      {/* TICKET LIST TAB */}
       {activeTab === "tickets" && (
          <div className="space-y-6 animate-in fade-in duration-500">
-            {/* ... Ticket Table ... */}
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <div className="p-6 border-b border-slate-100 flex justify-between items-center">
                    <h2 className="text-lg font-bold text-slate-900">Danh sách vé gần đây</h2>
@@ -796,39 +768,42 @@ function AppContent() {
                            <tr>
                                <th className="px-6 py-4">Mã vé</th>
                                <th className="px-6 py-4">Khách hàng</th>
-                               <th className="px-6 py-4">Hành trình</th>
-                               <th className="px-6 py-4">Ghế</th>
+                               <th className="px-6 py-4">Chi tiết (Chuyến/Ghế)</th>
                                <th className="px-6 py-4">Thanh toán</th>
-                               <th className="px-6 py-4">Ngày đặt</th>
+                               <th className="px-6 py-4">Ngày tạo</th>
                            </tr>
                        </thead>
                        <tbody className="divide-y divide-slate-100">
                            {bookings.map(booking => {
-                               const trip = trips.find(t => t.id === booking.busId);
                                const totalPaid = (booking.payment?.paidCash || 0) + (booking.payment?.paidTransfer || 0);
                                const isFullyPaid = totalPaid >= booking.totalPrice;
                                return (
                                    <tr key={booking.id} className="hover:bg-slate-50">
-                                       <td className="px-6 py-4 font-medium text-primary">{booking.id}</td>
-                                       <td className="px-6 py-4">
+                                       <td className="px-6 py-4 font-medium text-primary align-top">{booking.id.slice(-6).toUpperCase()}</td>
+                                       <td className="px-6 py-4 align-top">
                                            <div className="font-bold">{booking.passenger.name}</div>
                                            <div className="text-xs text-slate-500">{booking.passenger.phone}</div>
                                        </td>
                                        <td className="px-6 py-4">
-                                           <div className="truncate max-w-[200px]">{trip?.route}</div>
-                                            <div className="text-xs text-slate-500">{trip?.departureTime}</div>
-                                       </td>
-                                       <td className="px-6 py-4">
-                                           <div className="flex flex-wrap gap-1">
-                                               {(booking.seatIds || []).map(s => <Badge key={s}>{s}</Badge>)}
+                                           <div className="flex flex-col gap-2">
+                                               {booking.items.map((item, i) => (
+                                                   <div key={i} className="text-xs border-l-2 border-slate-200 pl-2">
+                                                       <div className="font-semibold text-slate-700">{item.route} ({item.licensePlate})</div>
+                                                       <div className="text-slate-500">{new Date(item.tripDate).toLocaleDateString('vi-VN', {day:'2-digit', month:'2-digit'})} - {formatTime(item.tripDate)}</div>
+                                                       <div className="flex gap-1 mt-1">
+                                                           {item.seatIds.map(s => <Badge key={s} className="text-[10px] h-4 px-1">{s}</Badge>)}
+                                                       </div>
+                                                   </div>
+                                               ))}
                                            </div>
                                        </td>
-                                       <td className="px-6 py-4">
+                                       <td className="px-6 py-4 align-top">
                                            <div className={`font-bold ${isFullyPaid ? 'text-slate-900' : 'text-yellow-600'}`}>
                                               {isFullyPaid ? `${booking.totalPrice.toLocaleString("vi-VN")} đ` : "Vé đặt"}
                                            </div>
+                                           {!isFullyPaid && <div className="text-xs text-slate-400 mt-1">Đã cọc: {totalPaid.toLocaleString('vi-VN')}</div>}
                                        </td>
-                                       <td className="px-6 py-4 text-slate-500">{new Date(booking.createdAt).toLocaleDateString("vi-VN")}</td>
+                                       <td className="px-6 py-4 text-slate-500 align-top">{new Date(booking.createdAt).toLocaleDateString("vi-VN")}</td>
                                    </tr>
                                )
                            })}

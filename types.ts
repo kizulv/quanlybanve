@@ -1,7 +1,7 @@
 
 export enum BusType {
-  SLEEPER = "SLEEPER", // Xe Giường đơn (formerly SLEEPER_41)
-  CABIN = "CABIN", // Xe Phòng (formerly ROOM_22)
+  SLEEPER = "SLEEPER", // Xe Giường đơn
+  CABIN = "CABIN", // Xe Phòng
 }
 
 export enum SeatStatus {
@@ -14,7 +14,7 @@ export enum SeatStatus {
 export interface Seat {
   id: string;
   label: string;
-  floor: 1 | 2; // 1 = Lower, 2 = Upper
+  floor: 1 | 2;
   status: SeatStatus;
   price: number;
   row?: number;
@@ -22,22 +22,32 @@ export interface Seat {
 }
 
 export interface Passenger {
-  name?: string; // Made Optional
+  name?: string;
   phone: string;
   email?: string;
   note?: string;
-  pickupPoint?: string; // New
-  dropoffPoint?: string; // New
+  pickupPoint?: string;
+  dropoffPoint?: string;
+}
+
+// New Interface for Line Items
+export interface BookingItem {
+  tripId: string;
+  tripDate: string; // Snapshot
+  route: string;    // Snapshot
+  licensePlate: string; // Snapshot
+  seatIds: string[];
+  price: number; // Total price for these seats
 }
 
 export interface Booking {
   id: string;
-  seatIds: string[]; // Changed from single seatId to array
-  busId: string;
   passenger: Passenger;
+  items: BookingItem[]; // CHANGED: Array of trips/seats
   status: "pending" | "confirmed" | "cancelled";
   createdAt: string;
   totalPrice: number;
+  totalTickets: number; // New field
   payment?: {
     paidCash: number;
     paidTransfer: number;
@@ -46,16 +56,16 @@ export interface Booking {
 
 export interface BusTrip {
   id: string;
-  routeId: string | number; // New field: Strict Foreign Key
+  routeId: string | number;
   name: string;
-  route: string; // Keep for display purposes (Snapshot)
+  route: string;
   departureTime: string;
   type: BusType;
   licensePlate: string;
   driver: string;
   basePrice: number;
   seats: Seat[];
-  direction?: 'outbound' | 'inbound'; // New field: Direction of the trip
+  direction?: 'outbound' | 'inbound';
 }
 
 export interface RouteStats {
@@ -67,35 +77,35 @@ export interface RouteStats {
 
 export interface Route {
   id: number | string;
-  name: string; // Generated: "${origin} - ${destination}"
-  origin?: string; // Bến đi
-  destination?: string; // Bến đến
-  price?: number; // Giá vé niêm yết
-  departureTime?: string; // Giờ xuất bến đi
-  returnTime?: string; // Giờ xuất bến đến
-  isEnhanced?: boolean; // Tuyến tăng cường
-  status?: 'active' | 'inactive'; // Tình trạng: Hoạt động / Hủy
+  name: string;
+  origin?: string;
+  destination?: string;
+  price?: number;
+  departureTime?: string;
+  returnTime?: string;
+  isEnhanced?: boolean;
+  status?: 'active' | 'inactive';
 }
 
 export interface BusLayoutConfig {
   floors: 1 | 2;
   rows: number;
   cols: number;
-  activeSeats: string[]; // Format: "floor-row-col" (e.g., "1-0-0") OR "floor-bench-index"
-  seatLabels?: Record<string, string>; // Map coordinate key to custom label "1-0-0": "A01"
-  hasRearBench?: boolean; // Option for 5 seats at the back
-  benchFloors?: number[]; // [1, 2] means both floors have bench
+  activeSeats: string[];
+  seatLabels?: Record<string, string>;
+  hasRearBench?: boolean;
+  benchFloors?: number[];
 }
 
 export interface Bus {
   id: string;
   plate: string;
-  phoneNumber?: string; // New field
+  phoneNumber?: string;
   type: BusType;
   seats: number;
   status: "Hoạt động" | "Ngưng hoạt động" | "Đã bán" | "Xe thuê/Tăng cường";
   layoutConfig?: BusLayoutConfig;
-  defaultRouteId?: string; // New field added
+  defaultRouteId?: string;
 }
 
 export interface ActivityLog {
@@ -106,6 +116,6 @@ export interface ActivityLog {
     tripInfo: string;
     seats: string[];
     totalPrice: number;
-    isPaid: boolean; // true if fully paid, false if booking only
+    isPaid: boolean;
   }[];
 }

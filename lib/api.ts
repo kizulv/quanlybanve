@@ -106,15 +106,14 @@ export const api = {
   bookings: {
     getAll: () => fetchJson(`${API_URL}/bookings`),
     create: (
-      tripId: string,
-      seats: Seat[],
+      items: { tripId: string; seats: Seat[] }[],
       passenger: Passenger,
       payment?: { paidCash: number; paidTransfer: number }
     ) =>
       fetchJson(`${API_URL}/bookings`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tripId, seats, passenger, payment }),
+        body: JSON.stringify({ items, passenger, payment }),
       }),
     updatePayment: (
       bookingIds: string[],
