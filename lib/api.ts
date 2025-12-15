@@ -4,9 +4,11 @@ import { Bus, BusTrip, Route, Passenger, Seat } from '../types';
 // Tự động xác định URL API dựa trên địa chỉ trình duyệt đang chạy
 // Giúp sửa lỗi CORS khi truy cập qua IP mạng LAN (ví dụ: 192.168.1.x)
 const getApiUrl = () => {
-  if (typeof window !== 'undefined') {
+  // Kiểm tra nếu window tồn tại và hostname có giá trị (không rỗng)
+  if (typeof window !== 'undefined' && window.location && window.location.hostname) {
     return `http://${window.location.hostname}:5000/api`;
   }
+  // Fallback về localhost nếu không xác định được hostname
   return 'http://localhost:5000/api';
 };
 
