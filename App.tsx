@@ -4,7 +4,6 @@ import { SeatMap } from "./components/SeatMap";
 import { SettingsView } from "./components/SettingsView";
 import { ScheduleView } from "./components/ScheduleView";
 import { Badge } from "./components/ui/Badge";
-import { Button } from "./components/ui/Button";
 import { ToastProvider, useToast } from "./components/ui/Toast";
 import { RightSheet } from "./components/RightSheet";
 import { BookingForm } from "./components/BookingForm";
@@ -16,26 +15,15 @@ import {
   Booking,
   Route,
   Bus,
-  BusType,
-  ActivityLog,
 } from "./types";
 import {
   BusFront,
-  Ticket,
   Loader2,
-  Phone,
-  Banknote,
-  RotateCcw,
   Users,
   Search,
   X,
-  Zap,
-  CheckCircle2,
-  Lock,
   Clock3,
-  ArrowRight,
-  History,
-  AlertCircle,
+  Keyboard,
 } from "lucide-react";
 import { api } from "./lib/api";
 import { isSameDay, formatLunarDate, formatTime } from "./utils/dateUtils";
@@ -217,7 +205,12 @@ function AppContent() {
 
     // Auto-fill location based on route if form is empty
     const trip = trips.find((t) => t.id === tripId);
-    if (trip && !bookingForm.pickup && !bookingForm.dropoff && !editingBooking) {
+    if (
+      trip &&
+      !bookingForm.pickup &&
+      !bookingForm.dropoff &&
+      !editingBooking
+    ) {
       // Logic to find route and fill
       let route = routes.find((r) => r.id === trip.routeId);
       if (!route) route = routes.find((r) => r.name === trip.route);
@@ -229,7 +222,8 @@ function AppContent() {
           trip.direction === "inbound" ? route.origin : route.destination;
 
         // Ensure "BX" prefix logic (simple version)
-        const formatLoc = (loc: string) => loc && !/^bx\s/i.test(loc.trim()) ? `BX ${loc.trim()}` : loc;
+        const formatLoc = (loc: string) =>
+          loc && !/^bx\s/i.test(loc.trim()) ? `BX ${loc.trim()}` : loc;
 
         setBookingForm((prev) => ({
           ...prev,
@@ -244,7 +238,10 @@ function AppContent() {
     if (!selectedTrip) return;
 
     // 1. Check if seat is BOOKED
-    if (clickedSeat.status === SeatStatus.BOOKED || clickedSeat.status === SeatStatus.SOLD) {
+    if (
+      clickedSeat.status === SeatStatus.BOOKED ||
+      clickedSeat.status === SeatStatus.SOLD
+    ) {
       // Find the booking that contains this seat ID for this trip
       const booking = tripBookings.find((b) =>
         b.items.some(
@@ -256,21 +253,21 @@ function AppContent() {
 
       // Check if this booked seat belongs to the CURRENTLY editing booking
       if (editingBooking && booking && booking.id === editingBooking.id) {
-         // It matches! This means user wants to REMOVE this seat from the edit session
-         // We simply treat it as a toggle -> Change status back to AVAILABLE in the local trip state
-         
-         const updatedSeats = selectedTrip.seats.map((seat) => {
-            if (seat.id === clickedSeat.id) {
-               return { ...seat, status: SeatStatus.AVAILABLE };
-            }
-            return seat;
-         });
+        // It matches! This means user wants to REMOVE this seat from the edit session
+        // We simply treat it as a toggle -> Change status back to AVAILABLE in the local trip state
 
-         const updatedTrip = { ...selectedTrip, seats: updatedSeats };
-         setTrips((prevTrips) =>
-            prevTrips.map((t) => (t.id === selectedTrip.id ? updatedTrip : t))
-         );
-         return;
+        const updatedSeats = selectedTrip.seats.map((seat) => {
+          if (seat.id === clickedSeat.id) {
+            return { ...seat, status: SeatStatus.AVAILABLE };
+          }
+          return seat;
+        });
+
+        const updatedTrip = { ...selectedTrip, seats: updatedSeats };
+        setTrips((prevTrips) =>
+          prevTrips.map((t) => (t.id === selectedTrip.id ? updatedTrip : t))
+        );
+        return;
       }
 
       if (booking) {
@@ -319,60 +316,65 @@ function AppContent() {
   };
 
   const handleSelectBookingFromHistory = (booking: Booking) => {
-      setEditingBooking(booking);
-      
-      // Reset all CURRENTLY SELECTED seats to AVAILABLE first to avoid mixing
-      const resetTrips = trips.map(t => ({
-          ...t,
-          seats: t.seats.map(s => s.status === SeatStatus.SELECTED ? { ...s, status: SeatStatus.AVAILABLE } : s)
-      }));
+    setEditingBooking(booking);
 
-      // 2. Convert Booking Items to Selected Seats
-      const newTripsState = resetTrips.map(trip => {
-          const matchingItem = booking.items.find(i => i.tripId === trip.id);
-          if (matchingItem) {
-              return {
-                  ...trip,
-                  seats: trip.seats.map(s => {
-                      if (matchingItem.seatIds.includes(s.id)) {
-                          // Change from BOOKED/SOLD to SELECTED so they show up in basket and are editable
-                          return { ...s, status: SeatStatus.SELECTED };
-                      }
-                      return s;
-                  })
-              };
-          }
-          return trip;
-      });
+    // Reset all CURRENTLY SELECTED seats to AVAILABLE first to avoid mixing
+    const resetTrips = trips.map((t) => ({
+      ...t,
+      seats: t.seats.map((s) =>
+        s.status === SeatStatus.SELECTED
+          ? { ...s, status: SeatStatus.AVAILABLE }
+          : s
+      ),
+    }));
 
-      setTrips(newTripsState);
-
-      const paid = (booking.payment?.paidCash || 0) + (booking.payment?.paidTransfer || 0);
-      const isFullyPaid = paid >= booking.totalPrice;
-
-      setBookingMode(isFullyPaid ? "payment" : "booking");
-
-      setBookingForm({
-          phone: booking.passenger.phone,
-          pickup: booking.passenger.pickupPoint || "",
-          dropoff: booking.passenger.dropoffPoint || "",
-          note: booking.passenger.note || "",
-          paidCash: booking.payment?.paidCash || 0,
-          paidTransfer: booking.payment?.paidTransfer || 0
-      });
-
-      // Navigate to the trip
-      if (booking.items.length > 0) {
-          const firstItem = booking.items[0];
-          const trip = trips.find(t => t.id === firstItem.tripId);
-          if (trip) {
-              const tripDate = new Date(trip.departureTime.split(' ')[0]);
-              if (!isSameDay(tripDate, selectedDate)) {
-                  setSelectedDate(tripDate);
-              }
-              setSelectedTripId(trip.id);
-          }
+    // 2. Convert Booking Items to Selected Seats
+    const newTripsState = resetTrips.map((trip) => {
+      const matchingItem = booking.items.find((i) => i.tripId === trip.id);
+      if (matchingItem) {
+        return {
+          ...trip,
+          seats: trip.seats.map((s) => {
+            if (matchingItem.seatIds.includes(s.id)) {
+              // Change from BOOKED/SOLD to SELECTED so they show up in basket and are editable
+              return { ...s, status: SeatStatus.SELECTED };
+            }
+            return s;
+          }),
+        };
       }
+      return trip;
+    });
+
+    setTrips(newTripsState);
+
+    const paid =
+      (booking.payment?.paidCash || 0) + (booking.payment?.paidTransfer || 0);
+    const isFullyPaid = paid >= booking.totalPrice;
+
+    setBookingMode(isFullyPaid ? "payment" : "booking");
+
+    setBookingForm({
+      phone: booking.passenger.phone,
+      pickup: booking.passenger.pickupPoint || "",
+      dropoff: booking.passenger.dropoffPoint || "",
+      note: booking.passenger.note || "",
+      paidCash: booking.payment?.paidCash || 0,
+      paidTransfer: booking.payment?.paidTransfer || 0,
+    });
+
+    // Navigate to the trip
+    if (booking.items.length > 0) {
+      const firstItem = booking.items[0];
+      const trip = trips.find((t) => t.id === firstItem.tripId);
+      if (trip) {
+        const tripDate = new Date(trip.departureTime.split(" ")[0]);
+        if (!isSameDay(tripDate, selectedDate)) {
+          setSelectedDate(tripDate);
+        }
+        setSelectedTripId(trip.id);
+      }
+    }
   };
 
   // Handle Create Booking (Single or Multi-Trip)
@@ -527,7 +529,7 @@ function AppContent() {
       });
       return;
     }
-    
+
     const error = validatePhoneNumber(bookingForm.phone);
     if (error) {
       setPhoneError(error);
@@ -557,15 +559,15 @@ function AppContent() {
   // UNIFIED ACTION HANDLER
   const handleConfirmAction = () => {
     if (editingBooking) {
-        // Handle Update Existing Booking
-        // Use totalBasketPrice which now reflects the modified selection
-        setPendingPaymentContext({
-            type: "update",
-            bookingIds: [editingBooking.id],
-            totalPrice: totalBasketPrice, 
-        });
-        setIsPaymentModalOpen(true);
-        return;
+      // Handle Update Existing Booking
+      // Use totalBasketPrice which now reflects the modified selection
+      setPendingPaymentContext({
+        type: "update",
+        bookingIds: [editingBooking.id],
+        totalPrice: totalBasketPrice,
+      });
+      setIsPaymentModalOpen(true);
+      return;
     }
 
     if (bookingMode === "booking") {
@@ -589,29 +591,31 @@ function AppContent() {
           paidTransfer: bookingForm.paidTransfer,
         };
         const passenger = {
-            name: "Khách lẻ",
-            phone: bookingForm.phone,
-            note: bookingForm.note,
-            pickupPoint: bookingForm.pickup,
-            dropoffPoint: bookingForm.dropoff,
+          name: "Khách lẻ",
+          phone: bookingForm.phone,
+          note: bookingForm.note,
+          pickupPoint: bookingForm.pickup,
+          dropoffPoint: bookingForm.dropoff,
         };
 
         const bookingItems = selectionBasket.map((item) => ({
-            tripId: item.trip.id,
-            seats: item.seats,
+          tripId: item.trip.id,
+          seats: item.seats,
         }));
 
         // Call Update API instead of just Payment API
         const result = await api.bookings.update(
-            editingBooking.id,
-            bookingItems,
-            passenger,
-            payment
+          editingBooking.id,
+          bookingItems,
+          passenger,
+          payment
         );
 
         // Update local list
-        setBookings(prev => prev.map(b => b.id === editingBooking.id ? result.booking : b));
-        
+        setBookings((prev) =>
+          prev.map((b) => (b.id === editingBooking.id ? result.booking : b))
+        );
+
         // Sync trips from result.updatedTrips
         const updatedTripsMap = new Map<string, BusTrip>(
           result.updatedTrips.map((t: BusTrip) => [t.id, t])
@@ -621,7 +625,7 @@ function AppContent() {
         setIsPaymentModalOpen(false);
         setPendingPaymentContext(null);
         setEditingBooking(null); // Exit edit mode
-        setBookingForm({ ...bookingForm, phone: '', note: ''}); // Reset form partially
+        setBookingForm({ ...bookingForm, phone: "", note: "" }); // Reset form partially
 
         toast({
           type: "success",
@@ -640,13 +644,13 @@ function AppContent() {
   const cancelAllSelections = async () => {
     // If editing, reverting means discarding changes and restoring original seat status
     if (editingBooking) {
-        // We simply refresh data from API to restore original state
-        // Or cleaner: Revert local state manually
-        // For now, easiest to just refresh data or revert selected seats to Booked
-        await refreshData();
-        setEditingBooking(null);
-        setBookingForm({ ...bookingForm, phone: '', note: ''});
-        return;
+      // We simply refresh data from API to restore original state
+      // Or cleaner: Revert local state manually
+      // For now, easiest to just refresh data or revert selected seats to Booked
+      await refreshData();
+      setEditingBooking(null);
+      setBookingForm({ ...bookingForm, phone: "", note: "" });
+      return;
     }
 
     const tripsToUpdate = selectionBasket.map((item) => item.trip);
@@ -731,15 +735,21 @@ function AppContent() {
       selectedDirection={selectedDirection}
       onDirectionChange={setSelectedDirection}
       routes={routes}
-      headerRight={<RightSheet bookings={bookings} trips={trips} onSelectBooking={handleSelectBookingFromHistory} />}
+      headerRight={
+        <RightSheet
+          bookings={bookings}
+          trips={trips}
+          onSelectBooking={handleSelectBookingFromHistory}
+        />
+      }
     >
       {activeTab === "sales" && (
         <div className="h-[calc(100vh-140px)] flex flex-col md:flex-row gap-4 animate-in fade-in duration-300">
           {/* LEFT: SEAT MAP */}
           <div className="flex-1 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col overflow-hidden">
-            <div className="px-4 h-[54px] bg-gradient-to-r from-indigo-950 via-indigo-900 to-indigo-950 flex justify-between items-center shadow-sm z-10 shrink-0">
+            <div className="px-4 h-[40px] bg-gradient-to-r from-indigo-950 via-indigo-900 to-indigo-950 border-b border-indigo-900 flex items-center justify-between shrink-0 rounded-t-xl">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-indigo-900 flex items-center justify-center text-yellow-400 shrink-0 border border-indigo-800">
+                <div className="w-8 h-8 rounded-lg bg-indigo-900 flex items-center justify-center text-white shrink-0 border border-indigo-800">
                   <BusFront size={16} />
                 </div>
                 {selectedTrip ? (
@@ -755,11 +765,16 @@ function AppContent() {
                           Đang chọn
                         </Badge>
                       )}
-                    </div>
-                    <div className="flex items-center text-[10px] text-white gap-2 mt-0.5 opacity-80">
-                      <span>{selectedTrip.licensePlate}</span>
-                      <span>•</span>
-                      <span>{selectedTrip.departureTime.split(" ")[1]}</span>
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="bg-yellow-400 px-2 py-1 rounded-md inline-flex items-center justify-center text-white border border-yellow-500">
+                          <Keyboard size={12} className="mr-1" />
+                          {selectedTrip.licensePlate}
+                        </span>
+                        <span className="bg-slate-400 px-2 py-1 rounded-md inline-flex items-center justify-center text-white border border-slate-500">
+                          <Clock3 size={12} className="mr-1" />
+                          {selectedTrip.departureTime.split(" ")[1]}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 ) : (
@@ -967,7 +982,9 @@ function AppContent() {
                         <td className="px-6 py-4">
                           <div className="flex flex-col gap-2">
                             {booking.items.length === 0 && (
-                                <span className="text-xs text-slate-400 italic">Đã hủy hết ghế</span>
+                              <span className="text-xs text-slate-400 italic">
+                                Đã hủy hết ghế
+                              </span>
                             )}
                             {booking.items.map((item, i) => (
                               <div
@@ -999,18 +1016,38 @@ function AppContent() {
                           </div>
                         </td>
                         <td className="px-6 py-4 align-top">
-                            {booking.status === 'cancelled' && (
-                                <Badge variant="destructive" className="bg-red-100 text-red-700 border-red-200">Đã hủy</Badge>
-                            )}
-                            {booking.status === 'modified' && (
-                                <Badge variant="default" className="bg-blue-100 text-blue-700 border-blue-200">Đã thay đổi</Badge>
-                            )}
-                            {booking.status === 'confirmed' && (
-                                <Badge variant="success" className="bg-green-100 text-green-700 border-green-200">Đã thanh toán</Badge>
-                            )}
-                            {booking.status === 'pending' && (
-                                <Badge variant="warning" className="bg-yellow-100 text-yellow-700 border-yellow-200">Tạo mới</Badge>
-                            )}
+                          {booking.status === "cancelled" && (
+                            <Badge
+                              variant="destructive"
+                              className="bg-red-100 text-red-700 border-red-200"
+                            >
+                              Đã hủy
+                            </Badge>
+                          )}
+                          {booking.status === "modified" && (
+                            <Badge
+                              variant="default"
+                              className="bg-blue-100 text-blue-700 border-blue-200"
+                            >
+                              Đã thay đổi
+                            </Badge>
+                          )}
+                          {booking.status === "confirmed" && (
+                            <Badge
+                              variant="success"
+                              className="bg-green-100 text-green-700 border-green-200"
+                            >
+                              Đã thanh toán
+                            </Badge>
+                          )}
+                          {booking.status === "pending" && (
+                            <Badge
+                              variant="warning"
+                              className="bg-yellow-100 text-yellow-700 border-yellow-200"
+                            >
+                              Tạo mới
+                            </Badge>
+                          )}
                         </td>
                         <td className="px-6 py-4 align-top">
                           <div

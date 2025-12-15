@@ -18,6 +18,9 @@ import {
   CheckCircle2,
   Save,
   AlertTriangle,
+  MapPin,
+  Locate,
+  Notebook,
 } from "lucide-react";
 
 interface BookingFormProps {
@@ -411,7 +414,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
         <div className="bg-indigo-900/50 p-1 rounded-lg flex border border-indigo-800">
           <button
             onClick={() => handleModeSwitch("booking")}
-            className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-xs font-bold rounded-md transition-all ${
+            className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-xs rounded-md transition-all ${
               bookingMode === "booking"
                 ? "bg-yellow-500 text-indigo-950 shadow-sm"
                 : "text-indigo-300 hover:text-white"
@@ -421,7 +424,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
           </button>
           <button
             onClick={() => handleModeSwitch("payment")}
-            className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-xs font-bold rounded-md transition-all ${
+            className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-xs rounded-md transition-all ${
               bookingMode === "payment"
                 ? "bg-yellow-500 text-indigo-950 shadow-sm"
                 : "text-indigo-300 hover:text-white"
@@ -431,7 +434,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
           </button>
           <button
             onClick={() => handleModeSwitch("hold")}
-            className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-xs font-bold rounded-md transition-all ${
+            className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-xs rounded-md transition-all ${
               bookingMode === "hold"
                 ? "bg-yellow-500 text-indigo-950 shadow-sm"
                 : "text-indigo-300 hover:text-white"
@@ -456,7 +459,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
                 onFocus={() => {
                   if (bookingForm.phone.length >= 3) setShowHistory(true);
                 }}
-                className={`w-full pl-7 pr-2 py-1.5 text-xs rounded border text-white placeholder-indigo-400 outline-none transition-colors
+                className={`w-full pl-6 pr-2 py-1.5 text-xs rounded border text-white placeholder-indigo-400 outline-none transition-colors
                   bg-indigo-950 border-indigo-800 focus:border-yellow-400
                   ${phoneError ? "border-red-500 focus:border-red-500" : ""}
                 `}
@@ -464,7 +467,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
               />
               <Phone
                 size={12}
-                className={`absolute left-2 top-2 ${
+                className={`absolute left-2 top-[9px] ${
                   phoneError ? "text-red-500" : "text-indigo-400"
                 }`}
               />
@@ -534,35 +537,53 @@ export const BookingForm: React.FC<BookingFormProps> = ({
               </div>
             )}
             <div className="grid grid-cols-2 gap-2">
-              <input
-                type="text"
-                name="pickup"
-                value={bookingForm.pickup}
-                onChange={handleInputChange}
-                onBlur={() => handleLocationBlur("pickup")}
-                className="w-full pl-2 pr-2 py-1.5 text-xs rounded border text-white placeholder-indigo-400 outline-none
+              <div className="relative">
+                <input
+                  type="text"
+                  name="pickup"
+                  value={bookingForm.pickup}
+                  onChange={handleInputChange}
+                  onBlur={() => handleLocationBlur("pickup")}
+                  className="w-full pl-6 pr-2 py-1.5 text-xs rounded border text-white placeholder-indigo-400 outline-none
                     bg-indigo-950 border-indigo-800 focus:border-green-500"
-                placeholder="Điểm đón"
-              />
-              <input
-                type="text"
-                name="dropoff"
-                value={bookingForm.dropoff}
-                onChange={handleInputChange}
-                onBlur={() => handleLocationBlur("dropoff")}
-                className="w-full pl-2 pr-2 py-1.5 text-xs rounded border text-white placeholder-indigo-400 outline-none
+                  placeholder="Điểm đón"
+                />
+                <MapPin
+                  size={12}
+                  className="absolute left-2 top-[9px] text-indigo-400"
+                />
+              </div>
+              <div className="relative">
+                <input
+                  type="text"
+                  name="dropoff"
+                  value={bookingForm.dropoff}
+                  onChange={handleInputChange}
+                  onBlur={() => handleLocationBlur("dropoff")}
+                  className="w-full pl-6 pr-2 py-1.5 text-xs rounded border text-white placeholder-indigo-400 outline-none
                     bg-indigo-950 border-indigo-800 focus:border-red-500"
-                placeholder="Điểm trả"
+                  placeholder="Điểm trả"
+                />
+                <Locate
+                  size={12}
+                  className="absolute left-2 top-[9px] text-indigo-400"
+                />
+              </div>
+            </div>
+            <div className="relative">
+              <textarea
+                name="note"
+                value={bookingForm.note}
+                onChange={handleInputChange}
+                className="w-full pl-6 pr-2 py-1.5 text-xs rounded border text-white placeholder-indigo-400 outline-none resize-none h-8
+                 bg-indigo-950 border-indigo-800 focus:border-yellow-400"
+                placeholder="Ghi chú"
+              />
+              <Notebook
+                size={12}
+                className="absolute left-2 top-[9px] text-indigo-400"
               />
             </div>
-            <textarea
-              name="note"
-              value={bookingForm.note}
-              onChange={handleInputChange}
-              className="w-full pl-2 pr-2 py-1.5 text-xs rounded border text-white placeholder-indigo-400 outline-none resize-none h-8
-                 bg-indigo-950 border-indigo-800 focus:border-yellow-400"
-              placeholder="Ghi chú..."
-            />
           </>
         ) : (
           <div className="text-center py-4 bg-indigo-900/30 rounded border border-indigo-800 border-dashed text-xs text-indigo-300">
