@@ -5,7 +5,7 @@ import { Badge } from './ui/Badge';
 import { formatLunarDate } from '../utils/dateUtils';
 import { 
   Ticket, RotateCcw, Zap, Banknote, Lock, Phone, History, 
-  X, Clock, ArrowRight, AlertCircle, CheckCircle2 
+  X, Clock, ArrowRight, AlertCircle, CheckCircle2, Save, FileEdit
 } from 'lucide-react';
 
 interface BookingFormProps {
@@ -35,6 +35,9 @@ interface BookingFormProps {
   phoneError: string | null;
   setPhoneError: (error: string | null) => void;
   
+  // NEW: Editing Context
+  editingBooking?: Booking | null;
+
   // Actions
   onConfirm: () => void;
   onCancel: () => void;
@@ -52,14 +55,14 @@ export const BookingForm: React.FC<BookingFormProps> = ({
   totalPrice,
   phoneError,
   setPhoneError,
+  editingBooking,
   onConfirm,
   onCancel,
   validatePhoneNumber
 }) => {
   const [showHistory, setShowHistory] = useState(false);
-  const [manifestSearch, setManifestSearch] = useState(""); // Kept for interface consistency if needed later
 
-  // --- HELPERS (Moved from App.tsx) ---
+  // --- HELPERS ---
   const formatPhoneNumber = (value: string) => {
     const raw = value.replace(/\D/g, "");
     if (raw.length > 15) return raw.slice(0, 15);
@@ -96,7 +99,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
     return value.replace(/(?:^|\s)\S/g, (a) => a.toUpperCase());
   };
 
-  // --- HISTORY LOGIC (Moved from App.tsx) ---
+  // --- HISTORY LOGIC ---
   const historyMatches = useMemo(() => {
     const cleanInput = bookingForm.phone.replace(/\D/g, "");
     if (cleanInput.length < 3) return []; 
@@ -172,7 +175,6 @@ export const BookingForm: React.FC<BookingFormProps> = ({
       const error = validatePhoneNumber(bookingForm.phone);
       setPhoneError(error);
     }
-    // Delay hiding history to allow click event on history item
     setTimeout(() => setShowHistory(false), 200);
   };
 
@@ -185,124 +187,179 @@ export const BookingForm: React.FC<BookingFormProps> = ({
     }
   };
 
+  // --- RENDER HELPERS ---
+  const renderBasketItems = () => {
+    // Case 1: Editing an existing booking (Show items from the booking object)
+    if (editingBooking) {
+        return (
+            <div className="space-y-2">
+                {editingBooking.items.map((item, idx) => (
+                    <div
+                        key={idx}
+                        className="bg-white rounded-lg p-2.5 shadow-sm border-l-4 border-l-blue-500"
+                    >
+                        <div className="flex justify-between items-start mb-1.5">
+                            <div className="flex items-center gap-1.5">
+                                <Badge variant="outline" className="text-[9px] h-4 px-1 bg-slate-50 border-slate-200">
+                                    {new Date(item.tripDate).getDate()}/{new Date(item.tripDate).getMonth() + 1}
+                                </Badge>
+                                <span className="text-[10px] font-bold text-slate-600 bg-slate-100 px-1 rounded">{item.licensePlate}</span>
+                            </div>
+                        </div>
+                        <div className="text-xs font-bold text-slate-800 mb-1 truncate" title={item.route}>
+                            {item.route}
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                            {item.seatIds.map((s) => (
+                                <span key={s} className="inline-block bg-blue-100 text-blue-700 text-[10px] font-bold px-1.5 rounded border border-blue-200">
+                                    {s}
+                                </span>
+                            ))}
+                        </div>
+                    </div>
+                ))}
+            </div>
+        );
+    }
+
+    // Case 2: New Selection (Existing Basket Logic)
+    if (selectionBasket.length === 0) {
+        return (
+            <div className="text-center py-6 text-indigo-300/50 italic text-sm border-2 border-dashed border-indigo-900 rounded-lg">
+                Chưa chọn ghế nào
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-2">
+            {selectionBasket.map((item, idx) => {
+                const tripDate = new Date(item.trip.departureTime);
+                const routeInfo = routes.find((r) => r.id === item.trip.routeId);
+                const isEnhanced = routeInfo?.isEnhanced || item.trip.name.includes("Tăng cường");
+
+                return (
+                    <div key={idx} className="bg-white rounded-lg p-2.5 shadow-sm border-l-4 border-l-yellow-400">
+                        <div className="flex justify-between items-start mb-1.5">
+                            <div className="flex items-center gap-1.5">
+                                <Badge variant="outline" className="text-[9px] h-4 px-1 bg-slate-50 border-slate-200">
+                                    {tripDate.getDate()}/{tripDate.getMonth() + 1}
+                                </Badge>
+                                <Badge variant="secondary" className="text-[9px] h-4 px-1 bg-indigo-50 text-indigo-700">
+                                    {formatLunarDate(tripDate).replace(" Âm Lịch", " ÂL")}
+                                </Badge>
+                            </div>
+                            {isEnhanced && (
+                                <Badge className="text-[9px] h-4 px-1 bg-amber-100 text-amber-700 border-amber-200">
+                                    <Zap size={8} className="mr-0.5 fill-amber-700" /> TC
+                                </Badge>
+                            )}
+                        </div>
+                        <div className="text-xs font-bold text-slate-800 mb-1 truncate" title={item.trip.route}>
+                            {item.trip.route}
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                            {item.seats.map((s) => (
+                                <span key={s.id} className="inline-block bg-indigo-100 text-indigo-700 text-[10px] font-bold px-1.5 rounded border border-indigo-200">
+                                    {s.label}
+                                </span>
+                            ))}
+                        </div>
+                    </div>
+                );
+            })}
+        </div>
+    );
+  };
+
+  const totalItemCount = editingBooking 
+        ? editingBooking.totalTickets 
+        : selectionBasket.reduce((acc, item) => acc + item.seats.length, 0);
+
   return (
-    <div className="bg-indigo-950 rounded-xl shadow-lg border border-indigo-900 flex flex-col overflow-visible shrink-0 z-20 max-h-[75%]">
+    <div className={`rounded-xl shadow-lg border flex flex-col overflow-visible shrink-0 z-20 max-h-[75%] transition-colors duration-300
+        ${editingBooking ? 'bg-blue-900 border-blue-800' : 'bg-indigo-950 border-indigo-900'}
+    `}>
       {/* 1. Basket Header */}
-      <div className="px-3 h-[50px] bg-gradient-to-r from-indigo-950 via-indigo-900 to-indigo-950 border-b border-indigo-900 flex items-center justify-between shrink-0 rounded-t-xl">
+      <div className={`px-3 h-[50px] bg-gradient-to-r flex items-center justify-between shrink-0 rounded-t-xl border-b
+         ${editingBooking ? 'from-blue-900 via-blue-800 to-blue-900 border-blue-800' : 'from-indigo-950 via-indigo-900 to-indigo-950 border-indigo-900'}
+      `}>
         <div className="flex items-center gap-2 text-sm font-bold text-white">
-          <Ticket size={16} className="text-yellow-400" />
-          Thông tin đặt vé
+          {editingBooking ? (
+              <>
+                <FileEdit size={16} className="text-white" />
+                Đang sửa đơn hàng
+              </>
+          ) : (
+              <>
+                <Ticket size={16} className="text-yellow-400" />
+                Thông tin đặt vé
+              </>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={onCancel}
-            disabled={selectionBasket.length === 0}
-            className="text-indigo-300 hover:text-white hover:bg-indigo-800 p-1.5 rounded-full transition-colors disabled:opacity-30"
-            title="Hủy chọn tất cả"
+            disabled={!editingBooking && selectionBasket.length === 0}
+            className={`p-1.5 rounded-full transition-colors disabled:opacity-30
+                ${editingBooking ? 'text-blue-300 hover:text-white hover:bg-blue-800' : 'text-indigo-300 hover:text-white hover:bg-indigo-800'}
+            `}
+            title={editingBooking ? "Đóng" : "Hủy chọn tất cả"}
           >
-            <RotateCcw size={14} />
+            {editingBooking ? <X size={16} /> : <RotateCcw size={14} />}
           </button>
-          <Badge className="bg-yellow-400 text-indigo-950 font-bold border-transparent">
-            {selectionBasket.reduce((acc, item) => acc + item.seats.length, 0)}{" "}
-            vé
+          <Badge className={`${editingBooking ? 'bg-white text-blue-900' : 'bg-yellow-400 text-indigo-950'} font-bold border-transparent`}>
+            {totalItemCount} vé
           </Badge>
         </div>
       </div>
 
       {/* 2. Basket Items */}
-      <div className="p-3 overflow-y-auto flex-1 space-y-3 bg-indigo-950">
-        {selectionBasket.length === 0 ? (
-          <div className="text-center py-6 text-indigo-300/50 italic text-sm border-2 border-dashed border-indigo-900 rounded-lg">
-            Chưa chọn ghế nào
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {selectionBasket.map((item, idx) => {
-              const tripDate = new Date(item.trip.departureTime);
-              const routeInfo = routes.find((r) => r.id === item.trip.routeId);
-              const isEnhanced = routeInfo?.isEnhanced || item.trip.name.includes("Tăng cường");
-
-              return (
-                <div
-                  key={idx}
-                  className="bg-white rounded-lg p-2.5 shadow-sm border-l-4 border-l-yellow-400"
-                >
-                  <div className="flex justify-between items-start mb-1.5">
-                    <div className="flex items-center gap-1.5">
-                      <Badge variant="outline" className="text-[9px] h-4 px-1 bg-slate-50 border-slate-200">
-                        {tripDate.getDate()}/{tripDate.getMonth() + 1}
-                      </Badge>
-                      <Badge variant="secondary" className="text-[9px] h-4 px-1 bg-indigo-50 text-indigo-700">
-                        {formatLunarDate(tripDate).replace(" Âm Lịch", " ÂL")}
-                      </Badge>
-                    </div>
-                    {isEnhanced && (
-                      <Badge className="text-[9px] h-4 px-1 bg-amber-100 text-amber-700 border-amber-200">
-                        <Zap size={8} className="mr-0.5 fill-amber-700" /> TC
-                      </Badge>
-                    )}
-                  </div>
-
-                  <div className="text-xs font-bold text-slate-800 mb-1 truncate" title={item.trip.route}>
-                    {item.trip.route}
-                  </div>
-
-                  <div className="flex flex-wrap gap-1">
-                    {item.seats.map((s) => (
-                      <span
-                        key={s.id}
-                        className="inline-block bg-indigo-100 text-indigo-700 text-[10px] font-bold px-1.5 rounded border border-indigo-200"
-                      >
-                        {s.label}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+      <div className={`p-3 overflow-y-auto flex-1 ${editingBooking ? 'bg-blue-900' : 'bg-indigo-950'}`}>
+        {renderBasketItems()}
       </div>
 
-      {/* 3. Mode Selector */}
-      <div className="px-3 pb-3 bg-indigo-950">
-        <div className="bg-indigo-900/50 p-1 rounded-lg flex border border-indigo-800">
-          <button
-            onClick={() => setBookingMode("booking")}
-            className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-xs font-bold rounded-md transition-all ${
-              bookingMode === "booking"
-                ? "bg-yellow-500 text-indigo-950 shadow-sm"
-                : "text-indigo-300 hover:text-white"
-            }`}
-          >
-            <Ticket size={12} /> Đặt vé
-          </button>
-          <button
-            onClick={() => setBookingMode("payment")}
-            className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-xs font-bold rounded-md transition-all ${
-              bookingMode === "payment"
-                ? "bg-green-600 text-white shadow-sm"
-                : "text-indigo-300 hover:text-white"
-            }`}
-          >
-            <Banknote size={12} /> Mua vé
-          </button>
-          <button
-            onClick={() => setBookingMode("hold")}
-            className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-xs font-bold rounded-md transition-all ${
-              bookingMode === "hold"
-                ? "bg-purple-500 text-white shadow-sm"
-                : "text-indigo-300 hover:text-white"
-            }`}
-          >
-            <Lock size={12} /> Giữ vé
-          </button>
+      {/* 3. Mode Selector - HIDE if editing */}
+      {!editingBooking && (
+        <div className="px-3 pb-3 bg-indigo-950">
+            <div className="bg-indigo-900/50 p-1 rounded-lg flex border border-indigo-800">
+            <button
+                onClick={() => setBookingMode("booking")}
+                className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-xs font-bold rounded-md transition-all ${
+                bookingMode === "booking"
+                    ? "bg-yellow-500 text-indigo-950 shadow-sm"
+                    : "text-indigo-300 hover:text-white"
+                }`}
+            >
+                <Ticket size={12} /> Đặt vé
+            </button>
+            <button
+                onClick={() => setBookingMode("payment")}
+                className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-xs font-bold rounded-md transition-all ${
+                bookingMode === "payment"
+                    ? "bg-green-600 text-white shadow-sm"
+                    : "text-indigo-300 hover:text-white"
+                }`}
+            >
+                <Banknote size={12} /> Mua vé
+            </button>
+            <button
+                onClick={() => setBookingMode("hold")}
+                className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-xs font-bold rounded-md transition-all ${
+                bookingMode === "hold"
+                    ? "bg-purple-500 text-white shadow-sm"
+                    : "text-indigo-300 hover:text-white"
+                }`}
+            >
+                <Lock size={12} /> Giữ vé
+            </button>
+            </div>
         </div>
-      </div>
+      )}
 
       {/* 4. Input Fields */}
-      <div className="p-3 bg-indigo-900/50 border-t border-indigo-900 space-y-2 relative">
-        {bookingMode !== "hold" ? (
+      <div className={`p-3 border-t space-y-2 relative ${editingBooking ? 'bg-blue-800/50 border-blue-800' : 'bg-indigo-900/50 border-indigo-900'}`}>
+        {bookingMode !== "hold" || editingBooking ? (
           <>
             <div className="relative">
               <input
@@ -314,15 +371,18 @@ export const BookingForm: React.FC<BookingFormProps> = ({
                 onFocus={() => {
                   if (bookingForm.phone.length >= 3) setShowHistory(true);
                 }}
-                className={`w-full pl-7 pr-2 py-1.5 text-xs rounded bg-indigo-950 border text-white placeholder-indigo-400 outline-none transition-colors
-                  ${phoneError ? "border-red-500 focus:border-red-500" : "border-indigo-800 focus:border-yellow-400"}`}
+                className={`w-full pl-7 pr-2 py-1.5 text-xs rounded border text-white placeholder-opacity-50 outline-none transition-colors
+                  ${editingBooking ? 'bg-blue-950 border-blue-700 placeholder-blue-300 focus:border-white' : 'bg-indigo-950 border-indigo-800 placeholder-indigo-400 focus:border-yellow-400'}
+                  ${phoneError ? "border-red-500 focus:border-red-500" : ""}
+                `}
                 placeholder="Số điện thoại"
               />
-              <Phone size={12} className={`absolute left-2 top-2 ${phoneError ? "text-red-500" : "text-indigo-400"}`} />
+              <Phone size={12} className={`absolute left-2 top-2 ${phoneError ? "text-red-500" : (editingBooking ? "text-blue-300" : "text-indigo-400")}`} />
 
               {/* HISTORY DROPDOWN */}
-              {showHistory && passengerHistory.length > 0 && (
+              {showHistory && passengerHistory.length > 0 && !editingBooking && (
                 <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-lg shadow-xl border border-slate-200 overflow-hidden z-[50] animate-in fade-in zoom-in-95 duration-200">
+                  {/* ... (Keep history content same as before) ... */}
                   <div className="bg-slate-50 px-3 py-1.5 border-b border-slate-100 flex justify-between items-center">
                     <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 uppercase">
                       <History size={10} />
@@ -371,6 +431,11 @@ export const BookingForm: React.FC<BookingFormProps> = ({
                 </div>
               )}
             </div>
+            {phoneError && (
+              <div className="text-[10px] text-red-400 px-1 flex items-center gap-1">
+                <AlertCircle size={10} /> {phoneError}
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-2">
               <input
                 type="text"
@@ -378,7 +443,9 @@ export const BookingForm: React.FC<BookingFormProps> = ({
                 value={bookingForm.pickup}
                 onChange={handleInputChange}
                 onBlur={() => handleLocationBlur("pickup")}
-                className="w-full pl-2 pr-2 py-1.5 text-xs rounded bg-indigo-950 border border-indigo-800 text-white placeholder-indigo-400 focus:border-green-500 outline-none"
+                className={`w-full pl-2 pr-2 py-1.5 text-xs rounded border text-white placeholder-opacity-50 outline-none
+                    ${editingBooking ? 'bg-blue-950 border-blue-700 placeholder-blue-300 focus:border-green-400' : 'bg-indigo-950 border-indigo-800 placeholder-indigo-400 focus:border-green-500'}
+                `}
                 placeholder="Điểm đón"
               />
               <input
@@ -387,7 +454,9 @@ export const BookingForm: React.FC<BookingFormProps> = ({
                 value={bookingForm.dropoff}
                 onChange={handleInputChange}
                 onBlur={() => handleLocationBlur("dropoff")}
-                className="w-full pl-2 pr-2 py-1.5 text-xs rounded bg-indigo-950 border border-indigo-800 text-white placeholder-indigo-400 focus:border-red-500 outline-none"
+                className={`w-full pl-2 pr-2 py-1.5 text-xs rounded border text-white placeholder-opacity-50 outline-none
+                    ${editingBooking ? 'bg-blue-950 border-blue-700 placeholder-blue-300 focus:border-red-400' : 'bg-indigo-950 border-indigo-800 placeholder-indigo-400 focus:border-red-500'}
+                `}
                 placeholder="Điểm trả"
               />
             </div>
@@ -395,7 +464,9 @@ export const BookingForm: React.FC<BookingFormProps> = ({
               name="note"
               value={bookingForm.note}
               onChange={handleInputChange}
-              className="w-full pl-2 pr-2 py-1.5 text-xs rounded bg-indigo-950 border border-indigo-800 text-white placeholder-indigo-400 focus:border-yellow-400 outline-none resize-none h-8"
+              className={`w-full pl-2 pr-2 py-1.5 text-xs rounded border text-white placeholder-opacity-50 outline-none resize-none h-8
+                 ${editingBooking ? 'bg-blue-950 border-blue-700 placeholder-blue-300 focus:border-white' : 'bg-indigo-950 border-indigo-800 placeholder-indigo-400 focus:border-yellow-400'}
+              `}
               placeholder="Ghi chú..."
             />
           </>
@@ -408,27 +479,33 @@ export const BookingForm: React.FC<BookingFormProps> = ({
 
         {/* Total Price */}
         <div className="flex justify-between items-center pt-1">
-          <span className="text-xs font-bold text-indigo-300 uppercase">TỔNG TIỀN</span>
-          <span className="text-base font-bold text-yellow-400">
+          <span className={`text-xs font-bold uppercase ${editingBooking ? 'text-blue-300' : 'text-indigo-300'}`}>TỔNG TIỀN</span>
+          <span className={`text-base font-bold ${editingBooking ? 'text-white' : 'text-yellow-400'}`}>
             {totalPrice.toLocaleString("vi-VN")} <span className="text-[10px] font-normal">đ</span>
           </span>
         </div>
       </div>
 
       {/* 5. Submit Button */}
-      <div className="p-2 bg-indigo-950 border-t border-indigo-900 rounded-b-xl">
+      <div className={`p-2 border-t rounded-b-xl ${editingBooking ? 'bg-blue-900 border-blue-800' : 'bg-indigo-950 border-indigo-900'}`}>
         <Button
           className={`w-full font-bold h-10 text-sm ${
-            bookingMode === "booking"
+            editingBooking 
+              ? "bg-white text-blue-900 hover:bg-blue-50"
+              : bookingMode === "booking"
               ? "bg-yellow-500 hover:bg-yellow-400 text-indigo-950"
               : bookingMode === "payment"
               ? "bg-green-600 hover:bg-green-500 text-white"
               : "bg-purple-600 hover:bg-purple-500 text-white"
           }`}
           onClick={onConfirm}
-          disabled={selectionBasket.length === 0}
+          disabled={!editingBooking && selectionBasket.length === 0}
         >
-          <CheckCircle2 size={16} className="mr-2" /> Đồng ý
+          {editingBooking ? (
+              <><Save size={16} className="mr-2" /> Cập nhật</>
+          ) : (
+              <><CheckCircle2 size={16} className="mr-2" /> Đồng ý</>
+          )}
         </Button>
       </div>
     </div>

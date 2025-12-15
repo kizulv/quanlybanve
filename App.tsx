@@ -108,6 +108,9 @@ function AppContent() {
 
   const [phoneError, setPhoneError] = useState<string | null>(null);
 
+  // EDIT MODE STATE
+  const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
+
   // Payment Modal State
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [pendingPaymentContext, setPendingPaymentContext] = useState<{
@@ -208,26 +211,13 @@ function AppContent() {
 
   // --- Handlers ---
 
-  // Helper to ensure "BX " prefix
-  const ensureBxPrefix = (location: string) => {
-    if (!location) return "";
-    const trimmed = location.trim();
-    if (!trimmed) return "";
-    // Check if starts with BX (case insensitive)
-    if (/^bx\s/i.test(trimmed)) {
-      // It already has BX, just return nicely formatted
-      return trimmed.replace(/^bx\s/i, "BX ");
-    }
-    return `BX ${trimmed}`;
-  };
-
   const handleTripSelect = (tripId: string) => {
     setSelectedTripId(tripId);
     setManifestSearch("");
 
     // Auto-fill location based on route if form is empty
     const trip = trips.find((t) => t.id === tripId);
-    if (trip && !bookingForm.pickup && !bookingForm.dropoff) {
+    if (trip && !bookingForm.pickup && !bookingForm.dropoff && !editingBooking) {
       // Logic to find route and fill
       let route = routes.find((r) => r.id === trip.routeId);
       if (!route) route = routes.find((r) => r.name === trip.route);
@@ -238,14 +228,13 @@ function AppContent() {
         let rawDropoff =
           trip.direction === "inbound" ? route.origin : route.destination;
 
-        // Ensure "BX" prefix logic
-        rawPickup = ensureBxPrefix(rawPickup || "");
-        rawDropoff = ensureBxPrefix(rawDropoff || "");
+        // Ensure "BX" prefix logic (simple version)
+        const formatLoc = (loc: string) => loc && !/^bx\s/i.test(loc.trim()) ? `BX ${loc.trim()}` : loc;
 
         setBookingForm((prev) => ({
           ...prev,
-          pickup: rawPickup || "",
-          dropoff: rawDropoff || "",
+          pickup: formatLoc(rawPickup || "") || "",
+          dropoff: formatLoc(rawDropoff || "") || "",
         }));
       }
     }
@@ -266,22 +255,8 @@ function AppContent() {
       );
 
       if (booking) {
-        const currentPaid =
-          (booking.payment?.paidCash || 0) +
-          (booking.payment?.paidTransfer || 0);
-        if (currentPaid < booking.totalPrice) {
-          setPendingPaymentContext({
-            type: "update",
-            bookingIds: [booking.id],
-            totalPrice: booking.totalPrice,
-          });
-          setBookingForm((prev) => ({
-            ...prev,
-            paidCash: booking.totalPrice - (booking.payment?.paidTransfer || 0),
-            paidTransfer: booking.payment?.paidTransfer || 0,
-          }));
-          setIsPaymentModalOpen(true);
-        }
+        // Use the unified selection logic
+        handleSelectBookingFromHistory(booking);
       }
       return;
     }
@@ -334,6 +309,37 @@ function AppContent() {
         message: "Không thể cập nhật trạng thái ghế.",
       });
     }
+  };
+
+  const handleSelectBookingFromHistory = (booking: Booking) => {
+      setEditingBooking(booking);
+      
+      // Clear basket when editing existing booking to avoid confusion
+      if (selectionBasket.length > 0) {
+          cancelAllSelections();
+      }
+
+      setBookingForm({
+          phone: booking.passenger.phone,
+          pickup: booking.passenger.pickupPoint || "",
+          dropoff: booking.passenger.dropoffPoint || "",
+          note: booking.passenger.note || "",
+          paidCash: booking.payment?.paidCash || 0,
+          paidTransfer: booking.payment?.paidTransfer || 0
+      });
+
+      // Optionally navigate to the trip view of the first item in the booking
+      if (booking.items.length > 0) {
+          const firstItem = booking.items[0];
+          const trip = trips.find(t => t.id === firstItem.tripId);
+          if (trip) {
+              const tripDate = new Date(trip.departureTime.split(' ')[0]);
+              if (!isSameDay(tripDate, selectedDate)) {
+                  setSelectedDate(tripDate);
+              }
+              setSelectedTripId(trip.id);
+          }
+      }
   };
 
   // Handle Create Booking (Single or Multi-Trip)
@@ -517,6 +523,17 @@ function AppContent() {
 
   // UNIFIED ACTION HANDLER
   const handleConfirmAction = () => {
+    if (editingBooking) {
+        // Handle Update Existing Booking
+        setPendingPaymentContext({
+            type: "update",
+            bookingIds: [editingBooking.id],
+            totalPrice: editingBooking.totalPrice,
+        });
+        setIsPaymentModalOpen(true);
+        return;
+    }
+
     if (bookingMode === "booking") {
       handleBookingOnly();
     } else if (bookingMode === "payment") {
@@ -548,6 +565,9 @@ function AppContent() {
 
         setIsPaymentModalOpen(false);
         setPendingPaymentContext(null);
+        setEditingBooking(null); // Exit edit mode
+        setBookingForm({ ...bookingForm, phone: '', note: ''}); // Reset form partially
+
         toast({
           type: "success",
           title: "Cập nhật thành công",
@@ -562,8 +582,13 @@ function AppContent() {
     }
   };
 
-  // Cancel all selections
   const cancelAllSelections = async () => {
+    if (editingBooking) {
+        setEditingBooking(null);
+        setBookingForm({ ...bookingForm, phone: '', note: ''});
+        return;
+    }
+
     const tripsToUpdate = selectionBasket.map((item) => item.trip);
     const promises = tripsToUpdate.map(async (trip) => {
       const resetSeats = trip.seats.map((s) =>
@@ -646,7 +671,7 @@ function AppContent() {
       selectedDirection={selectedDirection}
       onDirectionChange={setSelectedDirection}
       routes={routes}
-      headerRight={<RightSheet bookings={bookings} trips={trips} />}
+      headerRight={<RightSheet bookings={bookings} trips={trips} onSelectBooking={handleSelectBookingFromHistory} />}
     >
       {activeTab === "sales" && (
         <div className="h-[calc(100vh-140px)] flex flex-col md:flex-row gap-4 animate-in fade-in duration-300">
@@ -735,9 +760,10 @@ function AppContent() {
               selectionBasket={selectionBasket}
               bookings={bookings}
               routes={routes}
-              totalPrice={totalBasketPrice}
+              totalPrice={editingBooking ? editingBooking.totalPrice : totalBasketPrice}
               phoneError={phoneError}
               setPhoneError={setPhoneError}
+              editingBooking={editingBooking}
               onConfirm={handleConfirmAction}
               onCancel={cancelAllSelections}
               validatePhoneNumber={validatePhoneNumber}
@@ -798,24 +824,7 @@ function AppContent() {
                   return (
                     <div
                       key={idx}
-                      onClick={() => {
-                        const remaining = booking.totalPrice - totalPaid;
-                        if (remaining > 0) {
-                          setPendingPaymentContext({
-                            type: "update",
-                            bookingIds: [booking.id],
-                            totalPrice: booking.totalPrice,
-                          });
-                          setBookingForm((prev) => ({
-                            ...prev,
-                            paidCash:
-                              booking.totalPrice -
-                              (booking.payment?.paidTransfer || 0),
-                            paidTransfer: booking.payment?.paidTransfer || 0,
-                          }));
-                          setIsPaymentModalOpen(true);
-                        }
-                      }}
+                      onClick={() => handleSelectBookingFromHistory(booking)}
                       className={`p-2 border-b border-slate-100 cursor-pointer hover:bg-slate-50 ${
                         !isFullyPaid ? "bg-yellow-50/30" : ""
                       }`}

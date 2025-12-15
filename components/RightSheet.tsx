@@ -14,10 +14,13 @@ import { Booking, BusTrip } from "../types";
 interface RightSheetProps {
   bookings: Booking[];
   trips: BusTrip[];
+  onSelectBooking: (booking: Booking) => void;
 }
 
-export const RightSheet: React.FC<RightSheetProps> = ({ bookings, trips }) => {
+export const RightSheet: React.FC<RightSheetProps> = ({ bookings, trips, onSelectBooking }) => {
   const [searchTerm, setSearchTerm] = useState("");
+  // We need to control the sheet open state to close it upon selection
+  const [isOpen, setIsOpen] = useState(false);
 
   const sortedBookings = useMemo(() => {
     return [...bookings].sort(
@@ -58,8 +61,13 @@ export const RightSheet: React.FC<RightSheetProps> = ({ bookings, trips }) => {
      return groups;
   }, [filteredList]);
 
+  const handleSelect = (booking: Booking) => {
+      onSelectBooking(booking);
+      setIsOpen(false);
+  }
+
   return (
-    <Sheet>
+    <Sheet open={isOpen} onOpenChange={setIsOpen}>
       <SheetTrigger asChild>
         <Button
           variant="outline"
@@ -130,14 +138,15 @@ export const RightSheet: React.FC<RightSheetProps> = ({ bookings, trips }) => {
                         return (
                           <div
                             key={booking.id}
-                            className="p-4 hover:bg-blue-50/50 transition-colors group cursor-default"
+                            onClick={() => handleSelect(booking)}
+                            className="p-4 hover:bg-blue-50/50 transition-colors group cursor-pointer active:bg-blue-100"
                           >
                             {/* Top Row: Passenger & Time */}
                             <div className="flex justify-between items-start mb-3">
                               <div className="flex flex-col gap-0.5">
                                  <div className="flex items-center gap-2">
                                     <Phone size={14} className="text-slate-400" />
-                                    <span className="text-sm font-bold text-slate-900">{booking.passenger.phone}</span>
+                                    <span className="text-sm font-bold text-slate-900 group-hover:text-primary transition-colors">{booking.passenger.phone}</span>
                                  </div>
                                  <span className="text-xs text-slate-500 pl-6 truncate max-w-[180px]">{booking.passenger.name || 'Khách lẻ'}</span>
                               </div>
@@ -155,7 +164,7 @@ export const RightSheet: React.FC<RightSheetProps> = ({ bookings, trips }) => {
                             {/* Booking Items (Trips) */}
                             <div className="space-y-2 mb-3">
                                 {booking.items.map((item, idx) => (
-                                    <div key={idx} className="bg-slate-50 p-2 rounded-lg border border-slate-100 text-xs">
+                                    <div key={idx} className="bg-slate-50 p-2 rounded-lg border border-slate-100 text-xs group-hover:border-blue-100 group-hover:bg-blue-50 transition-colors">
                                         <div className="flex justify-between font-bold text-slate-700 mb-1">
                                             <span>{item.route}</span>
                                             <span>{new Date(item.tripDate).getDate()}/{new Date(item.tripDate).getMonth()+1}</span>
@@ -179,7 +188,7 @@ export const RightSheet: React.FC<RightSheetProps> = ({ bookings, trips }) => {
                             <div className="flex justify-end items-end pt-2 border-t border-slate-100 border-dashed">
                               <div className="text-right">
                                 <div className="text-xs text-slate-400 mb-0.5">Tổng tiền ({booking.totalTickets} vé)</div>
-                                <div className="text-base font-bold text-slate-900">
+                                <div className="text-base font-bold text-slate-900 group-hover:text-primary transition-colors">
                                   {booking.totalPrice.toLocaleString("vi-VN")} <span className="text-xs font-normal text-slate-500">đ</span>
                                 </div>
                               </div>
