@@ -1,142 +1,441 @@
-import React, { useState } from 'react';
-import { Seat, Passenger } from '../types';
+import React, { useState, useMemo } from 'react';
+import { Seat, Booking, BusTrip, Route } from '../types';
 import { Button } from './ui/Button';
-import { X } from 'lucide-react';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "./ui/AlertDialog";
+import { Badge } from './ui/Badge';
+import { formatLunarDate } from '../utils/dateUtils';
+import { 
+  Ticket, RotateCcw, Zap, Banknote, Lock, Phone, History, 
+  X, Clock, ArrowRight, AlertCircle, CheckCircle2 
+} from 'lucide-react';
 
 interface BookingFormProps {
-  selectedSeats: Seat[];
+  // Data
+  bookingForm: {
+    phone: string;
+    pickup: string;
+    dropoff: string;
+    paidCash: number;
+    paidTransfer: number;
+    note: string;
+  };
+  setBookingForm: React.Dispatch<React.SetStateAction<{
+    phone: string;
+    pickup: string;
+    dropoff: string;
+    paidCash: number;
+    paidTransfer: number;
+    note: string;
+  }>>;
+  bookingMode: "booking" | "payment" | "hold";
+  setBookingMode: (mode: "booking" | "payment" | "hold") => void;
+  selectionBasket: { trip: BusTrip; seats: Seat[] }[];
+  bookings: Booking[]; // For history lookup
+  routes: Route[]; // For basket display info
+  totalPrice: number;
+  phoneError: string | null;
+  setPhoneError: (error: string | null) => void;
+  
+  // Actions
+  onConfirm: () => void;
   onCancel: () => void;
-  onSubmit: (passenger: Passenger) => void;
+  validatePhoneNumber: (phone: string) => string | null;
 }
 
-export const BookingForm: React.FC<BookingFormProps> = ({ selectedSeats, onCancel, onSubmit }) => {
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
-  const [note, setNote] = useState('');
-  const [isAlertOpen, setIsAlertOpen] = useState(false);
+export const BookingForm: React.FC<BookingFormProps> = ({
+  bookingForm,
+  setBookingForm,
+  bookingMode,
+  setBookingMode,
+  selectionBasket,
+  bookings,
+  routes,
+  totalPrice,
+  phoneError,
+  setPhoneError,
+  onConfirm,
+  onCancel,
+  validatePhoneNumber
+}) => {
+  const [showHistory, setShowHistory] = useState(false);
+  const [manifestSearch, setManifestSearch] = useState(""); // Kept for interface consistency if needed later
 
-  const totalPrice = selectedSeats.reduce((sum, seat) => sum + seat.price, 0);
+  // --- HELPERS (Moved from App.tsx) ---
+  const formatPhoneNumber = (value: string) => {
+    const raw = value.replace(/\D/g, "");
+    if (raw.length > 15) return raw.slice(0, 15);
+    if (raw.length > 7) {
+      return `${raw.slice(0, 4)} ${raw.slice(4, 7)} ${raw.slice(7)}`;
+    }
+    if (raw.length > 4) {
+      return `${raw.slice(0, 4)} ${raw.slice(4)}`;
+    }
+    return raw;
+  };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name || !phone) {
-      setIsAlertOpen(true);
+  const getStandardizedLocation = (input: string) => {
+    if (!input) return "";
+    let value = input.trim();
+    const lower = value.toLowerCase();
+    const mappings: Record<string, string> = {
+      "lai chau": "BX Lai Châu",
+      "lai châu": "BX Lai Châu",
+      "ha tinh": "BX Hà Tĩnh",
+      "hà tĩnh": "BX Hà Tĩnh",
+      "lao cai": "BX Lào Cai",
+      vinh: "BX Vinh",
+      "nghe an": "BX Vinh",
+      "nghệ an": "BX Vinh",
+    };
+    if (mappings[lower]) return mappings[lower];
+
+    // Auto prefix if needed
+    if (!/^bx\s/i.test(value) && value.length > 2) {
+      value = value.replace(/(?:^|\s)\S/g, (a) => a.toUpperCase());
+      return `BX ${value}`;
+    }
+    return value.replace(/(?:^|\s)\S/g, (a) => a.toUpperCase());
+  };
+
+  // --- HISTORY LOGIC (Moved from App.tsx) ---
+  const historyMatches = useMemo(() => {
+    const cleanInput = bookingForm.phone.replace(/\D/g, "");
+    if (cleanInput.length < 3) return []; 
+    return bookings.filter((b) =>
+      b.passenger.phone.replace(/\D/g, "").includes(cleanInput)
+    );
+  }, [bookings, bookingForm.phone]);
+
+  const passengerHistory = useMemo(() => {
+    const uniqueRoutes = new Map<
+      string,
+      { pickup: string; dropoff: string; phone: string; lastDate: string; }
+    >();
+
+    historyMatches.forEach((b) => {
+      const pickup = b.passenger.pickupPoint || "";
+      const dropoff = b.passenger.dropoffPoint || "";
+      if (!pickup && !dropoff) return;
+
+      const key = `${pickup.toLowerCase().trim()}|${dropoff.toLowerCase().trim()}`;
+      const existing = uniqueRoutes.get(key);
+      const isNewer = existing
+        ? new Date(b.createdAt) > new Date(existing.lastDate)
+        : true;
+
+      if (!existing || isNewer) {
+        uniqueRoutes.set(key, {
+          pickup: b.passenger.pickupPoint || "",
+          dropoff: b.passenger.dropoffPoint || "",
+          phone: formatPhoneNumber(b.passenger.phone),
+          lastDate: b.createdAt,
+        });
+      }
+    });
+
+    return Array.from(uniqueRoutes.values())
+      .sort((a, b) => new Date(b.lastDate).getTime() - new Date(a.lastDate).getTime())
+      .slice(0, 5);
+  }, [historyMatches]);
+
+  const applyHistory = (item: (typeof passengerHistory)[0]) => {
+    setBookingForm((prev) => ({
+      ...prev,
+      phone: item.phone,
+      pickup: item.pickup,
+      dropoff: item.dropoff,
+    }));
+    setPhoneError(null);
+    setShowHistory(false);
+  };
+
+  // --- HANDLERS ---
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
+    const { name, value } = e.target;
+    if (name === "phone") {
+      setBookingForm((prev) => ({ ...prev, [name]: formatPhoneNumber(value) }));
+      setPhoneError(null);
+      setShowHistory(true);
       return;
     }
-    onSubmit({ name, phone, email, note });
+    if (name === "pickup" || name === "dropoff") {
+      const formatted = value.replace(/(?:^|\s)\S/g, (a) => a.toUpperCase());
+      setBookingForm((prev) => ({ ...prev, [name]: formatted }));
+      return;
+    }
+    setBookingForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handlePhoneBlur = () => {
+    if (bookingForm.phone.length > 0) {
+      const error = validatePhoneNumber(bookingForm.phone);
+      setPhoneError(error);
+    }
+    // Delay hiding history to allow click event on history item
+    setTimeout(() => setShowHistory(false), 200);
+  };
+
+  const handleLocationBlur = (field: "pickup" | "dropoff") => {
+    let value = bookingForm[field].trim();
+    if (!value) return;
+    const standardized = getStandardizedLocation(value);
+    if (standardized !== value) {
+      setBookingForm((prev) => ({ ...prev, [field]: standardized }));
+    }
   };
 
   return (
-    <>
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-        <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
-          <div className="flex justify-between items-center p-4 border-b">
-            <h2 className="text-lg font-semibold">Xác nhận đặt vé</h2>
-            <Button variant="ghost" size="icon" onClick={onCancel}>
-              <X size={20} />
-            </Button>
-          </div>
-
-          <form onSubmit={handleSubmit} className="p-4 space-y-4">
-            <div className="bg-slate-50 p-3 rounded-md border text-sm">
-              <p className="font-medium text-slate-700">Ghế đã chọn:</p>
-              <div className="flex flex-wrap gap-2 mt-2">
-                {selectedSeats.map(s => (
-                  <span key={s.id} className="bg-primary/10 text-primary px-2 py-1 rounded text-xs font-bold border border-primary/20">
-                    {s.label} ({s.price.toLocaleString('vi-VN')}đ)
-                  </span>
-                ))}
-              </div>
-              <div className="mt-3 pt-2 border-t flex justify-between font-bold text-slate-900">
-                <span>Tổng cộng:</span>
-                <span className="text-primary">{totalPrice.toLocaleString('vi-VN')} đ</span>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Họ và tên *</label>
-                <input
-                  type="text"
-                  required
-                  className="w-full px-3 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm bg-white text-slate-900"
-                  placeholder="Nguyễn Văn A"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Số điện thoại *</label>
-                <input
-                  type="tel"
-                  required
-                  className="w-full px-3 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm bg-white text-slate-900"
-                  placeholder="0912 345 678"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Email (Tùy chọn)</label>
-                <input
-                  type="email"
-                  className="w-full px-3 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm bg-white text-slate-900"
-                  placeholder="email@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
-              
-               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Ghi chú</label>
-                <textarea
-                  className="w-full px-3 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm h-20 resize-none bg-white text-slate-900"
-                  placeholder="Đón tại ngã tư..."
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div className="pt-2 flex gap-3">
-              <Button type="button" variant="outline" className="w-full" onClick={onCancel}>
-                Hủy
-              </Button>
-              <Button type="submit" className="w-full">
-                Thanh toán & Xuất vé
-              </Button>
-            </div>
-          </form>
+    <div className="bg-indigo-950 rounded-xl shadow-lg border border-indigo-900 flex flex-col overflow-visible shrink-0 z-20 max-h-[75%]">
+      {/* 1. Basket Header */}
+      <div className="px-3 h-[50px] bg-gradient-to-r from-indigo-950 via-indigo-900 to-indigo-950 border-b border-indigo-900 flex items-center justify-between shrink-0 rounded-t-xl">
+        <div className="flex items-center gap-2 text-sm font-bold text-white">
+          <Ticket size={16} className="text-yellow-400" />
+          Thông tin đặt vé
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onCancel}
+            disabled={selectionBasket.length === 0}
+            className="text-indigo-300 hover:text-white hover:bg-indigo-800 p-1.5 rounded-full transition-colors disabled:opacity-30"
+            title="Hủy chọn tất cả"
+          >
+            <RotateCcw size={14} />
+          </button>
+          <Badge className="bg-yellow-400 text-indigo-950 font-bold border-transparent">
+            {selectionBasket.reduce((acc, item) => acc + item.seats.length, 0)}{" "}
+            vé
+          </Badge>
         </div>
       </div>
 
-      <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Thiếu thông tin</AlertDialogTitle>
-            <AlertDialogDescription>
-              Vui lòng nhập đầy đủ họ tên và số điện thoại khách hàng để tiếp tục đặt vé.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogAction onClick={() => setIsAlertOpen(false)}>
-              Đã hiểu
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
+      {/* 2. Basket Items */}
+      <div className="p-3 overflow-y-auto flex-1 space-y-3 bg-indigo-950">
+        {selectionBasket.length === 0 ? (
+          <div className="text-center py-6 text-indigo-300/50 italic text-sm border-2 border-dashed border-indigo-900 rounded-lg">
+            Chưa chọn ghế nào
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {selectionBasket.map((item, idx) => {
+              const tripDate = new Date(item.trip.departureTime);
+              const routeInfo = routes.find((r) => r.id === item.trip.routeId);
+              const isEnhanced = routeInfo?.isEnhanced || item.trip.name.includes("Tăng cường");
+
+              return (
+                <div
+                  key={idx}
+                  className="bg-white rounded-lg p-2.5 shadow-sm border-l-4 border-l-yellow-400"
+                >
+                  <div className="flex justify-between items-start mb-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <Badge variant="outline" className="text-[9px] h-4 px-1 bg-slate-50 border-slate-200">
+                        {tripDate.getDate()}/{tripDate.getMonth() + 1}
+                      </Badge>
+                      <Badge variant="secondary" className="text-[9px] h-4 px-1 bg-indigo-50 text-indigo-700">
+                        {formatLunarDate(tripDate).replace(" Âm Lịch", " ÂL")}
+                      </Badge>
+                    </div>
+                    {isEnhanced && (
+                      <Badge className="text-[9px] h-4 px-1 bg-amber-100 text-amber-700 border-amber-200">
+                        <Zap size={8} className="mr-0.5 fill-amber-700" /> TC
+                      </Badge>
+                    )}
+                  </div>
+
+                  <div className="text-xs font-bold text-slate-800 mb-1 truncate" title={item.trip.route}>
+                    {item.trip.route}
+                  </div>
+
+                  <div className="flex flex-wrap gap-1">
+                    {item.seats.map((s) => (
+                      <span
+                        key={s.id}
+                        className="inline-block bg-indigo-100 text-indigo-700 text-[10px] font-bold px-1.5 rounded border border-indigo-200"
+                      >
+                        {s.label}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* 3. Mode Selector */}
+      <div className="px-3 pb-3 bg-indigo-950">
+        <div className="bg-indigo-900/50 p-1 rounded-lg flex border border-indigo-800">
+          <button
+            onClick={() => setBookingMode("booking")}
+            className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-xs font-bold rounded-md transition-all ${
+              bookingMode === "booking"
+                ? "bg-yellow-500 text-indigo-950 shadow-sm"
+                : "text-indigo-300 hover:text-white"
+            }`}
+          >
+            <Ticket size={12} /> Đặt vé
+          </button>
+          <button
+            onClick={() => setBookingMode("payment")}
+            className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-xs font-bold rounded-md transition-all ${
+              bookingMode === "payment"
+                ? "bg-green-600 text-white shadow-sm"
+                : "text-indigo-300 hover:text-white"
+            }`}
+          >
+            <Banknote size={12} /> Mua vé
+          </button>
+          <button
+            onClick={() => setBookingMode("hold")}
+            className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-xs font-bold rounded-md transition-all ${
+              bookingMode === "hold"
+                ? "bg-purple-500 text-white shadow-sm"
+                : "text-indigo-300 hover:text-white"
+            }`}
+          >
+            <Lock size={12} /> Giữ vé
+          </button>
+        </div>
+      </div>
+
+      {/* 4. Input Fields */}
+      <div className="p-3 bg-indigo-900/50 border-t border-indigo-900 space-y-2 relative">
+        {bookingMode !== "hold" ? (
+          <>
+            <div className="relative">
+              <input
+                type="tel"
+                name="phone"
+                value={bookingForm.phone}
+                onChange={handleInputChange}
+                onBlur={handlePhoneBlur}
+                onFocus={() => {
+                  if (bookingForm.phone.length >= 3) setShowHistory(true);
+                }}
+                className={`w-full pl-7 pr-2 py-1.5 text-xs rounded bg-indigo-950 border text-white placeholder-indigo-400 outline-none transition-colors
+                  ${phoneError ? "border-red-500 focus:border-red-500" : "border-indigo-800 focus:border-yellow-400"}`}
+                placeholder="Số điện thoại"
+              />
+              <Phone size={12} className={`absolute left-2 top-2 ${phoneError ? "text-red-500" : "text-indigo-400"}`} />
+
+              {/* HISTORY DROPDOWN */}
+              {showHistory && passengerHistory.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-lg shadow-xl border border-slate-200 overflow-hidden z-[50] animate-in fade-in zoom-in-95 duration-200">
+                  <div className="bg-slate-50 px-3 py-1.5 border-b border-slate-100 flex justify-between items-center">
+                    <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 uppercase">
+                      <History size={10} />
+                      Lịch sử
+                      <span className="ml-1 bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded-full text-[9px] min-w-[16px] text-center">
+                        {historyMatches.length}
+                      </span>
+                    </div>
+                    <button
+                      title="Đóng"
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault(); 
+                        setShowHistory(false);
+                      }}
+                      className="text-slate-400 hover:text-slate-600"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                  <div className="max-h-[200px] overflow-y-auto">
+                    {passengerHistory.map((item, idx) => (
+                      <div
+                        key={idx}
+                        onMouseDown={(e) => {
+                          e.preventDefault(); 
+                          applyHistory(item);
+                        }}
+                        className="px-3 py-2 hover:bg-indigo-50 cursor-pointer border-b border-slate-50 last:border-0 group"
+                      >
+                        <div className="flex justify-between items-start mb-0.5">
+                          <span className="text-xs font-bold text-indigo-700">{item.phone}</span>
+                          <span className="text-[9px] text-slate-400 flex items-center gap-1">
+                            <Clock size={9} />
+                            {new Date(item.lastDate).toLocaleDateString("vi-VN")}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-[10px] text-slate-600">
+                          <span className="truncate max-w-[45%] font-medium">{item.pickup}</span>
+                          <ArrowRight size={10} className="text-slate-300" />
+                          <span className="truncate max-w-[45%] font-medium">{item.dropoff}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            {phoneError && (
+              <div className="text-[10px] text-red-400 px-1 flex items-center gap-1">
+                <AlertCircle size={10} /> {phoneError}
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                type="text"
+                name="pickup"
+                value={bookingForm.pickup}
+                onChange={handleInputChange}
+                onBlur={() => handleLocationBlur("pickup")}
+                className="w-full pl-2 pr-2 py-1.5 text-xs rounded bg-indigo-950 border border-indigo-800 text-white placeholder-indigo-400 focus:border-green-500 outline-none"
+                placeholder="Điểm đón"
+              />
+              <input
+                type="text"
+                name="dropoff"
+                value={bookingForm.dropoff}
+                onChange={handleInputChange}
+                onBlur={() => handleLocationBlur("dropoff")}
+                className="w-full pl-2 pr-2 py-1.5 text-xs rounded bg-indigo-950 border border-indigo-800 text-white placeholder-indigo-400 focus:border-red-500 outline-none"
+                placeholder="Điểm trả"
+              />
+            </div>
+            <textarea
+              name="note"
+              value={bookingForm.note}
+              onChange={handleInputChange}
+              className="w-full pl-2 pr-2 py-1.5 text-xs rounded bg-indigo-950 border border-indigo-800 text-white placeholder-indigo-400 focus:border-yellow-400 outline-none resize-none h-8"
+              placeholder="Ghi chú..."
+            />
+          </>
+        ) : (
+          <div className="text-center py-4 bg-indigo-900/30 rounded border border-indigo-800 border-dashed text-xs text-indigo-300">
+            <Lock className="mx-auto mb-1 opacity-50" size={24} />
+            Chế độ Giữ vé không yêu cầu nhập thông tin khách hàng.
+          </div>
+        )}
+
+        {/* Total Price */}
+        <div className="flex justify-between items-center pt-1">
+          <span className="text-xs font-bold text-indigo-300 uppercase">TỔNG TIỀN</span>
+          <span className="text-base font-bold text-yellow-400">
+            {totalPrice.toLocaleString("vi-VN")} <span className="text-[10px] font-normal">đ</span>
+          </span>
+        </div>
+      </div>
+
+      {/* 5. Submit Button */}
+      <div className="p-2 bg-indigo-950 border-t border-indigo-900 rounded-b-xl">
+        <Button
+          className={`w-full font-bold h-10 text-sm ${
+            bookingMode === "booking"
+              ? "bg-yellow-500 hover:bg-yellow-400 text-indigo-950"
+              : bookingMode === "payment"
+              ? "bg-green-600 hover:bg-green-500 text-white"
+              : "bg-purple-600 hover:bg-purple-500 text-white"
+          }`}
+          onClick={onConfirm}
+          disabled={selectionBasket.length === 0}
+        >
+          <CheckCircle2 size={16} className="mr-2" /> Đồng ý
+        </Button>
+      </div>
+    </div>
   );
 };
