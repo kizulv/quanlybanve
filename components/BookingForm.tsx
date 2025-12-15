@@ -232,8 +232,10 @@ export const BookingForm: React.FC<BookingFormProps> = ({
     // If basket is empty (unlikely in edit mode unless user deselected all)
     if (selectionBasket.length === 0) {
         return (
-            <div className="text-center py-6 text-indigo-300/50 italic text-sm border-2 border-dashed border-indigo-900 rounded-lg">
-                {editingBooking ? "Đã xóa hết ghế" : "Chưa chọn ghế nào"}
+            <div className={`text-center py-6 italic text-sm border-2 border-dashed rounded-lg transition-colors
+                ${editingBooking ? "border-red-800/30 bg-red-900/10 text-red-300" : "border-indigo-900 text-indigo-300/50"}
+            `}>
+                {editingBooking ? "Đã xóa hết ghế (Sẽ hủy vé)" : "Chưa chọn ghế nào"}
             </div>
         );
     }
@@ -320,16 +322,28 @@ export const BookingForm: React.FC<BookingFormProps> = ({
       {/* CHANGE WARNING ALERT (Edit Mode Only) */}
       {changes && changes.hasChanges && (
          <div className="px-3 pb-3 bg-indigo-950 animate-in fade-in slide-in-from-bottom-2">
-            <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-2 text-amber-200 text-xs flex items-start gap-2">
+            <div className={`border rounded-lg p-2 text-xs flex items-start gap-2 ${
+                selectionBasket.length === 0 
+                ? "bg-red-500/10 border-red-500/30 text-red-200" 
+                : "bg-amber-500/10 border-amber-500/30 text-amber-200"
+            }`}>
                <AlertTriangle size={14} className="mt-0.5 shrink-0" />
                <div className="flex-1">
-                   <div className="font-bold mb-0.5">Thay đổi đặt chỗ:</div>
+                   <div className="font-bold mb-0.5">
+                       {selectionBasket.length === 0 ? "Cảnh báo hủy vé:" : "Thay đổi đặt chỗ:"}
+                   </div>
                    <div className="flex flex-col gap-0.5 opacity-90">
-                       {changes.diffCount !== 0 && (
-                           <span>• Số lượng: {changes.diffCount > 0 ? `+${changes.diffCount}` : changes.diffCount} vé</span>
-                       )}
-                       {changes.diffPrice !== 0 && (
-                           <span>• Tổng tiền: {changes.diffPrice > 0 ? `+` : ``}{changes.diffPrice.toLocaleString('vi-VN')} đ</span>
+                       {selectionBasket.length === 0 ? (
+                           <span>Bạn đang xóa hết ghế. Đơn hàng sẽ chuyển sang trạng thái <strong>Đã hủy</strong>.</span>
+                       ) : (
+                           <>
+                               {changes.diffCount !== 0 && (
+                                   <span>• Số lượng: {changes.diffCount > 0 ? `+${changes.diffCount}` : changes.diffCount} vé</span>
+                               )}
+                               {changes.diffPrice !== 0 && (
+                                   <span>• Tổng tiền: {changes.diffPrice > 0 ? `+` : ``}{changes.diffPrice.toLocaleString('vi-VN')} đ</span>
+                               )}
+                           </>
                        )}
                    </div>
                </div>
@@ -511,10 +525,10 @@ export const BookingForm: React.FC<BookingFormProps> = ({
               : "bg-purple-600 hover:bg-purple-500 text-white"
           }`}
           onClick={onConfirm}
-          disabled={selectionBasket.length === 0}
+          disabled={!editingBooking && selectionBasket.length === 0}
         >
           {editingBooking ? (
-              <><Save size={16} className="mr-2" /> Cập nhật</>
+              <><Save size={16} className="mr-2" /> {selectionBasket.length === 0 ? "Xác nhận hủy" : "Cập nhật"}</>
           ) : (
               <><CheckCircle2 size={16} className="mr-2" /> Đồng ý</>
           )}
