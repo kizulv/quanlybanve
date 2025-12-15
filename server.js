@@ -1,8 +1,8 @@
 
-const express = require('express');
-const mongoose = require('mongoose');
-const cors = require('cors');
-const bodyParser = require('body-parser');
+import express from 'express';
+import mongoose from 'mongoose';
+import cors from 'cors';
+import bodyParser from 'body-parser';
 
 const app = express();
 const PORT = 5000;
@@ -12,6 +12,7 @@ app.use(cors());
 app.use(bodyParser.json());
 
 // MongoDB Connection
+// Lưu ý: Đảm bảo địa chỉ IP và thông tin đăng nhập chính xác
 const MONGO_URI = "mongodb://admin:123a456S%40@192.168.31.37:27017/ticketManager?authSource=admin";
 
 mongoose.connect(MONGO_URI)
@@ -208,7 +209,7 @@ app.post('/api/bookings', async (req, res) => {
   // Determine Status
   const totalPrice = seats.reduce((sum, s) => sum + s.price, 0);
   const totalPaid = (payment?.paidCash || 0) + (payment?.paidTransfer || 0);
-  const targetStatus = totalPaid >= totalPrice ? 'sold' : 'booked'; // Use string 'sold'/'booked' to match frontend ENUM
+  const targetStatus = totalPaid >= totalPrice ? 'sold' : 'booked';
 
   const newBookings = [];
 
@@ -250,22 +251,18 @@ app.put('/api/bookings/payment', async (req, res) => {
     { $set: { payment: payment } }
   );
 
-  // Retrieve one booking to find the tripId
-  const sampleBooking = await Booking.findOne({ _id: { $in: bookingIds } });
-  if (!sampleBooking) return res.status(404).json({ error: 'Bookings not found' });
-
-  // Recalculate status for the group (assuming batch payment updates status for all related seats)
-  // But strictly, we need to check total price vs paid.
-  // We assume the frontend passes the correct aggregated payment for these bookings.
-  
-  // Check total price of these bookings
   const targetBookings = await Booking.find({ _id: { $in: bookingIds } });
+  if (targetBookings.length === 0) return res.status(404).json({ error: 'Bookings not found' });
+
+  const sampleBooking = targetBookings[0];
+  const tripId = sampleBooking.busId;
+  const trip = await Trip.findById(tripId);
+
+  // Recalculate based on group totals
   const totalPrice = targetBookings.reduce((sum, b) => sum + b.totalPrice, 0);
   const totalPaid = payment.paidCash + payment.paidTransfer;
   const targetStatus = totalPaid >= totalPrice ? 'sold' : 'booked';
 
-  const trip = await Trip.findById(sampleBooking.busId);
-  
   if (trip) {
     const seatIdsToUpdate = targetBookings.map(b => b.seatId);
     const updatedSeats = trip.seats.map(s => {
