@@ -293,7 +293,7 @@ app.put('/api/bookings/payment', async (req, res) => {
 });
 
 // Start Server
-app.listen(PORT, async () => {
+app.listen(PORT, '0.0.0.0', async () => {
   await seedData();
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
+  console.log(`🚀 Server running on http://0.0.0.0:${PORT}`);
 });
