@@ -16,82 +16,41 @@ interface RightSheetProps {
   trips: BusTrip[];
 }
 
-interface GroupedBookingItem {
-  id: string;
-  phone: string;
-  passengerName: string;
-  tripId: string;
-  createdAt: string;
-  seats: string[];
-  totalPrice: number;
-  paidCash: number;
-  paidTransfer: number;
-  trip?: BusTrip;
-}
-
 export const RightSheet: React.FC<RightSheetProps> = ({ bookings, trips }) => {
   const [searchTerm, setSearchTerm] = useState("");
 
-  // Group bookings by (Phone + BusId + CreatedAt) to create a "Ticket Order" view
-  const groupedBookings = useMemo<GroupedBookingItem[]>(() => {
-    const groups: Record<string, GroupedBookingItem> = {};
-
-    // Sort bookings by newest first
-    const sortedBookings = [...bookings].sort(
+  // Since backend now groups seats into one booking record, we can use bookings directly
+  // Sort bookings by newest first
+  const sortedBookings = useMemo(() => {
+    return [...bookings].sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
-
-    sortedBookings.forEach((b) => {
-      // Create a unique key for grouping. 
-      const key = `${b.passenger.phone}_${b.busId}_${b.createdAt}`;
-
-      if (!groups[key]) {
-        groups[key] = {
-          id: key,
-          phone: b.passenger.phone,
-          passengerName: b.passenger.name || "Khách lẻ",
-          tripId: b.busId,
-          createdAt: b.createdAt,
-          seats: [],
-          totalPrice: 0,
-          paidCash: 0,
-          paidTransfer: 0,
-          trip: trips.find((t) => t.id === b.busId),
-        };
-      }
-
-      groups[key].seats.push(b.seatId);
-      groups[key].totalPrice += b.totalPrice;
-      groups[key].paidCash += b.payment?.paidCash || 0;
-      groups[key].paidTransfer += b.payment?.paidTransfer || 0;
-    });
-
-    return Object.values(groups);
-  }, [bookings, trips]);
+  }, [bookings]);
 
   // Filter Logic
-  const filteredList = useMemo<GroupedBookingItem[]>(() => {
-    if (!searchTerm.trim()) return groupedBookings;
+  const filteredList = useMemo(() => {
+    if (!searchTerm.trim()) return sortedBookings;
 
     const lowerTerm = searchTerm.toLowerCase();
-    return groupedBookings.filter((group) => {
-      const tripDate = group.trip ? new Date(group.trip.departureTime).toLocaleDateString('vi-VN') : '';
+    return sortedBookings.filter((booking) => {
+      const trip = trips.find(t => t.id === booking.busId);
+      const tripDate = trip ? new Date(trip.departureTime).toLocaleDateString('vi-VN') : '';
+      const seatStr = booking.seatIds ? booking.seatIds.join(',') : '';
       
       return (
-        group.phone.includes(lowerTerm) ||
-        group.passengerName.toLowerCase().includes(lowerTerm) ||
-        group.seats.some(s => s.toLowerCase().includes(lowerTerm)) ||
+        booking.passenger.phone.includes(lowerTerm) ||
+        (booking.passenger.name || '').toLowerCase().includes(lowerTerm) ||
+        seatStr.toLowerCase().includes(lowerTerm) ||
         tripDate.includes(lowerTerm) || 
-        (group.trip && group.trip.route.toLowerCase().includes(lowerTerm))
+        (trip && trip.route.toLowerCase().includes(lowerTerm))
       );
     });
-  }, [groupedBookings, searchTerm]);
+  }, [sortedBookings, searchTerm, trips]);
 
   // Group by Date for Display Headers
   const listByDate = useMemo(() => {
-     const groups: Record<string, GroupedBookingItem[]> = {};
+     const groups: Record<string, Booking[]> = {};
      filteredList.forEach(item => {
-         // Group by Booking Created Date
          const date = new Date(item.createdAt);
          const dateStr = date.toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
          if (!groups[dateStr]) groups[dateStr] = [];
@@ -118,7 +77,7 @@ export const RightSheet: React.FC<RightSheetProps> = ({ bookings, trips }) => {
              <History className="text-primary" size={20}/>
              Lịch sử đặt vé
              <Badge variant="secondary" className="ml-auto text-xs font-normal">
-                {groupedBookings.length} đơn
+                {sortedBookings.length} đơn
              </Badge>
           </SheetTitle>
         </SheetHeader>
@@ -158,25 +117,29 @@ export const RightSheet: React.FC<RightSheetProps> = ({ bookings, trips }) => {
             </div>
           ) : (
             <div className="pb-4">
-              {Object.entries(listByDate).map(([dateStr, items]) => (
+              {(Object.entries(listByDate) as [string, Booking[]][]).map(([dateStr, items]) => (
                 <div key={dateStr}>
                    <div className="sticky top-0 z-10 px-5 py-2 bg-slate-100/95 backdrop-blur border-y border-slate-200 text-xs font-bold text-slate-600 uppercase tracking-wider shadow-sm flex items-center gap-2">
                       <Calendar size={12} />
                       {dateStr}
                    </div>
                    <div className="divide-y divide-slate-100 border-b border-slate-100 bg-white">
-                      {items.map((group) => {
-                        const isFullyPaid = (group.paidCash + group.paidTransfer) >= group.totalPrice;
-                        const tripDate = group.trip 
-                            ? new Date(group.trip.departureTime).toLocaleDateString('vi-VN', {day: '2-digit', month: '2-digit'}) 
+                      {items.map((booking) => {
+                        const paid = (booking.payment?.paidCash || 0) + (booking.payment?.paidTransfer || 0);
+                        const isFullyPaid = paid >= booking.totalPrice;
+                        
+                        const trip = trips.find(t => t.id === booking.busId);
+                        
+                        const tripDate = trip 
+                            ? new Date(trip.departureTime).toLocaleDateString('vi-VN', {day: '2-digit', month: '2-digit'}) 
                             : '--/--';
-                        const tripTime = group.trip
-                            ? group.trip.departureTime.split(' ')[1]
+                        const tripTime = trip
+                            ? trip.departureTime.split(' ')[1]
                             : '--:--';
 
                         return (
                           <div
-                            key={group.id}
+                            key={booking.id}
                             className="p-4 hover:bg-blue-50/50 transition-colors group cursor-default"
                           >
                             {/* Top Row: Passenger & Time */}
@@ -184,14 +147,14 @@ export const RightSheet: React.FC<RightSheetProps> = ({ bookings, trips }) => {
                               <div className="flex flex-col gap-0.5">
                                  <div className="flex items-center gap-2">
                                     <Phone size={14} className="text-slate-400" />
-                                    <span className="text-sm font-bold text-slate-900">{group.phone}</span>
+                                    <span className="text-sm font-bold text-slate-900">{booking.passenger.phone}</span>
                                  </div>
-                                 <span className="text-xs text-slate-500 pl-6 truncate max-w-[180px]">{group.passengerName}</span>
+                                 <span className="text-xs text-slate-500 pl-6 truncate max-w-[180px]">{booking.passenger.name || 'Khách lẻ'}</span>
                               </div>
                               <div className="text-right">
                                  <div className="flex items-center justify-end gap-1.5 text-xs font-medium text-slate-500">
                                      <Clock size={12} />
-                                     {new Date(group.createdAt).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})}
+                                     {new Date(booking.createdAt).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})}
                                  </div>
                                  <div className={`text-[10px] font-bold mt-1 ${isFullyPaid ? 'text-green-600' : 'text-orange-600'}`}>
                                      {isFullyPaid ? 'Đã thanh toán' : 'Chưa thanh toán'}
@@ -206,13 +169,13 @@ export const RightSheet: React.FC<RightSheetProps> = ({ bookings, trips }) => {
                                    <span className="text-sm font-bold text-slate-800 leading-none">{tripDate.split('/')[0]}</span>
                                </div>
                                <div className="flex-1 min-w-0">
-                                   <div className="text-sm font-bold text-slate-700 truncate" title={group.trip?.route}>
-                                       {group.trip?.route || 'Không xác định'}
+                                   <div className="text-sm font-bold text-slate-700 truncate" title={trip?.route}>
+                                       {trip?.route || 'Không xác định'}
                                    </div>
                                    <div className="text-xs text-slate-500 flex items-center gap-2 mt-0.5">
                                       <span className="font-medium text-primary bg-primary/5 px-1 rounded">{tripTime}</span>
                                       <span className="text-slate-300">|</span>
-                                      <span>{group.trip?.licensePlate}</span>
+                                      <span>{trip?.licensePlate}</span>
                                    </div>
                                </div>
                             </div>
@@ -220,7 +183,7 @@ export const RightSheet: React.FC<RightSheetProps> = ({ bookings, trips }) => {
                             {/* Footer: Seats & Price */}
                             <div className="flex justify-between items-end">
                               <div className="flex flex-wrap gap-1.5 max-w-[60%]">
-                                {group.seats.map((seat) => (
+                                {(booking.seatIds || []).map((seat) => (
                                   <span
                                     key={seat}
                                     className="inline-flex items-center justify-center px-2 py-1 rounded-md text-[11px] font-bold bg-white border border-slate-200 text-slate-700 shadow-sm"
@@ -232,7 +195,7 @@ export const RightSheet: React.FC<RightSheetProps> = ({ bookings, trips }) => {
                               <div className="text-right">
                                 <div className="text-xs text-slate-400 mb-0.5">Tổng tiền</div>
                                 <div className="text-base font-bold text-slate-900">
-                                  {group.totalPrice.toLocaleString("vi-VN")} <span className="text-xs font-normal text-slate-500">đ</span>
+                                  {booking.totalPrice.toLocaleString("vi-VN")} <span className="text-xs font-normal text-slate-500">đ</span>
                                 </div>
                               </div>
                             </div>

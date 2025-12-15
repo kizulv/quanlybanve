@@ -59,8 +59,9 @@ export const SeatMap: React.FC<SeatMapProps> = ({
       seat.status === SeatStatus.BOOKED;
 
     // Find booking info if booked or sold
+    // UPDATE: Check if booking.seatIds array includes the seat.id
     const booking = bookings.find(
-      (b) => b.seatId === seat.id && b.status !== "cancelled"
+      (b) => b.seatIds && b.seatIds.includes(seat.id) && b.status !== "cancelled"
     );
     
     // Treat SOLD same as BOOKED for info display
@@ -75,20 +76,9 @@ export const SeatMap: React.FC<SeatMapProps> = ({
       const normalizedPhone = rawPhone.replace(/\D/g, "");
       formattedPhone = formatPhone(normalizedPhone || rawPhone);
 
-      // Find siblings (bookings with same phone)
-      const siblings = bookings.filter(
-        (b) =>
-          b.passenger.phone.replace(/\D/g, "") === normalizedPhone &&
-          b.status !== "cancelled"
-      );
-
-      if (siblings.length > 1) {
-        // Sort to find index (using seatId for deterministic order)
-        siblings.sort((a, b) => a.seatId.localeCompare(b.seatId));
-        const index = siblings.findIndex((b) => b.id === booking.id);
-        groupIndex = index + 1;
-        groupTotal = siblings.length;
-      }
+      // Sibling logic: Since one booking contains all seats, the group size is just booking.seatIds.length
+      groupTotal = booking.seatIds.length;
+      groupIndex = booking.seatIds.indexOf(seat.id) + 1;
     }
 
     return (

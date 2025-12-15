@@ -32,7 +32,7 @@ export interface Passenger {
 
 export interface Booking {
   id: string;
-  seatId: string;
+  seatIds: string[]; // Changed from single seatId to array
   busId: string;
   passenger: Passenger;
   status: "pending" | "confirmed" | "cancelled";

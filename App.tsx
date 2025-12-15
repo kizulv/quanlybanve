@@ -161,76 +161,18 @@ function AppContent() {
     );
   }, [bookings, selectedTrip]);
 
-  // --- GROUPED HISTORY (MANIFEST) LOGIC ---
-  const groupedTripBookings = useMemo(() => {
-    if (!selectedTrip) return [];
-
-    const groups: Record<
-      string,
-      {
-        phone: string;
-        displayPhone: string;
-        seats: string[];
-        bookingIds: string[];
-        totalPrice: number;
-        paidCash: number;
-        paidTransfer: number;
-        lastCreatedAt: string;
-        passengerName: string;
-      }
-    > = {};
-
-    tripBookings.forEach((b) => {
-      const rawPhone = b.passenger.phone || "";
-      const cleanPhone = rawPhone.replace(/\D/g, "");
-      const key = `${cleanPhone || "unknown"}_${b.createdAt}`;
-
-      if (!groups[key]) {
-        groups[key] = {
-          phone: cleanPhone,
-          displayPhone: rawPhone,
-          seats: [],
-          bookingIds: [],
-          totalPrice: 0,
-          paidCash: 0,
-          paidTransfer: 0,
-          lastCreatedAt: b.createdAt,
-          passengerName: b.passenger.name || "Khách lẻ",
-        };
-      }
-
-      groups[key].seats.push(b.seatId);
-      groups[key].bookingIds.push(b.id);
-      groups[key].totalPrice += b.totalPrice;
-      groups[key].paidCash += b.payment?.paidCash || 0;
-      groups[key].paidTransfer += b.payment?.paidTransfer || 0;
-
-      if (new Date(b.createdAt) > new Date(groups[key].lastCreatedAt)) {
-        groups[key].lastCreatedAt = b.createdAt;
-      }
-    });
-
-    return Object.values(groups).sort(
-      (a, b) =>
-        new Date(b.lastCreatedAt).getTime() -
-        new Date(a.lastCreatedAt).getTime()
-    );
-  }, [tripBookings, selectedTrip]);
-
   // --- FILTERED MANIFEST (SEARCH) ---
   const filteredManifest = useMemo(() => {
-    if (!manifestSearch.trim()) return groupedTripBookings;
+    if (!manifestSearch.trim()) return tripBookings;
 
     const query = manifestSearch.toLowerCase();
-    return groupedTripBookings.filter((group) => {
-      const phoneMatch =
-        group.phone.includes(query) || group.displayPhone.includes(query);
-      const seatMatch = group.seats.some((s) =>
-        s.toLowerCase().includes(query)
-      );
+    return tripBookings.filter((b) => {
+      const phoneMatch = b.passenger.phone.includes(query);
+      // Check seat IDs in the array
+      const seatMatch = b.seatIds && b.seatIds.some((s) => s.toLowerCase().includes(query));
       return phoneMatch || seatMatch;
     });
-  }, [groupedTripBookings, manifestSearch]);
+  }, [tripBookings, manifestSearch]);
 
   // Auto update payment when total changes
   useEffect(() => {
@@ -279,7 +221,8 @@ function AppContent() {
 
     // 1. Check if seat is BOOKED (Payment Update Logic)
     if (clickedSeat.status === SeatStatus.BOOKED) {
-      const booking = tripBookings.find(b => b.seatId === clickedSeat.id);
+      // Find the booking that contains this seat ID
+      const booking = tripBookings.find(b => b.seatIds && b.seatIds.includes(clickedSeat.id));
       if (booking) {
         const currentPaid = (booking.payment?.paidCash || 0) + (booking.payment?.paidTransfer || 0);
         if (currentPaid < booking.totalPrice) {
@@ -290,8 +233,8 @@ function AppContent() {
            });
            setBookingForm(prev => ({
              ...prev,
-             paidCash: booking.totalPrice,
-             paidTransfer: 0
+             paidCash: booking.totalPrice - (booking.payment?.paidTransfer || 0),
+             paidTransfer: booking.payment?.paidTransfer || 0
            }));
            setIsPaymentModalOpen(true);
         }
@@ -404,7 +347,7 @@ function AppContent() {
       toast({ 
           type: 'success', 
           title: isPaid ? "Thanh toán thành công" : "Đặt vé thành công", 
-          message: `Đã tạo ${newBookings.length} vé cho ${selectionBasket.length} chuyến.`
+          message: `Đã tạo ${newBookings.length} đơn cho ${selectionBasket.length} chuyến.`
       });
 
     } catch (error) {
@@ -444,23 +387,6 @@ function AppContent() {
              setBookings(result.updatedBookings);
              setTrips(prev => prev.map(t => t.id === result.updatedTrip.id ? result.updatedTrip : t));
              
-             // Log Activity
-             const booking = bookings.find(b => b.id === pendingPaymentContext.bookingIds![0]);
-             if (booking) {
-                 const trip = trips.find(t => t.id === booking.busId);
-                 setRecentActivities(prev => [{
-                    id: `UPD-${Date.now()}`,
-                    phone: booking.passenger.phone,
-                    timestamp: new Date(),
-                    details: [{
-                        tripInfo: trip ? `${trip.route} (Cập nhật)` : 'Cập nhật thanh toán',
-                        seats: [], // Could fetch, but simplistic for update
-                        totalPrice: pendingPaymentContext.totalPrice,
-                        isPaid: true
-                    }]
-                 }, ...prev]);
-             }
-
              setIsPaymentModalOpen(false);
              setPendingPaymentContext(null);
              toast({ type: 'success', title: "Cập nhật thành công", message: "Đã cập nhật thanh toán." });
@@ -475,10 +401,6 @@ function AppContent() {
   
   // Cancel all selections
   const cancelAllSelections = async () => {
-    // We need to reset ALL selected seats in ALL trips locally and remotely?
-    // Just locally implies we might desync if we don't save. 
-    // Best effort: Reset trips that are in the basket.
-    
     const tripsToUpdate = selectionBasket.map(item => item.trip);
     const promises = tripsToUpdate.map(async (trip) => {
         const resetSeats = trip.seats.map(s => s.status === SeatStatus.SELECTED ? { ...s, status: SeatStatus.AVAILABLE } : s);
@@ -785,13 +707,12 @@ function AppContent() {
                </div>
             </div>
 
-            {/* MANIFEST LIST (Keep same logic but style tweak) */}
+            {/* MANIFEST LIST (Simplified) */}
              <div className="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col flex-1 min-h-0 overflow-hidden">
-                {/* ... (Keep existing manifest render code) ... */}
                 <div className="px-3 py-2 bg-white border-b border-slate-100 flex justify-between items-center shrink-0">
                   <div className="flex items-center gap-1.5 text-slate-800 font-bold text-xs">
                     <Users size={14} className="text-slate-400" />
-                    <span>Danh sách đặt vé ({groupedTripBookings.length})</span>
+                    <span>Danh sách đặt vé ({tripBookings.length})</span>
                   </div>
                 </div>
                  {/* Search Bar */}
@@ -816,42 +737,39 @@ function AppContent() {
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-0 scrollbar-thin">
-                    {/* ... (Filtered Manifest Mapping) ... */}
-                    {filteredManifest.map((group, idx) => {
-                        const totalPaid = group.paidCash + group.paidTransfer;
-                        const isFullyPaid = totalPaid >= group.totalPrice;
-                        // ... same logic
-                        const timeStr = new Date(group.lastCreatedAt).toLocaleTimeString("vi-VN", {hour: "2-digit", minute: "2-digit"});
-                        const formatPhone = (phone: string) => { /*...*/ return phone; }; // Simplified for brevity
+                    {filteredManifest.map((booking, idx) => {
+                        const totalPaid = (booking.payment?.paidCash || 0) + (booking.payment?.paidTransfer || 0);
+                        const isFullyPaid = totalPaid >= booking.totalPrice;
+                        const timeStr = new Date(booking.createdAt).toLocaleTimeString("vi-VN", {hour: "2-digit", minute: "2-digit"});
 
                         return (
                              <div
                                 key={idx}
                                 // Click to pay remaining
                                 onClick={() => {
-                                    const remaining = group.totalPrice - totalPaid;
+                                    const remaining = booking.totalPrice - totalPaid;
                                     if(remaining > 0) {
                                         setPendingPaymentContext({
                                             type: 'update',
-                                            bookingIds: group.bookingIds,
-                                            totalPrice: group.totalPrice
+                                            bookingIds: [booking.id],
+                                            totalPrice: booking.totalPrice
                                         });
-                                        setBookingForm(prev => ({ ...prev, paidCash: group.totalPrice, paidTransfer: 0 }));
+                                        setBookingForm(prev => ({ ...prev, paidCash: booking.totalPrice, paidTransfer: 0 }));
                                         setIsPaymentModalOpen(true);
                                     }
                                 }}
                                 className={`p-2 border-b border-slate-100 cursor-pointer hover:bg-slate-50 ${!isFullyPaid ? 'bg-yellow-50/30' : ''}`}
                              >
                                 <div className="flex justify-between items-center mb-1">
-                                    <span className="text-xs font-bold text-indigo-800">{group.displayPhone || group.phone}</span>
+                                    <span className="text-xs font-bold text-indigo-800">{booking.passenger.phone}</span>
                                     <span className="text-[10px] text-slate-400">{timeStr}</span>
                                 </div>
                                 <div className="flex justify-between items-start">
                                      <div className="flex gap-1 text-[11px] text-slate-600 font-medium w-[70%] flex-wrap">
-                                         {group.seats.map(s => <span key={s} className="bg-slate-100 px-1 rounded">{s}</span>)}
+                                         {booking.seatIds && booking.seatIds.map(s => <span key={s} className="bg-slate-100 px-1 rounded">{s}</span>)}
                                      </div>
                                      <div className={`text-xs font-bold ${isFullyPaid ? 'text-indigo-600' : 'text-yellow-600'}`}>
-                                         {isFullyPaid ? group.totalPrice.toLocaleString('vi-VN') : 'Vé đặt'}
+                                         {isFullyPaid ? booking.totalPrice.toLocaleString('vi-VN') : 'Vé đặt'}
                                      </div>
                                 </div>
                              </div>
@@ -864,7 +782,6 @@ function AppContent() {
       )}
 
       {/* ... Other Tabs (Tickets, Schedule, Settings) ... */}
-      {/* Keeping renderTickets, ScheduleView, SettingsView logic same as before */}
       
       {activeTab === "tickets" && (
          <div className="space-y-6 animate-in fade-in duration-500">
@@ -901,7 +818,11 @@ function AppContent() {
                                            <div className="truncate max-w-[200px]">{trip?.route}</div>
                                             <div className="text-xs text-slate-500">{trip?.departureTime}</div>
                                        </td>
-                                       <td className="px-6 py-4"><Badge>{booking.seatId}</Badge></td>
+                                       <td className="px-6 py-4">
+                                           <div className="flex flex-wrap gap-1">
+                                               {(booking.seatIds || []).map(s => <Badge key={s}>{s}</Badge>)}
+                                           </div>
+                                       </td>
                                        <td className="px-6 py-4">
                                            <div className={`font-bold ${isFullyPaid ? 'text-slate-900' : 'text-yellow-600'}`}>
                                               {isFullyPaid ? `${booking.totalPrice.toLocaleString("vi-VN")} đ` : "Vé đặt"}
