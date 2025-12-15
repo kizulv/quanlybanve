@@ -361,13 +361,13 @@ function AppContent() {
              paidTransfer: 0
          } : { paidCash: 0, paidTransfer: 0 };
          
-         
-         const result = await api.bookings.create({
-            tripId: item.trip.id,
-            seats: item.seats,
+         // Use 4 separate arguments as expected by the API
+         const result = await api.bookings.create(
+            item.trip.id,
+            item.seats,
             passenger,
-            payment: paymentForTrip
-         });
+            paymentForTrip
+         );
 
          newBookings.push(...result.bookings);
          updatedTripsMap.set(item.trip.id, result.updatedTrip);

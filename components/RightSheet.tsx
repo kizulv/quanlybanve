@@ -16,26 +16,25 @@ interface RightSheetProps {
   trips: BusTrip[];
 }
 
+interface GroupedBookingItem {
+  id: string;
+  phone: string;
+  passengerName: string;
+  tripId: string;
+  createdAt: string;
+  seats: string[];
+  totalPrice: number;
+  paidCash: number;
+  paidTransfer: number;
+  trip?: BusTrip;
+}
+
 export const RightSheet: React.FC<RightSheetProps> = ({ bookings, trips }) => {
   const [searchTerm, setSearchTerm] = useState("");
 
   // Group bookings by (Phone + BusId + CreatedAt) to create a "Ticket Order" view
-  const groupedBookings = useMemo(() => {
-    const groups: Record<
-      string,
-      {
-        id: string;
-        phone: string;
-        passengerName: string;
-        tripId: string;
-        createdAt: string;
-        seats: string[];
-        totalPrice: number;
-        paidCash: number;
-        paidTransfer: number;
-        trip?: BusTrip;
-      }
-    > = {};
+  const groupedBookings = useMemo<GroupedBookingItem[]>(() => {
+    const groups: Record<string, GroupedBookingItem> = {};
 
     // Sort bookings by newest first
     const sortedBookings = [...bookings].sort(
@@ -71,7 +70,7 @@ export const RightSheet: React.FC<RightSheetProps> = ({ bookings, trips }) => {
   }, [bookings, trips]);
 
   // Filter Logic
-  const filteredList = useMemo(() => {
+  const filteredList = useMemo<GroupedBookingItem[]>(() => {
     if (!searchTerm.trim()) return groupedBookings;
 
     const lowerTerm = searchTerm.toLowerCase();
@@ -90,7 +89,7 @@ export const RightSheet: React.FC<RightSheetProps> = ({ bookings, trips }) => {
 
   // Group by Date for Display Headers
   const listByDate = useMemo(() => {
-     const groups: Record<string, typeof filteredList> = {};
+     const groups: Record<string, GroupedBookingItem[]> = {};
      filteredList.forEach(item => {
          // Group by Booking Created Date
          const date = new Date(item.createdAt);
