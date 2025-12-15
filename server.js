@@ -1,35 +1,51 @@
 
-import express from 'express';
-import mongoose from 'mongoose';
-import cors from 'cors';
-import bodyParser from 'body-parser';
+const express = require('express');
+const mongoose = require('mongoose');
+const cors = require('cors');
+const bodyParser = require('body-parser');
 
 const app = express();
 const PORT = 5000;
 
-// Middleware
+// --- CONFIGURATION ---
+// Cập nhật URI kết nối chính xác theo môi trường của bạn
+const MONGO_URI = process.env.MONGO_URI || "mongodb://admin:123a456S%40@192.168.31.37:27017/ticketManager?authSource=admin";
+
+// --- MIDDLEWARE ---
+
+// 1. Request Logging (Giúp debug xem request có đến được server không)
+app.use((req, res, next) => {
+  const timestamp = new Date().toISOString();
+  console.log(`[${timestamp}] ${req.method} ${req.url} - Origin: ${req.headers.origin}`);
+  next();
+});
+
+// 2. CORS (Cho phép truy cập từ mọi nguồn trong quá trình dev)
 app.use(cors({
-  origin: true, 
-  credentials: true
+  origin: true, // Phản hồi lại origin của request
+  credentials: true, // Cho phép gửi cookies/headers xác thực
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 }));
 
+// 3. Headers bổ sung để tránh lỗi CORS trên một số trình duyệt cũ/mobile
 app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Private-Network", "true");
+  res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
   res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+  res.header("Access-Control-Allow-Credentials", "true");
   next();
 });
 
 app.use(bodyParser.json());
 
-// MongoDB Connection
-// Use environment variable or fallback to local localhost
-const MONGO_URI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/ticketManager";
-
+// --- MONGODB CONNECTION ---
 mongoose.connect(MONGO_URI)
-  .then(() => console.log('✅ Connected to MongoDB'))
+  .then(() => {
+    console.log('✅ Connected to MongoDB successfully at:', MONGO_URI.replace(/:([^:@]+)@/, ':****@')); // Hide password in log
+  })
   .catch(err => {
     console.error('❌ MongoDB connection error:', err);
-    console.log('💡 Tip: Ensure MongoDB is running locally on port 27017');
+    console.log('💡 Tip: Ensure MongoDB is running and accessible at 192.168.31.37:27017');
+    // Không exit process để server vẫn chạy và trả về lỗi cho client nếu gọi API
   });
 
 // --- SCHEMAS ---
@@ -94,7 +110,6 @@ const bookingSchema = new mongoose.Schema({
   }
 }, { toJSON: { virtuals: true, transform: transformId } });
 
-// New Schema for Settings
 const settingSchema = new mongoose.Schema({
   key: { type: String, required: true, unique: true },
   value: mongoose.Schema.Types.Mixed
@@ -109,7 +124,6 @@ const Setting = mongoose.model('Setting', settingSchema);
 // --- SEED DATA FUNCTION ---
 const seedData = async () => {
   try {
-    // Check connection state: 0 = disconnected, 1 = connected
     if (mongoose.connection.readyState !== 1) {
       console.log('⚠️ Skipping seed data: MongoDB not connected');
       return;
@@ -155,37 +169,46 @@ const seedData = async () => {
       ]);
     }
   } catch (e) {
-    console.error("Seed data failed:", e);
+    console.error("Seed data warning:", e.message);
   }
 };
 
 // --- ROUTES ---
+
+// Health Check Root
+app.get('/', (req, res) => {
+  res.send(`
+    <h1>VinaBus Server is Running!</h1>
+    <p>MongoDB Status: ${mongoose.connection.readyState === 1 ? '✅ Connected' : '❌ Disconnected'}</p>
+    <p>Access API at: <code>/api/...</code></p>
+  `);
+});
 
 // 1. Buses
 app.get('/api/buses', async (req, res) => {
   try {
     const buses = await Bus.find();
     res.json(buses);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
 });
 app.post('/api/buses', async (req, res) => {
   try {
     const bus = new Bus(req.body);
     await bus.save();
     res.json(bus);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
 });
 app.put('/api/buses/:id', async (req, res) => {
   try {
     const bus = await Bus.findByIdAndUpdate(req.params.id, req.body, { new: true });
     res.json(bus);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
 });
 app.delete('/api/buses/:id', async (req, res) => {
   try {
     await Bus.findByIdAndDelete(req.params.id);
     res.json({ success: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
 });
 
 // 2. Routes
@@ -193,26 +216,26 @@ app.get('/api/routes', async (req, res) => {
   try {
     const routes = await Route.find();
     res.json(routes);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
 });
 app.post('/api/routes', async (req, res) => {
   try {
     const route = new Route(req.body);
     await route.save();
     res.json(route);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
 });
 app.put('/api/routes/:id', async (req, res) => {
   try {
     const route = await Route.findByIdAndUpdate(req.params.id, req.body, { new: true });
     res.json(route);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
 });
 app.delete('/api/routes/:id', async (req, res) => {
   try {
     await Route.findByIdAndDelete(req.params.id);
     res.json({ success: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
 });
 
 // 3. Trips
@@ -220,32 +243,32 @@ app.get('/api/trips', async (req, res) => {
   try {
     const trips = await Trip.find();
     res.json(trips);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
 });
 app.post('/api/trips', async (req, res) => {
   try {
     const trip = new Trip(req.body);
     await trip.save();
     res.json(trip);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
 });
 app.put('/api/trips/:id', async (req, res) => {
   try {
     const trip = await Trip.findByIdAndUpdate(req.params.id, req.body, { new: true });
     res.json(trip);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
 });
 app.delete('/api/trips/:id', async (req, res) => {
   try {
     await Trip.findByIdAndDelete(req.params.id);
     res.json({ success: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
 });
 app.put('/api/trips/:id/seats', async (req, res) => {
   try {
     const trip = await Trip.findByIdAndUpdate(req.params.id, { seats: req.body.seats }, { new: true });
     res.json(trip);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
 });
 
 // 4. Bookings
@@ -253,7 +276,7 @@ app.get('/api/bookings', async (req, res) => {
   try {
     const bookings = await Booking.find();
     res.json(bookings);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/bookings', async (req, res) => {
@@ -295,7 +318,7 @@ app.post('/api/bookings', async (req, res) => {
     await trip.save();
 
     res.json({ bookings: newBookings, updatedTrip: trip });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
 });
 
 app.put('/api/bookings/payment', async (req, res) => {
@@ -333,7 +356,7 @@ app.put('/api/bookings/payment', async (req, res) => {
     const updatedBookings = await Booking.find();
     
     res.json({ updatedBookings, updatedTrip: trip });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
 });
 
 // 5. Settings
@@ -342,6 +365,7 @@ app.get('/api/settings/:key', async (req, res) => {
     const setting = await Setting.findOne({ key: req.params.key });
     res.json(setting ? setting.value : null);
   } catch (error) {
+    console.error(error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -356,11 +380,15 @@ app.post('/api/settings', async (req, res) => {
     );
     res.json(setting.value);
   } catch (error) {
+    console.error(error);
     res.status(500).json({ error: error.message });
   }
 });
 
 app.listen(PORT, '0.0.0.0', async () => {
-  await seedData();
+  // Chỉ chạy seedData khi DB đã kết nối
+  if (mongoose.connection.readyState === 1) {
+    await seedData();
+  }
   console.log(`🚀 Server running on http://0.0.0.0:${PORT}`);
 });

@@ -1,23 +1,28 @@
 
 import { Bus, BusTrip, Route, Passenger, Seat } from '../types';
 
-// Tự động xác định URL API
+// Dynamically determine the API URL based on current window location
 const getApiUrl = () => {
+  // Check if we are running in a browser environment
   if (typeof window !== 'undefined' && window.location && window.location.hostname && window.location.hostname.trim() !== '') {
-    return `http://${window.location.hostname}:5000/api`;
+    const apiUrl = `${window.location.protocol}//${window.location.hostname}:5000/api`;
+    return apiUrl;
   }
   return 'http://localhost:5000/api';
 };
 
 const API_URL = getApiUrl();
+console.log("🌐 Configured API URL:", API_URL); // Log for debugging
 
 const fetchJson = async (url: string, options?: RequestInit) => {
   try {
     const res = await fetch(url, options);
-    if (!res.ok) throw new Error(`API Error: ${res.statusText}`);
+    if (!res.ok) {
+      throw new Error(`API Error ${res.status}: ${res.statusText}`);
+    }
     return await res.json();
   } catch (error) {
-    console.error("Fetch error:", error, "URL:", url);
+    console.error("❌ Fetch error:", error, "URL:", url);
     throw error;
   }
 };
