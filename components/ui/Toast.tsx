@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useCallback } from "react";
 import { X, CheckCircle2, AlertCircle, Info } from "lucide-react";
 
@@ -49,25 +48,30 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({
         {toasts.map((t) => (
           <div
             key={t.id}
-            className={`
-              pointer-events-auto flex items-start w-80 rounded-lg p-4 shadow-lg border border-slate-200 transition-all animate-in slide-in-from-right-full
-              ${t.type === 'success' ? 'bg-white text-slate-900 border-l-4 border-l-green-500' : ''}
-              ${t.type === 'error' ? 'bg-white text-slate-900 border-l-4 border-l-red-500' : ''}
-              ${t.type === 'warning' ? 'bg-white text-slate-900 border-l-4 border-l-yellow-500' : ''}
-              ${t.type === 'info' ? 'bg-white text-slate-900 border-l-4 border-l-blue-500' : ''}
-            `}
+            className="pointer-events-auto flex items-start w-72 rounded-lg p-3 shadow-xl border border-slate-100 bg-white transition-all animate-in slide-in-from-right-full duration-300"
           >
-            <div className="flex-1 mr-2">
-              <div className="flex items-center gap-2 font-semibold text-sm">
-                {t.type === 'success' && <CheckCircle2 size={16} className="text-green-500" />}
-                {t.type === 'error' && <AlertCircle size={16} className="text-red-500" />}
-                {t.type === 'warning' && <AlertCircle size={16} className="text-yellow-500" />}
-                {t.type === 'info' && <Info size={16} className="text-blue-500" />}
-                {t.title}
-              </div>
-              {t.message && <p className="text-sm text-slate-500 mt-1">{t.message}</p>}
+            <div className="shrink-0 pt-0.5">
+              {t.type === 'success' && <CheckCircle2 size={18} className="text-green-600" />}
+              {t.type === 'error' && <AlertCircle size={18} className="text-red-600" />}
+              {t.type === 'warning' && <AlertCircle size={18} className="text-amber-500" />}
+              {t.type === 'info' && <Info size={18} className="text-blue-600" />}
             </div>
-            <button onClick={() => removeToast(t.id)} className="text-slate-400 hover:text-slate-900">
+            
+            <div className="flex-1 ml-3 mr-2 min-w-0">
+              <h4 className="text-sm font-bold text-slate-800 leading-tight">
+                {t.title}
+              </h4>
+              {t.message && (
+                <p className="text-xs text-slate-500 mt-1 leading-snug">
+                  {t.message}
+                </p>
+              )}
+            </div>
+
+            <button 
+              onClick={() => removeToast(t.id)} 
+              className="shrink-0 text-slate-300 hover:text-slate-500 transition-colors pt-0.5"
+            >
               <X size={14} />
             </button>
           </div>
