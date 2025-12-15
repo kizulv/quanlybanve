@@ -8,7 +8,19 @@ const app = express();
 const PORT = 5000;
 
 // Middleware
-app.use(cors());
+// Cấu hình CORS mở rộng để chấp nhận request từ các IP khác nhau trong mạng LAN
+app.use(cors({
+  origin: true, // Cho phép origin khớp với request (hỗ trợ 192.168.x.x)
+  credentials: true
+}));
+
+// Thêm header để sửa lỗi 'Private Network Access' trên Chrome khi gọi từ IP LAN vào localhost
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Private-Network", "true");
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+  next();
+});
+
 app.use(bodyParser.json());
 
 // MongoDB Connection

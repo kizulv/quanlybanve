@@ -1,7 +1,16 @@
 
 import { Bus, BusTrip, Route, Passenger, Seat } from '../types';
 
-const API_URL = 'http://localhost:5000/api';
+// Tự động xác định URL API dựa trên địa chỉ trình duyệt đang chạy
+// Giúp sửa lỗi CORS khi truy cập qua IP mạng LAN (ví dụ: 192.168.1.x)
+const getApiUrl = () => {
+  if (typeof window !== 'undefined') {
+    return `http://${window.location.hostname}:5000/api`;
+  }
+  return 'http://localhost:5000/api';
+};
+
+const API_URL = getApiUrl();
 
 const fetchJson = async (url: string, options?: RequestInit) => {
   try {
