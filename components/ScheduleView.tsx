@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from "react";
 import { Bus, BusTrip, Route, BusType } from "../types";
 import {
@@ -30,11 +31,8 @@ import {
   isSameDay,
 } from "../utils/dateUtils";
 import { AddTripModal } from "./AddTripModal";
-import {
-  generateCabinLayout,
-  generateSleeperLayout,
-} from "../utils/generators";
 import { Dialog } from "./ui/Dialog";
+import { api } from "../lib/api";
 
 interface ScheduleViewProps {
   trips: BusTrip[];
@@ -82,21 +80,28 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
     peakDays: [],
   });
 
-  // Load settings from local storage on mount
+  // Load settings from API
   useEffect(() => {
-    const savedSettings = localStorage.getItem("vinabus_schedule_settings");
-    if (savedSettings) {
+    const loadSettings = async () => {
       try {
-        setSettings(JSON.parse(savedSettings));
+        const data = await api.settings.get('schedule_settings');
+        if (data) {
+          setSettings(data);
+        }
       } catch (e) {
-        console.error(e);
+        console.error("Failed to load settings", e);
       }
-    }
+    };
+    loadSettings();
   }, []);
 
-  const handleSaveSettings = () => {
-    localStorage.setItem("vinabus_schedule_settings", JSON.stringify(settings));
-    setIsSettingsOpen(false);
+  const handleSaveSettings = async () => {
+    try {
+      await api.settings.save('schedule_settings', settings);
+      setIsSettingsOpen(false);
+    } catch (e) {
+      console.error("Failed to save settings", e);
+    }
   };
 
   // Helper to check if a date is within shutdown range

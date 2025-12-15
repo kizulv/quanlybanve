@@ -1,18 +1,11 @@
 
 import { Bus, BusTrip, Route, Passenger, Seat } from '../types';
 
-// Tự động xác định URL API dựa trên địa chỉ trình duyệt đang chạy
-// Giúp sửa lỗi CORS khi truy cập qua IP mạng LAN (ví dụ: 192.168.1.x)
+// Tự động xác định URL API
 const getApiUrl = () => {
-  // Kiểm tra môi trường browser
-  if (typeof window !== 'undefined' && window.location) {
-    const hostname = window.location.hostname;
-    // Kiểm tra hostname có giá trị và không rỗng
-    if (hostname && hostname.trim() !== '') {
-      return `http://${hostname}:5000/api`;
-    }
+  if (typeof window !== 'undefined' && window.location && window.location.hostname && window.location.hostname.trim() !== '') {
+    return `http://${window.location.hostname}:5000/api`;
   }
-  // Fallback về localhost nếu không xác định được hostname hoặc chạy local file
   return 'http://localhost:5000/api';
 };
 
@@ -110,12 +103,17 @@ export const api = {
     })
   },
 
+  settings: {
+    get: (key: string) => fetchJson(`${API_URL}/settings/${key}`),
+    save: (key: string, value: any) => fetchJson(`${API_URL}/settings`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key, value })
+    })
+  },
+
   system: {
-    exportData: async () => {
-      return {}; 
-    },
-    importData: async (data: any) => {
-      return false;
-    }
+    exportData: async () => { return {}; },
+    importData: async () => { return false; }
   }
 };

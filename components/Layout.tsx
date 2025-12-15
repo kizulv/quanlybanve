@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from "react";
 import {
   Calendar as CalendarIcon,
@@ -16,6 +17,7 @@ import { Popover } from "./ui/Popover";
 import { Calendar } from "./ui/Calendar";
 import { formatLunarDate, daysOfWeek } from "../utils/dateUtils";
 import { BusTrip, BusType, Route } from "../types";
+import { api } from "../lib/api";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -67,16 +69,16 @@ export const Layout: React.FC<LayoutProps> = ({
     peakDays: [],
   });
 
-  // Load schedule settings
+  // Load schedule settings from API (instead of localStorage)
   useEffect(() => {
-    const loadSettings = () => {
-      const saved = localStorage.getItem("vinabus_schedule_settings");
-      if (saved) {
-        try {
-          setScheduleSettings(JSON.parse(saved));
-        } catch (e) {
-          console.error("Failed to parse schedule settings", e);
+    const loadSettings = async () => {
+      try {
+        const data = await api.settings.get('schedule_settings');
+        if (data) {
+          setScheduleSettings(data);
         }
+      } catch (e) {
+        console.error("Failed to load schedule settings", e);
       }
     };
     loadSettings();
