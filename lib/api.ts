@@ -1,186 +1,191 @@
 
+import { Bus, BusTrip, Route, Passenger, Seat, Booking, SeatStatus } from '../types';
 import { db } from './db';
-import { Bus, BusTrip, Route, Booking, Passenger, Seat, SeatStatus } from '../types';
 
-// Simulate API delay
+// Helper to simulate network delay for realistic UI feedback
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export const api = {
   buses: {
     getAll: async () => {
-      await delay(200);
+      await delay(300);
       return db.buses.find();
     },
     create: async (bus: Bus) => {
-      await delay(200);
+      await delay(300);
       return db.buses.insertOne(bus);
     },
     update: async (id: string, updates: Partial<Bus>) => {
-      await delay(200);
+      await delay(300);
       return db.buses.updateOne(id, updates);
     },
     delete: async (id: string) => {
-      await delay(200);
+      await delay(300);
       return db.buses.deleteOne(id);
     }
   },
 
   routes: {
     getAll: async () => {
-      await delay(150);
+      await delay(300);
       return db.routes.find();
     },
     create: async (route: Route) => {
-      await delay(200);
+      await delay(300);
       return db.routes.insertOne(route);
     },
     update: async (id: string | number, updates: Partial<Route>) => {
-      await delay(200);
+      await delay(300);
       return db.routes.updateOne(id, updates);
     },
     delete: async (id: string | number) => {
-      await delay(200);
+      await delay(300);
       return db.routes.deleteOne(id);
     }
   },
 
   trips: {
     getAll: async () => {
-      await delay(300); // More data
+      await delay(300);
       return db.trips.find();
     },
     create: async (trip: BusTrip) => {
-      await delay(200);
+      await delay(300);
       return db.trips.insertOne(trip);
     },
     update: async (id: string, updates: Partial<BusTrip>) => {
-      await delay(200);
+      await delay(300);
       return db.trips.updateOne(id, updates);
     },
     delete: async (id: string) => {
-      await delay(200);
+      await delay(300);
       return db.trips.deleteOne(id);
     },
-    // Specific logic for updating seats status
     updateSeats: async (tripId: string, seats: Seat[]) => {
-      await delay(100);
-      return db.trips.updateOne(tripId, { seats });
+      await delay(300);
+      const trip = await db.trips.findById(tripId);
+      if (!trip) throw new Error("Trip not found");
+      
+      const updatedTrip = { ...trip, seats };
+      await db.trips.updateOne(tripId, updatedTrip);
+      return updatedTrip;
     }
   },
 
   bookings: {
     getAll: async () => {
-      await delay(200);
+      await delay(300);
       return db.bookings.find();
     },
+    
+    // Transaction: Create Bookings + Update Trip Seats
     create: async (
         tripId: string, 
         seats: Seat[], 
         passenger: Passenger, 
         payment?: { paidCash: number; paidTransfer: number }
     ) => {
-      await delay(400); // Simulate transaction
-      
+      await delay(500);
+      const now = new Date().toISOString();
+
+      // 1. Get Trip
       const trip = await db.trips.findById(tripId);
       if (!trip) throw new Error("Trip not found");
 
-      const newBookings: Booking[] = [];
-      const now = new Date().toISOString();
-
-      // Determine Status based on Payment
+      // 2. Determine Target Status (Sold if fully paid, Booked otherwise)
       const totalPrice = seats.reduce((sum, s) => sum + s.price, 0);
       const totalPaid = (payment?.paidCash || 0) + (payment?.paidTransfer || 0);
       
-      // Logic: If fully paid -> SOLD (Gray), Else -> BOOKED (Yellow)
-      const isFullyPaid = totalPaid >= totalPrice;
-      const targetStatus = isFullyPaid ? SeatStatus.SOLD : SeatStatus.BOOKED;
+      // Use SeatStatus enum values: "sold" or "booked"
+      const targetStatus = totalPaid >= totalPrice ? SeatStatus.SOLD : SeatStatus.BOOKED;
 
-      // Create booking records
+      const newBookings: Booking[] = [];
+      const updatedSeats = [...trip.seats];
+
+      // 3. Process each seat
       for (const seat of seats) {
-        // Calculate proportional payment or assign to first seat? 
-        // For simplicity, we attach the full payment info to the booking metadata, 
-        // but in a real app we might split it. Here we just store what was passed.
-        
         const booking: Booking = {
-          id: `BK-${Date.now()}-${seat.id}`,
+          id: `BKG-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`,
           seatId: seat.id,
           busId: tripId,
           passenger,
-          status: 'confirmed',
+          status: 'confirmed', // Booking status
           createdAt: now,
           totalPrice: seat.price,
-          payment: payment // Attach payment info
+          payment: payment || { paidCash: 0, paidTransfer: 0 }
         };
+        
         await db.bookings.insertOne(booking);
         newBookings.push(booking);
+
+        // Update seat status in the trip
+        const seatIndex = updatedSeats.findIndex(s => s.id === seat.id);
+        if (seatIndex !== -1) {
+          updatedSeats[seatIndex] = { ...updatedSeats[seatIndex], status: targetStatus };
+        }
       }
 
-      // Update trip seat status
-      const updatedSeats = trip.seats.map(s => {
-        if (seats.find(selected => selected.id === s.id)) {
-          return { ...s, status: targetStatus };
-        }
-        return s;
-      });
+      // 4. Save Trip with updated seats
+      const updatedTrip = await db.trips.updateOne(tripId, { seats: updatedSeats });
+      
+      if (!updatedTrip) throw new Error("Failed to update trip");
 
-      await db.trips.updateOne(tripId, { seats: updatedSeats });
-
-      return { bookings: newBookings, updatedTrip: { ...trip, seats: updatedSeats } };
+      return { bookings: newBookings, updatedTrip };
     },
 
+    // Transaction: Update Payment + Update Trip Seats
     updatePayment: async (
       bookingIds: string[],
       payment: { paidCash: number; paidTransfer: number }
     ) => {
-      await delay(300);
+      await delay(500);
+
+      // 1. Fetch relevant bookings
       const allBookings = await db.bookings.find();
       const targetBookings = allBookings.filter(b => bookingIds.includes(b.id));
       
-      if (targetBookings.length === 0) throw new Error("No bookings found");
-      
-      const tripId = targetBookings[0].busId;
+      if (targetBookings.length === 0) throw new Error("Bookings not found");
+
+      // 2. Update payment info for these bookings
+      for (const booking of targetBookings) {
+          await db.bookings.updateOne(booking.id, { payment });
+      }
+
+      // 3. Recalculate Seat Status
+      // Assumption: All passed bookingIds belong to the same trip logic (based on App.tsx usage)
+      const sampleBooking = targetBookings[0];
+      const tripId = sampleBooking.busId;
       const trip = await db.trips.findById(tripId);
-      if (!trip) throw new Error("Trip not found");
 
       const totalPrice = targetBookings.reduce((sum, b) => sum + b.totalPrice, 0);
       const totalPaid = payment.paidCash + payment.paidTransfer;
-      const isFullyPaid = totalPaid >= totalPrice;
-      const targetStatus = isFullyPaid ? SeatStatus.SOLD : SeatStatus.BOOKED;
+      const targetStatus = totalPaid >= totalPrice ? SeatStatus.SOLD : SeatStatus.BOOKED;
 
-      // Update bookings
-      for (const booking of targetBookings) {
-        // In a real app, split payment proportionally. Here we just update metadata
-        // Assuming the payment passed is the TOTAL for these specific bookings
-        await db.bookings.updateOne(booking.id, { 
-          payment: payment 
+      let updatedTrip = trip;
+
+      if (trip) {
+        const seatIds = targetBookings.map(b => b.seatId);
+        const updatedSeats = trip.seats.map(s => {
+            if (seatIds.includes(s.id)) {
+                return { ...s, status: targetStatus };
+            }
+            return s;
         });
+        updatedTrip = await db.trips.updateOne(tripId, { seats: updatedSeats });
       }
 
-      // Update Trip Seats
-      const updatedSeats = trip.seats.map(s => {
-        const matchingBooking = targetBookings.find(b => b.seatId === s.id);
-        if (matchingBooking) {
-          return { ...s, status: targetStatus };
-        }
-        return s;
-      });
+      // 4. Return fresh data
+      const freshBookings = await db.bookings.find();
 
-      await db.trips.updateOne(tripId, { seats: updatedSeats });
-      
-      return { 
-        updatedBookings: await db.bookings.find(), // return all for refresh
-        updatedTrip: { ...trip, seats: updatedSeats } 
-      };
+      return { updatedBookings: freshBookings, updatedTrip: updatedTrip! };
     }
   },
 
   system: {
     exportData: async () => {
-      await delay(500); // Simulate large data processing
       return db.exportAll();
     },
     importData: async (data: any) => {
-      await delay(500);
       return db.importAll(data);
     }
   }
