@@ -212,7 +212,6 @@ export const BookingForm: React.FC<BookingFormProps> = ({
       const currentCount = selectionBasket.reduce((acc, item) => acc + item.seats.length, 0);
       
       const originalPrice = editingBooking.totalPrice;
-      // totalPrice prop is already calculating from selectionBasket
       const currentPrice = totalPrice; 
       
       if (originalCount === currentCount && originalPrice === currentPrice) return null;
@@ -239,6 +238,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
         );
     }
 
+    // Unified Basket View (Edit mode simply uses the same selectionBasket)
     return (
         <div className="space-y-2">
             {selectionBasket.map((item, idx) => {
@@ -295,12 +295,12 @@ export const BookingForm: React.FC<BookingFormProps> = ({
       <div className="px-3 h-[50px] bg-gradient-to-r from-indigo-950 via-indigo-900 to-indigo-950 border-b border-indigo-900 flex items-center justify-between shrink-0 rounded-t-xl">
         <div className="flex items-center gap-2 text-sm font-bold text-white">
           <Ticket size={16} className="text-yellow-400" />
-          Thông tin đặt vé
+          {editingBooking ? "Chỉnh sửa đơn hàng" : "Thông tin đặt vé"}
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={onCancel}
-            disabled={selectionBasket.length === 0}
+            disabled={selectionBasket.length === 0 && !editingBooking}
             className="text-indigo-300 hover:text-white hover:bg-indigo-800 p-1.5 rounded-full transition-colors disabled:opacity-30"
             title={editingBooking ? "Đóng" : "Hủy chọn tất cả"}
           >
@@ -317,7 +317,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
         {renderBasketItems()}
       </div>
       
-      {/* CHANGE WARNING ALERT */}
+      {/* CHANGE WARNING ALERT (Edit Mode Only) */}
       {changes && changes.hasChanges && (
          <div className="px-3 pb-3 bg-indigo-950 animate-in fade-in slide-in-from-bottom-2">
             <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-2 text-amber-200 text-xs flex items-start gap-2">
@@ -337,7 +337,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
          </div>
       )}
 
-      {/* 3. Mode Selector - ALWAYS VISIBLE now */}
+      {/* 3. Mode Selector - ALWAYS VISIBLE */}
       <div className="px-3 pb-3 bg-indigo-950">
         <div className="bg-indigo-900/50 p-1 rounded-lg flex border border-indigo-800">
         <button
@@ -375,7 +375,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
 
       {/* 4. Input Fields */}
       <div className="p-3 border-t bg-indigo-900/50 border-indigo-900 space-y-2 relative">
-        {bookingMode !== "hold" || editingBooking ? (
+        {bookingMode !== "hold" ? (
           <>
             <div className="relative">
               <input
@@ -395,7 +395,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
               />
               <Phone size={12} className={`absolute left-2 top-2 ${phoneError ? "text-red-500" : "text-indigo-400"}`} />
 
-              {/* HISTORY DROPDOWN - ALWAYS VISIBLE if matches exist, even in edit mode */}
+              {/* HISTORY DROPDOWN - Always available if matches exist */}
               {showHistory && passengerHistory.length > 0 && (
                 <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-lg shadow-xl border border-slate-200 overflow-hidden z-[50] animate-in fade-in zoom-in-95 duration-200">
                   <div className="bg-slate-50 px-3 py-1.5 border-b border-slate-100 flex justify-between items-center">
@@ -511,7 +511,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
               : "bg-purple-600 hover:bg-purple-500 text-white"
           }`}
           onClick={onConfirm}
-          disabled={!editingBooking && selectionBasket.length === 0}
+          disabled={selectionBasket.length === 0}
         >
           {editingBooking ? (
               <><Save size={16} className="mr-2" /> Cập nhật</>
