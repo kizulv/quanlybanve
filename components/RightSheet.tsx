@@ -159,7 +159,7 @@ export const RightSheet: React.FC<RightSheetProps> = ({ bookings, trips }) => {
             </div>
           ) : (
             <div className="pb-4">
-              {Object.entries(listByDate).map(([dateStr, items]: [string, any[]]) => (
+              {Object.entries(listByDate).map(([dateStr, items]) => (
                 <div key={dateStr}>
                    <div className="sticky top-0 z-10 px-5 py-2 bg-slate-100/95 backdrop-blur border-y border-slate-200 text-xs font-bold text-slate-600 uppercase tracking-wider shadow-sm flex items-center gap-2">
                       <Calendar size={12} />
@@ -221,7 +221,7 @@ export const RightSheet: React.FC<RightSheetProps> = ({ bookings, trips }) => {
                             {/* Footer: Seats & Price */}
                             <div className="flex justify-between items-end">
                               <div className="flex flex-wrap gap-1.5 max-w-[60%]">
-                                {group.seats.map((seat: string) => (
+                                {group.seats.map((seat) => (
                                   <span
                                     key={seat}
                                     className="inline-flex items-center justify-center px-2 py-1 rounded-md text-[11px] font-bold bg-white border border-slate-200 text-slate-700 shadow-sm"
