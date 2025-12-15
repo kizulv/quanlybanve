@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from "react";
 import { Bus, BusTrip, Route, BusType } from "../types";
 import {
@@ -96,7 +97,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
 
   const handleSaveSettings = async () => {
     try {
-      await api.settings.set('schedule_settings', settings);
+      await api.settings.save('schedule_settings', settings);
       setIsSettingsOpen(false);
     } catch (e) {
       console.error("Failed to save settings", e);

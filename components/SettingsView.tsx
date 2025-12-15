@@ -59,7 +59,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const handleSaveRoute = async (routeData: Route) => {
     try {
       if (editingRoute) {
-        await api.routes.update(String(editingRoute.id), routeData);
+        await api.routes.update(editingRoute.id, routeData);
       } else {
         await api.routes.create(routeData);
       }

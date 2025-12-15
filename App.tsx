@@ -102,46 +102,6 @@ function AppContent() {
   // Activity Log State (Kept for internal logic if needed, but removed from UI)
   const [recentActivities, setRecentActivities] = useState<ActivityLog[]>([]);
 
-  // -- HELPER: STANDARDIZE LOCATION NAME --
-  const getStandardizedLocation = (input: string) => {
-    if (!input) return "";
-    const lower = input.toLowerCase().trim();
-
-    const mappings: Record<string, string> = {
-      "lai chau": "BX Lai Châu",
-      "lai châu": "BX Lai Châu",
-      "ha tinh": "BX Hà Tĩnh",
-      "hà tĩnh": "BX Hà Tĩnh",
-      "ha noi": "BX Mỹ Đình",
-      "hà nội": "BX Mỹ Đình",
-      "my dinh": "BX Mỹ Đình",
-      "mỹ đình": "BX Mỹ Đình",
-      "giap bat": "BX Giáp Bát",
-      "giáp bát": "BX Giáp Bát",
-      "nuoc ngam": "BX Nước Ngầm",
-      "nước ngầm": "BX Nước Ngầm",
-      sapa: "BX Sapa",
-      "sa pa": "BX Sapa",
-      "lao cai": "BX Lào Cai",
-      "lào cai": "BX Lào Cai",
-      "da nang": "BX Đà Nẵng",
-      "đà nẵng": "BX Đà Nẵng",
-      vinh: "BX Vinh",
-      "nghe an": "BX Vinh",
-      "nghệ an": "BX Vinh",
-      "thanh hoa": "BX Thanh Hóa",
-      "thanh hóa": "BX Thanh Hóa",
-      "dien bien": "BX Điện Biên",
-      "điện biên": "BX Điện Biên",
-      "son la": "BX Sơn La",
-      "sơn la": "BX Sơn La",
-      "yen bai": "BX Yên Bái",
-      "yên bái": "BX Yên Bái",
-    };
-
-    return mappings[lower] || input;
-  };
-
   // -- CALCULATED STATES (BASKET) --
   // Calculate all selected seats across ALL trips
   const selectionBasket = useMemo(() => {
@@ -307,8 +267,8 @@ function AppContent() {
         let rawDropoff = trip.direction === "inbound" ? route.origin : route.destination;
         setBookingForm(prev => ({
           ...prev,
-          pickup: getStandardizedLocation(rawPickup || ""),
-          dropoff: getStandardizedLocation(rawDropoff || "")
+          pickup: rawPickup || "",
+          dropoff: rawDropoff || ""
         }));
       }
     }
@@ -402,12 +362,12 @@ function AppContent() {
          } : { paidCash: 0, paidTransfer: 0 };
          
          
-         const result = await api.bookings.create({
-            tripId: item.trip.id,
-            seats: item.seats,
+         const result = await api.bookings.create(
+            item.trip.id,
+            item.seats,
             passenger,
-            payment: paymentForTrip
-         });
+            paymentForTrip
+         );
 
          newBookings.push(...result.bookings);
          updatedTripsMap.set(item.trip.id, result.updatedTrip);
