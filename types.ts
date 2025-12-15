@@ -9,6 +9,7 @@ export enum SeatStatus {
   SELECTED = "selected",
   BOOKED = "booked",
   SOLD = "sold",
+  HELD = "held", // Trạng thái giữ vé mới
 }
 
 export interface Seat {

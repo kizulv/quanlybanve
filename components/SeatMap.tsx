@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Seat, SeatStatus, BusType, Booking } from "../types";
 import {
@@ -7,6 +8,7 @@ import {
   MapPin,
   StickyNote,
   MessageSquare,
+  Lock,
 } from "lucide-react";
 
 interface SeatMapProps {
@@ -34,7 +36,9 @@ export const SeatMap: React.FC<SeatMapProps> = ({
       case SeatStatus.BOOKED:
         return "bg-yellow-50 border-yellow-300 text-yellow-900 cursor-pointer hover:bg-yellow-100"; 
       case SeatStatus.SOLD:
-        return "bg-slate-100 border-slate-300 text-slate-600 cursor-not-allowed"; 
+        return "bg-slate-100 border-slate-300 text-slate-600 cursor-not-allowed";
+      case SeatStatus.HELD:
+        return "bg-purple-50 border-purple-300 text-purple-900 cursor-pointer hover:bg-purple-100";
       default:
         return "bg-white border-slate-200";
     }
@@ -53,10 +57,12 @@ export const SeatMap: React.FC<SeatMapProps> = ({
   const renderSeat = (seat: Seat, isBench: boolean = false) => {
     const statusClass = getSeatStatusClass(seat.status);
     
+    // HELD seats are also interactive to potentially unlock them
     const isInteractive =
       seat.status === SeatStatus.AVAILABLE ||
       seat.status === SeatStatus.SELECTED ||
-      seat.status === SeatStatus.BOOKED;
+      seat.status === SeatStatus.BOOKED ||
+      seat.status === SeatStatus.HELD;
 
     // FIND BOOKING INFO
     // Iterate through bookings, check nested items for currentTripId AND seatId
@@ -102,6 +108,8 @@ export const SeatMap: React.FC<SeatMapProps> = ({
               ? "border-yellow-200 bg-yellow-100/50"
               : seat.status === SeatStatus.SOLD
               ? "border-slate-200 bg-slate-200/50"
+              : seat.status === SeatStatus.HELD
+              ? "border-purple-200 bg-purple-100/50"
               : "border-slate-100 bg-slate-50/50"
           }`}
         >
@@ -169,6 +177,11 @@ export const SeatMap: React.FC<SeatMapProps> = ({
             <div className="flex flex-col items-center justify-center h-full text-white/90">
               <Check size={24} className="mb-1" />
               <span className="font-medium">Đang chọn</span>
+            </div>
+          ) : seat.status === SeatStatus.HELD ? (
+            <div className="flex flex-col items-center justify-center h-full text-purple-800/80">
+              <Lock size={16} className="mb-1 opacity-60" />
+              <span className="font-medium text-[9px] text-center">Vé đang giữ</span>
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-slate-300">
