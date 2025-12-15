@@ -362,12 +362,12 @@ function AppContent() {
          } : { paidCash: 0, paidTransfer: 0 };
          
          
-         const result = await api.bookings.create(
-            item.trip.id,
-            item.seats,
+         const result = await api.bookings.create({
+            tripId: item.trip.id,
+            seats: item.seats,
             passenger,
-            paymentForTrip
-         );
+            payment: paymentForTrip
+         });
 
          newBookings.push(...result.bookings);
          updatedTripsMap.set(item.trip.id, result.updatedTrip);
@@ -533,6 +533,39 @@ function AppContent() {
       }
       return { ...prev, paidCash: newCash, paidTransfer: newTransfer };
     });
+  };
+
+  const handleLocationBlur = (field: 'pickup' | 'dropoff') => {
+    let val = bookingForm[field].trim();
+    if (!val) return;
+
+    // 1. Title Case (Tự động viết hoa chữ cái đầu)
+    val = val
+      .toLowerCase()
+      .split(" ")
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(" ");
+
+    // 2. Mapping cụ thể: Nghệ An -> BX Vinh
+    if (val === "Nghệ An") {
+      setBookingForm((prev) => ({ ...prev, [field]: "BX Vinh" }));
+      return;
+    }
+
+    // 3. Tự động thêm BX nếu trùng tên tuyến/địa danh phổ biến
+    const commonLocations = [
+      "Lai Châu", "Hà Tĩnh", "Sapa", "Hà Nội", "Đà Nẵng", "Sài Gòn", "Đà Lạt",
+      "Lào Cai", "Yên Bái", "Sơn La", "Điện Biên", "Cao Bằng", "Thanh Hóa",
+      "Ninh Bình", "Nam Định", "Thái Bình", "Hải Phòng", "Quảng Ninh",
+      "Bắc Giang", "Lạng Sơn", "Vinh", "Huế", "Nha Trang", "Vũng Tàu",
+      "Cần Thơ", "Buôn Ma Thuột", "Pleiku", "Kon Tum"
+    ];
+
+    if (commonLocations.includes(val)) {
+      val = `BX ${val}`;
+    }
+
+    setBookingForm((prev) => ({ ...prev, [field]: val }));
   };
 
   // --- RENDERERS ---
@@ -702,12 +735,20 @@ function AppContent() {
                    </div>
                    <div className="grid grid-cols-2 gap-2">
                        <input 
-                          type="text" name="pickup" value={bookingForm.pickup} onChange={handleInputChange}
+                          type="text" 
+                          name="pickup" 
+                          value={bookingForm.pickup} 
+                          onChange={handleInputChange}
+                          onBlur={() => handleLocationBlur('pickup')}
                           className="w-full pl-2 pr-2 py-1.5 text-xs rounded bg-indigo-950 border border-indigo-800 text-white placeholder-indigo-400 focus:border-green-500 outline-none"
                           placeholder="Điểm đón"
                        />
                        <input 
-                          type="text" name="dropoff" value={bookingForm.dropoff} onChange={handleInputChange}
+                          type="text" 
+                          name="dropoff" 
+                          value={bookingForm.dropoff} 
+                          onChange={handleInputChange}
+                          onBlur={() => handleLocationBlur('dropoff')}
                           className="w-full pl-2 pr-2 py-1.5 text-xs rounded bg-indigo-950 border border-indigo-800 text-white placeholder-indigo-400 focus:border-red-500 outline-none"
                           placeholder="Điểm trả"
                        />
