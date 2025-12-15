@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from "react";
 import { Layout } from "./components/Layout";
 import { SeatMap } from "./components/SeatMap";
@@ -8,7 +7,6 @@ import { Badge } from "./components/ui/Badge";
 import { Button } from "./components/ui/Button";
 import { ToastProvider, useToast } from "./components/ui/Toast";
 import { RightSheet } from "./components/RightSheet";
-import { CustomerHistoryModal } from "./components/CustomerHistoryModal"; // Import Modal mới
 import {
   BusTrip,
   Seat,
@@ -33,7 +31,6 @@ import {
   Zap,
   CheckCircle2,
   Lock,
-  History, // Icon History
 } from "lucide-react";
 import { api } from "./lib/api";
 import { isSameDay, formatLunarDate, formatTime } from "./utils/dateUtils";
@@ -109,9 +106,6 @@ function AppContent() {
     bookingIds?: string[];
     totalPrice: number;
   } | null>(null);
-  
-  // Customer History State
-  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
 
   // -- CALCULATED STATES (BASKET) --
   // Calculate all selected seats across ALL trips
@@ -134,13 +128,6 @@ function AppContent() {
       0
     );
   }, [selectionBasket]);
-  
-  // Calculate History for current phone number
-  const customerHistory = useMemo(() => {
-    const phone = bookingForm.phone.replace(/\D/g, "");
-    if (phone.length < 3) return []; // Only search if at least 3 digits
-    return bookings.filter(b => b.passenger.phone.replace(/\D/g, "").includes(phone));
-  }, [bookings, bookingForm.phone]);
 
   // -- UTILS --
   const formatPhoneNumber = (value: string) => {
@@ -216,7 +203,7 @@ function AppContent() {
 
   // --- Handlers ---
   
-  // Helper to ensure "BX " prefix (Used ONLY for auto-fill)
+  // Helper to ensure "BX " prefix
   const ensureBxPrefix = (location: string) => {
       if (!location) return "";
       const trimmed = location.trim();
@@ -246,7 +233,7 @@ function AppContent() {
         let rawDropoff =
           trip.direction === "inbound" ? route.origin : route.destination;
         
-        // Ensure "BX" prefix logic - ONLY HERE (Defaults)
+        // Ensure "BX" prefix logic
         rawPickup = ensureBxPrefix(rawPickup || "");
         rawDropoff = ensureBxPrefix(rawDropoff || "");
 
@@ -296,9 +283,24 @@ function AppContent() {
     
     // Check if seat is HELD
     if (clickedSeat.status === SeatStatus.HELD) {
-        // Toggle HELD -> SELECTED (to allow processing/unholding)
+        // Option: allow unholding by clicking? 
+        // For simplicity, treat as selected logic (toggle) for now, allowing admin to select it to perform other actions?
+        // Or strictly block? 
+        // Let's allow selecting it so you can "Release" it by changing status back to Available, 
+        // OR simply toggle its status locally.
+        // For now, treat HELD like SELECTED -> clicking it makes it AVAILABLE (un-hold)
+        // But better to treat it like SELECTED but with specific visual.
+        
+        // Actually, if it's HELD in DB, it comes as HELD.
+        // To Unhold, we select it, then save as Available?
+        // Let's stick to standard behavior: If HELD, clicking it selects it (if we want to process it) or toggles it.
+        // Simplified: Clicking HELD turns it into SELECTED (so we can re-process it).
+        // Clicking SELECTED turns it into AVAILABLE.
+        // Clicking AVAILABLE turns it into SELECTED.
+        
         const updatedSeats = selectedTrip.seats.map((seat) => {
             if (seat.id === clickedSeat.id) {
+                // If it was HELD, make it SELECTED so we can operate on it
                 return { ...seat, status: SeatStatus.SELECTED };
             }
             return seat;
@@ -586,7 +588,6 @@ function AppContent() {
       return;
     }
     if (name === "pickup" || name === "dropoff") {
-      // Just basic capitalization, NO BX Enforcement while typing
       const formatted = value.replace(/(?:^|\s)\S/g, (a) => a.toUpperCase());
       setBookingForm((prev) => ({ ...prev, [name]: formatted }));
       return;
@@ -614,19 +615,45 @@ function AppContent() {
     });
   };
 
+  const getStandardizedLocation = (input: string) => {
+    if (!input) return "";
+    let value = input.trim();
+    // Logic: Nếu chưa có chữ BX ở đầu thì thêm vào
+    if (!/^bx\s/i.test(value)) {
+        // Simple case: add prefix
+    }
+    // Existing mappings logic (keep it)
+    const lower = value.toLowerCase();
+    const mappings: Record<string, string> = {
+      "lai chau": "BX Lai Châu",
+      "lai châu": "BX Lai Châu",
+      "ha tinh": "BX Hà Tĩnh",
+      "hà tĩnh": "BX Hà Tĩnh",
+      "lao cai": "BX Lào Cai",
+      vinh: "BX Vinh",
+      "nghe an": "BX Vinh",
+      "nghệ an": "BX Vinh",
+    };
+    if (mappings[lower]) return mappings[lower];
+    
+    // Auto prefix if needed
+    if (!/^bx\s/i.test(value) && value.length > 2) {
+        // Capitalize first letters
+        value = value.replace(/(?:^|\s)\S/g, (a) => a.toUpperCase());
+        return `BX ${value}`;
+    }
+
+    return value.replace(/(?:^|\s)\S/g, (a) => a.toUpperCase());
+  };
+  
   const handleLocationBlur = (field: "pickup" | "dropoff") => {
     let value = bookingForm[field].trim();
     if (!value) return;
-    
-    // UPDATED LOGIC: Just Capitalize, DO NOT Add "BX "
-    // Only capitalization logic
-    const capitalized = value.replace(/(?:^|\s)\S/g, (a) => a.toUpperCase());
-    
-    if (capitalized !== bookingForm[field]) {
-      setBookingForm((prev) => ({ ...prev, [field]: capitalized }));
+    const standardized = getStandardizedLocation(value);
+    if (standardized !== value) {
+      setBookingForm((prev) => ({ ...prev, [field]: standardized }));
     }
   };
-  
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -864,39 +891,19 @@ function AppContent() {
               <div className="p-3 bg-indigo-900/50 border-t border-indigo-900 space-y-2">
                 {bookingMode !== 'hold' ? (
                     <>
-                        <div className="relative flex items-center gap-2">
-                          <div className="relative flex-1">
-                              <input
-                                type="tel"
-                                name="phone"
-                                value={bookingForm.phone}
-                                onChange={handleInputChange}
-                                className="w-full pl-7 pr-2 py-1.5 text-xs rounded bg-indigo-950 border border-indigo-800 text-white placeholder-indigo-400 focus:border-yellow-400 outline-none"
-                                placeholder="Số điện thoại khách (Bắt buộc)"
-                              />
-                              <Phone
-                                size={12}
-                                className="absolute left-2 top-2 text-indigo-400"
-                              />
-                          </div>
-                          {/* HISTORY BUTTON */}
-                          <button
-                            type="button"
-                            onClick={() => setIsHistoryModalOpen(true)}
-                            className={`
-                              h-8 px-2 rounded border transition-all flex items-center justify-center gap-1
-                              ${customerHistory.length > 0 
-                                ? 'bg-blue-600 border-blue-500 text-white hover:bg-blue-500' 
-                                : 'bg-indigo-950 border-indigo-800 text-indigo-400 hover:text-white hover:border-indigo-600'
-                              }
-                            `}
-                            title="Xem lịch sử đặt vé"
-                          >
-                             <History size={14} />
-                             {customerHistory.length > 0 && (
-                                <span className="text-[10px] font-bold bg-white/20 px-1 rounded-sm">{customerHistory.length}</span>
-                             )}
-                          </button>
+                        <div className="relative">
+                          <input
+                            type="tel"
+                            name="phone"
+                            value={bookingForm.phone}
+                            onChange={handleInputChange}
+                            className="w-full pl-7 pr-2 py-1.5 text-xs rounded bg-indigo-950 border border-indigo-800 text-white placeholder-indigo-400 focus:border-yellow-400 outline-none"
+                            placeholder="Số điện thoại khách (Bắt buộc)"
+                          />
+                          <Phone
+                            size={12}
+                            className="absolute left-2 top-2 text-indigo-400"
+                          />
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                           <input
@@ -1224,14 +1231,6 @@ function AppContent() {
         paidCash={bookingForm.paidCash}
         paidTransfer={bookingForm.paidTransfer}
         onMoneyChange={handleMoneyChange}
-      />
-      
-      {/* Customer History Modal */}
-      <CustomerHistoryModal 
-         isOpen={isHistoryModalOpen}
-         onClose={() => setIsHistoryModalOpen(false)}
-         bookings={customerHistory}
-         phoneNumber={bookingForm.phone}
       />
     </Layout>
   );
