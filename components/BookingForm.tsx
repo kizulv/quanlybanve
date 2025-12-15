@@ -371,11 +371,6 @@ export const BookingForm: React.FC<BookingFormProps> = ({
                 </div>
               )}
             </div>
-            {phoneError && (
-              <div className="text-[10px] text-red-400 px-1 flex items-center gap-1">
-                <AlertCircle size={10} /> {phoneError}
-              </div>
-            )}
             <div className="grid grid-cols-2 gap-2">
               <input
                 type="text"
