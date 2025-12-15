@@ -263,26 +263,12 @@ app.post("/api/bookings", async (req, res) => {
             seatIds: seatIds,
             price: itemPrice
         });
-
-        // Determine status: "sold" if fully paid, else "booked"
-        const totalPaid = (payment?.paidCash || 0) + (payment?.paidTransfer || 0);
-        // We will confirm final status logic later, but seat status needs to be set now
-        // For new bookings, we treat seat status based on payment of THIS booking
-        // BUT, we need to know the total price first to know if it's fully paid.
-        // So we will assume 'booked' first, and if fully paid, 'sold'.
-        
-        // However, calculating fully paid inside the loop is hard if total price isn't known.
-        // We just calculated calculatedTotalPrice inside loop. 
-        // Let's defer trip updates slightly or assume booked.
-        // Actually, for simplicity:
-        // 1. Calculate everything.
-        // 2. Determine if fully paid.
-        // 3. Update trips.
     }
 
-    // Re-loop to update trips with correct status
+    // Determine status
     const totalPaid = (payment?.paidCash || 0) + (payment?.paidTransfer || 0);
     const isFullyPaid = totalPaid >= calculatedTotalPrice;
+    // Default logic for creation: confirmed if paid, otherwise pending (maps to "Tạo mới" in UI)
     const finalStatus = isFullyPaid ? "confirmed" : "pending";
     const seatStatus = isFullyPaid ? "sold" : "booked";
 
@@ -351,7 +337,7 @@ app.put("/api/bookings/:id", async (req, res) => {
 
       for (const item of items) {
           const trip = await Trip.findById(item.tripId);
-          if (!trip) continue; // Should handle error
+          if (!trip) continue; 
           
           const seatIds = item.seats.map(s => s.id);
           const itemPrice = item.seats.reduce((sum, s) => sum + s.price, 0);
@@ -369,27 +355,37 @@ app.put("/api/bookings/:id", async (req, res) => {
           });
       }
 
-      // 3. Update Payment and Determine Status
+      // 3. Determine Status based on Edit actions
       const totalPaid = (payment?.paidCash || 0) + (payment?.paidTransfer || 0);
       const isFullyPaid = totalPaid >= calculatedTotalPrice;
-      const finalStatus = isFullyPaid ? "confirmed" : "pending";
+      
+      let finalStatus;
+      if (calculatedTotalTickets === 0) {
+          finalStatus = "cancelled"; // Hủy hết ghế -> Đã hủy
+      } else {
+          finalStatus = "modified"; // Có thay đổi -> Đã thay đổi
+          // Note: If user wants to keep "confirmed" if fully paid, logic can be added here.
+          // But requirement is "Khi chỉnh sửa... trạng thái -> Đã thay đổi"
+      }
+
       const seatStatus = isFullyPaid ? "sold" : "booked";
 
-      // 4. Update Trips with New Seats Status
-      for (const item of items) {
-          const trip = await Trip.findById(item.tripId);
-          if (!trip) continue;
+      // 4. Update Trips with New Seats Status (Only if tickets exist)
+      if (calculatedTotalTickets > 0) {
+          for (const item of items) {
+              const trip = await Trip.findById(item.tripId);
+              if (!trip) continue;
 
-          const seatIds = item.seats.map(s => s.id);
-          trip.seats = trip.seats.map(s => {
-              if (seatIds.includes(s.id)) return { ...s, status: seatStatus };
-              return s;
-          });
-          
-          await trip.save();
-          // Avoid duplicates in updatedTrips list if multiple items refer to same trip (unlikely for single booking but safe)
-          if (!updatedTrips.find(t => t.id === trip.id)) {
-              updatedTrips.push(trip);
+              const seatIds = item.seats.map(s => s.id);
+              trip.seats = trip.seats.map(s => {
+                  if (seatIds.includes(s.id)) return { ...s, status: seatStatus };
+                  return s;
+              });
+              
+              await trip.save();
+              if (!updatedTrips.find(t => t.id === trip.id)) {
+                  updatedTrips.push(trip);
+              }
           }
       }
 
@@ -403,7 +399,6 @@ app.put("/api/bookings/:id", async (req, res) => {
       
       await oldBooking.save();
 
-      // Return *all* trips to ensure UI syncs fully (since we modified trips that might not be in the new list anymore)
       const allTrips = await Trip.find();
 
       res.json({ booking: oldBooking, updatedTrips: allTrips });
@@ -418,25 +413,43 @@ app.put("/api/bookings/payment", async (req, res) => {
   try {
     const { bookingIds, payment } = req.body;
 
-    await Booking.updateMany(
-      { _id: { $in: bookingIds } },
-      { $set: { payment: payment } }
-    );
-
+    // When just updating payment, we usually want to check if it becomes confirmed
+    // But if it was 'modified', we might want to keep it 'modified' or switch to 'confirmed'.
+    // For simplicity, let's switch to 'confirmed' if paid, or 'pending' if not, 
+    // UNLESS it was 'cancelled'.
+    
+    // However, the simplest logic that fits general needs:
+    // Update payment -> Check if paid -> 'confirmed' else 'pending'.
+    // If it was 'modified', paying it effectively confirms the new state.
+    
+    // We need to fetch bookings first to check current status
     const targetBookings = await Booking.find({ _id: { $in: bookingIds } });
     
-    // Sync Trips Logic (same as before)
+    for (const b of targetBookings) {
+        if (b.status === 'cancelled') continue; // Don't revive cancelled via payment endpoint
+
+        const totalPaid = (payment.paidCash || 0) + (payment.paidTransfer || 0);
+        const newStatus = totalPaid >= b.totalPrice ? "confirmed" : "pending";
+        
+        b.payment = payment;
+        b.status = newStatus;
+        await b.save();
+    }
+
+    // Sync Trips Logic
     const tripIdsToUpdate = new Set();
     targetBookings.forEach(b => {
-        b.items.forEach(i => tripIdsToUpdate.add(i.tripId));
+        if (b.status !== 'cancelled') {
+            b.items.forEach(i => tripIdsToUpdate.add(i.tripId));
+        }
     });
 
     for (const tripId of tripIdsToUpdate) {
         const trip = await Trip.findById(tripId);
         if (!trip) continue;
         
-        // This relies on simple status check, good enough for now
         targetBookings.forEach(b => {
+            if (b.status === 'cancelled') return;
             const item = b.items.find(i => i.tripId === trip.id);
             if (!item) return;
 

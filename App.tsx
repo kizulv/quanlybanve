@@ -940,6 +940,7 @@ function AppContent() {
                     <th className="px-6 py-4">Mã vé</th>
                     <th className="px-6 py-4">Khách hàng</th>
                     <th className="px-6 py-4">Chi tiết (Chuyến/Ghế)</th>
+                    <th className="px-6 py-4">Trạng thái</th>
                     <th className="px-6 py-4">Thanh toán</th>
                     <th className="px-6 py-4">Ngày tạo</th>
                   </tr>
@@ -965,6 +966,9 @@ function AppContent() {
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex flex-col gap-2">
+                            {booking.items.length === 0 && (
+                                <span className="text-xs text-slate-400 italic">Đã hủy hết ghế</span>
+                            )}
                             {booking.items.map((item, i) => (
                               <div
                                 key={i}
@@ -993,6 +997,20 @@ function AppContent() {
                               </div>
                             ))}
                           </div>
+                        </td>
+                        <td className="px-6 py-4 align-top">
+                            {booking.status === 'cancelled' && (
+                                <Badge variant="destructive" className="bg-red-100 text-red-700 border-red-200">Đã hủy</Badge>
+                            )}
+                            {booking.status === 'modified' && (
+                                <Badge variant="default" className="bg-blue-100 text-blue-700 border-blue-200">Đã thay đổi</Badge>
+                            )}
+                            {booking.status === 'confirmed' && (
+                                <Badge variant="success" className="bg-green-100 text-green-700 border-green-200">Đã thanh toán</Badge>
+                            )}
+                            {booking.status === 'pending' && (
+                                <Badge variant="warning" className="bg-yellow-100 text-yellow-700 border-yellow-200">Tạo mới</Badge>
+                            )}
                         </td>
                         <td className="px-6 py-4 align-top">
                           <div

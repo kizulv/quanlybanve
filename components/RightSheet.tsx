@@ -66,6 +66,19 @@ export const RightSheet: React.FC<RightSheetProps> = ({ bookings, trips, onSelec
       setIsOpen(false);
   }
 
+  const renderStatusBadge = (status: string, isPaid: boolean) => {
+      if (status === 'cancelled') {
+          return <Badge variant="destructive" className="bg-red-100 text-red-600 border-red-200">Đã hủy</Badge>;
+      }
+      if (status === 'modified') {
+          return <Badge variant="default" className="bg-blue-100 text-blue-600 border-blue-200">Đã thay đổi</Badge>;
+      }
+      if (status === 'confirmed' || isPaid) {
+          return <Badge variant="success" className="bg-green-100 text-green-600 border-green-200">Đã thanh toán</Badge>;
+      }
+      return <Badge variant="warning" className="bg-yellow-100 text-yellow-600 border-yellow-200">Tạo mới</Badge>;
+  };
+
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
       <SheetTrigger asChild>
@@ -155,8 +168,8 @@ export const RightSheet: React.FC<RightSheetProps> = ({ bookings, trips, onSelec
                                      <Clock size={12} />
                                      {new Date(booking.createdAt).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})}
                                  </div>
-                                 <div className={`text-[10px] font-bold mt-1 ${isFullyPaid ? 'text-green-600' : 'text-orange-600'}`}>
-                                     {isFullyPaid ? 'Đã thanh toán' : 'Chưa thanh toán'}
+                                 <div className="mt-1">
+                                     {renderStatusBadge(booking.status, isFullyPaid)}
                                  </div>
                               </div>
                             </div>
@@ -182,6 +195,9 @@ export const RightSheet: React.FC<RightSheetProps> = ({ bookings, trips, onSelec
                                         </div>
                                     </div>
                                 ))}
+                                {booking.items.length === 0 && (
+                                    <div className="text-xs text-slate-400 italic text-center py-1">Đã hủy hết ghế</div>
+                                )}
                             </div>
 
                             {/* Footer: Price */}

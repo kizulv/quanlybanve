@@ -45,7 +45,7 @@ export interface Booking {
   id: string;
   passenger: Passenger;
   items: BookingItem[]; // CHANGED: Array of trips/seats
-  status: "pending" | "confirmed" | "cancelled";
+  status: "pending" | "confirmed" | "cancelled" | "modified"; // Added 'modified'
   createdAt: string;
   totalPrice: number;
   totalTickets: number; // New field
