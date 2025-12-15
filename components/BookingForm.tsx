@@ -5,7 +5,7 @@ import { Badge } from './ui/Badge';
 import { formatLunarDate } from '../utils/dateUtils';
 import { 
   Ticket, RotateCcw, Zap, Banknote, Lock, Phone, History, 
-  X, Clock, ArrowRight, AlertCircle, CheckCircle2, Save, FileEdit
+  X, Clock, ArrowRight, AlertCircle, CheckCircle2, Save
 } from 'lucide-react';
 
 interface BookingFormProps {
@@ -205,6 +205,9 @@ export const BookingForm: React.FC<BookingFormProps> = ({
                                 </Badge>
                                 <span className="text-[10px] font-bold text-slate-600 bg-slate-100 px-1 rounded">{item.licensePlate}</span>
                             </div>
+                            <Badge variant="outline" className="text-[9px] h-4 px-1 border-blue-200 text-blue-700 bg-blue-50">
+                                Sửa
+                            </Badge>
                         </div>
                         <div className="text-xs font-bold text-slate-800 mb-1 truncate" title={item.route}>
                             {item.route}
@@ -277,45 +280,30 @@ export const BookingForm: React.FC<BookingFormProps> = ({
         : selectionBasket.reduce((acc, item) => acc + item.seats.length, 0);
 
   return (
-    <div className={`rounded-xl shadow-lg border flex flex-col overflow-visible shrink-0 z-20 max-h-[75%] transition-colors duration-300
-        ${editingBooking ? 'bg-blue-900 border-blue-800' : 'bg-indigo-950 border-indigo-900'}
-    `}>
+    <div className="bg-indigo-950 rounded-xl shadow-lg border border-indigo-900 flex flex-col overflow-visible shrink-0 z-20 max-h-[75%] transition-colors duration-300">
       {/* 1. Basket Header */}
-      <div className={`px-3 h-[50px] bg-gradient-to-r flex items-center justify-between shrink-0 rounded-t-xl border-b
-         ${editingBooking ? 'from-blue-900 via-blue-800 to-blue-900 border-blue-800' : 'from-indigo-950 via-indigo-900 to-indigo-950 border-indigo-900'}
-      `}>
+      <div className="px-3 h-[50px] bg-gradient-to-r from-indigo-950 via-indigo-900 to-indigo-950 border-b border-indigo-900 flex items-center justify-between shrink-0 rounded-t-xl">
         <div className="flex items-center gap-2 text-sm font-bold text-white">
-          {editingBooking ? (
-              <>
-                <FileEdit size={16} className="text-white" />
-                Đang sửa đơn hàng
-              </>
-          ) : (
-              <>
-                <Ticket size={16} className="text-yellow-400" />
-                Thông tin đặt vé
-              </>
-          )}
+          <Ticket size={16} className="text-yellow-400" />
+          Thông tin đặt vé
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={onCancel}
             disabled={!editingBooking && selectionBasket.length === 0}
-            className={`p-1.5 rounded-full transition-colors disabled:opacity-30
-                ${editingBooking ? 'text-blue-300 hover:text-white hover:bg-blue-800' : 'text-indigo-300 hover:text-white hover:bg-indigo-800'}
-            `}
+            className="text-indigo-300 hover:text-white hover:bg-indigo-800 p-1.5 rounded-full transition-colors disabled:opacity-30"
             title={editingBooking ? "Đóng" : "Hủy chọn tất cả"}
           >
             {editingBooking ? <X size={16} /> : <RotateCcw size={14} />}
           </button>
-          <Badge className={`${editingBooking ? 'bg-white text-blue-900' : 'bg-yellow-400 text-indigo-950'} font-bold border-transparent`}>
+          <Badge className="bg-yellow-400 text-indigo-950 font-bold border-transparent">
             {totalItemCount} vé
           </Badge>
         </div>
       </div>
 
       {/* 2. Basket Items */}
-      <div className={`p-3 overflow-y-auto flex-1 ${editingBooking ? 'bg-blue-900' : 'bg-indigo-950'}`}>
+      <div className="p-3 overflow-y-auto flex-1 bg-indigo-950">
         {renderBasketItems()}
       </div>
 
@@ -358,7 +346,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
       )}
 
       {/* 4. Input Fields */}
-      <div className={`p-3 border-t space-y-2 relative ${editingBooking ? 'bg-blue-800/50 border-blue-800' : 'bg-indigo-900/50 border-indigo-900'}`}>
+      <div className="p-3 border-t bg-indigo-900/50 border-indigo-900 space-y-2 relative">
         {bookingMode !== "hold" || editingBooking ? (
           <>
             <div className="relative">
@@ -371,18 +359,17 @@ export const BookingForm: React.FC<BookingFormProps> = ({
                 onFocus={() => {
                   if (bookingForm.phone.length >= 3) setShowHistory(true);
                 }}
-                className={`w-full pl-7 pr-2 py-1.5 text-xs rounded border text-white placeholder-opacity-50 outline-none transition-colors
-                  ${editingBooking ? 'bg-blue-950 border-blue-700 placeholder-blue-300 focus:border-white' : 'bg-indigo-950 border-indigo-800 placeholder-indigo-400 focus:border-yellow-400'}
+                className={`w-full pl-7 pr-2 py-1.5 text-xs rounded border text-white placeholder-indigo-400 outline-none transition-colors
+                  bg-indigo-950 border-indigo-800 focus:border-yellow-400
                   ${phoneError ? "border-red-500 focus:border-red-500" : ""}
                 `}
                 placeholder="Số điện thoại"
               />
-              <Phone size={12} className={`absolute left-2 top-2 ${phoneError ? "text-red-500" : (editingBooking ? "text-blue-300" : "text-indigo-400")}`} />
+              <Phone size={12} className={`absolute left-2 top-2 ${phoneError ? "text-red-500" : "text-indigo-400"}`} />
 
               {/* HISTORY DROPDOWN */}
               {showHistory && passengerHistory.length > 0 && !editingBooking && (
                 <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-lg shadow-xl border border-slate-200 overflow-hidden z-[50] animate-in fade-in zoom-in-95 duration-200">
-                  {/* ... (Keep history content same as before) ... */}
                   <div className="bg-slate-50 px-3 py-1.5 border-b border-slate-100 flex justify-between items-center">
                     <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 uppercase">
                       <History size={10} />
@@ -443,9 +430,8 @@ export const BookingForm: React.FC<BookingFormProps> = ({
                 value={bookingForm.pickup}
                 onChange={handleInputChange}
                 onBlur={() => handleLocationBlur("pickup")}
-                className={`w-full pl-2 pr-2 py-1.5 text-xs rounded border text-white placeholder-opacity-50 outline-none
-                    ${editingBooking ? 'bg-blue-950 border-blue-700 placeholder-blue-300 focus:border-green-400' : 'bg-indigo-950 border-indigo-800 placeholder-indigo-400 focus:border-green-500'}
-                `}
+                className="w-full pl-2 pr-2 py-1.5 text-xs rounded border text-white placeholder-indigo-400 outline-none
+                    bg-indigo-950 border-indigo-800 focus:border-green-500"
                 placeholder="Điểm đón"
               />
               <input
@@ -454,9 +440,8 @@ export const BookingForm: React.FC<BookingFormProps> = ({
                 value={bookingForm.dropoff}
                 onChange={handleInputChange}
                 onBlur={() => handleLocationBlur("dropoff")}
-                className={`w-full pl-2 pr-2 py-1.5 text-xs rounded border text-white placeholder-opacity-50 outline-none
-                    ${editingBooking ? 'bg-blue-950 border-blue-700 placeholder-blue-300 focus:border-red-400' : 'bg-indigo-950 border-indigo-800 placeholder-indigo-400 focus:border-red-500'}
-                `}
+                className="w-full pl-2 pr-2 py-1.5 text-xs rounded border text-white placeholder-indigo-400 outline-none
+                    bg-indigo-950 border-indigo-800 focus:border-red-500"
                 placeholder="Điểm trả"
               />
             </div>
@@ -464,9 +449,8 @@ export const BookingForm: React.FC<BookingFormProps> = ({
               name="note"
               value={bookingForm.note}
               onChange={handleInputChange}
-              className={`w-full pl-2 pr-2 py-1.5 text-xs rounded border text-white placeholder-opacity-50 outline-none resize-none h-8
-                 ${editingBooking ? 'bg-blue-950 border-blue-700 placeholder-blue-300 focus:border-white' : 'bg-indigo-950 border-indigo-800 placeholder-indigo-400 focus:border-yellow-400'}
-              `}
+              className="w-full pl-2 pr-2 py-1.5 text-xs rounded border text-white placeholder-indigo-400 outline-none resize-none h-8
+                 bg-indigo-950 border-indigo-800 focus:border-yellow-400"
               placeholder="Ghi chú..."
             />
           </>
@@ -479,19 +463,19 @@ export const BookingForm: React.FC<BookingFormProps> = ({
 
         {/* Total Price */}
         <div className="flex justify-between items-center pt-1">
-          <span className={`text-xs font-bold uppercase ${editingBooking ? 'text-blue-300' : 'text-indigo-300'}`}>TỔNG TIỀN</span>
-          <span className={`text-base font-bold ${editingBooking ? 'text-white' : 'text-yellow-400'}`}>
+          <span className="text-xs font-bold uppercase text-indigo-300">TỔNG TIỀN</span>
+          <span className="text-base font-bold text-yellow-400">
             {totalPrice.toLocaleString("vi-VN")} <span className="text-[10px] font-normal">đ</span>
           </span>
         </div>
       </div>
 
       {/* 5. Submit Button */}
-      <div className={`p-2 border-t rounded-b-xl ${editingBooking ? 'bg-blue-900 border-blue-800' : 'bg-indigo-950 border-indigo-900'}`}>
+      <div className="p-2 border-t rounded-b-xl bg-indigo-950 border-indigo-900">
         <Button
           className={`w-full font-bold h-10 text-sm ${
             editingBooking 
-              ? "bg-white text-blue-900 hover:bg-blue-50"
+              ? "bg-blue-600 hover:bg-blue-500 text-white"
               : bookingMode === "booking"
               ? "bg-yellow-500 hover:bg-yellow-400 text-indigo-950"
               : bookingMode === "payment"
