@@ -221,7 +221,7 @@ app.put("/api/trips/:id/seats", async (req, res) => {
   try { const trip = await Trip.findByIdAndUpdate(req.params.id, { seats: req.body.seats }, { new: true }); res.json(trip); } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// 4. Bookings (UPDATED - SINGLE RECORD LOGIC)
+// 4. Bookings
 app.get("/api/bookings", async (req, res) => {
   try {
     const bookings = await Booking.find();
@@ -234,7 +234,6 @@ app.get("/api/bookings", async (req, res) => {
 app.post("/api/bookings", async (req, res) => {
   try {
     const { items, passenger, payment } = req.body; 
-    // items: [{ tripId, seats: [SeatObject] }]
     
     if (!items || items.length === 0) {
         return res.status(400).json({ error: "No items to book" });
@@ -246,7 +245,6 @@ app.post("/api/bookings", async (req, res) => {
     const bookingItems = [];
     const updatedTrips = [];
 
-    // Loop through each item (Trip) in the basket
     for (const item of items) {
         const trip = await Trip.findById(item.tripId);
         if (!trip) continue;
@@ -257,7 +255,6 @@ app.post("/api/bookings", async (req, res) => {
         calculatedTotalPrice += itemPrice;
         calculatedTotalTickets += seatIds.length;
 
-        // Add to booking structure
         bookingItems.push({
             tripId: trip.id,
             tripDate: trip.departureTime,
@@ -267,50 +264,43 @@ app.post("/api/bookings", async (req, res) => {
             price: itemPrice
         });
 
-        // Update Seats on Trip
-        // Determine status based on payment. 
-        // Note: Logic assumes payment covers the ratio of the total. 
-        // Simplified: If totalPaid >= totalPrice, all are sold. Else booked.
+        // Determine status: "sold" if fully paid, else "booked"
         const totalPaid = (payment?.paidCash || 0) + (payment?.paidTransfer || 0);
+        // We will confirm final status logic later, but seat status needs to be set now
+        // For new bookings, we treat seat status based on payment of THIS booking
+        // BUT, we need to know the total price first to know if it's fully paid.
+        // So we will assume 'booked' first, and if fully paid, 'sold'.
         
-        // This logic is tricky for partial multi-trip payments, but let's assume global status
-        // We will calculate final status after loop, but we need to mark seats now.
-        // We'll update the seats to 'booked' or 'sold' temporarily here.
-        
-        const targetStatus = "booked"; // Will refine later if needed, default to booked until checked
-
-        const updatedSeats = trip.seats.map((s) => {
-            if (seatIds.includes(s.id)) {
-               return { ...s, status: targetStatus };
-            }
-            return s;
-        });
-
-        trip.seats = updatedSeats;
-        await trip.save();
-        updatedTrips.push(trip);
+        // However, calculating fully paid inside the loop is hard if total price isn't known.
+        // We just calculated calculatedTotalPrice inside loop. 
+        // Let's defer trip updates slightly or assume booked.
+        // Actually, for simplicity:
+        // 1. Calculate everything.
+        // 2. Determine if fully paid.
+        // 3. Update trips.
     }
 
+    // Re-loop to update trips with correct status
     const totalPaid = (payment?.paidCash || 0) + (payment?.paidTransfer || 0);
-    const finalStatus = totalPaid >= calculatedTotalPrice ? "confirmed" : "pending"; // Internal status
-    
-    // If fully paid, update trips to 'sold'
-    if (totalPaid >= calculatedTotalPrice) {
-        for (const trip of updatedTrips) {
-             // Find seats belonging to this booking in this trip and set to SOLD
-             // We need to re-find the relevant seat IDs for this trip from bookingItems
-             const relevantItem = bookingItems.find(i => i.tripId === trip.id);
-             if (relevantItem) {
-                 trip.seats = trip.seats.map(s => {
-                     if (relevantItem.seatIds.includes(s.id)) return { ...s, status: 'sold' };
-                     return s;
-                 });
-                 await trip.save();
-             }
-        }
+    const isFullyPaid = totalPaid >= calculatedTotalPrice;
+    const finalStatus = isFullyPaid ? "confirmed" : "pending";
+    const seatStatus = isFullyPaid ? "sold" : "booked";
+
+    for (const item of items) {
+         const trip = await Trip.findById(item.tripId);
+         if (!trip) continue;
+         
+         const seatIds = item.seats.map(s => s.id);
+         
+         trip.seats = trip.seats.map(s => {
+             if (seatIds.includes(s.id)) return { ...s, status: seatStatus };
+             return s;
+         });
+         
+         await trip.save();
+         updatedTrips.push(trip);
     }
 
-    // Create Single Booking Record
     const booking = new Booking({
       passenger,
       items: bookingItems,
@@ -330,36 +320,122 @@ app.post("/api/bookings", async (req, res) => {
   }
 });
 
+// UPDATE BOOKING (Seats & Info)
+app.put("/api/bookings/:id", async (req, res) => {
+  try {
+      const { items, passenger, payment } = req.body;
+      const bookingId = req.params.id;
+
+      const oldBooking = await Booking.findById(bookingId);
+      if (!oldBooking) return res.status(404).json({ error: "Booking not found" });
+
+      // 1. Revert Old Seats to AVAILABLE
+      for (const oldItem of oldBooking.items) {
+          const trip = await Trip.findById(oldItem.tripId);
+          if (trip) {
+              trip.seats = trip.seats.map(s => {
+                  if (oldItem.seatIds.includes(s.id)) {
+                      return { ...s, status: 'available' };
+                  }
+                  return s;
+              });
+              await trip.save();
+          }
+      }
+
+      // 2. Process New Items & Calculate Price
+      let calculatedTotalPrice = 0;
+      let calculatedTotalTickets = 0;
+      const bookingItems = [];
+      const updatedTrips = [];
+
+      for (const item of items) {
+          const trip = await Trip.findById(item.tripId);
+          if (!trip) continue; // Should handle error
+          
+          const seatIds = item.seats.map(s => s.id);
+          const itemPrice = item.seats.reduce((sum, s) => sum + s.price, 0);
+          
+          calculatedTotalPrice += itemPrice;
+          calculatedTotalTickets += seatIds.length;
+          
+          bookingItems.push({
+              tripId: trip.id,
+              tripDate: trip.departureTime,
+              route: trip.route,
+              licensePlate: trip.licensePlate,
+              seatIds: seatIds,
+              price: itemPrice
+          });
+      }
+
+      // 3. Update Payment and Determine Status
+      const totalPaid = (payment?.paidCash || 0) + (payment?.paidTransfer || 0);
+      const isFullyPaid = totalPaid >= calculatedTotalPrice;
+      const finalStatus = isFullyPaid ? "confirmed" : "pending";
+      const seatStatus = isFullyPaid ? "sold" : "booked";
+
+      // 4. Update Trips with New Seats Status
+      for (const item of items) {
+          const trip = await Trip.findById(item.tripId);
+          if (!trip) continue;
+
+          const seatIds = item.seats.map(s => s.id);
+          trip.seats = trip.seats.map(s => {
+              if (seatIds.includes(s.id)) return { ...s, status: seatStatus };
+              return s;
+          });
+          
+          await trip.save();
+          // Avoid duplicates in updatedTrips list if multiple items refer to same trip (unlikely for single booking but safe)
+          if (!updatedTrips.find(t => t.id === trip.id)) {
+              updatedTrips.push(trip);
+          }
+      }
+
+      // 5. Update Booking Record
+      oldBooking.passenger = passenger;
+      oldBooking.items = bookingItems;
+      oldBooking.payment = payment;
+      oldBooking.status = finalStatus;
+      oldBooking.totalPrice = calculatedTotalPrice;
+      oldBooking.totalTickets = calculatedTotalTickets;
+      
+      await oldBooking.save();
+
+      // Return *all* trips to ensure UI syncs fully (since we modified trips that might not be in the new list anymore)
+      const allTrips = await Trip.find();
+
+      res.json({ booking: oldBooking, updatedTrips: allTrips });
+
+  } catch (e) {
+      console.error(e);
+      res.status(500).json({ error: e.message });
+  }
+});
+
 app.put("/api/bookings/payment", async (req, res) => {
   try {
-    const { bookingIds, payment } = req.body; // Usually array of 1 ID now
+    const { bookingIds, payment } = req.body;
 
-    // Update payment
     await Booking.updateMany(
       { _id: { $in: bookingIds } },
       { $set: { payment: payment } }
     );
 
     const targetBookings = await Booking.find({ _id: { $in: bookingIds } });
-    if (targetBookings.length === 0) return res.status(404).json({ error: "Bookings not found" });
-
-    // Update Trips associated with these bookings
-    // Gather all Trip IDs involved
+    
+    // Sync Trips Logic (same as before)
     const tripIdsToUpdate = new Set();
     targetBookings.forEach(b => {
         b.items.forEach(i => tripIdsToUpdate.add(i.tripId));
     });
 
-    const updatedTrips = [];
-
     for (const tripId of tripIdsToUpdate) {
         const trip = await Trip.findById(tripId);
         if (!trip) continue;
-
-        // Recalculate seat status for this trip based on ALL bookings involving it
-        // Note: Ideally we find all bookings for this trip, but for efficiency we just check the current batch
-        // Correct approach: For the specific seats in the updated booking, check if that booking is now paid.
         
+        // This relies on simple status check, good enough for now
         targetBookings.forEach(b => {
             const item = b.items.find(i => i.tripId === trip.id);
             if (!item) return;
@@ -374,19 +450,11 @@ app.put("/api/bookings/payment", async (req, res) => {
                 return s;
             });
         });
-        
         await trip.save();
-        updatedTrips.push(trip);
     }
 
     const updatedBookings = await Booking.find();
-    // Return updatedTrips logic is slightly different from create, client handles mapping
-    // We'll return the whole trip list if possible or just rely on client refresh usually,
-    // but to match previous pattern:
-    
-    // We need to return something that helps App.tsx update state
-    // Let's return all updated trips
-    const allTrips = await Trip.find(); // Safest fallback to keep UI sync
+    const allTrips = await Trip.find();
     
     res.json({ updatedBookings, updatedTrips: allTrips });
   } catch (e) {

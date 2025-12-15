@@ -243,8 +243,8 @@ function AppContent() {
   const handleSeatClick = async (clickedSeat: Seat) => {
     if (!selectedTrip) return;
 
-    // 1. Check if seat is BOOKED (Payment Update Logic)
-    if (clickedSeat.status === SeatStatus.BOOKED) {
+    // 1. Check if seat is BOOKED
+    if (clickedSeat.status === SeatStatus.BOOKED || clickedSeat.status === SeatStatus.SOLD) {
       // Find the booking that contains this seat ID for this trip
       const booking = tripBookings.find((b) =>
         b.items.some(
@@ -254,8 +254,43 @@ function AppContent() {
         )
       );
 
+      // Check if this booked seat belongs to the CURRENTLY editing booking
+      if (editingBooking && booking && booking.id === editingBooking.id) {
+         // It matches! This means user wants to REMOVE this seat from the edit session
+         // We simply treat it as a toggle -> Change status back to AVAILABLE in the local trip state
+         // Because we 'populated' selectionBasket with these seats as 'SELECTED' in handleSelectBookingFromHistory,
+         // but they are physically 'BOOKED' in the trip data.
+         
+         // SPECIAL LOGIC: 
+         // When editing, we should have temporarily marked these seats as 'SELECTED' in the `trips` state 
+         // inside handleSelectBookingFromHistory to allow normal toggling.
+         
+         // Since they are currently 'SELECTED' (due to basket population), the normal toggle logic below (2.)
+         // will act on them if they are 'SELECTED'. 
+         
+         // BUT, if they are still 'BOOKED' in the global `trips` state, we need to force them to be 'SELECTED' first?
+         // No, the better way is: When selecting a booking to edit, we visually convert those booked seats to SELECTED in the state.
+         
+         // If we are here, it means the seat status is BOOKED/SOLD. 
+         // If it belongs to editingBooking, we should treat it as 'Deselecting'.
+         // We need to update the trip state to mark it as AVAILABLE (effectively removing from basket)
+         
+         const updatedSeats = selectedTrip.seats.map((seat) => {
+            if (seat.id === clickedSeat.id) {
+               return { ...seat, status: SeatStatus.AVAILABLE };
+            }
+            return seat;
+         });
+
+         const updatedTrip = { ...selectedTrip, seats: updatedSeats };
+         setTrips((prevTrips) =>
+            prevTrips.map((t) => (t.id === selectedTrip.id ? updatedTrip : t))
+         );
+         return;
+      }
+
       if (booking) {
-        // Use the unified selection logic
+        // If clicking a different booking, switch to that one
         handleSelectBookingFromHistory(booking);
       }
       return;
@@ -299,25 +334,41 @@ function AppContent() {
     );
 
     // Sync with backend (optional, but good for persistence if implemented)
-    try {
-      await api.trips.updateSeats(selectedTrip.id, updatedSeats);
-    } catch (e) {
-      console.error("Failed to update seat status", e);
-      toast({
-        type: "error",
-        title: "Lỗi",
-        message: "Không thể cập nhật trạng thái ghế.",
-      });
-    }
+    // We skip updating backend for simple selections to keep it snappy, unless essential
   };
 
   const handleSelectBookingFromHistory = (booking: Booking) => {
       setEditingBooking(booking);
       
-      // Clear basket when editing existing booking to avoid confusion
-      if (selectionBasket.length > 0) {
-          cancelAllSelections();
-      }
+      // 1. Clear current selection first
+      // But we don't want to call API reset, just local state clear
+      // Actually, we need to merge the booking items into the `trips` state as SELECTED seats
+      
+      // Reset all CURRENTLY SELECTED seats to AVAILABLE first to avoid mixing
+      const resetTrips = trips.map(t => ({
+          ...t,
+          seats: t.seats.map(s => s.status === SeatStatus.SELECTED ? { ...s, status: SeatStatus.AVAILABLE } : s)
+      }));
+
+      // 2. Convert Booking Items to Selected Seats
+      const newTripsState = resetTrips.map(trip => {
+          const matchingItem = booking.items.find(i => i.tripId === trip.id);
+          if (matchingItem) {
+              return {
+                  ...trip,
+                  seats: trip.seats.map(s => {
+                      if (matchingItem.seatIds.includes(s.id)) {
+                          // Change from BOOKED/SOLD to SELECTED so they show up in basket and are editable
+                          return { ...s, status: SeatStatus.SELECTED };
+                      }
+                      return s;
+                  })
+              };
+          }
+          return trip;
+      });
+
+      setTrips(newTripsState);
 
       setBookingForm({
           phone: booking.passenger.phone,
@@ -328,7 +379,7 @@ function AppContent() {
           paidTransfer: booking.payment?.paidTransfer || 0
       });
 
-      // Optionally navigate to the trip view of the first item in the booking
+      // Navigate to the trip
       if (booking.items.length > 0) {
           const firstItem = booking.items[0];
           const trip = trips.find(t => t.id === firstItem.tripId);
@@ -525,10 +576,11 @@ function AppContent() {
   const handleConfirmAction = () => {
     if (editingBooking) {
         // Handle Update Existing Booking
+        // Use totalBasketPrice which now reflects the modified selection
         setPendingPaymentContext({
             type: "update",
             bookingIds: [editingBooking.id],
-            totalPrice: editingBooking.totalPrice,
+            totalPrice: totalBasketPrice, 
         });
         setIsPaymentModalOpen(true);
         return;
@@ -547,16 +599,37 @@ function AppContent() {
     if (pendingPaymentContext?.type === "update") {
       // Handle Update (Existing Booking)
       if (!pendingPaymentContext.bookingIds) return;
+      if (!editingBooking) return;
+
       try {
         const payment = {
           paidCash: bookingForm.paidCash,
           paidTransfer: bookingForm.paidTransfer,
         };
-        const result = await api.bookings.updatePayment(
-          pendingPaymentContext.bookingIds,
-          payment
+        const passenger = {
+            name: "Khách lẻ",
+            phone: bookingForm.phone,
+            note: bookingForm.note,
+            pickupPoint: bookingForm.pickup,
+            dropoffPoint: bookingForm.dropoff,
+        };
+
+        const bookingItems = selectionBasket.map((item) => ({
+            tripId: item.trip.id,
+            seats: item.seats,
+        }));
+
+        // Call Update API instead of just Payment API
+        const result = await api.bookings.update(
+            editingBooking.id,
+            bookingItems,
+            passenger,
+            payment
         );
-        setBookings(result.updatedBookings);
+
+        // Update local list
+        setBookings(prev => prev.map(b => b.id === editingBooking.id ? result.booking : b));
+        
         // Sync trips from result.updatedTrips
         const updatedTripsMap = new Map<string, BusTrip>(
           result.updatedTrips.map((t: BusTrip) => [t.id, t])
@@ -571,7 +644,7 @@ function AppContent() {
         toast({
           type: "success",
           title: "Cập nhật thành công",
-          message: "Đã cập nhật thanh toán.",
+          message: "Đã cập nhật thông tin đơn hàng.",
         });
       } catch (e) {
         toast({ type: "error", title: "Lỗi", message: "Cập nhật thất bại." });
@@ -583,7 +656,12 @@ function AppContent() {
   };
 
   const cancelAllSelections = async () => {
+    // If editing, reverting means discarding changes and restoring original seat status
     if (editingBooking) {
+        // We simply refresh data from API to restore original state
+        // Or cleaner: Revert local state manually
+        // For now, easiest to just refresh data or revert selected seats to Booked
+        await refreshData();
         setEditingBooking(null);
         setBookingForm({ ...bookingForm, phone: '', note: ''});
         return;
@@ -760,7 +838,7 @@ function AppContent() {
               selectionBasket={selectionBasket}
               bookings={bookings}
               routes={routes}
-              totalPrice={editingBooking ? editingBooking.totalPrice : totalBasketPrice}
+              totalPrice={totalBasketPrice}
               phoneError={phoneError}
               setPhoneError={setPhoneError}
               editingBooking={editingBooking}

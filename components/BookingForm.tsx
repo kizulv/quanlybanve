@@ -5,7 +5,7 @@ import { Badge } from './ui/Badge';
 import { formatLunarDate } from '../utils/dateUtils';
 import { 
   Ticket, RotateCcw, Zap, Banknote, Lock, Phone, History, 
-  X, Clock, ArrowRight, AlertCircle, CheckCircle2, Save
+  X, Clock, ArrowRight, AlertCircle, CheckCircle2, Save, AlertTriangle
 } from 'lucide-react';
 
 interface BookingFormProps {
@@ -187,49 +187,37 @@ export const BookingForm: React.FC<BookingFormProps> = ({
     }
   };
 
+  // --- CHANGE DETECTION LOGIC (EDIT MODE) ---
+  const changes = useMemo(() => {
+      if (!editingBooking) return null;
+      
+      const originalCount = editingBooking.totalTickets;
+      const currentCount = selectionBasket.reduce((acc, item) => acc + item.seats.length, 0);
+      
+      const originalPrice = editingBooking.totalPrice;
+      // totalPrice prop is already calculating from selectionBasket
+      const currentPrice = totalPrice; 
+      
+      if (originalCount === currentCount && originalPrice === currentPrice) return null;
+
+      const diffCount = currentCount - originalCount;
+      const diffPrice = currentPrice - originalPrice;
+
+      return {
+          diffCount,
+          diffPrice,
+          hasChanges: true
+      };
+  }, [editingBooking, selectionBasket, totalPrice]);
+
+
   // --- RENDER HELPERS ---
   const renderBasketItems = () => {
-    // Case 1: Editing an existing booking (Show items from the booking object)
-    if (editingBooking) {
-        return (
-            <div className="space-y-2">
-                {editingBooking.items.map((item, idx) => (
-                    <div
-                        key={idx}
-                        className="bg-white rounded-lg p-2.5 shadow-sm border-l-4 border-l-blue-500"
-                    >
-                        <div className="flex justify-between items-start mb-1.5">
-                            <div className="flex items-center gap-1.5">
-                                <Badge variant="outline" className="text-[9px] h-4 px-1 bg-slate-50 border-slate-200">
-                                    {new Date(item.tripDate).getDate()}/{new Date(item.tripDate).getMonth() + 1}
-                                </Badge>
-                                <span className="text-[10px] font-bold text-slate-600 bg-slate-100 px-1 rounded">{item.licensePlate}</span>
-                            </div>
-                            <Badge variant="outline" className="text-[9px] h-4 px-1 border-blue-200 text-blue-700 bg-blue-50">
-                                Sửa
-                            </Badge>
-                        </div>
-                        <div className="text-xs font-bold text-slate-800 mb-1 truncate" title={item.route}>
-                            {item.route}
-                        </div>
-                        <div className="flex flex-wrap gap-1">
-                            {item.seatIds.map((s) => (
-                                <span key={s} className="inline-block bg-blue-100 text-blue-700 text-[10px] font-bold px-1.5 rounded border border-blue-200">
-                                    {s}
-                                </span>
-                            ))}
-                        </div>
-                    </div>
-                ))}
-            </div>
-        );
-    }
-
-    // Case 2: New Selection (Existing Basket Logic)
+    // If basket is empty (unlikely in edit mode unless user deselected all)
     if (selectionBasket.length === 0) {
         return (
             <div className="text-center py-6 text-indigo-300/50 italic text-sm border-2 border-dashed border-indigo-900 rounded-lg">
-                Chưa chọn ghế nào
+                {editingBooking ? "Đã xóa hết ghế" : "Chưa chọn ghế nào"}
             </div>
         );
     }
@@ -252,11 +240,18 @@ export const BookingForm: React.FC<BookingFormProps> = ({
                                     {formatLunarDate(tripDate).replace(" Âm Lịch", " ÂL")}
                                 </Badge>
                             </div>
-                            {isEnhanced && (
-                                <Badge className="text-[9px] h-4 px-1 bg-amber-100 text-amber-700 border-amber-200">
-                                    <Zap size={8} className="mr-0.5 fill-amber-700" /> TC
-                                </Badge>
-                            )}
+                            <div className="flex gap-1">
+                                {isEnhanced && (
+                                    <Badge className="text-[9px] h-4 px-1 bg-amber-100 text-amber-700 border-amber-200">
+                                        <Zap size={8} className="mr-0.5 fill-amber-700" /> TC
+                                    </Badge>
+                                )}
+                                {editingBooking && (
+                                    <Badge variant="outline" className="text-[9px] h-4 px-1 border-blue-200 text-blue-700 bg-blue-50">
+                                        Sửa
+                                    </Badge>
+                                )}
+                            </div>
                         </div>
                         <div className="text-xs font-bold text-slate-800 mb-1 truncate" title={item.trip.route}>
                             {item.trip.route}
@@ -275,9 +270,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
     );
   };
 
-  const totalItemCount = editingBooking 
-        ? editingBooking.totalTickets 
-        : selectionBasket.reduce((acc, item) => acc + item.seats.length, 0);
+  const totalItemCount = selectionBasket.reduce((acc, item) => acc + item.seats.length, 0);
 
   return (
     <div className="bg-indigo-950 rounded-xl shadow-lg border border-indigo-900 flex flex-col overflow-visible shrink-0 z-20 max-h-[75%] transition-colors duration-300">
@@ -290,7 +283,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
         <div className="flex items-center gap-2">
           <button
             onClick={onCancel}
-            disabled={!editingBooking && selectionBasket.length === 0}
+            disabled={selectionBasket.length === 0}
             className="text-indigo-300 hover:text-white hover:bg-indigo-800 p-1.5 rounded-full transition-colors disabled:opacity-30"
             title={editingBooking ? "Đóng" : "Hủy chọn tất cả"}
           >
@@ -306,6 +299,26 @@ export const BookingForm: React.FC<BookingFormProps> = ({
       <div className="p-3 overflow-y-auto flex-1 bg-indigo-950">
         {renderBasketItems()}
       </div>
+      
+      {/* CHANGE WARNING ALERT */}
+      {changes && changes.hasChanges && (
+         <div className="px-3 pb-3 bg-indigo-950 animate-in fade-in slide-in-from-bottom-2">
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-2 text-amber-200 text-xs flex items-start gap-2">
+               <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+               <div className="flex-1">
+                   <div className="font-bold mb-0.5">Thay đổi đặt chỗ:</div>
+                   <div className="flex flex-col gap-0.5 opacity-90">
+                       {changes.diffCount !== 0 && (
+                           <span>• Số lượng: {changes.diffCount > 0 ? `+${changes.diffCount}` : changes.diffCount} vé</span>
+                       )}
+                       {changes.diffPrice !== 0 && (
+                           <span>• Tổng tiền: {changes.diffPrice > 0 ? `+` : ``}{changes.diffPrice.toLocaleString('vi-VN')} đ</span>
+                       )}
+                   </div>
+               </div>
+            </div>
+         </div>
+      )}
 
       {/* 3. Mode Selector - HIDE if editing */}
       {!editingBooking && (

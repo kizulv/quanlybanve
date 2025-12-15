@@ -115,6 +115,17 @@ export const api = {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ items, passenger, payment }),
       }),
+    update: (
+      id: string,
+      items: { tripId: string; seats: Seat[] }[],
+      passenger: Passenger,
+      payment?: { paidCash: number; paidTransfer: number }
+    ) =>
+      fetchJson(`${API_URL}/bookings/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items, passenger, payment }),
+      }),
     updatePayment: (
       bookingIds: string[],
       payment: { paidCash: number; paidTransfer: number }
