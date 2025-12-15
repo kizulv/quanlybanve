@@ -31,6 +31,9 @@ import {
   Zap,
   CheckCircle2,
   Lock,
+  Clock3,
+  ArrowRight,
+  History,
 } from "lucide-react";
 import { api } from "./lib/api";
 import { isSameDay, formatLunarDate, formatTime } from "./utils/dateUtils";
@@ -97,7 +100,9 @@ function AppContent() {
     note: "",
   });
 
-  const [bookingMode, setBookingMode] = useState<'booking' | 'payment' | 'hold'>('booking');
+  const [bookingMode, setBookingMode] = useState<
+    "booking" | "payment" | "hold"
+  >("booking");
 
   // Payment Modal State
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
@@ -106,6 +111,8 @@ function AppContent() {
     bookingIds?: string[];
     totalPrice: number;
   } | null>(null);
+  // History Search Suggestion State
+  const [showHistory, setShowHistory] = useState(false);
 
   // -- CALCULATED STATES (BASKET) --
   // Calculate all selected seats across ALL trips
@@ -140,6 +147,77 @@ function AppContent() {
       return `${raw.slice(0, 4)} ${raw.slice(4)}`;
     }
     return raw;
+  };
+
+  // -- HISTORY SEARCH LOGIC --
+
+  // 1. Get ALL matches (for total count badge)
+  const historyMatches = useMemo(() => {
+    const cleanInput = bookingForm.phone.replace(/\D/g, "");
+    if (cleanInput.length < 3) return []; // Start searching after 3 digits
+
+    return bookings.filter((b) =>
+      b.passenger.phone.replace(/\D/g, "").includes(cleanInput)
+    );
+  }, [bookings, bookingForm.phone]);
+
+  // 2. Process for Display (Unique Routes List)
+  const passengerHistory = useMemo(() => {
+    // Group by unique route (Pickup -> Dropoff) to avoid duplicates
+    // We only keep the MOST RECENT usage of a specific route pair
+    const uniqueRoutes = new Map<
+      string,
+      {
+        pickup: string;
+        dropoff: string;
+        phone: string;
+        lastDate: string;
+      }
+    >();
+
+    historyMatches.forEach((b) => {
+      const pickup = b.passenger.pickupPoint || "";
+      const dropoff = b.passenger.dropoffPoint || "";
+
+      // Skip if both are empty as it's not useful history
+      if (!pickup && !dropoff) return;
+
+      // Normalize key: remove spaces, lowercase to ensure exact duplicate detection
+      const key = `${pickup.toLowerCase().trim()}|${dropoff
+        .toLowerCase()
+        .trim()}`;
+
+      const existing = uniqueRoutes.get(key);
+      const isNewer = existing
+        ? new Date(b.createdAt) > new Date(existing.lastDate)
+        : true;
+
+      if (!existing || isNewer) {
+        uniqueRoutes.set(key, {
+          pickup: b.passenger.pickupPoint || "", // Keep original casing
+          dropoff: b.passenger.dropoffPoint || "", // Keep original casing
+          phone: formatPhoneNumber(b.passenger.phone), // Ensure consistent format
+          lastDate: b.createdAt,
+        });
+      }
+    });
+
+    return Array.from(uniqueRoutes.values())
+      .sort(
+        (a, b) =>
+          new Date(b.lastDate).getTime() - new Date(a.lastDate).getTime()
+      )
+      .slice(0, 5); // Take top 5 recent unique routes
+  }, [historyMatches]);
+
+  const applyHistory = (item: (typeof passengerHistory)[0]) => {
+    setBookingForm((prev) => ({
+      ...prev,
+      phone: item.phone, // Already formatted in useMemo
+      pickup: item.pickup,
+      dropoff: item.dropoff,
+    }));
+    setShowHistory(false);
   };
 
   // Logic: Find all trips matching Date & Direction
@@ -202,18 +280,18 @@ function AppContent() {
   }, [totalBasketPrice, pendingPaymentContext]);
 
   // --- Handlers ---
-  
+
   // Helper to ensure "BX " prefix
   const ensureBxPrefix = (location: string) => {
-      if (!location) return "";
-      const trimmed = location.trim();
-      if (!trimmed) return "";
-      // Check if starts with BX (case insensitive)
-      if (/^bx\s/i.test(trimmed)) {
-          // It already has BX, just return nicely formatted
-          return trimmed.replace(/^bx\s/i, "BX ");
-      }
-      return `BX ${trimmed}`;
+    if (!location) return "";
+    const trimmed = location.trim();
+    if (!trimmed) return "";
+    // Check if starts with BX (case insensitive)
+    if (/^bx\s/i.test(trimmed)) {
+      // It already has BX, just return nicely formatted
+      return trimmed.replace(/^bx\s/i, "BX ");
+    }
+    return `BX ${trimmed}`;
   };
 
   const handleTripSelect = (tripId: string) => {
@@ -232,7 +310,7 @@ function AppContent() {
           trip.direction === "inbound" ? route.destination : route.origin;
         let rawDropoff =
           trip.direction === "inbound" ? route.origin : route.destination;
-        
+
         // Ensure "BX" prefix logic
         rawPickup = ensureBxPrefix(rawPickup || "");
         rawDropoff = ensureBxPrefix(rawDropoff || "");
@@ -280,37 +358,37 @@ function AppContent() {
       }
       return;
     }
-    
+
     // Check if seat is HELD
     if (clickedSeat.status === SeatStatus.HELD) {
-        // Option: allow unholding by clicking? 
-        // For simplicity, treat as selected logic (toggle) for now, allowing admin to select it to perform other actions?
-        // Or strictly block? 
-        // Let's allow selecting it so you can "Release" it by changing status back to Available, 
-        // OR simply toggle its status locally.
-        // For now, treat HELD like SELECTED -> clicking it makes it AVAILABLE (un-hold)
-        // But better to treat it like SELECTED but with specific visual.
-        
-        // Actually, if it's HELD in DB, it comes as HELD.
-        // To Unhold, we select it, then save as Available?
-        // Let's stick to standard behavior: If HELD, clicking it selects it (if we want to process it) or toggles it.
-        // Simplified: Clicking HELD turns it into SELECTED (so we can re-process it).
-        // Clicking SELECTED turns it into AVAILABLE.
-        // Clicking AVAILABLE turns it into SELECTED.
-        
-        const updatedSeats = selectedTrip.seats.map((seat) => {
-            if (seat.id === clickedSeat.id) {
-                // If it was HELD, make it SELECTED so we can operate on it
-                return { ...seat, status: SeatStatus.SELECTED };
-            }
-            return seat;
-        });
-        
-        const updatedTrip = { ...selectedTrip, seats: updatedSeats };
-        setTrips((prevTrips) =>
-            prevTrips.map((t) => (t.id === selectedTrip.id ? updatedTrip : t))
-        );
-        return;
+      // Option: allow unholding by clicking?
+      // For simplicity, treat as selected logic (toggle) for now, allowing admin to select it to perform other actions?
+      // Or strictly block?
+      // Let's allow selecting it so you can "Release" it by changing status back to Available,
+      // OR simply toggle its status locally.
+      // For now, treat HELD like SELECTED -> clicking it makes it AVAILABLE (un-hold)
+      // But better to treat it like SELECTED but with specific visual.
+
+      // Actually, if it's HELD in DB, it comes as HELD.
+      // To Unhold, we select it, then save as Available?
+      // Let's stick to standard behavior: If HELD, clicking it selects it (if we want to process it) or toggles it.
+      // Simplified: Clicking HELD turns it into SELECTED (so we can re-process it).
+      // Clicking SELECTED turns it into AVAILABLE.
+      // Clicking AVAILABLE turns it into SELECTED.
+
+      const updatedSeats = selectedTrip.seats.map((seat) => {
+        if (seat.id === clickedSeat.id) {
+          // If it was HELD, make it SELECTED so we can operate on it
+          return { ...seat, status: SeatStatus.SELECTED };
+        }
+        return seat;
+      });
+
+      const updatedTrip = { ...selectedTrip, seats: updatedSeats };
+      setTrips((prevTrips) =>
+        prevTrips.map((t) => (t.id === selectedTrip.id ? updatedTrip : t))
+      );
+      return;
     }
 
     // 2. Selection Logic (Modify the specific trip in the global trips array)
@@ -408,7 +486,7 @@ function AppContent() {
       // Reset
       setIsPaymentModalOpen(false);
       setPendingPaymentContext(null);
-      setBookingForm(prev => ({...prev, note: "", phone: ""})); // Keep location?
+      setBookingForm((prev) => ({ ...prev, note: "", phone: "" })); // Keep location?
 
       if (selectedTrip) handleTripSelect(selectedTrip.id);
 
@@ -429,39 +507,51 @@ function AppContent() {
       });
     }
   };
-  
+
   // NEW: Handle Hold Logic
   const processHoldSeats = async () => {
-      if (selectionBasket.length === 0) {
-          toast({ type: "warning", title: "Chưa chọn ghế", message: "Vui lòng chọn ghế để giữ." });
-          return;
-      }
-      
-      try {
-          // Iterate over basket and update each trip
-          for (const item of selectionBasket) {
-               // Update SELECTED to HELD
-               const updatedSeats = item.trip.seats.map(s => {
-                   if (s.status === SeatStatus.SELECTED) {
-                       return { ...s, status: SeatStatus.HELD };
-                   }
-                   return s;
-               });
-               
-               // Call API to update seats only
-               await api.trips.updateSeats(item.trip.id, updatedSeats);
-               
-               // Update local state
-               setTrips(prev => prev.map((t): BusTrip => t.id === item.trip.id ? { ...t, seats: updatedSeats } : t));
+    if (selectionBasket.length === 0) {
+      toast({
+        type: "warning",
+        title: "Chưa chọn ghế",
+        message: "Vui lòng chọn ghế để giữ.",
+      });
+      return;
+    }
+
+    try {
+      // Iterate over basket and update each trip
+      for (const item of selectionBasket) {
+        // Update SELECTED to HELD
+        const updatedSeats = item.trip.seats.map((s) => {
+          if (s.status === SeatStatus.SELECTED) {
+            return { ...s, status: SeatStatus.HELD };
           }
-          
-          toast({ type: "info", title: "Đã giữ vé", message: "Đã cập nhật trạng thái ghế sang Đang giữ." });
-          // Clear basket is automatic since status changed from SELECTED to HELD
-          
-      } catch (error) {
-          console.error(error);
-          toast({ type: "error", title: "Lỗi", message: "Không thể giữ vé." });
+          return s;
+        });
+
+        // Call API to update seats only
+        await api.trips.updateSeats(item.trip.id, updatedSeats);
+
+        // Update local state
+        setTrips((prev) =>
+          prev.map(
+            (t): BusTrip =>
+              t.id === item.trip.id ? { ...t, seats: updatedSeats } : t
+          )
+        );
       }
+
+      toast({
+        type: "info",
+        title: "Đã giữ vé",
+        message: "Đã cập nhật trạng thái ghế sang Đang giữ.",
+      });
+      // Clear basket is automatic since status changed from SELECTED to HELD
+    } catch (error) {
+      console.error(error);
+      toast({ type: "error", title: "Lỗi", message: "Không thể giữ vé." });
+    }
   };
 
   const handleBookingOnly = () => processBooking(false);
@@ -489,16 +579,16 @@ function AppContent() {
     });
     setIsPaymentModalOpen(true);
   };
-  
+
   // UNIFIED ACTION HANDLER
   const handleConfirmAction = () => {
-      if (bookingMode === 'booking') {
-          handleBookingOnly();
-      } else if (bookingMode === 'payment') {
-          handleInitiatePayment();
-      } else if (bookingMode === 'hold') {
-          processHoldSeats();
-      }
+    if (bookingMode === "booking") {
+      handleBookingOnly();
+    } else if (bookingMode === "payment") {
+      handleInitiatePayment();
+    } else if (bookingMode === "hold") {
+      processHoldSeats();
+    }
   };
 
   const handleConfirmPayment = async () => {
@@ -585,6 +675,7 @@ function AppContent() {
     const { name, value } = e.target;
     if (name === "phone") {
       setBookingForm((prev) => ({ ...prev, [name]: formatPhoneNumber(value) }));
+      setShowHistory(true);
       return;
     }
     if (name === "pickup" || name === "dropoff") {
@@ -620,7 +711,7 @@ function AppContent() {
     let value = input.trim();
     // Logic: Nếu chưa có chữ BX ở đầu thì thêm vào
     if (!/^bx\s/i.test(value)) {
-        // Simple case: add prefix
+      // Simple case: add prefix
     }
     // Existing mappings logic (keep it)
     const lower = value.toLowerCase();
@@ -635,17 +726,17 @@ function AppContent() {
       "nghệ an": "BX Vinh",
     };
     if (mappings[lower]) return mappings[lower];
-    
+
     // Auto prefix if needed
     if (!/^bx\s/i.test(value) && value.length > 2) {
-        // Capitalize first letters
-        value = value.replace(/(?:^|\s)\S/g, (a) => a.toUpperCase());
-        return `BX ${value}`;
+      // Capitalize first letters
+      value = value.replace(/(?:^|\s)\S/g, (a) => a.toUpperCase());
+      return `BX ${value}`;
     }
 
     return value.replace(/(?:^|\s)\S/g, (a) => a.toUpperCase());
   };
-  
+
   const handleLocationBlur = (field: "pickup" | "dropoff") => {
     let value = bookingForm[field].trim();
     if (!value) return;
@@ -856,88 +947,160 @@ function AppContent() {
                   </div>
                 )}
               </div>
-              
+
               {/* BOOKING MODE SELECTOR */}
               <div className="px-3 pb-3 bg-indigo-950">
-                   <div className="bg-indigo-900/50 p-1 rounded-lg flex border border-indigo-800">
-                       <button 
-                         onClick={() => setBookingMode('booking')}
-                         className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-xs font-bold rounded-md transition-all ${
-                             bookingMode === 'booking' ? 'bg-yellow-500 text-indigo-950 shadow-sm' : 'text-indigo-300 hover:text-white'
-                         }`}
-                       >
-                           <Ticket size={12} /> Đặt vé
-                       </button>
-                       <button 
-                         onClick={() => setBookingMode('payment')}
-                         className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-xs font-bold rounded-md transition-all ${
-                             bookingMode === 'payment' ? 'bg-green-600 text-white shadow-sm' : 'text-indigo-300 hover:text-white'
-                         }`}
-                       >
-                           <Banknote size={12} /> Mua vé
-                       </button>
-                       <button 
-                         onClick={() => setBookingMode('hold')}
-                         className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-xs font-bold rounded-md transition-all ${
-                             bookingMode === 'hold' ? 'bg-purple-500 text-white shadow-sm' : 'text-indigo-300 hover:text-white'
-                         }`}
-                       >
-                           <Lock size={12} /> Giữ vé
-                       </button>
-                   </div>
+                <div className="bg-indigo-900/50 p-1 rounded-lg flex border border-indigo-800">
+                  <button
+                    onClick={() => setBookingMode("booking")}
+                    className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-xs font-bold rounded-md transition-all ${
+                      bookingMode === "booking"
+                        ? "bg-yellow-500 text-indigo-950 shadow-sm"
+                        : "text-indigo-300 hover:text-white"
+                    }`}
+                  >
+                    <Ticket size={12} /> Đặt vé
+                  </button>
+                  <button
+                    onClick={() => setBookingMode("payment")}
+                    className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-xs font-bold rounded-md transition-all ${
+                      bookingMode === "payment"
+                        ? "bg-green-600 text-white shadow-sm"
+                        : "text-indigo-300 hover:text-white"
+                    }`}
+                  >
+                    <Banknote size={12} /> Mua vé
+                  </button>
+                  <button
+                    onClick={() => setBookingMode("hold")}
+                    className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-xs font-bold rounded-md transition-all ${
+                      bookingMode === "hold"
+                        ? "bg-purple-500 text-white shadow-sm"
+                        : "text-indigo-300 hover:text-white"
+                    }`}
+                  >
+                    <Lock size={12} /> Giữ vé
+                  </button>
+                </div>
               </div>
 
               {/* Input Form...  */}
-              <div className="p-3 bg-indigo-900/50 border-t border-indigo-900 space-y-2">
-                {bookingMode !== 'hold' ? (
-                    <>
-                        <div className="relative">
-                          <input
-                            type="tel"
-                            name="phone"
-                            value={bookingForm.phone}
-                            onChange={handleInputChange}
-                            className="w-full pl-7 pr-2 py-1.5 text-xs rounded bg-indigo-950 border border-indigo-800 text-white placeholder-indigo-400 focus:border-yellow-400 outline-none"
-                            placeholder="Số điện thoại khách (Bắt buộc)"
-                          />
-                          <Phone
-                            size={12}
-                            className="absolute left-2 top-2 text-indigo-400"
-                          />
+              <div className="p-3 bg-indigo-900/50 border-t border-indigo-900 space-y-2 relative">
+                {bookingMode !== "hold" ? (
+                  <>
+                    <div className="relative">
+                      <input
+                        type="tel"
+                        name="phone"
+                        value={bookingForm.phone}
+                        onChange={handleInputChange}
+                        onFocus={() => {
+                          if (bookingForm.phone.length >= 3)
+                            setShowHistory(true);
+                        }}
+                        className="w-full pl-7 pr-2 py-1.5 text-xs rounded bg-indigo-950 border border-indigo-800 text-white placeholder-indigo-400 focus:border-yellow-400 outline-none"
+                        placeholder="Số điện thoại"
+                      />
+                      <Phone
+                        size={12}
+                        className="absolute left-2 top-2 text-indigo-400"
+                      />
+
+                      {/* HISTORY DROPDOWN */}
+                      {showHistory && passengerHistory.length > 0 && (
+                        <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-lg shadow-xl border border-slate-200 overflow-hidden z-[50] animate-in fade-in zoom-in-95 duration-200">
+                          <div className="bg-slate-50 px-3 py-1.5 border-b border-slate-100 flex justify-between items-center">
+                            <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 uppercase">
+                              <History size={10} />
+                              Lịch sử
+                              <span className="ml-1 bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded-full text-[9px] min-w-[16px] text-center">
+                                {historyMatches.length}
+                              </span>
+                            </div>
+                            <button
+                              title="Đóng"
+                              type="button"
+                              onMouseDown={(e) => {
+                                e.preventDefault(); // Prevent input blur
+                                setShowHistory(false);
+                              }}
+                              className="text-slate-400 hover:text-slate-600"
+                            >
+                              <X size={12} />
+                            </button>
+                          </div>
+                          <div className="max-h-[200px] overflow-y-auto">
+                            {passengerHistory.map((item, idx) => (
+                              <div
+                                key={idx}
+                                onMouseDown={(e) => {
+                                  e.preventDefault(); // Prevent blur before click
+                                  applyHistory(item);
+                                }}
+                                className="px-3 py-2 hover:bg-indigo-50 cursor-pointer border-b border-slate-50 last:border-0 group"
+                              >
+                                <div className="flex justify-between items-start mb-0.5">
+                                  <span className="text-xs font-bold text-indigo-700">
+                                    {item.phone}
+                                  </span>
+                                  <span className="text-[9px] text-slate-400 flex items-center gap-1">
+                                    <Clock3 size={9} />
+                                    {new Date(item.lastDate).toLocaleDateString(
+                                      "vi-VN"
+                                    )}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-1.5 text-[10px] text-slate-600">
+                                  <span className="truncate max-w-[45%] font-medium">
+                                    {item.pickup}
+                                  </span>
+                                  <ArrowRight
+                                    size={10}
+                                    className="text-slate-300"
+                                  />
+                                  <span className="truncate max-w-[45%] font-medium">
+                                    {item.dropoff}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <input
-                            type="text"
-                            name="pickup"
-                            value={bookingForm.pickup}
-                            onChange={handleInputChange}
-                            onBlur={() => handleLocationBlur("pickup")}
-                            className="w-full pl-2 pr-2 py-1.5 text-xs rounded bg-indigo-950 border border-indigo-800 text-white placeholder-indigo-400 focus:border-green-500 outline-none"
-                            placeholder="Điểm đón"
-                          />
-                          <input
-                            type="text"
-                            name="dropoff"
-                            value={bookingForm.dropoff}
-                            onChange={handleInputChange}
-                            onBlur={() => handleLocationBlur("dropoff")}
-                            className="w-full pl-2 pr-2 py-1.5 text-xs rounded bg-indigo-950 border border-indigo-800 text-white placeholder-indigo-400 focus:border-red-500 outline-none"
-                            placeholder="Điểm trả"
-                          />
-                        </div>
-                        <textarea
-                          name="note"
-                          value={bookingForm.note}
-                          onChange={handleInputChange}
-                          className="w-full pl-2 pr-2 py-1.5 text-xs rounded bg-indigo-950 border border-indigo-800 text-white placeholder-indigo-400 focus:border-yellow-400 outline-none resize-none h-8"
-                          placeholder="Ghi chú..."
-                        />
-                    </>
-                ) : (
-                    <div className="text-center py-4 bg-indigo-900/30 rounded border border-indigo-800 border-dashed text-xs text-indigo-300">
-                        <Lock className="mx-auto mb-1 opacity-50" size={24}/>
-                        Chế độ Giữ vé không yêu cầu nhập thông tin khách hàng.
+                      )}
                     </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        name="pickup"
+                        value={bookingForm.pickup}
+                        onChange={handleInputChange}
+                        onBlur={() => handleLocationBlur("pickup")}
+                        className="w-full pl-2 pr-2 py-1.5 text-xs rounded bg-indigo-950 border border-indigo-800 text-white placeholder-indigo-400 focus:border-green-500 outline-none"
+                        placeholder="Điểm đón"
+                      />
+                      <input
+                        type="text"
+                        name="dropoff"
+                        value={bookingForm.dropoff}
+                        onChange={handleInputChange}
+                        onBlur={() => handleLocationBlur("dropoff")}
+                        className="w-full pl-2 pr-2 py-1.5 text-xs rounded bg-indigo-950 border border-indigo-800 text-white placeholder-indigo-400 focus:border-red-500 outline-none"
+                        placeholder="Điểm trả"
+                      />
+                    </div>
+                    <textarea
+                      name="note"
+                      value={bookingForm.note}
+                      onChange={handleInputChange}
+                      className="w-full pl-2 pr-2 py-1.5 text-xs rounded bg-indigo-950 border border-indigo-800 text-white placeholder-indigo-400 focus:border-yellow-400 outline-none resize-none h-8"
+                      placeholder="Ghi chú..."
+                    />
+                  </>
+                ) : (
+                  <div className="text-center py-4 bg-indigo-900/30 rounded border border-indigo-800 border-dashed text-xs text-indigo-300">
+                    <Lock className="mx-auto mb-1 opacity-50" size={24} />
+                    Chế độ Giữ vé không yêu cầu nhập thông tin khách hàng.
+                  </div>
                 )}
 
                 <div className="flex justify-between items-center pt-1">
@@ -954,9 +1117,11 @@ function AppContent() {
               <div className="p-2 bg-indigo-950 border-t border-indigo-900 rounded-b-xl">
                 <Button
                   className={`w-full font-bold h-10 text-sm ${
-                      bookingMode === 'booking' ? 'bg-yellow-500 hover:bg-yellow-400 text-indigo-950' : 
-                      bookingMode === 'payment' ? 'bg-green-600 hover:bg-green-500 text-white' :
-                      'bg-purple-600 hover:bg-purple-500 text-white'
+                    bookingMode === "booking"
+                      ? "bg-yellow-500 hover:bg-yellow-400 text-indigo-950"
+                      : bookingMode === "payment"
+                      ? "bg-green-600 hover:bg-green-500 text-white"
+                      : "bg-purple-600 hover:bg-purple-500 text-white"
                   }`}
                   onClick={handleConfirmAction}
                   disabled={selectionBasket.length === 0}
