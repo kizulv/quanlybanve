@@ -444,9 +444,8 @@ function AppContent() {
     }));
 
     // 2. Convert the NEW Booking Items to Selected Seats
+    // IMPORTANT: Remove logic that filters by `selectedTripId` to allow multi-trip editing
     const newTripsState = restoredTrips.map((trip) => {
-      if (selectedTripId && trip.id !== selectedTripId) return trip;
-
       const matchingItem = booking.items.find((i) => i.tripId === trip.id);
       if (matchingItem) {
         return {
@@ -478,6 +477,12 @@ function AppContent() {
       paidCash: booking.payment?.paidCash || 0,
       paidTransfer: booking.payment?.paidTransfer || 0,
     });
+  };
+
+  // Helper to jump to a specific trip from basket
+  const handleNavigateToTrip = (date: Date, tripId: string) => {
+      setSelectedDate(date);
+      setSelectedTripId(tripId);
   };
 
   // Handle Create Booking (Single or Multi-Trip)
@@ -1095,6 +1100,7 @@ function AppContent() {
               onCancel={cancelAllSelections}
               validatePhoneNumber={validatePhoneNumber}
               onInitiateSwap={initiateSwap}
+              onNavigateToTrip={handleNavigateToTrip}
             />
 
             {/* MANIFEST LIST */}

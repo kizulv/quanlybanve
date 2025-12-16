@@ -63,6 +63,9 @@ interface BookingFormProps {
   
   // NEW: Swap Action
   onInitiateSwap?: (seat: Seat) => void;
+  
+  // NEW: Navigate Action
+  onNavigateToTrip?: (date: Date, tripId: string) => void;
 }
 
 export const BookingForm: React.FC<BookingFormProps> = ({
@@ -81,6 +84,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
   onCancel,
   validatePhoneNumber,
   onInitiateSwap,
+  onNavigateToTrip,
 }) => {
   const [showHistory, setShowHistory] = useState(false);
 
@@ -292,7 +296,13 @@ export const BookingForm: React.FC<BookingFormProps> = ({
           return (
             <div
               key={idx}
-              className="bg-indigo-900 border border-indigo-700 rounded-lg p-2.5 text-white relative"
+              className={`bg-indigo-900 border border-indigo-700 rounded-lg p-2.5 text-white relative transition-colors ${onNavigateToTrip ? 'cursor-pointer hover:border-yellow-400/50 hover:bg-indigo-800' : ''}`}
+              onClick={() => {
+                  if (onNavigateToTrip) {
+                      onNavigateToTrip(tripDate, item.trip.id);
+                  }
+              }}
+              title="Nhấn để xem chuyến xe này"
             >
               <div
                 className="text-xs text-white mb-1 truncate flex items-center"
