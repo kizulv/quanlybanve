@@ -45,11 +45,18 @@ export const AlertDialogTitle: React.FC<{ children: React.ReactNode, className?:
   </h3>
 );
 
-export const AlertDialogDescription: React.FC<{ children: React.ReactNode, className?: string }> = ({ children, className = '' }) => (
-  <p className={`text-sm text-slate-500 ${className}`}>
-    {children}
-  </p>
-);
+export const AlertDialogDescription: React.FC<{ children: React.ReactNode, className?: string, asChild?: boolean }> = ({ children, className = '', asChild }) => {
+  if (asChild && React.isValidElement(children)) {
+    return React.cloneElement(children as React.ReactElement<any>, { 
+      className: `text-sm text-slate-500 ${className} ${(children.props as any).className || ''}` 
+    });
+  }
+  return (
+    <p className={`text-sm text-slate-500 ${className}`}>
+      {children}
+    </p>
+  );
+};
 
 interface AlertDialogActionProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   className?: string;

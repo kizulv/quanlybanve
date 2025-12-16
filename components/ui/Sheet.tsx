@@ -42,10 +42,10 @@ export const SheetTrigger: React.FC<{ asChild?: boolean; children: React.ReactNo
   if (asChild && React.isValidElement(children)) {
     return React.cloneElement(children as React.ReactElement<any>, {
       onClick: (e: React.MouseEvent) => {
-        children.props.onClick?.(e);
+        (children.props as any).onClick?.(e);
         handleClick();
       },
-      className: `${children.props.className || ''} ${className}`.trim() || undefined
+      className: `${(children.props as any).className || ''} ${className}`.trim() || undefined
     });
   }
 
