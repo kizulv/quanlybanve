@@ -272,7 +272,8 @@ function AppContent() {
                 seat1: clickedSeat.id, 
                 seat2: swapSourceSeat.id,
                 label1: clickedSeat.label,
-                label2: swapSourceSeat.label
+                label2: swapSourceSeat.label,
+                tripDate: selectedTrip.departureTime
             }]);
 
             toast({ type: 'success', title: 'Đổi chỗ thành công', message: `Đã đổi ${swapSourceSeat.label} sang ${clickedSeat.label}` });
@@ -513,13 +514,16 @@ function AppContent() {
           const b = result.bookings[0];
           // Collect labels for display
           const allLabels = selectionBasket.flatMap(i => i.seats.map(s => s.label));
+          // Get primary trip date (first item) for display
+          const primaryTripDate = selectionBasket.length > 0 ? selectionBasket[0].trip.departureTime : "";
           
           setUndoStack(prev => [...prev, {
               type: 'CREATED_BOOKING',
               bookingId: b.id,
               phone: b.passenger.phone,
               seatCount: b.totalTickets,
-              seatLabels: allLabels
+              seatLabels: allLabels,
+              tripDate: primaryTripDate
           }]);
       }
 

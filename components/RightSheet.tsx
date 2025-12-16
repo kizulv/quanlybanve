@@ -100,6 +100,7 @@ export const RightSheet: React.FC<RightSheetProps> = ({
                     <p>Bạn có chắc muốn hủy đơn hàng vừa tạo?</p>
                     <ul className="list-disc pl-5 text-sm text-slate-700 bg-slate-50 p-2 rounded">
                         <li>Khách hàng: <strong>{lastUndoAction.phone}</strong></li>
+                        <li>Chuyến: <strong>{new Date(lastUndoAction.tripDate).toLocaleDateString('vi-VN')}</strong></li>
                         <li>Số lượng: <strong>{lastUndoAction.seatCount} vé</strong></li>
                         <li>Ghế: {lastUndoAction.seatLabels.join(", ")}</li>
                     </ul>
@@ -113,6 +114,11 @@ export const RightSheet: React.FC<RightSheetProps> = ({
                     <div className="text-sm bg-slate-50 p-2 rounded">
                         Đơn hàng của khách <strong>{lastUndoAction.phone}</strong> sẽ quay về trạng thái trước khi chỉnh sửa.
                     </div>
+                    {lastUndoAction.previousBooking.items.length > 0 && (
+                        <div className="text-xs text-slate-500 pl-2">
+                            Ngày chuyến: {new Date(lastUndoAction.previousBooking.items[0].tripDate).toLocaleDateString('vi-VN')}
+                        </div>
+                    )}
                     <p className="text-xs text-red-500 mt-2">* Mọi thay đổi vừa thực hiện sẽ bị mất.</p>
                 </div>
               );
@@ -120,6 +126,9 @@ export const RightSheet: React.FC<RightSheetProps> = ({
               return (
                 <div className="space-y-2">
                     <p>Bạn có chắc muốn hoàn tác việc đổi chỗ?</p>
+                    <div className="text-center text-xs font-medium text-slate-500 mb-2">
+                        Ngày {new Date(lastUndoAction.tripDate).toLocaleDateString('vi-VN')}
+                    </div>
                     <div className="flex items-center gap-3 justify-center bg-slate-50 p-3 rounded">
                         <span className="font-bold text-indigo-600">{lastUndoAction.label2}</span>
                         <Undo2 size={16} className="text-slate-400" />
