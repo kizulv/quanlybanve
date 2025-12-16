@@ -318,18 +318,36 @@ function AppContent() {
   const handleSelectBookingFromHistory = (booking: Booking) => {
     setEditingBooking(booking);
 
-    // Reset all CURRENTLY SELECTED seats to AVAILABLE first to avoid mixing
-    const resetTrips = trips.map((t) => ({
+    // 1. Restore currently SELECTED seats to CORRECT STATUS (Booked/Sold/Held or Available)
+    const restoredTrips = trips.map((t) => ({
       ...t,
-      seats: t.seats.map((s) =>
-        s.status === SeatStatus.SELECTED
-          ? { ...s, status: SeatStatus.AVAILABLE }
-          : s
-      ),
+      seats: t.seats.map((s) => {
+        // Only care about seats that are currently locally SELECTED
+        if (s.status === SeatStatus.SELECTED) {
+          // Check if this seat actually belongs to a booking in our bookings list
+          const activeBooking = bookings.find(
+            (b) =>
+              b.status !== "cancelled" &&
+              b.items.some(
+                (item) => item.tripId === t.id && item.seatIds.includes(s.id)
+              )
+          );
+
+          if (activeBooking) {
+             const totalPaid = (activeBooking.payment?.paidCash || 0) + (activeBooking.payment?.paidTransfer || 0);
+             const isSold = totalPaid >= activeBooking.totalPrice;
+             return { ...s, status: isSold ? SeatStatus.SOLD : SeatStatus.BOOKED };
+          }
+          
+          // If not in any booking, it was just a temporary selection
+          return { ...s, status: SeatStatus.AVAILABLE };
+        }
+        return s;
+      }),
     }));
 
-    // 2. Convert Booking Items to Selected Seats
-    const newTripsState = resetTrips.map((trip) => {
+    // 2. Convert the NEW Booking Items to Selected Seats
+    const newTripsState = restoredTrips.map((trip) => {
       const matchingItem = booking.items.find((i) => i.tripId === trip.id);
       if (matchingItem) {
         return {
