@@ -88,6 +88,9 @@ function AppContent() {
   // SWAP MODE STATE
   const [swapSourceSeat, setSwapSourceSeat] = useState<Seat | null>(null);
 
+  // HIGHLIGHT STATE
+  const [highlightedBookingId, setHighlightedBookingId] = useState<string | null>(null);
+
   // SEAT DETAIL MODAL STATE
   const [seatDetailModal, setSeatDetailModal] = useState<{
     booking: Booking;
@@ -218,12 +221,23 @@ function AppContent() {
     }
   }, [totalBasketPrice, pendingPaymentContext]);
 
+  // Scroll to highlighted booking
+  useEffect(() => {
+    if (highlightedBookingId) {
+      const el = document.getElementById(`booking-item-${highlightedBookingId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }
+  }, [highlightedBookingId]);
+
   // --- Handlers ---
 
   const handleTripSelect = (tripId: string) => {
     setSelectedTripId(tripId);
     setManifestSearch("");
     setSwapSourceSeat(null); // Reset swap mode
+    setHighlightedBookingId(null); // Clear highlight
 
     // Auto-fill location based on route if form is empty
     const trip = trips.find((t) => t.id === tripId);
@@ -303,10 +317,11 @@ function AppContent() {
         return;
     }
 
-    // 1. Check if seat is BOOKED
+    // 1. Check if seat is BOOKED/SOLD/HELD
     if (
       clickedSeat.status === SeatStatus.BOOKED ||
-      clickedSeat.status === SeatStatus.SOLD
+      clickedSeat.status === SeatStatus.SOLD ||
+      clickedSeat.status === SeatStatus.HELD
     ) {
       // Find the booking that contains this seat ID for this trip
       const booking = tripBookings.find((b) =>
@@ -335,30 +350,17 @@ function AppContent() {
       }
 
       if (booking) {
-        // If clicking a different booking, switch to that one
-        handleSelectBookingFromHistory(booking);
+        // HIGHLIGHT ONLY (DO NOT OPEN MODAL/EDIT)
+        setHighlightedBookingId(booking.id);
+        
+        // Optional: Provide feedback via toast if needed, but highlight is usually enough
+        // toast({ type: 'info', title: 'Đã chọn đơn hàng', message: `Đơn của ${booking.passenger.phone}` });
       }
       return;
     }
 
-    // Check if seat is HELD
-    if (clickedSeat.status === SeatStatus.HELD) {
-      const updatedSeats = selectedTrip.seats.map((seat) => {
-        if (seat.id === clickedSeat.id) {
-          // If it was HELD, make it SELECTED so we can operate on it
-          return { ...seat, status: SeatStatus.SELECTED };
-        }
-        return seat;
-      });
-
-      const updatedTrip = { ...selectedTrip, seats: updatedSeats };
-      setTrips((prevTrips) =>
-        prevTrips.map((t) => (t.id === selectedTrip.id ? updatedTrip : t))
-      );
-      return;
-    }
-
     // 2. Selection Logic (Modify the specific trip in the global trips array)
+    // Applies to AVAILABLE or SELECTED seats
     const updatedSeats = selectedTrip.seats.map((seat) => {
       if (seat.id === clickedSeat.id) {
         return {
@@ -418,15 +420,13 @@ function AppContent() {
 
   const handleSelectBookingFromHistory = (booking: Booking) => {
     setEditingBooking(booking);
+    setHighlightedBookingId(null); // Clear highlight when entering edit mode
 
     // 1. Restore currently SELECTED seats to CORRECT STATUS (Booked/Sold/Held or Available)
-    // We only reset selections on the CURRENT trip to avoid confusion if we are "partially" selecting
     const restoredTrips = trips.map((t) => ({
       ...t,
       seats: t.seats.map((s) => {
-        // Only care about seats that are currently locally SELECTED
         if (s.status === SeatStatus.SELECTED) {
-          // Check if this seat actually belongs to a booking in our bookings list
           const activeBooking = bookings.find(
             (b) =>
               b.status !== "cancelled" &&
@@ -447,10 +447,7 @@ function AppContent() {
     }));
 
     // 2. Convert the NEW Booking Items to Selected Seats
-    // UPDATED LOGIC: Only select seats for the trip CURRENTLY DISPLAYED (selectedTripId)
-    // Other items in the booking remain 'booked' visually but are part of the editing context via `editingBooking` state
     const newTripsState = restoredTrips.map((trip) => {
-      // Only process if this trip matches the currently selected trip in UI
       if (selectedTripId && trip.id !== selectedTripId) return trip;
 
       const matchingItem = booking.items.find((i) => i.tripId === trip.id);
@@ -459,7 +456,6 @@ function AppContent() {
           ...trip,
           seats: trip.seats.map((s) => {
             if (matchingItem.seatIds.includes(s.id)) {
-              // Change from BOOKED/SOLD to SELECTED so they show up in basket and are editable
               return { ...s, status: SeatStatus.SELECTED };
             }
             return s;
@@ -485,9 +481,6 @@ function AppContent() {
       paidCash: booking.payment?.paidCash || 0,
       paidTransfer: booking.payment?.paidTransfer || 0,
     });
-
-    // We don't auto-navigate if the user is already on a trip view to prevent jumping
-    // The filtering logic above ensures we only show relevant seats
   };
 
   // Handle Create Booking (Single or Multi-Trip)
@@ -1158,17 +1151,21 @@ function AppContent() {
                     (i) => i.tripId === selectedTrip?.id
                   );
                   const seatsToShow = tripItem ? tripItem.seatIds : [];
+                  const isHighlighted = booking.id === highlightedBookingId;
 
                   return (
                     <div
                       key={idx}
+                      id={`booking-item-${booking.id}`}
                       onClick={() => handleSelectBookingFromHistory(booking)}
-                      className={`p-2 border-b border-slate-100 cursor-pointer hover:bg-slate-50 ${
+                      className={`p-2 border-b border-slate-100 cursor-pointer hover:bg-slate-50 transition-colors ${
                         !isFullyPaid ? "bg-yellow-50/30" : ""
+                      } ${
+                        isHighlighted ? "bg-indigo-50 ring-2 ring-indigo-500 z-10" : ""
                       }`}
                     >
                       <div className="flex justify-between items-center mb-1">
-                        <span className="text-xs font-bold text-indigo-800">
+                        <span className={`text-xs font-bold ${isHighlighted ? "text-indigo-600" : "text-indigo-800"}`}>
                           {booking.passenger.phone}
                         </span>
                         <span className="text-[10px] text-slate-400">
