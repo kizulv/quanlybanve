@@ -95,11 +95,39 @@ export const RightSheet: React.FC<RightSheetProps> = ({
       if (!lastUndoAction) return "";
       switch(lastUndoAction.type) {
           case 'CREATED_BOOKING':
-              return "Bạn có chắc muốn hủy đơn hàng vừa tạo mới? Hành động này sẽ xóa đơn hàng và trả lại ghế trống.";
+              return (
+                <div className="space-y-2">
+                    <p>Bạn có chắc muốn hủy đơn hàng vừa tạo?</p>
+                    <ul className="list-disc pl-5 text-sm text-slate-700 bg-slate-50 p-2 rounded">
+                        <li>Khách hàng: <strong>{lastUndoAction.phone}</strong></li>
+                        <li>Số lượng: <strong>{lastUndoAction.seatCount} vé</strong></li>
+                        <li>Ghế: {lastUndoAction.seatLabels.join(", ")}</li>
+                    </ul>
+                    <p className="text-xs text-red-500 mt-2">* Hành động này sẽ xóa đơn hàng và trả lại ghế trống.</p>
+                </div>
+              );
           case 'UPDATED_BOOKING':
-              return "Bạn có chắc muốn khôi phục trạng thái đơn hàng trước khi sửa? Mọi thay đổi vừa thực hiện sẽ bị mất.";
+              return (
+                <div className="space-y-2">
+                    <p>Bạn có chắc muốn khôi phục trạng thái cũ?</p>
+                    <div className="text-sm bg-slate-50 p-2 rounded">
+                        Đơn hàng của khách <strong>{lastUndoAction.phone}</strong> sẽ quay về trạng thái trước khi chỉnh sửa.
+                    </div>
+                    <p className="text-xs text-red-500 mt-2">* Mọi thay đổi vừa thực hiện sẽ bị mất.</p>
+                </div>
+              );
           case 'SWAPPED_SEATS':
-              return "Bạn có chắc muốn hoàn tác việc đổi chỗ? Ghế sẽ được đổi lại vị trí ban đầu.";
+              return (
+                <div className="space-y-2">
+                    <p>Bạn có chắc muốn hoàn tác việc đổi chỗ?</p>
+                    <div className="flex items-center gap-3 justify-center bg-slate-50 p-3 rounded">
+                        <span className="font-bold text-indigo-600">{lastUndoAction.label2}</span>
+                        <Undo2 size={16} className="text-slate-400" />
+                        <span className="font-bold text-slate-600">{lastUndoAction.label1}</span>
+                    </div>
+                    <p className="text-xs text-slate-500 text-center">Ghế sẽ được trả về vị trí ban đầu.</p>
+                </div>
+              );
       }
   };
 
@@ -282,8 +310,10 @@ export const RightSheet: React.FC<RightSheetProps> = ({
                 <AlertTriangle size={20} />
                 Xác nhận hoàn tác
             </AlertDialogTitle>
-            <AlertDialogDescription className="text-slate-600">
-              {getUndoMessage()}
+            <AlertDialogDescription asChild>
+              <div className="text-slate-600 pt-2">
+                {getUndoMessage()}
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

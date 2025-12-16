@@ -265,12 +265,14 @@ function AppContent() {
             );
             setTrips((prev) => prev.map((t) => updatedTripsMap.get(t.id) || t));
             
-            // Add to Undo Stack
+            // Add to Undo Stack with details
             setUndoStack(prev => [...prev, {
                 type: 'SWAPPED_SEATS',
                 tripId: selectedTrip.id,
-                seat1: clickedSeat.id, // Current (Destination) becomes Source for Undo
-                seat2: swapSourceSeat.id // Original (Source) becomes Destination for Undo
+                seat1: clickedSeat.id, 
+                seat2: swapSourceSeat.id,
+                label1: clickedSeat.label,
+                label2: swapSourceSeat.label
             }]);
 
             toast({ type: 'success', title: 'Đổi chỗ thành công', message: `Đã đổi ${swapSourceSeat.label} sang ${clickedSeat.label}` });
@@ -304,8 +306,6 @@ function AppContent() {
       // Check if this booked seat belongs to the CURRENTLY editing booking
       if (editingBooking && booking && booking.id === editingBooking.id) {
         // It matches! This means user wants to REMOVE this seat from the edit session
-        // We simply treat it as a toggle -> Change status back to AVAILABLE in the local trip state
-
         const updatedSeats = selectedTrip.seats.map((seat) => {
           if (seat.id === clickedSeat.id) {
             return { ...seat, status: SeatStatus.AVAILABLE };
@@ -369,6 +369,7 @@ function AppContent() {
     setEditingBooking(booking);
 
     // 1. Restore currently SELECTED seats to CORRECT STATUS (Booked/Sold/Held or Available)
+    // We only reset selections on the CURRENT trip to avoid confusion if we are "partially" selecting
     const restoredTrips = trips.map((t) => ({
       ...t,
       seats: t.seats.map((s) => {
@@ -388,8 +389,6 @@ function AppContent() {
              const isSold = totalPaid >= activeBooking.totalPrice;
              return { ...s, status: isSold ? SeatStatus.SOLD : SeatStatus.BOOKED };
           }
-          
-          // If not in any booking, it was just a temporary selection
           return { ...s, status: SeatStatus.AVAILABLE };
         }
         return s;
@@ -397,7 +396,12 @@ function AppContent() {
     }));
 
     // 2. Convert the NEW Booking Items to Selected Seats
+    // UPDATED LOGIC: Only select seats for the trip CURRENTLY DISPLAYED (selectedTripId)
+    // Other items in the booking remain 'booked' visually but are part of the editing context via `editingBooking` state
     const newTripsState = restoredTrips.map((trip) => {
+      // Only process if this trip matches the currently selected trip in UI
+      if (selectedTripId && trip.id !== selectedTripId) return trip;
+
       const matchingItem = booking.items.find((i) => i.tripId === trip.id);
       if (matchingItem) {
         return {
@@ -431,18 +435,8 @@ function AppContent() {
       paidTransfer: booking.payment?.paidTransfer || 0,
     });
 
-    // Navigate to the trip
-    if (booking.items.length > 0) {
-      const firstItem = booking.items[0];
-      const trip = trips.find((t) => t.id === firstItem.tripId);
-      if (trip) {
-        const tripDate = new Date(trip.departureTime.split(" ")[0]);
-        if (!isSameDay(tripDate, selectedDate)) {
-          setSelectedDate(tripDate);
-        }
-        setSelectedTripId(trip.id);
-      }
-    }
+    // We don't auto-navigate if the user is already on a trip view to prevent jumping
+    // The filtering logic above ensures we only show relevant seats
   };
 
   // Handle Create Booking (Single or Multi-Trip)
@@ -514,11 +508,18 @@ function AppContent() {
 
       setBookings((prev) => [...prev, ...result.bookings]);
 
-      // Add to Undo Stack (Only first booking if multiple, typically one per action)
+      // Add to Undo Stack
       if (result.bookings.length > 0) {
+          const b = result.bookings[0];
+          // Collect labels for display
+          const allLabels = selectionBasket.flatMap(i => i.seats.map(s => s.label));
+          
           setUndoStack(prev => [...prev, {
               type: 'CREATED_BOOKING',
-              bookingId: result.bookings[0].id
+              bookingId: b.id,
+              phone: b.passenger.phone,
+              seatCount: b.totalTickets,
+              seatLabels: allLabels
           }]);
       }
 
@@ -647,7 +648,8 @@ function AppContent() {
           dropoffPoint: bookingForm.dropoff,
         };
 
-        const bookingItems = selectionBasket.map((item) => ({
+        // Get currently selected items (from basket)
+        const currentBookingItems = selectionBasket.map((item) => ({
           tripId: item.trip.id,
           seats: item.seats,
         }));
@@ -655,9 +657,35 @@ function AppContent() {
         // STORE OLD STATE FOR UNDO
         const oldBooking = bookings.find(b => b.id === targetBookingId);
 
+        // MERGE LOGIC:
+        // Since `selectionBasket` might only contain items for the displayed trip,
+        // we must preserve items from other trips that are in `editingBooking` but not in the basket.
+        let finalBookingItems = [...currentBookingItems];
+        
+        if (oldBooking) {
+            // Find IDs of trips currently in basket
+            const basketTripIds = new Set(currentBookingItems.map(i => i.tripId));
+            
+            // Filter original items to keep those NOT in basket
+            const preservedItems = oldBooking.items.filter(item => !basketTripIds.has(item.tripId));
+            
+            // Reconstruct seat objects for preserved items (since API expects {tripId, seats: Seat[]})
+            // We need to look up these seats in `trips` state
+            const reconstructedPreservedItems = preservedItems.map(item => {
+                const trip = trips.find(t => t.id === item.tripId);
+                const seatsObj = trip ? trip.seats.filter(s => item.seatIds.includes(s.id)) : [];
+                return {
+                    tripId: item.tripId,
+                    seats: seatsObj.length > 0 ? seatsObj : item.seatIds.map(sid => ({ id: sid, price: 0 } as Seat))
+                };
+            });
+
+            finalBookingItems = [...reconstructedPreservedItems, ...currentBookingItems];
+        }
+
         const result = await api.bookings.update(
           targetBookingId,
-          bookingItems,
+          finalBookingItems,
           passenger,
           payment
         );
@@ -677,7 +705,8 @@ function AppContent() {
         if (oldBooking) {
             setUndoStack(prev => [...prev, {
                 type: 'UPDATED_BOOKING',
-                previousBooking: oldBooking
+                previousBooking: oldBooking,
+                phone: oldBooking.passenger.phone
             }]);
         }
 
@@ -692,6 +721,7 @@ function AppContent() {
           message: "Đã lưu thay đổi đơn hàng.",
         });
       } catch (e) {
+        console.error(e);
         toast({ type: "error", title: "Lỗi", message: "Cập nhật thất bại." });
       }
   };
@@ -833,24 +863,13 @@ function AppContent() {
                   // Restore Old Booking Data
                   const oldB = action.previousBooking;
                   
-                  // Reconstruct items payload for API (Seat Objects needed if strict, but update uses ID arrays mostly in my implementation, 
-                  // actually my update API expects {tripId, seats: Seat[]} structure... 
-                  // Wait, my update API implementation takes `items` where each has `tripId` and `seats`.
-                  // The `seats` property in `items` needs to be `Seat[]` objects because `api.bookings.update` transforms them to IDs.
-                  
-                  // Let's look at `api.bookings.update` implementation in `api.ts`:
-                  // It takes `items: { tripId: string; seats: Seat[] }[]`.
-                  // But `action.previousBooking.items` has `seatIds: string[]`.
-                  
-                  // We need to reconstruct Seat objects from Trip data to pass to API
+                  // Reconstruct items payload for API
                   const bookingItemsPayload = oldB.items.map(item => {
                       const trip = trips.find(t => t.id === item.tripId);
                       const seatsObj = trip ? trip.seats.filter(s => item.seatIds.includes(s.id)) : [];
-                      // Fallback if trip not found (rare) or seat not found (changed)
-                      // If seat ID changed, we might have issue. But usually IDs are stable.
                       return {
                           tripId: item.tripId,
-                          seats: seatsObj.length > 0 ? seatsObj : item.seatIds.map(sid => ({ id: sid, price: 0 } as Seat)) // Mock if needed
+                          seats: seatsObj.length > 0 ? seatsObj : item.seatIds.map(sid => ({ id: sid, price: 0 } as Seat))
                       };
                   });
 

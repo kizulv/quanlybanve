@@ -121,8 +121,8 @@ export interface ActivityLog {
   }[];
 }
 
-// Undo Action Types
+// Undo Action Types Updated for Detail Alerts
 export type UndoAction = 
-  | { type: 'CREATED_BOOKING'; bookingId: string }
-  | { type: 'UPDATED_BOOKING'; previousBooking: Booking }
-  | { type: 'SWAPPED_SEATS'; tripId: string; seat1: string; seat2: string };
+  | { type: 'CREATED_BOOKING'; bookingId: string; phone: string; seatCount: number; seatLabels: string[] }
+  | { type: 'UPDATED_BOOKING'; previousBooking: Booking; phone: string }
+  | { type: 'SWAPPED_SEATS'; tripId: string; seat1: string; seat2: string; label1: string; label2: string };

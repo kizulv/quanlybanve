@@ -31,13 +31,26 @@ export const Sheet: React.FC<{
 
 export const SheetTrigger: React.FC<{ asChild?: boolean; children: React.ReactNode; className?: string }> = ({ 
   children, 
-  className = "" 
+  className = "",
+  asChild
 }) => {
   const context = useContext(SheetContext);
   if (!context) throw new Error("SheetTrigger must be used within Sheet");
 
+  const handleClick = () => context.setIsOpen(true);
+
+  if (asChild && React.isValidElement(children)) {
+    return React.cloneElement(children as React.ReactElement<any>, {
+      onClick: (e: React.MouseEvent) => {
+        children.props.onClick?.(e);
+        handleClick();
+      },
+      className: `${children.props.className || ''} ${className}`.trim() || undefined
+    });
+  }
+
   return (
-    <div onClick={() => context.setIsOpen(true)} className={`cursor-pointer ${className}`}>
+    <div onClick={handleClick} className={`cursor-pointer ${className}`}>
       {children}
     </div>
   );
