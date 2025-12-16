@@ -126,6 +126,13 @@ export const api = {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ items, passenger, payment }),
       }),
+    // New Method for Passenger Only Update
+    updatePassenger: (id: string, passenger: Passenger) => 
+      fetchJson(`${API_URL}/bookings/${id}/passenger`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ passenger }),
+      }),
     delete: (id: string) => 
         fetchJson(`${API_URL}/bookings/${id}`, {
             method: "DELETE"

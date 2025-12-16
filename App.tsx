@@ -26,10 +26,16 @@ import {
   Clock3,
   Keyboard,
   ArrowRightLeft,
+  MapPin,
+  Locate,
+  Notebook,
+  Save,
 } from "lucide-react";
 import { api } from "./lib/api";
 import { isSameDay, formatLunarDate, formatTime } from "./utils/dateUtils";
 import { PaymentModal } from "./components/PaymentModal";
+import { Dialog } from "./components/ui/Dialog";
+import { Button } from "./components/ui/Button";
 
 function AppContent() {
   const { toast } = useToast();
@@ -81,6 +87,13 @@ function AppContent() {
 
   // SWAP MODE STATE
   const [swapSourceSeat, setSwapSourceSeat] = useState<Seat | null>(null);
+
+  // SEAT DETAIL MODAL STATE
+  const [seatDetailModal, setSeatDetailModal] = useState<{
+    booking: Booking;
+    seat: Seat;
+    form: { pickup: string; dropoff: string; note: string };
+  } | null>(null);
 
   // Filter States
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -364,6 +377,43 @@ function AppContent() {
     setTrips((prevTrips) =>
       prevTrips.map((t) => (t.id === selectedTrip.id ? updatedTrip : t))
     );
+  };
+
+  const handleSeatRightClick = (seat: Seat, booking: Booking) => {
+      setSeatDetailModal({
+          booking,
+          seat,
+          form: {
+              pickup: booking.passenger.pickupPoint || '',
+              dropoff: booking.passenger.dropoffPoint || '',
+              note: booking.passenger.note || ''
+          }
+      });
+  };
+
+  const handleSaveSeatDetail = async () => {
+      if (!seatDetailModal) return;
+      const { booking, form } = seatDetailModal;
+      
+      try {
+          const updatedPassenger: Passenger = {
+              ...booking.passenger,
+              pickupPoint: form.pickup,
+              dropoffPoint: form.dropoff,
+              note: form.note
+          };
+
+          const result = await api.bookings.updatePassenger(booking.id, updatedPassenger);
+          
+          // Update local state
+          setBookings(prev => prev.map(b => b.id === booking.id ? result.booking : b));
+          
+          toast({ type: 'success', title: 'Cập nhật thành công', message: 'Đã lưu thông tin hành khách.' });
+          setSeatDetailModal(null);
+      } catch (e) {
+          console.error(e);
+          toast({ type: 'error', title: 'Lỗi', message: 'Không thể cập nhật thông tin.' });
+      }
   };
 
   const handleSelectBookingFromHistory = (booking: Booking) => {
@@ -1026,6 +1076,7 @@ function AppContent() {
                   currentTripId={selectedTrip.id}
                   onSeatSwap={initiateSwap}
                   editingBooking={editingBooking}
+                  onSeatRightClick={handleSeatRightClick}
                 />
               ) : (
                 <div className="h-full flex flex-col items-center justify-center text-slate-300">
@@ -1345,6 +1396,68 @@ function AppContent() {
         paidTransfer={bookingForm.paidTransfer}
         onMoneyChange={handleMoneyChange}
       />
+
+      {/* SEAT DETAIL MODAL */}
+      <Dialog 
+        isOpen={!!seatDetailModal} 
+        onClose={() => setSeatDetailModal(null)}
+        title="Cập nhật thông tin hành khách"
+        className="max-w-md"
+        footer={
+            <>
+                <Button variant="outline" onClick={() => setSeatDetailModal(null)}>Hủy bỏ</Button>
+                <Button onClick={handleSaveSeatDetail} className="bg-blue-600 hover:bg-blue-700 text-white">
+                    <Save size={16} className="mr-2" /> Lưu thông tin
+                </Button>
+            </>
+        }
+      >
+        {seatDetailModal && (
+            <div className="space-y-4 py-2">
+                <div className="flex items-center gap-2 bg-blue-50 p-3 rounded-lg border border-blue-100 text-sm text-blue-800">
+                    <span className="font-bold">Ghế: {seatDetailModal.seat.label}</span>
+                    <span>•</span>
+                    <span>{seatDetailModal.booking.passenger.phone}</span>
+                </div>
+                
+                <div className="space-y-3">
+                    <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-green-600">
+                            <MapPin size={16} />
+                        </div>
+                        <input
+                            placeholder="Điểm đón"
+                            value={seatDetailModal.form.pickup}
+                            onChange={(e) => setSeatDetailModal({ ...seatDetailModal, form: { ...seatDetailModal.form, pickup: e.target.value } })}
+                            className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none text-sm"
+                        />
+                    </div>
+                    <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-red-600">
+                            <Locate size={16} />
+                        </div>
+                        <input
+                            placeholder="Điểm trả"
+                            value={seatDetailModal.form.dropoff}
+                            onChange={(e) => setSeatDetailModal({ ...seatDetailModal, form: { ...seatDetailModal.form, dropoff: e.target.value } })}
+                            className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none text-sm"
+                        />
+                    </div>
+                    <div className="relative">
+                        <div className="absolute top-2.5 left-3 flex items-start pointer-events-none text-amber-600">
+                            <Notebook size={16} />
+                        </div>
+                        <textarea
+                            placeholder="Ghi chú"
+                            value={seatDetailModal.form.note}
+                            onChange={(e) => setSeatDetailModal({ ...seatDetailModal, form: { ...seatDetailModal.form, note: e.target.value } })}
+                            className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none text-sm resize-none h-20"
+                        />
+                    </div>
+                </div>
+            </div>
+        )}
+      </Dialog>
     </Layout>
   );
 }

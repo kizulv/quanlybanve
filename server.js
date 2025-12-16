@@ -407,6 +407,28 @@ app.put("/api/bookings/:id", async (req, res) => {
   }
 });
 
+// PARTIAL UPDATE BOOKING (Passenger Info Only)
+app.patch("/api/bookings/:id/passenger", async (req, res) => {
+    try {
+        const { passenger } = req.body;
+        const bookingId = req.params.id;
+        
+        // Only update passenger field
+        const updatedBooking = await Booking.findByIdAndUpdate(
+            bookingId,
+            { passenger: passenger },
+            { new: true }
+        );
+
+        if (!updatedBooking) return res.status(404).json({ error: "Booking not found" });
+        
+        res.json({ booking: updatedBooking });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // DELETE BOOKING (For Undo Create)
 app.delete("/api/bookings/:id", async (req, res) => {
     try {
