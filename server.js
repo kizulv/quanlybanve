@@ -514,6 +514,109 @@ app.post("/api/maintenance/fix-seats", async (req, res) => {
   }
 });
 
+// SWAP SEATS
+app.post("/api/bookings/swap", async (req, res) => {
+    try {
+        const { tripId, seatId1, seatId2 } = req.body;
+        // seatId1: The currently Booked seat (Source)
+        // seatId2: The target seat (Destination)
+
+        const trip = await Trip.findById(tripId);
+        if (!trip) return res.status(404).json({ error: "Trip not found" });
+
+        const seat1 = trip.seats.find(s => s.id === seatId1);
+        const seat2 = trip.seats.find(s => s.id === seatId2);
+
+        if (!seat1 || !seat2) return res.status(400).json({ error: "Seat invalid" });
+
+        // Scenario: Swap Seat 1 (Booked) to Seat 2 (Available or Booked)
+        
+        // Find Booking for Seat 1
+        const booking1 = await Booking.findOne({
+            status: { $ne: 'cancelled' },
+            "items": { $elemMatch: { tripId: tripId, seatIds: seatId1 } }
+        });
+
+        if (!booking1) {
+            // If Seat 1 is marked as booked in Trip but has no booking record, just move the status on Trip
+            // But usually this means ghost seat. We assume valid booking exists.
+            return res.status(404).json({ error: "Source seat has no active booking" });
+        }
+
+        // Check if Seat 2 is also Booked
+        const booking2 = await Booking.findOne({
+            status: { $ne: 'cancelled' },
+            "items": { $elemMatch: { tripId: tripId, seatIds: seatId2 } }
+        });
+
+        if (booking2) {
+             // --- SWAP TWO PASSENGERS ---
+             // Remove S1 from B1, Add S2 to B1
+             booking1.items = booking1.items.map(item => {
+                 if (item.tripId === tripId) {
+                     return { ...item, seatIds: item.seatIds.map(s => s === seatId1 ? seatId2 : s) };
+                 }
+                 return item;
+             });
+             
+             // Remove S2 from B2, Add S1 to B2
+             booking2.items = booking2.items.map(item => {
+                 if (item.tripId === tripId) {
+                     return { ...item, seatIds: item.seatIds.map(s => s === seatId2 ? seatId1 : s) };
+                 }
+                 return item;
+             });
+
+             // If statuses differ (e.g. Sold vs Booked), we should swap them on Trip seats too
+             // Simple swap of status on Trip
+             const status1 = seat1.status;
+             const status2 = seat2.status;
+             
+             trip.seats = trip.seats.map(s => {
+                 if (s.id === seatId1) return { ...s, status: status2 };
+                 if (s.id === seatId2) return { ...s, status: status1 };
+                 return s;
+             });
+
+             await booking1.save();
+             await booking2.save();
+             await trip.save();
+
+        } else {
+            // --- MOVE PASSENGER TO EMPTY SEAT ---
+            // Remove S1 from B1, Add S2 to B1
+            booking1.items = booking1.items.map(item => {
+                 if (item.tripId === tripId) {
+                     // Replace ID
+                     return { ...item, seatIds: item.seatIds.map(s => s === seatId1 ? seatId2 : s) };
+                 }
+                 return item;
+            });
+
+            // Update Trip: S1 -> Available, S2 -> S1.Status
+            const status1 = seat1.status; // booked or sold
+            
+            trip.seats = trip.seats.map(s => {
+                if (s.id === seatId1) return { ...s, status: 'available' };
+                if (s.id === seatId2) return { ...s, status: status1 };
+                return s;
+            });
+
+            await booking1.save();
+            await trip.save();
+        }
+        
+        const allBookings = await Booking.find();
+        const allTrips = await Trip.find();
+        
+        res.json({ bookings: allBookings, trips: allTrips });
+
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // 5. Settings (Unchanged)
 app.get("/api/settings/:key", async (req, res) => {
   try { const setting = await Setting.findOne({ key: req.params.key }); res.json(setting ? setting.value : null); } catch (error) { res.status(500).json({ error: error.message }); }

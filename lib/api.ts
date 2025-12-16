@@ -135,6 +135,12 @@ export const api = {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ bookingIds, payment }),
       }),
+    swapSeats: (tripId: string, seatId1: string, seatId2: string) =>
+        fetchJson(`${API_URL}/bookings/swap`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ tripId, seatId1, seatId2 }),
+        }),
   },
 
   settings: {

@@ -24,6 +24,7 @@ import {
   X,
   Clock3,
   Keyboard,
+  ArrowRightLeft,
 } from "lucide-react";
 import { api } from "./lib/api";
 import { isSameDay, formatLunarDate, formatTime } from "./utils/dateUtils";
@@ -73,6 +74,9 @@ function AppContent() {
   // -- LOCAL UI STATE --
   const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
   const [manifestSearch, setManifestSearch] = useState("");
+
+  // SWAP MODE STATE
+  const [swapSourceSeat, setSwapSourceSeat] = useState<Seat | null>(null);
 
   // Filter States
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -202,6 +206,7 @@ function AppContent() {
   const handleTripSelect = (tripId: string) => {
     setSelectedTripId(tripId);
     setManifestSearch("");
+    setSwapSourceSeat(null); // Reset swap mode
 
     // Auto-fill location based on route if form is empty
     const trip = trips.find((t) => t.id === tripId);
@@ -236,6 +241,39 @@ function AppContent() {
 
   const handleSeatClick = async (clickedSeat: Seat) => {
     if (!selectedTrip) return;
+
+    // --- SWAP MODE LOGIC ---
+    if (swapSourceSeat) {
+        if (swapSourceSeat.id === clickedSeat.id) {
+            // Clicked same seat, cancel swap
+            setSwapSourceSeat(null);
+            toast({ type: 'info', title: 'Hủy đổi', message: 'Đã hủy chế độ đổi chỗ' });
+            return;
+        }
+
+        try {
+            const result = await api.bookings.swapSeats(selectedTrip.id, swapSourceSeat.id, clickedSeat.id);
+            setBookings(result.bookings);
+            
+            // Re-sync trips
+            const updatedTripsMap = new Map<string, BusTrip>(
+                result.trips.map((t: BusTrip) => [t.id, t])
+            );
+            setTrips((prev) => prev.map((t) => updatedTripsMap.get(t.id) || t));
+            
+            toast({ type: 'success', title: 'Đổi chỗ thành công', message: `Đã đổi ${swapSourceSeat.label} sang ${clickedSeat.label}` });
+        } catch (e) {
+            toast({ type: 'error', title: 'Lỗi', message: 'Không thể đổi chỗ' });
+        } finally {
+            setSwapSourceSeat(null);
+            // Close editing if open to refresh
+            if (editingBooking) {
+                setEditingBooking(null);
+                setBookingForm({ ...bookingForm, phone: '', note: '' });
+            }
+        }
+        return;
+    }
 
     // 1. Check if seat is BOOKED
     if (
@@ -717,6 +755,15 @@ function AppContent() {
     });
   };
 
+  const initiateSwap = (seat: Seat) => {
+      setSwapSourceSeat(seat);
+      toast({ 
+          type: 'info', 
+          title: 'Chế độ đổi chỗ', 
+          message: `Đang chọn đổi ghế ${seat.label}. Vui lòng chọn ghế mới trên sơ đồ.` 
+      });
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -750,34 +797,36 @@ function AppContent() {
       {activeTab === "sales" && (
         <div className="h-[calc(100vh-140px)] flex flex-col md:flex-row gap-4 animate-in fade-in duration-300">
           {/* LEFT: SEAT MAP */}
-          <div className="flex-1 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col overflow-hidden">
-            <div className="px-4 h-[40px] bg-gradient-to-r from-indigo-950 via-indigo-900 to-indigo-950 border-b border-indigo-900 flex items-center justify-between shrink-0 rounded-t-xl">
+          <div className={`flex-1 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col overflow-hidden transition-all ${swapSourceSeat ? 'ring-2 ring-indigo-500 ring-offset-2' : ''}`}>
+            <div className={`px-4 h-[40px] border-b flex items-center justify-between shrink-0 rounded-t-xl transition-colors ${swapSourceSeat ? 'bg-indigo-600 border-indigo-600' : 'bg-gradient-to-r from-indigo-950 via-indigo-900 to-indigo-950 border-indigo-900'}`}>
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-indigo-900 flex items-center justify-center text-white shrink-0 border border-indigo-800">
-                  <BusFront size={16} />
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white shrink-0 border ${swapSourceSeat ? 'bg-indigo-500 border-indigo-400' : 'bg-indigo-900 border-indigo-800'}`}>
+                  {swapSourceSeat ? <ArrowRightLeft size={16} className="animate-pulse" /> : <BusFront size={16} />}
                 </div>
                 {selectedTrip ? (
                   <div>
                     <div className="flex items-center gap-2">
                       <h2 className="text-sm font-bold text-white leading-none">
-                        {selectedTrip.name}
+                        {swapSourceSeat ? `Đang đổi ghế: ${swapSourceSeat.label}` : selectedTrip.name}
                       </h2>
                       {selectedTrip.seats.some(
                         (s) => s.status === SeatStatus.SELECTED
-                      ) && (
+                      ) && !swapSourceSeat && (
                         <Badge className="bg-primary border-transparent h-4 text-[9px] px-1">
                           Đang chọn
                         </Badge>
                       )}
-                      <div className="flex items-center gap-2 text-xs">
-                        <span className="bg-yellow-400 px-2 py-1 rounded-md inline-flex items-center justify-center font-bold text-slate-900 border border-yellow-500">
-                          <Keyboard size={12} className="mr-1" />
-                          {selectedTrip.licensePlate}
-                        </span>
-                        <span className="bg-slate-400 px-2 py-1 rounded-md inline-flex items-center justify-center text-white border border-slate-500">
-                          Xuất bến: {selectedTrip.departureTime.split(" ")[1]}
-                        </span>
-                      </div>
+                      {!swapSourceSeat && (
+                          <div className="flex items-center gap-2 text-xs">
+                            <span className="bg-yellow-400 px-2 py-1 rounded-md inline-flex items-center justify-center font-bold text-slate-900 border border-yellow-500">
+                              <Keyboard size={12} className="mr-1" />
+                              {selectedTrip.licensePlate}
+                            </span>
+                            <span className="bg-slate-400 px-2 py-1 rounded-md inline-flex items-center justify-center text-white border border-slate-500">
+                              Xuất bến: {selectedTrip.departureTime.split(" ")[1]}
+                            </span>
+                          </div>
+                      )}
                     </div>
                   </div>
                 ) : (
@@ -786,28 +835,35 @@ function AppContent() {
                   </div>
                 )}
               </div>
-              <div className="flex gap-4 text-[12px] text-white hidden lg:flex">
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2.5 h-2.5 rounded border border-white/50 bg-white/10"></div>{" "}
-                  Trống
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2.5 h-2.5 rounded bg-primary border border-white"></div>{" "}
-                  Đang chọn
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2.5 h-2.5 rounded bg-yellow-400 border border-yellow-500"></div>{" "}
-                  Đã đặt
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2.5 h-2.5 rounded bg-green-400 border border-slate-500"></div>{" "}
-                  Đã bán
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2.5 h-2.5 rounded bg-purple-400 border border-purple-500"></div>{" "}
-                  Giữ
-                </div>
-              </div>
+              
+              {swapSourceSeat && (
+                  <button onClick={() => setSwapSourceSeat(null)} className="text-white text-xs bg-white/20 hover:bg-white/30 px-2 py-1 rounded">Hủy đổi</button>
+              )}
+
+              {!swapSourceSeat && (
+                  <div className="flex gap-4 text-[12px] text-white hidden lg:flex">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2.5 h-2.5 rounded border border-white/50 bg-white/10"></div>{" "}
+                      Trống
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2.5 h-2.5 rounded bg-primary border border-white"></div>{" "}
+                      Đang chọn
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2.5 h-2.5 rounded bg-yellow-400 border border-yellow-500"></div>{" "}
+                      Đã đặt
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2.5 h-2.5 rounded bg-green-400 border border-slate-500"></div>{" "}
+                      Đã bán
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2.5 h-2.5 rounded bg-purple-400 border border-purple-500"></div>{" "}
+                      Giữ
+                    </div>
+                  </div>
+              )}
             </div>
 
             <div className="flex-1 overflow-y-auto">
@@ -845,6 +901,7 @@ function AppContent() {
               onConfirm={handleConfirmAction}
               onCancel={cancelAllSelections}
               validatePhoneNumber={validatePhoneNumber}
+              onInitiateSwap={initiateSwap}
             />
 
             {/* MANIFEST LIST */}

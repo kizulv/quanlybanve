@@ -21,6 +21,7 @@ import {
   MapPin,
   Locate,
   Notebook,
+  ArrowRightLeft,
 } from "lucide-react";
 
 interface BookingFormProps {
@@ -59,6 +60,9 @@ interface BookingFormProps {
   onConfirm: () => void;
   onCancel: () => void;
   validatePhoneNumber: (phone: string) => string | null;
+  
+  // NEW: Swap Action
+  onInitiateSwap?: (seat: Seat) => void;
 }
 
 export const BookingForm: React.FC<BookingFormProps> = ({
@@ -76,6 +80,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
   onConfirm,
   onCancel,
   validatePhoneNumber,
+  onInitiateSwap,
 }) => {
   const [showHistory, setShowHistory] = useState(false);
 
@@ -314,12 +319,23 @@ export const BookingForm: React.FC<BookingFormProps> = ({
               </div>
               <div className="flex flex-wrap gap-1">
                 {item.seats.map((s) => (
-                  <span
-                    key={s.id}
-                    className="inline-block bg-indigo-100 text-indigo-700 text-[10px] font-bold px-1.5 rounded border border-indigo-200"
-                  >
-                    {s.label}
-                  </span>
+                  <div key={s.id} className="relative group">
+                      <span
+                        className="inline-block bg-indigo-100 text-indigo-700 text-[10px] font-bold px-1.5 py-0.5 rounded border border-indigo-200 cursor-default"
+                      >
+                        {s.label}
+                      </span>
+                      {/* SWAP BUTTON - Only in edit mode */}
+                      {editingBooking && onInitiateSwap && (
+                          <button 
+                             onClick={(e) => { e.stopPropagation(); onInitiateSwap(s); }}
+                             className="absolute -top-2 -right-2 bg-white text-indigo-600 rounded-full p-0.5 shadow-sm border border-slate-200 opacity-0 group-hover:opacity-100 transition-opacity z-10 hover:bg-indigo-50"
+                             title="Đổi chỗ"
+                          >
+                              <ArrowRightLeft size={10} />
+                          </button>
+                      )}
+                  </div>
                 ))}
               </div>
             </div>
