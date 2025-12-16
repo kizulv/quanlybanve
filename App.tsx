@@ -1067,7 +1067,7 @@ function AppContent() {
                   onSeatClick={handleSeatClick}
                   bookings={tripBookings}
                   currentTripId={selectedTrip.id}
-                  onSeatSwap={initiateSwap}
+                  onSeatSwap={swapSourceSeat ? undefined : initiateSwap}
                   editingBooking={editingBooking}
                   onSeatRightClick={handleSeatRightClick}
                 />
