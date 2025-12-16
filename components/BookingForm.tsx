@@ -116,7 +116,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
     // Auto prefix if needed
     if (!/^bx\s/i.test(value) && value.length > 2) {
       value = value.replace(/(?:^|\s)\S/g, (a) => a.toUpperCase());
-      return `BX ${value}`;
+      return `${value}`;
     }
     return value.replace(/(?:^|\s)\S/g, (a) => a.toUpperCase());
   };
