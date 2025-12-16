@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Seat, SeatStatus, BusType, Booking } from "../types";
 import {
@@ -44,9 +45,9 @@ export const SeatMap: React.FC<SeatMapProps> = ({
       case SeatStatus.BOOKED:
         return "transition-colors bg-yellow-50 border-yellow-300 text-yellow-900 cursor-pointer hover:bg-yellow-100";
       case SeatStatus.SOLD:
-        return "transition-colors bg-green-50 border-green-300 text-green-900 cursor-pointer hover:bg-green-100"; // Changed: Now Interactive
+        return "transition-colors bg-green-50 border-green-300 text-green-900 cursor-pointer hover:bg-green-100";
       case SeatStatus.HELD:
-        return "transition-colors bg-purple-50 border-purple-300 text-purple-900 cursor-pointer hover:bg-purple-100";
+        return "transition-colors bg-purple-50 border-purple-300 text-purple-900 cursor-pointer hover:bg-purple-100 hover:shadow-md"; // Added hover effects
       default:
         return "transition-colors bg-white border-slate-200";
     }
@@ -153,7 +154,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
               : seat.status === SeatStatus.SOLD
               ? "border-green-200 bg-green-100/50 text-green-900"
               : seat.status === SeatStatus.HELD
-              ? "border-purple-200 bg-purple-100/50"
+              ? "border-purple-200 bg-purple-100/50 text-purple-800"
               : "border-slate-100 bg-slate-50/50"
           }`}
         >
@@ -266,11 +267,25 @@ export const SeatMap: React.FC<SeatMapProps> = ({
               <span className="font-medium">Đang chọn</span>
             </div>
           ) : seat.status === SeatStatus.HELD ? (
-            <div className="flex flex-col items-center justify-center h-full text-purple-800/80">
-              <Lock size={16} className="mb-1 opacity-60" />
-              <span className="font-medium text-[9px] text-center">
-                Vé đang giữ
-              </span>
+            <div className="flex flex-col h-full text-purple-800/80 items-center justify-center">
+              <div className="flex items-center justify-center mb-1">
+                 <Lock size={14} className="opacity-60 mr-1" />
+                 <span className="font-bold text-[10px]">ĐANG GIỮ</span>
+              </div>
+              {seat.note ? (
+                 <div className="w-full bg-purple-100/80 rounded px-1 py-1 mt-1 border border-purple-200">
+                    <div className="flex items-start gap-1 text-[9px]">
+                        <StickyNote size={8} className="shrink-0 mt-0.5 opacity-70"/>
+                        <span className="truncate-2-lines leading-tight italic" title={seat.note}>
+                           {seat.note}
+                        </span>
+                    </div>
+                 </div>
+              ) : (
+                <span className="font-medium text-[9px] text-center opacity-50">
+                    (Không có ghi chú)
+                </span>
+              )}
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-slate-300">

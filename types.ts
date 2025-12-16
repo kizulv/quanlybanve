@@ -20,6 +20,7 @@ export interface Seat {
   price: number;
   row?: number;
   col?: number;
+  note?: string; // Added note field
 }
 
 export interface Passenger {

@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from "react";
 import { Layout } from "./components/Layout";
 import { SeatMap } from "./components/SeatMap";
@@ -322,11 +323,11 @@ function AppContent() {
         return;
     }
 
-    // 1. Check if seat is BOOKED/SOLD/HELD
+    // 1. Check if seat is BOOKED/SOLD
+    // REMOVED check for SeatStatus.HELD to allow selecting held seats for booking
     if (
       clickedSeat.status === SeatStatus.BOOKED ||
-      clickedSeat.status === SeatStatus.SOLD ||
-      clickedSeat.status === SeatStatus.HELD
+      clickedSeat.status === SeatStatus.SOLD
     ) {
       // Find the booking that contains this seat ID for this trip
       const booking = tripBookings.find((b) =>
@@ -362,9 +363,11 @@ function AppContent() {
     }
 
     // 2. Selection Logic (Modify the specific trip in the global trips array)
-    // Applies to AVAILABLE or SELECTED seats
+    // Applies to AVAILABLE, HELD or SELECTED seats
     const updatedSeats = selectedTrip.seats.map((seat) => {
       if (seat.id === clickedSeat.id) {
+        // If clicking a HELD seat, selecting it overrides the HELD status in local UI to SELECTED
+        // If clicking a SELECTED seat, it reverts to AVAILABLE (dropping the HELD status if it had one is acceptable for new booking flow)
         return {
           ...seat,
           status:
@@ -612,10 +615,10 @@ function AppContent() {
     try {
       // Iterate over basket and update each trip
       for (const item of selectionBasket) {
-        // Update SELECTED to HELD
+        // Update SELECTED to HELD and Add Note
         const updatedSeats = item.trip.seats.map((s) => {
           if (s.status === SeatStatus.SELECTED) {
-            return { ...s, status: SeatStatus.HELD };
+            return { ...s, status: SeatStatus.HELD, note: bookingForm.note }; // Added note here
           }
           return s;
         });
@@ -638,6 +641,8 @@ function AppContent() {
         message: "Đã cập nhật trạng thái ghế sang Đang giữ.",
       });
       // Clear basket is automatic since status changed from SELECTED to HELD
+      // Also clear note to be clean
+      setBookingForm(prev => ({ ...prev, note: '' }));
     } catch (error) {
       console.error(error);
       toast({ type: "error", title: "Lỗi", message: "Không thể giữ vé." });
