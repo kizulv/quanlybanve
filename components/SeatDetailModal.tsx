@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from "react";
 import { Dialog } from "./ui/Dialog";
 import { Button } from "./ui/Button";
@@ -12,7 +13,8 @@ import {
   X,
   Clock,
   ArrowRight,
-  AlertCircle
+  AlertCircle,
+  Lock
 } from "lucide-react";
 import { formatLunarDate } from "../utils/dateUtils";
 
@@ -46,18 +48,28 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
 
   // Initialize form when booking changes
   useEffect(() => {
-    if (isOpen && booking) {
-      setForm({
-        phone: formatPhoneNumber(booking.passenger.phone),
-        pickup: booking.passenger.pickupPoint || "",
-        dropoff: booking.passenger.dropoffPoint || "",
-        note: booking.passenger.note || "",
-      });
+    if (isOpen) {
+        if (booking) {
+          setForm({
+            phone: formatPhoneNumber(booking.passenger.phone),
+            pickup: booking.passenger.pickupPoint || "",
+            dropoff: booking.passenger.dropoffPoint || "",
+            note: booking.passenger.note || "",
+          });
+        } else if (seat) {
+            // HELD SEAT MODE: Just note
+            setForm({
+                phone: "",
+                pickup: "",
+                dropoff: "",
+                note: seat.note || ""
+            });
+        }
       setShowHistory(false);
     }
-  }, [isOpen, booking]);
+  }, [isOpen, booking, seat]);
 
-  // --- HELPERS (Duplicated from App/BookingForm to keep component self-contained) ---
+  // --- HELPERS ---
   const formatPhoneNumber = (value: string) => {
     const raw = value.replace(/\D/g, "");
     if (raw.length > 15) return raw.slice(0, 15);
@@ -164,13 +176,13 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
       }
   };
 
-  if (!booking || !seat) return null;
+  if (!seat) return null;
 
   return (
     <Dialog
       isOpen={isOpen}
       onClose={onClose}
-      title="Cập nhật thông tin khách hàng"
+      title={booking ? "Cập nhật thông tin khách hàng" : "Cập nhật ghi chú giữ vé"}
       className="max-w-md"
       footer={
         <>
@@ -191,11 +203,18 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
         <div className="flex items-center gap-2 bg-blue-50 p-3 rounded-lg border border-blue-100 text-sm text-blue-800">
           <span className="font-bold">Ghế: {seat.label}</span>
           <span>•</span>
-          <span className="text-blue-900 font-semibold">
-            {booking.passenger.name || "Khách lẻ"}
-          </span>
+          {booking ? (
+              <span className="text-blue-900 font-semibold">
+                {booking.passenger.name || "Khách lẻ"}
+              </span>
+          ) : (
+              <span className="text-purple-700 font-bold flex items-center gap-1">
+                  <Lock size={12}/> Đang giữ
+              </span>
+          )}
         </div>
 
+        {booking ? (
         <div className="space-y-3">
           {/* Phone Input with History */}
           <div className="relative">
@@ -318,7 +337,14 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
               className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none text-sm"
             />
           </div>
-          <div className="relative">
+        </div>
+        ) : (
+            <div className="bg-orange-50 p-3 rounded-lg border border-orange-100 text-xs text-orange-700">
+                Bạn đang chỉnh sửa ghi chú cho ghế giữ.
+            </div>
+        )}
+        
+        <div className="relative">
             <div className="absolute top-2.5 left-3 flex items-start pointer-events-none text-amber-600">
               <Notebook size={16} />
             </div>
@@ -328,7 +354,6 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
               onChange={(e) => setForm({ ...form, note: e.target.value })}
               className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none text-sm resize-none h-20"
             />
-          </div>
         </div>
       </div>
     </Dialog>

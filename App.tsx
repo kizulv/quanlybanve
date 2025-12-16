@@ -100,7 +100,7 @@ function AppContent() {
 
   // SEAT DETAIL MODAL STATE
   const [seatDetailModal, setSeatDetailModal] = useState<{
-    booking: Booking;
+    booking: Booking | null;
     seat: Seat;
   } | null>(null);
 
@@ -395,7 +395,7 @@ function AppContent() {
     );
   };
 
-  const handleSeatRightClick = (seat: Seat, booking: Booking) => {
+  const handleSeatRightClick = (seat: Seat, booking: Booking | null) => {
       setSeatDetailModal({
           booking,
           seat
@@ -404,22 +404,44 @@ function AppContent() {
 
   const handleSaveSeatDetail = async (updatedPassenger: Passenger) => {
       if (!seatDetailModal) return;
-      const { booking } = seatDetailModal;
+      const { booking, seat } = seatDetailModal;
       
       try {
-          // Validate phone if changed
-          const phoneError = validatePhoneNumber(updatedPassenger.phone);
-          if (phoneError) {
-              toast({ type: 'warning', title: 'Số điện thoại không hợp lệ', message: phoneError });
-              return;
-          }
+          if (booking) {
+              // CASE 1: Updating existing booking
+              // Validate phone if changed
+              const phoneError = validatePhoneNumber(updatedPassenger.phone);
+              if (phoneError) {
+                  toast({ type: 'warning', title: 'Số điện thoại không hợp lệ', message: phoneError });
+                  return;
+              }
 
-          const result = await api.bookings.updatePassenger(booking.id, updatedPassenger);
+              const result = await api.bookings.updatePassenger(booking.id, updatedPassenger);
+              
+              // Update local state
+              setBookings(prev => prev.map(b => b.id === booking.id ? result.booking : b));
+              
+              toast({ type: 'success', title: 'Cập nhật thành công', message: 'Đã lưu thông tin hành khách.' });
+          } else if (seat && selectedTrip) {
+              // CASE 2: Updating HELD seat note
+              const updatedSeats = selectedTrip.seats.map((s) => {
+                  if (s.id === seat.id) {
+                      return { ...s, note: updatedPassenger.note };
+                  }
+                  return s;
+              });
+
+              // Call API
+              await api.trips.updateSeats(selectedTrip.id, updatedSeats);
+
+              // Update Local
+              setTrips((prev) =>
+                  prev.map((t) => (t.id === selectedTrip.id ? { ...t, seats: updatedSeats } : t))
+              );
+              
+              toast({ type: 'success', title: 'Cập nhật thành công', message: 'Đã lưu ghi chú cho ghế đang giữ.' });
+          }
           
-          // Update local state
-          setBookings(prev => prev.map(b => b.id === booking.id ? result.booking : b));
-          
-          toast({ type: 'success', title: 'Cập nhật thành công', message: 'Đã lưu thông tin hành khách.' });
           setSeatDetailModal(null);
       } catch (e) {
           console.error(e);

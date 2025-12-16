@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from "react";
 import { Seat, Booking, BusTrip, Route } from "../types";
 import { Button } from "./ui/Button";
@@ -597,27 +598,29 @@ export const BookingForm: React.FC<BookingFormProps> = ({
                 />
               </div>
             </div>
-            <div className="relative">
-              <textarea
-                name="note"
-                value={bookingForm.note}
-                onChange={handleInputChange}
-                className="w-full pl-6 pr-2 py-1.5 text-xs rounded border text-white placeholder-indigo-400 outline-none resize-none h-8
-                 bg-indigo-950 border-indigo-800 focus:border-yellow-400"
-                placeholder="Ghi chú"
-              />
-              <Notebook
-                size={12}
-                className="absolute left-2 top-[9px] text-indigo-400"
-              />
-            </div>
           </>
         ) : (
-          <div className="text-center py-4 bg-indigo-900/30 rounded border border-indigo-800 border-dashed text-xs text-indigo-300">
-            <Lock className="mx-auto mb-1 opacity-50" size={24} />
-            Chế độ Giữ vé không yêu cầu nhập thông tin khách hàng.
+          <div className="text-center py-2 bg-indigo-900/30 rounded border border-indigo-800 border-dashed text-xs text-indigo-300 mb-2">
+            <Lock className="mx-auto mb-1 opacity-50" size={16} />
+            <span className="opacity-80">Chế độ Giữ vé</span>
           </div>
         )}
+        
+        {/* Note field is always visible now to support Hold mode notes */}
+        <div className="relative">
+          <textarea
+            name="note"
+            value={bookingForm.note}
+            onChange={handleInputChange}
+            className="w-full pl-6 pr-2 py-1.5 text-xs rounded border text-white placeholder-indigo-400 outline-none resize-none h-8
+             bg-indigo-950 border-indigo-800 focus:border-yellow-400"
+            placeholder={bookingMode === "hold" ? "Ghi chú giữ chỗ (VD: Tên khách)" : "Ghi chú"}
+          />
+          <Notebook
+            size={12}
+            className="absolute left-2 top-[9px] text-indigo-400"
+          />
+        </div>
 
         {/* Total Price */}
         <div className="flex justify-between items-center pt-1">

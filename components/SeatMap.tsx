@@ -21,7 +21,7 @@ interface SeatMapProps {
   bookings?: Booking[];
   currentTripId?: string; // New prop to identify context
   onSeatSwap?: (seat: Seat) => void; // New prop for direct swap trigger
-  onSeatRightClick?: (seat: Seat, booking: Booking) => void; // New prop for right click
+  onSeatRightClick?: (seat: Seat, booking: Booking | null) => void; // UPDATED: allow null booking
   editingBooking?: Booking | null; // New prop to detect removed seats
 }
 
@@ -133,8 +133,13 @@ export const SeatMap: React.FC<SeatMapProps> = ({
         onContextMenu={(e) => {
           e.preventDefault();
           e.stopPropagation();
-          if (hasInfo && booking && onSeatRightClick) {
-            onSeatRightClick(seat, booking);
+          if (onSeatRightClick) {
+             if (hasInfo && booking) {
+                onSeatRightClick(seat, booking);
+             } else if (seat.status === SeatStatus.HELD) {
+                // Allow right clicking on HELD seats (no booking)
+                onSeatRightClick(seat, null);
+             }
           }
         }}
         className={`relative flex flex-col border transition-all duration-200 select-none overflow-hidden group ${statusClass} ${
