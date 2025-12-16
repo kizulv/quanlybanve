@@ -20,7 +20,6 @@ interface SeatMapProps {
   bookings?: Booking[];
   currentTripId?: string; // New prop to identify context
   onSeatSwap?: (seat: Seat) => void; // New prop for direct swap trigger
-  onSeatRightClick?: (seat: Seat, booking: Booking) => void; // New prop for right click
   editingBooking?: Booking | null; // New prop to detect removed seats
 }
 
@@ -31,7 +30,6 @@ export const SeatMap: React.FC<SeatMapProps> = ({
   bookings = [],
   currentTripId,
   onSeatSwap,
-  onSeatRightClick,
   editingBooking,
 }) => {
   // Helper to determine visuals based on status
@@ -126,13 +124,6 @@ export const SeatMap: React.FC<SeatMapProps> = ({
       <div
         key={seat.id}
         onClick={() => isInteractive && onSeatClick(seat)}
-        onContextMenu={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            if (hasInfo && booking && onSeatRightClick) {
-                onSeatRightClick(seat, booking);
-            }
-        }}
         className={`relative flex flex-col border transition-all duration-200 select-none overflow-hidden group ${statusClass} ${
           isBench ? "w-1/5 h-[100px] rounded-lg" : "w-full h-[100px] rounded-lg"
         }

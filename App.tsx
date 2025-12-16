@@ -303,10 +303,13 @@ function AppContent() {
         return;
     }
 
-    // 1. Check if seat is BOOKED
+    // 1. Check if seat is BOOKED/SOLD/HELD
+    // IMPORTANT: If a seat is locally 'SELECTED' (due to being edited), its status passed here is 'SELECTED'.
+    // So this block only catches seats that are NOT currently being edited (i.e. truly Booked/Sold for other people).
     if (
       clickedSeat.status === SeatStatus.BOOKED ||
-      clickedSeat.status === SeatStatus.SOLD
+      clickedSeat.status === SeatStatus.SOLD ||
+      clickedSeat.status === SeatStatus.HELD
     ) {
       // Find the booking that contains this seat ID for this trip
       const booking = tripBookings.find((b) =>
@@ -317,48 +320,23 @@ function AppContent() {
         )
       );
 
-      // Check if this booked seat belongs to the CURRENTLY editing booking
-      if (editingBooking && booking && booking.id === editingBooking.id) {
-        // It matches! This means user wants to REMOVE this seat from the edit session
-        const updatedSeats = selectedTrip.seats.map((seat) => {
-          if (seat.id === clickedSeat.id) {
-            return { ...seat, status: SeatStatus.AVAILABLE };
-          }
-          return seat;
-        });
-
-        const updatedTrip = { ...selectedTrip, seats: updatedSeats };
-        setTrips((prevTrips) =>
-          prevTrips.map((t) => (t.id === selectedTrip.id ? updatedTrip : t))
-        );
-        return;
-      }
-
       if (booking) {
-        // If clicking a different booking, switch to that one
-        handleSelectBookingFromHistory(booking);
+        // OPEN MODAL FOR EDITING SEAT INFO
+        setSeatDetailModal({
+            booking,
+            seat: clickedSeat,
+            form: {
+                pickup: booking.passenger.pickupPoint || '',
+                dropoff: booking.passenger.dropoffPoint || '',
+                note: booking.passenger.note || ''
+            }
+        });
       }
-      return;
-    }
-
-    // Check if seat is HELD
-    if (clickedSeat.status === SeatStatus.HELD) {
-      const updatedSeats = selectedTrip.seats.map((seat) => {
-        if (seat.id === clickedSeat.id) {
-          // If it was HELD, make it SELECTED so we can operate on it
-          return { ...seat, status: SeatStatus.SELECTED };
-        }
-        return seat;
-      });
-
-      const updatedTrip = { ...selectedTrip, seats: updatedSeats };
-      setTrips((prevTrips) =>
-        prevTrips.map((t) => (t.id === selectedTrip.id ? updatedTrip : t))
-      );
       return;
     }
 
     // 2. Selection Logic (Modify the specific trip in the global trips array)
+    // Applies to AVAILABLE or SELECTED seats
     const updatedSeats = selectedTrip.seats.map((seat) => {
       if (seat.id === clickedSeat.id) {
         return {
@@ -377,18 +355,6 @@ function AppContent() {
     setTrips((prevTrips) =>
       prevTrips.map((t) => (t.id === selectedTrip.id ? updatedTrip : t))
     );
-  };
-
-  const handleSeatRightClick = (seat: Seat, booking: Booking) => {
-      setSeatDetailModal({
-          booking,
-          seat,
-          form: {
-              pickup: booking.passenger.pickupPoint || '',
-              dropoff: booking.passenger.dropoffPoint || '',
-              note: booking.passenger.note || ''
-          }
-      });
   };
 
   const handleSaveSeatDetail = async () => {
@@ -1076,7 +1042,6 @@ function AppContent() {
                   currentTripId={selectedTrip.id}
                   onSeatSwap={initiateSwap}
                   editingBooking={editingBooking}
-                  onSeatRightClick={handleSeatRightClick}
                 />
               ) : (
                 <div className="h-full flex flex-col items-center justify-center text-slate-300">
