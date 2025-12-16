@@ -8,6 +8,7 @@ import {
   StickyNote,
   MessageSquare,
   Lock,
+  AlertTriangle,
 } from "lucide-react";
 
 interface SeatMapProps {
@@ -218,9 +219,14 @@ export const SeatMap: React.FC<SeatMapProps> = ({
     );
   };
 
+  // Identify "Orphaned" seats (seats with row 99 from changing buses)
+  const orphanSeats = seats.filter((s) => (s.row ?? 0) >= 99);
+  // Filter regular seats
+  const regularSeats = seats.filter((s) => (s.row ?? 0) < 99);
+
   // --- CABIN LOGIC: RENDER BY COLUMN (DÃY) ---
   const renderCabinColumn = (colIndex: number, label: string) => {
-    const colSeats = seats.filter((s) => (s.col ?? 0) === colIndex);
+    const colSeats = regularSeats.filter((s) => (s.col ?? 0) === colIndex);
     const rows = Array.from(new Set(colSeats.map((s) => s.row ?? 0))).sort(
       (a: number, b: number) => a - b
     );
@@ -273,7 +279,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
 
   // --- SLEEPER LOGIC (UPDATED) ---
   const renderSleeperDeck = (floorNumber: number) => {
-    const floorSeats = seats.filter((s) => s.floor === floorNumber);
+    const floorSeats = regularSeats.filter((s) => s.floor === floorNumber);
     const rows = floorSeats.reduce((acc, seat) => {
       const r = seat.row ?? 0;
       if (!acc[r]) acc[r] = [];
@@ -349,23 +355,44 @@ export const SeatMap: React.FC<SeatMapProps> = ({
     );
   };
 
+  const renderOverflowSection = () => {
+    if (orphanSeats.length === 0) return null;
+    return (
+      <div className="mt-6 mx-4 p-4 bg-amber-50 rounded-xl border border-amber-200 border-dashed">
+         <div className="flex items-center gap-2 mb-3 text-amber-700">
+            <AlertTriangle size={16} />
+            <h4 className="text-sm font-bold uppercase">Ghế lệch sơ đồ (Do đổi xe)</h4>
+         </div>
+         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+             {orphanSeats.map(seat => (
+                 <div key={seat.id} className="w-full">
+                     {renderSeat(seat)}
+                 </div>
+             ))}
+         </div>
+      </div>
+    );
+  };
+
   if (busType === BusType.CABIN) {
     return (
-      <div className="flex overflow-x-auto py-2">
-        <div className="w-full flex gap-4 justify-center">
+      <div className="flex flex-col py-2">
+        <div className="flex overflow-x-auto w-full gap-4 justify-center">
           {renderCabinColumn(0, "DÃY B")}
           {renderCabinColumn(1, "DÃY A")}
         </div>
+        {renderOverflowSection()}
       </div>
     );
   }
 
   return (
-    <div className="flex overflow-x-auto py-4">
-      <div className="w-full flex gap-4">
+    <div className="flex flex-col py-4">
+      <div className="flex overflow-x-auto w-full gap-4">
         {renderSleeperDeck(1)}
         {renderSleeperDeck(2)}
       </div>
+      {renderOverflowSection()}
     </div>
   );
 };

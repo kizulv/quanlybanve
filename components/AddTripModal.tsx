@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Dialog } from "./ui/Dialog";
 import { Button } from "./ui/Button";
-import { Bus, Route, BusTrip, BusType, SeatStatus } from "../types";
+import { Bus, Route, BusTrip, BusType, SeatStatus, Seat } from "../types";
 import {
   Loader2,
   Clock,
@@ -225,98 +225,149 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
     ).padStart(2, "0")}-${String(targetDate.getDate()).padStart(2, "0")}`;
     const dateTimeStr = `${dateStr} ${time}`;
 
-    // Generate seats if needed
-    let seats = initialData?.seats || [];
+    // --- SEAT GENERATION LOGIC ---
+    let finalSeats: Seat[] = [];
     const busChanged = initialData && initialData.licensePlate !== bus.plate;
     const isNew = !initialData;
 
-    if (isNew || busChanged) {
-      seats = [];
-      if (bus.layoutConfig) {
-        const config = bus.layoutConfig;
+    // 1. Snapshot previous seats state (status map)
+    const previousSeats = initialData?.seats || [];
+    const occupiedSeatMap = new Map<string, SeatStatus>(); // Key = Label, Value = Status
+    const occupiedSeatFullData = new Map<string, Seat>(); // Key = Label, Value = Full Object
+
+    previousSeats.forEach((s) => {
+      if (s.status !== SeatStatus.AVAILABLE) {
+        occupiedSeatMap.set(s.label, s.status);
+        occupiedSeatFullData.set(s.label, s);
+      }
+    });
+
+    // 2. Generate FRESH layout based on the SELECTED bus
+    let newLayoutSeats: Seat[] = [];
+
+    if (bus.layoutConfig) {
+      // Use Custom Config
+      const config = bus.layoutConfig;
+      for (let f = 1; f <= config.floors; f++) {
+        for (let r = 0; r < config.rows; r++) {
+          for (let c = 0; c < config.cols; c++) {
+            const key = `${f}-${r}-${c}`;
+            if (config.activeSeats.includes(key)) {
+              let label = config.seatLabels?.[key];
+              if (!label) {
+                // Fallback label generation
+                if (bus.type === BusType.CABIN) {
+                  const prefix = String.fromCharCode(65 + c);
+                  const num = r * 2 + f;
+                  label = `${prefix}${num}`;
+                } else {
+                  const seatsPerRow = config.cols * config.floors;
+                  const val = r * seatsPerRow + (f - 1) * config.cols + c + 1;
+                  label = val.toString();
+                }
+              }
+              newLayoutSeats.push({
+                id: label, // Using Label as ID for consistency in new trips
+                label: label,
+                floor: f as 1 | 2,
+                status: SeatStatus.AVAILABLE,
+                price: price,
+                row: r,
+                col: c,
+              });
+            }
+          }
+        }
+      }
+      // Rear Bench
+      if (config.hasRearBench) {
         for (let f = 1; f <= config.floors; f++) {
-          for (let r = 0; r < config.rows; r++) {
-            for (let c = 0; c < config.cols; c++) {
-              const key = `${f}-${r}-${c}`;
+          if (config.benchFloors?.includes(f)) {
+            for (let i = 0; i < 5; i++) {
+              const key = `${f}-bench-${i}`;
               if (config.activeSeats.includes(key)) {
                 let label = config.seatLabels?.[key];
                 if (!label) {
-                  if (bus.type === BusType.CABIN) {
-                    const prefix = String.fromCharCode(65 + c);
-                    const num = r * 2 + f;
-                    label = `${prefix}${num}`;
-                  } else {
-                    const seatsPerRow = config.cols * config.floors;
-                    const val = r * seatsPerRow + (f - 1) * config.cols + c + 1;
-                    label = val.toString();
-                  }
+                  const prefix = f === 1 ? "A" : "B";
+                  label =
+                    bus.type === BusType.CABIN
+                      ? `${prefix}-G${i + 1}`
+                      : `B${f}-${i + 1}`;
                 }
-                seats.push({
+                newLayoutSeats.push({
                   id: label,
-                  label: label,
+                  label,
                   floor: f as 1 | 2,
                   status: SeatStatus.AVAILABLE,
                   price: price,
-                  row: r,
-                  col: c,
+                  row: config.rows,
+                  col: i,
                 });
               }
             }
           }
         }
-        if (config.hasRearBench) {
-          for (let f = 1; f <= config.floors; f++) {
-            if (config.benchFloors?.includes(f)) {
-              for (let i = 0; i < 5; i++) {
-                const key = `${f}-bench-${i}`;
-                if (config.activeSeats.includes(key)) {
-                  let label = config.seatLabels?.[key];
-                  if (!label) {
-                    const prefix = f === 1 ? "A" : "B";
-                    label =
-                      bus.type === BusType.CABIN
-                        ? `${prefix}-G${i + 1}`
-                        : `B${f}-${i + 1}`;
-                  }
-                  seats.push({
-                    id: label,
-                    label,
-                    floor: f as 1 | 2,
-                    status: SeatStatus.AVAILABLE,
-                    price: price,
-                    row: config.rows,
-                    col: i,
-                  });
-                }
-              }
-            }
-          }
-        }
-      } else {
-        seats =
-          bus.type === BusType.CABIN
-            ? generateCabinLayout(price)
-            : generateSleeperLayout(price);
       }
     } else {
-      seats = seats.map((s) =>
-        s.status === SeatStatus.AVAILABLE ? { ...s, price: price } : s
-      );
+      // Use Default Generators
+      newLayoutSeats =
+        bus.type === BusType.CABIN
+          ? generateCabinLayout(price)
+          : generateSleeperLayout(price);
+    }
+
+    // 3. MERGE LOGIC
+    if (isNew) {
+      finalSeats = newLayoutSeats;
+    } else {
+      // A. Update statuses of new layout matching old labels
+      finalSeats = newLayoutSeats.map((newSeat) => {
+        if (occupiedSeatMap.has(newSeat.label)) {
+          return {
+            ...newSeat,
+            status: occupiedSeatMap.get(newSeat.label)!,
+            // Keep the new price or preserve old price? Usually new base price applies to unbooked,
+            // but booked seats might keep their booked price.
+            // For simplicity here, we update to new price unless specific logic needed.
+            price: price, 
+          };
+        }
+        return newSeat;
+      });
+
+      // B. Handle ORPHANED seats (Occupied in old bus, but label not found in new bus)
+      // These should be appended to the list so they are not lost.
+      // We give them a special row index (e.g. 99) so the UI can render them separately.
+      const newLayoutLabels = new Set(newLayoutSeats.map((s) => s.label));
+
+      previousSeats.forEach((oldSeat) => {
+        if (
+          oldSeat.status !== SeatStatus.AVAILABLE &&
+          !newLayoutLabels.has(oldSeat.label)
+        ) {
+          finalSeats.push({
+            ...oldSeat,
+            id: oldSeat.id, // Keep original ID
+            label: oldSeat.label,
+            status: oldSeat.status,
+            price: oldSeat.price, // Keep original price
+            floor: 1, // Default floor
+            row: 99, // MARKER FOR ORPHAN ROW
+            col: 0,
+          });
+        }
+      });
     }
 
     // Name Generation logic
     let tripName = route.name;
-
-    // 1. Try to use structured Origin/Destination
     if (route.origin && route.destination) {
       if (direction === "inbound") {
         tripName = `${route.destination} - ${route.origin}`;
       } else {
         tripName = `${route.origin} - ${route.destination}`;
       }
-    }
-    // 2. Fallback: Try to parse the string if it contains " - "
-    else if (route.name.includes(" - ")) {
+    } else if (route.name.includes(" - ")) {
       const parts = route.name.split(" - ");
       if (parts.length === 2) {
         if (direction === "inbound") {
@@ -326,7 +377,6 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
         }
       }
     }
-    // 3. Otherwise keep original name without appending "(Chiều về)" because the UI Badge handles the visual distinction.
 
     const tripData: Partial<BusTrip> = {
       routeId: route.id,
@@ -336,7 +386,7 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
       type: bus.type,
       licensePlate: bus.plate,
       basePrice: price,
-      seats: seats as any,
+      seats: finalSeats,
       direction: direction,
     };
 
