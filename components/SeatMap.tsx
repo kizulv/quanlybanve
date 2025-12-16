@@ -10,6 +10,7 @@ import {
   Lock,
   AlertTriangle,
   ArrowRightLeft,
+  XCircle,
 } from "lucide-react";
 
 interface SeatMapProps {
@@ -19,6 +20,7 @@ interface SeatMapProps {
   bookings?: Booking[];
   currentTripId?: string; // New prop to identify context
   onSeatSwap?: (seat: Seat) => void; // New prop for direct swap trigger
+  editingBooking?: Booking | null; // New prop to detect removed seats
 }
 
 export const SeatMap: React.FC<SeatMapProps> = ({
@@ -28,6 +30,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
   bookings = [],
   currentTripId,
   onSeatSwap,
+  editingBooking,
 }) => {
   // Helper to determine visuals based on status
   const getSeatStatusClass = (status: SeatStatus) => {
@@ -58,7 +61,21 @@ export const SeatMap: React.FC<SeatMapProps> = ({
   };
 
   const renderSeat = (seat: Seat, isBench: boolean = false) => {
-    const statusClass = getSeatStatusClass(seat.status);
+    // 1. Detect if this seat is a "Ghost" (Deselected during edit)
+    // It is AVAILABLE now, but was originally in the editingBooking for this trip
+    const isGhost =
+      seat.status === SeatStatus.AVAILABLE &&
+      editingBooking?.items.some(
+        (item) =>
+          item.tripId === currentTripId && item.seatIds.includes(seat.id)
+      );
+
+    let statusClass = getSeatStatusClass(seat.status);
+    
+    // Override visual for Ghost seats
+    if (isGhost) {
+        statusClass = "transition-all bg-slate-50/50 border-red-300 border-dashed text-slate-400 opacity-60 cursor-pointer hover:opacity-100 hover:bg-white hover:border-red-400 grayscale";
+    }
 
     // HELD and SOLD seats are also interactive now
     const isInteractive =
@@ -83,8 +100,9 @@ export const SeatMap: React.FC<SeatMapProps> = ({
       ? booking.items.find((item) => item.tripId === currentTripId)
       : null;
 
+    // If it's a ghost seat, we still want to show the original info (which exists in `booking` since we haven't saved yet)
     const hasInfo =
-      (seat.status === SeatStatus.BOOKED || seat.status === SeatStatus.SOLD) &&
+      ((seat.status === SeatStatus.BOOKED || seat.status === SeatStatus.SOLD) || isGhost) &&
       booking &&
       bookingItem;
 
@@ -116,6 +134,8 @@ export const SeatMap: React.FC<SeatMapProps> = ({
           className={`px-2 py-1 text-xs font-bold border-b flex justify-between items-center ${
             seat.status === SeatStatus.SELECTED
               ? "border-primary/50 bg-primary/10"
+              : isGhost
+              ? "border-red-200 bg-red-50 text-red-400"
               : seat.status === SeatStatus.BOOKED
               ? "border-yellow-200 bg-yellow-100/50"
               : seat.status === SeatStatus.SOLD
@@ -125,9 +145,9 @@ export const SeatMap: React.FC<SeatMapProps> = ({
               : "border-slate-100 bg-slate-50/50"
           }`}
         >
-          <span>{seat.label}</span>
+          <span className={isGhost ? "line-through decoration-red-400" : ""}>{seat.label}</span>
           {/* PRICE DISPLAY FOR SOLD SEATS */}
-          {seat.status === SeatStatus.SOLD && (
+          {seat.status === SeatStatus.SOLD && !isGhost && (
             <div className="mt-auto flex justify-end">
               <span className="text-[10px] font-bold text-green-700 bg-yellow-300 px-1 rounded border border-green-200/50 shadow-sm">
                 {seat.price.toLocaleString("vi-VN")}
@@ -137,10 +157,13 @@ export const SeatMap: React.FC<SeatMapProps> = ({
           {seat.status === SeatStatus.SELECTED && (
             <Check size={12} strokeWidth={4} />
           )}
+          {isGhost && (
+             <XCircle size={12} className="text-red-400" />
+          )}
         </div>
 
-        {/* SWAP ICON OVERLAY (Only for Booked/Sold/Held) */}
-        {(seat.status === SeatStatus.BOOKED || seat.status === SeatStatus.SOLD || seat.status === SeatStatus.HELD) && onSeatSwap && (
+        {/* SWAP ICON OVERLAY (Only for Booked/Sold/Held and NOT Ghost) */}
+        {(seat.status === SeatStatus.BOOKED || seat.status === SeatStatus.SOLD || seat.status === SeatStatus.HELD) && !isGhost && onSeatSwap && (
             <button
                 onClick={(e) => {
                     e.stopPropagation(); // Prevent opening booking details
@@ -160,6 +183,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
               {/* Passenger Phone */}
               <div
                 className={`flex items-center gap-1.5 font-bold ${
+                  isGhost ? "text-slate-400" :
                   seat.status === SeatStatus.SOLD
                     ? "text-green-800"
                     : "text-yellow-900"
@@ -182,6 +206,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
               booking.passenger.dropoffPoint ? (
                 <div
                   className={`flex gap-1.5 ${
+                    isGhost ? "text-slate-400" :
                     seat.status === SeatStatus.SOLD
                       ? "text-green-700"
                       : "text-yellow-800"
@@ -205,7 +230,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
               {/* Note */}
               {booking.passenger.note && (
                 <div
-                  className="flex items-center gap-1.5 text-orange-600 truncate"
+                  className={`flex items-center gap-1.5 truncate ${isGhost ? "text-slate-400" : "text-orange-600"}`}
                   title={booking.passenger.note}
                 >
                   <MessageSquare size={10} className="shrink-0 opacity-60" />
@@ -213,6 +238,13 @@ export const SeatMap: React.FC<SeatMapProps> = ({
                     {booking.passenger.note}
                   </span>
                 </div>
+              )}
+              
+              {/* Ghost Indicator Text */}
+              {isGhost && (
+                  <div className="mt-auto text-center text-red-400 font-bold text-[9px] uppercase tracking-wider border border-red-200 rounded px-1 bg-red-50">
+                      Đã bỏ chọn
+                  </div>
               )}
             </>
           ) : seat.status === SeatStatus.SELECTED ? (

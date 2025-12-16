@@ -1025,6 +1025,7 @@ function AppContent() {
                   bookings={tripBookings}
                   currentTripId={selectedTrip.id}
                   onSeatSwap={initiateSwap}
+                  editingBooking={editingBooking}
                 />
               ) : (
                 <div className="h-full flex flex-col items-center justify-center text-slate-300">
