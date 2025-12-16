@@ -73,10 +73,11 @@ export const SeatMap: React.FC<SeatMapProps> = ({
       );
 
     let statusClass = getSeatStatusClass(seat.status);
-    
+
     // Override visual for Ghost seats
     if (isGhost) {
-        statusClass = "transition-all bg-slate-50/50 border-red-300 border-dashed text-slate-400 opacity-60 cursor-pointer hover:opacity-100 hover:bg-white hover:border-red-400 grayscale";
+      statusClass =
+        "transition-all bg-slate-50/50 border-red-300 border-dashed text-slate-400 opacity-60 cursor-pointer hover:opacity-100 hover:bg-white hover:border-red-400 grayscale";
     }
 
     // HELD and SOLD seats are also interactive now
@@ -104,7 +105,9 @@ export const SeatMap: React.FC<SeatMapProps> = ({
 
     // If it's a ghost seat, we still want to show the original info (which exists in `booking` since we haven't saved yet)
     const hasInfo =
-      ((seat.status === SeatStatus.BOOKED || seat.status === SeatStatus.SOLD) || isGhost) &&
+      (seat.status === SeatStatus.BOOKED ||
+        seat.status === SeatStatus.SOLD ||
+        isGhost) &&
       booking &&
       bookingItem;
 
@@ -127,11 +130,11 @@ export const SeatMap: React.FC<SeatMapProps> = ({
         key={seat.id}
         onClick={() => isInteractive && onSeatClick(seat)}
         onContextMenu={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            if (hasInfo && booking && onSeatRightClick) {
-                onSeatRightClick(seat, booking);
-            }
+          e.preventDefault();
+          e.stopPropagation();
+          if (hasInfo && booking && onSeatRightClick) {
+            onSeatRightClick(seat, booking);
+          }
         }}
         className={`relative flex flex-col border transition-all duration-200 select-none overflow-hidden group ${statusClass} ${
           isBench ? "w-1/5 h-[100px] rounded-lg" : "w-full h-[100px] rounded-lg"
@@ -154,9 +157,11 @@ export const SeatMap: React.FC<SeatMapProps> = ({
               : "border-slate-100 bg-slate-50/50"
           }`}
         >
-          <span className={isGhost ? "line-through decoration-red-400" : ""}>{seat.label}</span>
+          <span className={isGhost ? "line-through decoration-red-400" : ""}>
+            {seat.label}
+          </span>
           {/* PRICE DISPLAY FOR SOLD SEATS */}
-          {seat.status === SeatStatus.SOLD && !isGhost && (
+          {(seat.status === SeatStatus.SOLD || isGhost) && (
             <div className="mt-auto flex justify-end">
               <span className="text-[10px] font-bold text-green-700 bg-yellow-300 px-1 rounded border border-green-200/50 shadow-sm">
                 {seat.price.toLocaleString("vi-VN")}
@@ -166,24 +171,26 @@ export const SeatMap: React.FC<SeatMapProps> = ({
           {seat.status === SeatStatus.SELECTED && (
             <Check size={12} strokeWidth={4} />
           )}
-          {isGhost && (
-             <XCircle size={12} className="text-red-400" />
-          )}
+          {isGhost && <XCircle size={12} className="text-red-400" />}
         </div>
 
         {/* SWAP ICON OVERLAY (Only for Booked/Sold/Held and NOT Ghost) */}
-        {(seat.status === SeatStatus.BOOKED || seat.status === SeatStatus.SOLD || seat.status === SeatStatus.HELD) && !isGhost && onSeatSwap && (
+        {(seat.status === SeatStatus.BOOKED ||
+          seat.status === SeatStatus.SOLD ||
+          seat.status === SeatStatus.HELD) &&
+          !isGhost &&
+          onSeatSwap && (
             <button
-                onClick={(e) => {
-                    e.stopPropagation(); // Prevent opening booking details
-                    onSeatSwap(seat);
-                }}
-                className="absolute top-8 right-1 z-20 p-1.5 bg-white/80 hover:bg-indigo-600 hover:text-white text-indigo-600 rounded-full shadow-sm border border-indigo-100 opacity-0 group-hover:opacity-100 transition-all duration-200 transform scale-75 hover:scale-100"
-                title="Đổi ghế này"
+              onClick={(e) => {
+                e.stopPropagation(); // Prevent opening booking details
+                onSeatSwap(seat);
+              }}
+              className="absolute top-8 right-1 z-20 p-1.5 bg-white/80 hover:bg-indigo-600 hover:text-white text-indigo-600 rounded-full shadow-sm border border-indigo-100 opacity-0 group-hover:opacity-100 transition-all duration-200 transform scale-75 hover:scale-100"
+              title="Đổi ghế này"
             >
-                <ArrowRightLeft size={14} />
+              <ArrowRightLeft size={14} />
             </button>
-        )}
+          )}
 
         {/* Content Body */}
         <div className="flex-1 p-2 flex flex-col text-[10px] leading-tight space-y-1.5">
@@ -192,8 +199,9 @@ export const SeatMap: React.FC<SeatMapProps> = ({
               {/* Passenger Phone */}
               <div
                 className={`flex items-center gap-1.5 font-bold ${
-                  isGhost ? "text-slate-400" :
-                  seat.status === SeatStatus.SOLD
+                  isGhost
+                    ? "text-slate-400"
+                    : seat.status === SeatStatus.SOLD
                     ? "text-green-800"
                     : "text-yellow-900"
                 }`}
@@ -215,8 +223,9 @@ export const SeatMap: React.FC<SeatMapProps> = ({
               booking.passenger.dropoffPoint ? (
                 <div
                   className={`flex gap-1.5 ${
-                    isGhost ? "text-slate-400" :
-                    seat.status === SeatStatus.SOLD
+                    isGhost
+                      ? "text-slate-400"
+                      : seat.status === SeatStatus.SOLD
                       ? "text-green-700"
                       : "text-yellow-800"
                   }`}
@@ -239,7 +248,9 @@ export const SeatMap: React.FC<SeatMapProps> = ({
               {/* Note */}
               {booking.passenger.note && (
                 <div
-                  className={`flex items-center gap-1.5 truncate ${isGhost ? "text-slate-400" : "text-orange-600"}`}
+                  className={`flex items-center gap-1.5 truncate ${
+                    isGhost ? "text-slate-400" : "text-orange-600"
+                  }`}
                   title={booking.passenger.note}
                 >
                   <MessageSquare size={10} className="shrink-0 opacity-60" />
@@ -247,13 +258,6 @@ export const SeatMap: React.FC<SeatMapProps> = ({
                     {booking.passenger.note}
                   </span>
                 </div>
-              )}
-              
-              {/* Ghost Indicator Text */}
-              {isGhost && (
-                  <div className="mt-auto text-center text-red-400 font-bold text-[9px] uppercase tracking-wider border border-red-200 rounded px-1 bg-red-50">
-                      Đã bỏ chọn
-                  </div>
               )}
             </>
           ) : seat.status === SeatStatus.SELECTED ? (
@@ -381,7 +385,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
                 const seat = rows[rowIndex].find(
                   (s) => (s.col ?? 0) === colIndex
                 );
-                
+
                 if (seat) {
                   return (
                     <React.Fragment key={seat.id}>
@@ -418,17 +422,19 @@ export const SeatMap: React.FC<SeatMapProps> = ({
     if (orphanSeats.length === 0) return null;
     return (
       <div className="mt-6 mx-4 p-4 bg-amber-50 rounded-xl border border-amber-200 border-dashed animate-in fade-in slide-in-from-top-2">
-         <div className="flex items-center gap-2 mb-3 text-amber-700">
-            <AlertTriangle size={16} />
-            <h4 className="text-sm font-bold uppercase">Ghế lệch sơ đồ (Do đổi xe) - Cần xếp lại</h4>
-         </div>
-         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-             {orphanSeats.map(seat => (
-                 <div key={seat.id} className="w-full">
-                     {renderSeat(seat)}
-                 </div>
-             ))}
-         </div>
+        <div className="flex items-center gap-2 mb-3 text-amber-700">
+          <AlertTriangle size={16} />
+          <h4 className="text-sm font-bold uppercase">
+            Ghế lệch sơ đồ (Do đổi xe) - Cần xếp lại
+          </h4>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+          {orphanSeats.map((seat) => (
+            <div key={seat.id} className="w-full">
+              {renderSeat(seat)}
+            </div>
+          ))}
+        </div>
       </div>
     );
   };

@@ -30,6 +30,11 @@ import {
   Locate,
   Notebook,
   Save,
+  Phone,
+  History,
+  Clock,
+  ArrowRight,
+  AlertCircle
 } from "lucide-react";
 import { api } from "./lib/api";
 import { isSameDay, formatLunarDate, formatTime } from "./utils/dateUtils";
@@ -95,8 +100,9 @@ function AppContent() {
   const [seatDetailModal, setSeatDetailModal] = useState<{
     booking: Booking;
     seat: Seat;
-    form: { pickup: string; dropoff: string; note: string };
+    form: { phone: string; pickup: string; dropoff: string; note: string };
   } | null>(null);
+  const [modalShowHistory, setModalShowHistory] = useState(false);
 
   // Filter States
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -130,6 +136,43 @@ function AppContent() {
     bookingIds?: string[];
     totalPrice: number;
   } | null>(null);
+
+  // -- HELPERS FOR INPUT FORMATTING --
+  const formatPhoneNumber = (value: string) => {
+    const raw = value.replace(/\D/g, "");
+    if (raw.length > 15) return raw.slice(0, 15);
+    if (raw.length > 7) {
+      return `${raw.slice(0, 4)} ${raw.slice(4, 7)} ${raw.slice(7)}`;
+    }
+    if (raw.length > 4) {
+      return `${raw.slice(0, 4)} ${raw.slice(4)}`;
+    }
+    return raw;
+  };
+
+  const getStandardizedLocation = (input: string) => {
+    if (!input) return "";
+    let value = input.trim();
+    const lower = value.toLowerCase();
+    const mappings: Record<string, string> = {
+      "lai chau": "BX Lai Châu",
+      "lai châu": "BX Lai Châu",
+      "ha tinh": "BX Hà Tĩnh",
+      "hà tĩnh": "BX Hà Tĩnh",
+      "lao cai": "BX Lào Cai",
+      vinh: "BX Vinh",
+      "nghe an": "BX Vinh",
+      "nghệ an": "BX Vinh",
+    };
+    if (mappings[lower]) return mappings[lower];
+
+    // Auto prefix if needed
+    if (!/^bx\s/i.test(value) && value.length > 2) {
+      value = value.replace(/(?:^|\s)\S/g, (a) => a.toUpperCase());
+      return `BX ${value}`;
+    }
+    return value.replace(/(?:^|\s)\S/g, (a) => a.toUpperCase());
+  };
 
   // -- CALCULATED STATES (BASKET) --
   // Calculate all selected seats across ALL trips
@@ -202,6 +245,67 @@ function AppContent() {
       return phoneMatch || nameMatch || seatMatch;
     });
   }, [tripBookings, manifestSearch, selectedTrip]);
+
+  // --- HISTORY LOGIC FOR MODAL ---
+  const modalHistoryMatches = useMemo(() => {
+    if (!seatDetailModal?.form.phone) return [];
+    const cleanInput = seatDetailModal.form.phone.replace(/\D/g, "");
+    if (cleanInput.length < 3) return [];
+    return bookings.filter((b) =>
+      b.passenger.phone.replace(/\D/g, "").includes(cleanInput)
+    );
+  }, [bookings, seatDetailModal?.form.phone]);
+
+  const modalPassengerHistory = useMemo(() => {
+    const uniqueRoutes = new Map<
+      string,
+      { pickup: string; dropoff: string; phone: string; lastDate: string }
+    >();
+
+    modalHistoryMatches.forEach((b) => {
+      const pickup = b.passenger.pickupPoint || "";
+      const dropoff = b.passenger.dropoffPoint || "";
+      if (!pickup && !dropoff) return;
+
+      const key = `${pickup.toLowerCase().trim()}|${dropoff
+        .toLowerCase()
+        .trim()}`;
+      const existing = uniqueRoutes.get(key);
+      const isNewer = existing
+        ? new Date(b.createdAt) > new Date(existing.lastDate)
+        : true;
+
+      if (!existing || isNewer) {
+        uniqueRoutes.set(key, {
+          pickup: b.passenger.pickupPoint || "",
+          dropoff: b.passenger.dropoffPoint || "",
+          phone: formatPhoneNumber(b.passenger.phone),
+          lastDate: b.createdAt,
+        });
+      }
+    });
+
+    return Array.from(uniqueRoutes.values())
+      .sort(
+        (a, b) =>
+          new Date(b.lastDate).getTime() - new Date(a.lastDate).getTime()
+      )
+      .slice(0, 5);
+  }, [modalHistoryMatches]);
+
+  const applyModalHistory = (item: (typeof modalPassengerHistory)[0]) => {
+    if (!seatDetailModal) return;
+    setSeatDetailModal({
+        ...seatDetailModal,
+        form: {
+            ...seatDetailModal.form,
+            phone: item.phone,
+            pickup: item.pickup,
+            dropoff: item.dropoff,
+        }
+    });
+    setModalShowHistory(false);
+  };
 
   // Auto update payment when total changes
   useEffect(() => {
@@ -352,9 +456,6 @@ function AppContent() {
       if (booking) {
         // HIGHLIGHT ONLY (DO NOT OPEN MODAL/EDIT)
         setHighlightedBookingId(booking.id);
-        
-        // Optional: Provide feedback via toast if needed, but highlight is usually enough
-        // toast({ type: 'info', title: 'Đã chọn đơn hàng', message: `Đơn của ${booking.passenger.phone}` });
       }
       return;
     }
@@ -386,6 +487,7 @@ function AppContent() {
           booking,
           seat,
           form: {
+              phone: formatPhoneNumber(booking.passenger.phone),
               pickup: booking.passenger.pickupPoint || '',
               dropoff: booking.passenger.dropoffPoint || '',
               note: booking.passenger.note || ''
@@ -398,8 +500,16 @@ function AppContent() {
       const { booking, form } = seatDetailModal;
       
       try {
+          // Validate phone if changed
+          const phoneError = validatePhoneNumber(form.phone);
+          if (phoneError) {
+              toast({ type: 'warning', title: 'Số điện thoại không hợp lệ', message: phoneError });
+              return;
+          }
+
           const updatedPassenger: Passenger = {
               ...booking.passenger,
+              phone: form.phone,
               pickupPoint: form.pickup,
               dropoffPoint: form.dropoff,
               note: form.note
@@ -1398,7 +1508,7 @@ function AppContent() {
       <Dialog 
         isOpen={!!seatDetailModal} 
         onClose={() => setSeatDetailModal(null)}
-        title="Cập nhật thông tin hành khách"
+        title="Cập nhật thông tin khách hàng"
         className="max-w-md"
         footer={
             <>
@@ -1414,10 +1524,88 @@ function AppContent() {
                 <div className="flex items-center gap-2 bg-blue-50 p-3 rounded-lg border border-blue-100 text-sm text-blue-800">
                     <span className="font-bold">Ghế: {seatDetailModal.seat.label}</span>
                     <span>•</span>
-                    <span>{seatDetailModal.booking.passenger.phone}</span>
+                    <span className="text-blue-900 font-semibold">{seatDetailModal.booking.passenger.name || 'Khách lẻ'}</span>
                 </div>
                 
                 <div className="space-y-3">
+                    <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-blue-600">
+                            <Phone size={16} />
+                        </div>
+                        <input
+                            placeholder="Số điện thoại"
+                            value={seatDetailModal.form.phone}
+                            onChange={(e) => {
+                                const formatted = formatPhoneNumber(e.target.value);
+                                setSeatDetailModal({ ...seatDetailModal, form: { ...seatDetailModal.form, phone: formatted } });
+                            }}
+                            onFocus={() => {
+                                if (seatDetailModal.form.phone.length >= 3) setModalShowHistory(true);
+                            }}
+                            onBlur={() => setTimeout(() => setModalShowHistory(false), 200)}
+                            className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none text-sm"
+                        />
+                        
+                        {/* MODAL HISTORY DROPDOWN */}
+                        {modalShowHistory && modalPassengerHistory.length > 0 && (
+                            <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-lg shadow-xl border border-slate-200 overflow-hidden z-[50] animate-in fade-in zoom-in-95 duration-200">
+                              <div className="bg-slate-50 px-3 py-1.5 border-b border-slate-100 flex justify-between items-center">
+                                <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 uppercase">
+                                  <History size={10} />
+                                  Lịch sử
+                                  <span className="ml-1 bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded-full text-[9px] min-w-[16px] text-center">
+                                    {modalHistoryMatches.length}
+                                  </span>
+                                </div>
+                                <button
+                                  title="Đóng"
+                                  type="button"
+                                  onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    setModalShowHistory(false);
+                                  }}
+                                  className="text-slate-400 hover:text-slate-600"
+                                >
+                                  <X size={12} />
+                                </button>
+                              </div>
+                              <div className="max-h-[200px] overflow-y-auto">
+                                {modalPassengerHistory.map((item, idx) => (
+                                  <div
+                                    key={idx}
+                                    onMouseDown={(e) => {
+                                      e.preventDefault();
+                                      applyModalHistory(item);
+                                    }}
+                                    className="px-3 py-2 hover:bg-indigo-50 cursor-pointer border-b border-slate-50 last:border-0 group"
+                                  >
+                                    <div className="flex justify-between items-start mb-0.5">
+                                      <span className="text-xs font-bold text-indigo-700">
+                                        {item.phone}
+                                      </span>
+                                      <span className="text-[9px] text-slate-400 flex items-center gap-1">
+                                        <Clock size={9} />
+                                        {new Date(item.lastDate).toLocaleDateString(
+                                          "vi-VN"
+                                        )}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 text-[10px] text-slate-600">
+                                      <span className="truncate max-w-[45%] font-medium">
+                                        {item.pickup}
+                                      </span>
+                                      <ArrowRight size={10} className="text-slate-300" />
+                                      <span className="truncate max-w-[45%] font-medium">
+                                        {item.dropoff}
+                                      </span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                        )}
+                    </div>
+
                     <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-green-600">
                             <MapPin size={16} />
@@ -1425,7 +1613,16 @@ function AppContent() {
                         <input
                             placeholder="Điểm đón"
                             value={seatDetailModal.form.pickup}
-                            onChange={(e) => setSeatDetailModal({ ...seatDetailModal, form: { ...seatDetailModal.form, pickup: e.target.value } })}
+                            onChange={(e) => {
+                                const val = e.target.value.replace(/(?:^|\s)\S/g, (a) => a.toUpperCase());
+                                setSeatDetailModal({ ...seatDetailModal, form: { ...seatDetailModal.form, pickup: val } });
+                            }}
+                            onBlur={() => {
+                                const std = getStandardizedLocation(seatDetailModal.form.pickup);
+                                if (std !== seatDetailModal.form.pickup) {
+                                    setSeatDetailModal({ ...seatDetailModal, form: { ...seatDetailModal.form, pickup: std } });
+                                }
+                            }}
                             className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none text-sm"
                         />
                     </div>
@@ -1436,7 +1633,16 @@ function AppContent() {
                         <input
                             placeholder="Điểm trả"
                             value={seatDetailModal.form.dropoff}
-                            onChange={(e) => setSeatDetailModal({ ...seatDetailModal, form: { ...seatDetailModal.form, dropoff: e.target.value } })}
+                            onChange={(e) => {
+                                const val = e.target.value.replace(/(?:^|\s)\S/g, (a) => a.toUpperCase());
+                                setSeatDetailModal({ ...seatDetailModal, form: { ...seatDetailModal.form, dropoff: val } });
+                            }}
+                            onBlur={() => {
+                                const std = getStandardizedLocation(seatDetailModal.form.dropoff);
+                                if (std !== seatDetailModal.form.dropoff) {
+                                    setSeatDetailModal({ ...seatDetailModal, form: { ...seatDetailModal.form, dropoff: std } });
+                                }
+                            }}
                             className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none text-sm"
                         />
                     </div>
