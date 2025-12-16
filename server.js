@@ -407,6 +407,40 @@ app.put("/api/bookings/:id", async (req, res) => {
   }
 });
 
+// DELETE BOOKING (For Undo Create)
+app.delete("/api/bookings/:id", async (req, res) => {
+    try {
+        const bookingId = req.params.id;
+        const booking = await Booking.findById(bookingId);
+        
+        if (!booking) return res.status(404).json({ error: "Booking not found" });
+
+        // Revert seats to available
+        for (const item of booking.items) {
+            const trip = await Trip.findById(item.tripId);
+            if (trip) {
+                trip.seats = trip.seats.map(s => {
+                    if (item.seatIds.includes(s.id)) {
+                        return { ...s, status: 'available' };
+                    }
+                    return s;
+                });
+                await trip.save();
+            }
+        }
+
+        await Booking.findByIdAndDelete(bookingId);
+        
+        const allTrips = await Trip.find();
+        const allBookings = await Booking.find();
+
+        res.json({ success: true, trips: allTrips, bookings: allBookings });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
 app.put("/api/bookings/payment", async (req, res) => {
   try {
     const { bookingIds, payment } = req.body;

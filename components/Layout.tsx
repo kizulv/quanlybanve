@@ -11,6 +11,7 @@ import {
   BusFront,
   Zap,
   Bus,
+  Undo2,
 } from "lucide-react";
 import { Button } from "./ui/Button";
 import { Popover } from "./ui/Popover";
@@ -37,6 +38,9 @@ interface LayoutProps {
   routes: Route[];
   // Slot for right-aligned header content
   headerRight?: React.ReactNode;
+  // Undo Props
+  onUndo?: () => void;
+  canUndo?: boolean;
 }
 
 interface ScheduleSettings {
@@ -58,6 +62,8 @@ export const Layout: React.FC<LayoutProps> = ({
   onDirectionChange,
   routes = [],
   headerRight,
+  onUndo,
+  canUndo = false,
 }) => {
   // Default sidebar state set to false (Hidden by default)
   const [isSidebarOpen, setSidebarOpen] = useState(false);
@@ -511,6 +517,20 @@ export const Layout: React.FC<LayoutProps> = ({
                     </div>
                   )}
                 />
+                
+                {/* 4. Undo Button */}
+                {onUndo && (
+                    <Button 
+                        onClick={onUndo} 
+                        disabled={!canUndo} 
+                        size="sm"
+                        className="bg-red-500 hover:bg-red-600 text-white font-semibold disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200 transition-all border border-red-600 shadow-sm"
+                        title="Hoàn tác tác vụ gần nhất"
+                    >
+                        <Undo2 size={16} className="mr-1.5" />
+                        Hoàn tác
+                    </Button>
+                )}
               </div>
             )}
             

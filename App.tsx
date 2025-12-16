@@ -30,6 +30,12 @@ import { api } from "./lib/api";
 import { isSameDay, formatLunarDate, formatTime } from "./utils/dateUtils";
 import { PaymentModal } from "./components/PaymentModal";
 
+// TYPE DEFINITIONS FOR UNDO ACTIONS
+type UndoAction = 
+  | { type: 'CREATED_BOOKING'; bookingId: string }
+  | { type: 'UPDATED_BOOKING'; previousBooking: Booking }
+  | { type: 'SWAPPED_SEATS'; tripId: string; seat1: string; seat2: string };
+
 function AppContent() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("sales");
@@ -40,6 +46,9 @@ function AppContent() {
   const [buses, setBuses] = useState<Bus[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // -- UNDO STACK --
+  const [undoStack, setUndoStack] = useState<UndoAction[]>([]);
 
   // -- DATA FETCHING --
   const refreshData = async () => {
@@ -261,6 +270,14 @@ function AppContent() {
             );
             setTrips((prev) => prev.map((t) => updatedTripsMap.get(t.id) || t));
             
+            // Add to Undo Stack
+            setUndoStack(prev => [...prev, {
+                type: 'SWAPPED_SEATS',
+                tripId: selectedTrip.id,
+                seat1: clickedSeat.id, // Current (Destination) becomes Source for Undo
+                seat2: swapSourceSeat.id // Original (Source) becomes Destination for Undo
+            }]);
+
             toast({ type: 'success', title: 'Đổi chỗ thành công', message: `Đã đổi ${swapSourceSeat.label} sang ${clickedSeat.label}` });
         } catch (e) {
             toast({ type: 'error', title: 'Lỗi', message: 'Không thể đổi chỗ' });
@@ -502,6 +519,14 @@ function AppContent() {
 
       setBookings((prev) => [...prev, ...result.bookings]);
 
+      // Add to Undo Stack (Only first booking if multiple, typically one per action)
+      if (result.bookings.length > 0) {
+          setUndoStack(prev => [...prev, {
+              type: 'CREATED_BOOKING',
+              bookingId: result.bookings[0].id
+          }]);
+      }
+
       // Reset
       setIsPaymentModalOpen(false);
       setPendingPaymentContext(null);
@@ -632,6 +657,9 @@ function AppContent() {
           seats: item.seats,
         }));
 
+        // STORE OLD STATE FOR UNDO
+        const oldBooking = bookings.find(b => b.id === targetBookingId);
+
         const result = await api.bookings.update(
           targetBookingId,
           bookingItems,
@@ -649,6 +677,14 @@ function AppContent() {
           result.updatedTrips.map((t: BusTrip) => [t.id, t])
         );
         setTrips((prev) => prev.map((t) => updatedTripsMap.get(t.id) || t));
+
+        // Add to Undo Stack
+        if (oldBooking) {
+            setUndoStack(prev => [...prev, {
+                type: 'UPDATED_BOOKING',
+                previousBooking: oldBooking
+            }]);
+        }
 
         setIsPaymentModalOpen(false);
         setPendingPaymentContext(null);
@@ -777,6 +813,87 @@ function AppContent() {
       });
   };
 
+  // --- UNDO HANDLER ---
+  const handleUndo = async () => {
+      if (undoStack.length === 0) return;
+
+      const action = undoStack[undoStack.length - 1];
+      
+      try {
+          switch (action.type) {
+              case 'CREATED_BOOKING':
+                  // Call Delete/Cancel API
+                  const delResult = await api.bookings.delete(action.bookingId);
+                  // Refresh Data
+                  setBookings(delResult.bookings);
+                  // Re-sync trips manually or fetch
+                  const updatedTripsMap = new Map<string, BusTrip>(
+                    delResult.trips.map((t: BusTrip) => [t.id, t])
+                  );
+                  setTrips((prev) => prev.map((t) => updatedTripsMap.get(t.id) || t));
+                  toast({ type: 'info', title: 'Đã hoàn tác', message: 'Đã hủy đơn hàng vừa tạo.' });
+                  break;
+
+              case 'UPDATED_BOOKING':
+                  // Restore Old Booking Data
+                  const oldB = action.previousBooking;
+                  
+                  // Reconstruct items payload for API (Seat Objects needed if strict, but update uses ID arrays mostly in my implementation, 
+                  // actually my update API expects {tripId, seats: Seat[]} structure... 
+                  // Wait, my update API implementation takes `items` where each has `tripId` and `seats`.
+                  // The `seats` property in `items` needs to be `Seat[]` objects because `api.bookings.update` transforms them to IDs.
+                  
+                  // Let's look at `api.bookings.update` implementation in `api.ts`:
+                  // It takes `items: { tripId: string; seats: Seat[] }[]`.
+                  // But `action.previousBooking.items` has `seatIds: string[]`.
+                  
+                  // We need to reconstruct Seat objects from Trip data to pass to API
+                  const bookingItemsPayload = oldB.items.map(item => {
+                      const trip = trips.find(t => t.id === item.tripId);
+                      const seatsObj = trip ? trip.seats.filter(s => item.seatIds.includes(s.id)) : [];
+                      // Fallback if trip not found (rare) or seat not found (changed)
+                      // If seat ID changed, we might have issue. But usually IDs are stable.
+                      return {
+                          tripId: item.tripId,
+                          seats: seatsObj.length > 0 ? seatsObj : item.seatIds.map(sid => ({ id: sid, price: 0 } as Seat)) // Mock if needed
+                      };
+                  });
+
+                  const res = await api.bookings.update(oldB.id, bookingItemsPayload, oldB.passenger, oldB.payment);
+                  
+                  // Update State
+                  setBookings((prev) =>
+                    prev.map((b) => (b.id === oldB.id ? res.booking : b))
+                  );
+                  const updatedTripsMap2 = new Map<string, BusTrip>(
+                    res.updatedTrips.map((t: BusTrip) => [t.id, t])
+                  );
+                  setTrips((prev) => prev.map((t) => updatedTripsMap2.get(t.id) || t));
+                  
+                  toast({ type: 'info', title: 'Đã hoàn tác', message: 'Đã khôi phục trạng thái đơn hàng.' });
+                  break;
+
+              case 'SWAPPED_SEATS':
+                  // Swap back: seat1 and seat2 are reversed from original action
+                  const swapRes = await api.bookings.swapSeats(action.tripId, action.seat1, action.seat2);
+                  setBookings(swapRes.bookings);
+                  const updatedTripsMap3 = new Map<string, BusTrip>(
+                    swapRes.trips.map((t: BusTrip) => [t.id, t])
+                  );
+                  setTrips((prev) => prev.map((t) => updatedTripsMap3.get(t.id) || t));
+                  toast({ type: 'info', title: 'Đã hoàn tác', message: 'Đã đổi lại vị trí ghế.' });
+                  break;
+          }
+
+          // Remove from stack
+          setUndoStack(prev => prev.slice(0, -1));
+
+      } catch (e) {
+          console.error("Undo failed", e);
+          toast({ type: 'error', title: 'Lỗi', message: 'Không thể hoàn tác hành động này.' });
+      }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -806,6 +923,8 @@ function AppContent() {
           onSelectBooking={handleSelectBookingFromHistory}
         />
       }
+      onUndo={handleUndo}
+      canUndo={undoStack.length > 0}
     >
       {activeTab === "sales" && (
         <div className="h-[calc(100vh-140px)] flex flex-col md:flex-row gap-4 animate-in fade-in duration-300">

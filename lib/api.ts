@@ -126,6 +126,10 @@ export const api = {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ items, passenger, payment }),
       }),
+    delete: (id: string) => 
+        fetchJson(`${API_URL}/bookings/${id}`, {
+            method: "DELETE"
+        }),
     updatePayment: (
       bookingIds: string[],
       payment: { paidCash: number; paidTransfer: number }
