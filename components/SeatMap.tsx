@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Seat, SeatStatus, BusType, Booking } from "../types";
 import {
@@ -24,23 +23,23 @@ export const SeatMap: React.FC<SeatMapProps> = ({
   busType,
   onSeatClick,
   bookings = [],
-  currentTripId
+  currentTripId,
 }) => {
   // Helper to determine visuals based on status
   const getSeatStatusClass = (status: SeatStatus) => {
     switch (status) {
       case SeatStatus.AVAILABLE:
-        return "bg-white border-slate-300 text-slate-400 hover:border-primary hover:text-primary hover:shadow-md cursor-pointer hover:bg-slate-50";
+        return "transition-colors bg-white border-slate-300 text-slate-400 hover:border-primary hover:text-primary hover:shadow-md cursor-pointer hover:bg-slate-50";
       case SeatStatus.SELECTED:
-        return "bg-primary border-primary text-white shadow-md transform scale-105 cursor-pointer z-10";
+        return "transition-colors bg-primary border-primary text-white shadow-md cursor-pointer z-10";
       case SeatStatus.BOOKED:
-        return "bg-yellow-50 border-yellow-300 text-yellow-900 cursor-pointer hover:bg-yellow-100"; 
+        return "transition-colors bg-yellow-50 border-yellow-300 text-yellow-900 cursor-pointer hover:bg-yellow-100";
       case SeatStatus.SOLD:
-        return "bg-slate-100 border-slate-300 text-slate-600 cursor-not-allowed";
+        return "transition-colors bg-slate-100 border-slate-300 text-slate-600 cursor-not-allowed";
       case SeatStatus.HELD:
-        return "bg-purple-50 border-purple-300 text-purple-900 cursor-pointer hover:bg-purple-100";
+        return "transition-colors bg-purple-50 border-purple-300 text-purple-900 cursor-pointer hover:bg-purple-100";
       default:
-        return "bg-white border-slate-200";
+        return "transition-colorsbg-white border-slate-200";
     }
   };
 
@@ -56,7 +55,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
 
   const renderSeat = (seat: Seat, isBench: boolean = false) => {
     const statusClass = getSeatStatusClass(seat.status);
-    
+
     // HELD seats are also interactive to potentially unlock them
     const isInteractive =
       seat.status === SeatStatus.AVAILABLE ||
@@ -66,15 +65,23 @@ export const SeatMap: React.FC<SeatMapProps> = ({
 
     // FIND BOOKING INFO
     // Iterate through bookings, check nested items for currentTripId AND seatId
-    const booking = bookings.find((b) => 
-        b.items.some(item => item.tripId === currentTripId && item.seatIds.includes(seat.id)) 
-        && b.status !== "cancelled"
+    const booking = bookings.find(
+      (b) =>
+        b.items.some(
+          (item) =>
+            item.tripId === currentTripId && item.seatIds.includes(seat.id)
+        ) && b.status !== "cancelled"
     );
-    
-    // Find specific item info for grouping logic
-    const bookingItem = booking ? booking.items.find(item => item.tripId === currentTripId) : null;
 
-    const hasInfo = (seat.status === SeatStatus.BOOKED || seat.status === SeatStatus.SOLD) && booking && bookingItem;
+    // Find specific item info for grouping logic
+    const bookingItem = booking
+      ? booking.items.find((item) => item.tripId === currentTripId)
+      : null;
+
+    const hasInfo =
+      (seat.status === SeatStatus.BOOKED || seat.status === SeatStatus.SOLD) &&
+      booking &&
+      bookingItem;
 
     let formattedPhone = "";
     let groupIndex = 0;
@@ -125,7 +132,11 @@ export const SeatMap: React.FC<SeatMapProps> = ({
             <>
               {/* Passenger Phone */}
               <div
-                className={`flex items-center gap-1.5 font-bold ${seat.status === SeatStatus.SOLD ? 'text-slate-700' : 'text-yellow-900'}`}
+                className={`flex items-center gap-1.5 font-bold ${
+                  seat.status === SeatStatus.SOLD
+                    ? "text-slate-700"
+                    : "text-yellow-900"
+                }`}
                 title={booking.passenger.name}
               >
                 <Phone size={10} className="shrink-0 opacity-60" />
@@ -142,7 +153,13 @@ export const SeatMap: React.FC<SeatMapProps> = ({
               {/* Route Info */}
               {booking.passenger.pickupPoint ||
               booking.passenger.dropoffPoint ? (
-                <div className={`flex gap-1.5 ${seat.status === SeatStatus.SOLD ? 'text-slate-500' : 'text-yellow-800'}`}>
+                <div
+                  className={`flex gap-1.5 ${
+                    seat.status === SeatStatus.SOLD
+                      ? "text-slate-500"
+                      : "text-yellow-800"
+                  }`}
+                >
                   <MapPin size={10} className="shrink-0 opacity-60 mt-0.5" />
                   <div className="text-wrap">
                     <span
@@ -155,9 +172,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
                   </div>
                 </div>
               ) : (
-                <div className="opacity-50 italic pl-4">
-                  Chưa có điểm đón
-                </div>
+                <div className="opacity-50 italic pl-4">Chưa có điểm đón</div>
               )}
 
               {/* Note */}
@@ -181,7 +196,9 @@ export const SeatMap: React.FC<SeatMapProps> = ({
           ) : seat.status === SeatStatus.HELD ? (
             <div className="flex flex-col items-center justify-center h-full text-purple-800/80">
               <Lock size={16} className="mb-1 opacity-60" />
-              <span className="font-medium text-[9px] text-center">Vé đang giữ</span>
+              <span className="font-medium text-[9px] text-center">
+                Vé đang giữ
+              </span>
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-slate-300">
@@ -196,12 +213,16 @@ export const SeatMap: React.FC<SeatMapProps> = ({
   // --- CABIN LOGIC: RENDER BY COLUMN (DÃY) ---
   const renderCabinColumn = (colIndex: number, label: string) => {
     const colSeats = seats.filter((s) => (s.col ?? 0) === colIndex);
-    const rows = Array.from(new Set(colSeats.map((s) => s.row ?? 0))).sort((a: number, b: number) => a - b);
+    const rows = Array.from(new Set(colSeats.map((s) => s.row ?? 0))).sort(
+      (a: number, b: number) => a - b
+    );
 
     return (
       <div className="relative overflow-hidden flex flex-col w-full md:w-1/2 rounded-xl">
         <div className="pt-3 text-center">
-          <span className="text-sm font-bold text-slate-500 uppercase tracking-wider">{label}</span>
+          <span className="text-sm font-bold text-slate-500 uppercase tracking-wider">
+            {label}
+          </span>
         </div>
 
         <div className="px-4 flex flex-col items-center gap-3">
@@ -211,16 +232,28 @@ export const SeatMap: React.FC<SeatMapProps> = ({
           </div>
 
           {rows.map((rowIndex) => {
-            const floor1Seat = colSeats.find((s) => s.row === rowIndex && s.floor === 1);
-            const floor2Seat = colSeats.find((s) => s.row === rowIndex && s.floor === 2);
+            const floor1Seat = colSeats.find(
+              (s) => s.row === rowIndex && s.floor === 1
+            );
+            const floor2Seat = colSeats.find(
+              (s) => s.row === rowIndex && s.floor === 2
+            );
 
             return (
               <div key={rowIndex} className="flex w-full gap-4">
                 <div className="w-full md:w-1/2">
-                  {floor1Seat ? renderSeat(floor1Seat) : <div className="w-full border border-dashed border-slate-100 rounded-lg" />}
+                  {floor1Seat ? (
+                    renderSeat(floor1Seat)
+                  ) : (
+                    <div className="w-full border border-dashed border-slate-100 rounded-lg" />
+                  )}
                 </div>
                 <div className="w-full md:w-1/2">
-                  {floor2Seat ? renderSeat(floor2Seat) : <div className="w-full h-[100px] border border-dashed border-slate-100 rounded-lg" />}
+                  {floor2Seat ? (
+                    renderSeat(floor2Seat)
+                  ) : (
+                    <div className="w-full h-[100px] border border-dashed border-slate-100 rounded-lg" />
+                  )}
                 </div>
               </div>
             );
@@ -240,7 +273,9 @@ export const SeatMap: React.FC<SeatMapProps> = ({
       return acc;
     }, {} as Record<number, Seat[]>);
 
-    const rowIndices = Object.keys(rows).map(Number).sort((a, b) => a - b);
+    const rowIndices = Object.keys(rows)
+      .map(Number)
+      .sort((a, b) => a - b);
     const standardCols = 3;
     let gridRows: number[] = [];
     let benchRowIndex: number | null = null;
@@ -257,20 +292,33 @@ export const SeatMap: React.FC<SeatMapProps> = ({
     return (
       <div className="relative overflow-hidden flex flex-col w-full md:w-1/2">
         <div className="text-center">
-          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">TẦNG {floorNumber}</span>
+          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+            TẦNG {floorNumber}
+          </span>
         </div>
 
         <div className="p-4 flex flex-col items-center flex-1">
-          <div className="grid gap-3 w-full" style={{ gridTemplateColumns: `repeat(${standardCols}, 1fr)` }}>
+          <div
+            className="grid gap-3 w-full"
+            style={{ gridTemplateColumns: `repeat(${standardCols}, 1fr)` }}
+          >
             {gridRows.map((rowIndex) => {
-              const rowSeats = rows[rowIndex].sort((a, b) => (a.col ?? 0) - (b.col ?? 0));
-              return rowSeats.map((seat) => <React.Fragment key={seat.id}>{renderSeat(seat, false)}</React.Fragment>);
+              const rowSeats = rows[rowIndex].sort(
+                (a, b) => (a.col ?? 0) - (b.col ?? 0)
+              );
+              return rowSeats.map((seat) => (
+                <React.Fragment key={seat.id}>
+                  {renderSeat(seat, false)}
+                </React.Fragment>
+              ));
             })}
           </div>
           {benchRowIndex !== null && (
             <div className="mt-4 pt-3 border-t border-slate-100 border-dashed w-full">
               <div className="flex justify-center gap-2">
-                {rows[benchRowIndex].sort((a, b) => (a.col ?? 0) - (b.col ?? 0)).map((seat) => renderSeat(seat, true))}
+                {rows[benchRowIndex]
+                  .sort((a, b) => (a.col ?? 0) - (b.col ?? 0))
+                  .map((seat) => renderSeat(seat, true))}
               </div>
             </div>
           )}

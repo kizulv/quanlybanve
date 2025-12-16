@@ -766,13 +766,12 @@ function AppContent() {
                         </Badge>
                       )}
                       <div className="flex items-center gap-2 text-xs">
-                        <span className="bg-yellow-400 px-2 py-1 rounded-md inline-flex items-center justify-center text-white border border-yellow-500">
+                        <span className="bg-yellow-400 px-2 py-1 rounded-md inline-flex items-center justify-center font-bold text-slate-900 border border-yellow-500">
                           <Keyboard size={12} className="mr-1" />
                           {selectedTrip.licensePlate}
                         </span>
                         <span className="bg-slate-400 px-2 py-1 rounded-md inline-flex items-center justify-center text-white border border-slate-500">
-                          <Clock3 size={12} className="mr-1" />
-                          {selectedTrip.departureTime.split(" ")[1]}
+                          Xuất bến: {selectedTrip.departureTime.split(" ")[1]}
                         </span>
                       </div>
                     </div>
