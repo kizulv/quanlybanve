@@ -120,3 +120,9 @@ export interface ActivityLog {
     isPaid: boolean;
   }[];
 }
+
+// Undo Action Types
+export type UndoAction = 
+  | { type: 'CREATED_BOOKING'; bookingId: string }
+  | { type: 'UPDATED_BOOKING'; previousBooking: Booking }
+  | { type: 'SWAPPED_SEATS'; tripId: string; seat1: string; seat2: string };

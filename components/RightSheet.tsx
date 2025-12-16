@@ -7,20 +7,38 @@ import {
   SheetTrigger,
 } from "./ui/Sheet";
 import { Button } from "./ui/Button";
-import { History, Phone, Clock, Search, X, Calendar, Ticket } from "lucide-react";
+import { History, Phone, Clock, Search, X, Calendar, Ticket, Undo2, AlertTriangle } from "lucide-react";
 import { Badge } from "./ui/Badge";
-import { Booking, BusTrip } from "../types";
+import { Booking, BusTrip, UndoAction } from "../types";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "./ui/AlertDialog";
 
 interface RightSheetProps {
   bookings: Booking[];
   trips: BusTrip[];
   onSelectBooking: (booking: Booking) => void;
+  onUndo?: () => void;
+  lastUndoAction?: UndoAction;
 }
 
-export const RightSheet: React.FC<RightSheetProps> = ({ bookings, trips, onSelectBooking }) => {
+export const RightSheet: React.FC<RightSheetProps> = ({ 
+  bookings, 
+  trips, 
+  onSelectBooking,
+  onUndo,
+  lastUndoAction
+}) => {
   const [searchTerm, setSearchTerm] = useState("");
   // We need to control the sheet open state to close it upon selection
   const [isOpen, setIsOpen] = useState(false);
+  const [isUndoAlertOpen, setIsUndoAlertOpen] = useState(false);
 
   const sortedBookings = useMemo(() => {
     return [...bookings].sort(
@@ -66,6 +84,25 @@ export const RightSheet: React.FC<RightSheetProps> = ({ bookings, trips, onSelec
       setIsOpen(false);
   }
 
+  const handleConfirmUndo = () => {
+      if (onUndo) {
+          onUndo();
+          setIsUndoAlertOpen(false);
+      }
+  }
+
+  const getUndoMessage = () => {
+      if (!lastUndoAction) return "";
+      switch(lastUndoAction.type) {
+          case 'CREATED_BOOKING':
+              return "Bạn có chắc muốn hủy đơn hàng vừa tạo mới? Hành động này sẽ xóa đơn hàng và trả lại ghế trống.";
+          case 'UPDATED_BOOKING':
+              return "Bạn có chắc muốn khôi phục trạng thái đơn hàng trước khi sửa? Mọi thay đổi vừa thực hiện sẽ bị mất.";
+          case 'SWAPPED_SEATS':
+              return "Bạn có chắc muốn hoàn tác việc đổi chỗ? Ghế sẽ được đổi lại vị trí ban đầu.";
+      }
+  };
+
   const renderStatusBadge = (status: string, isPaid: boolean) => {
       if (status === 'cancelled') {
           return <Badge variant="destructive" className="bg-red-100 text-red-600 border-red-200">Đã hủy</Badge>;
@@ -80,6 +117,7 @@ export const RightSheet: React.FC<RightSheetProps> = ({ bookings, trips, onSelec
   };
 
   return (
+    <>
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
       <SheetTrigger asChild>
         <Button
@@ -92,14 +130,29 @@ export const RightSheet: React.FC<RightSheetProps> = ({ bookings, trips, onSelec
         </Button>
       </SheetTrigger>
       <SheetContent side="right" className="flex flex-col h-full w-full sm:w-[500px] p-0 gap-0 border-l shadow-2xl">
-        <SheetHeader className="px-5 py-4 border-b border-slate-100 shrink-0 bg-white">
-          <SheetTitle className="text-lg font-bold flex items-center gap-2">
-             <History className="text-primary" size={20}/>
-             Lịch sử đơn hàng
-             <Badge variant="secondary" className="ml-auto text-xs font-normal">
-                {sortedBookings.length} đơn
-             </Badge>
-          </SheetTitle>
+        <SheetHeader className="px-5 py-4 border-b border-slate-100 shrink-0 bg-white flex flex-row items-center justify-between">
+          <div className="flex-1">
+            <SheetTitle className="text-lg font-bold flex items-center gap-2">
+                <History className="text-primary" size={20}/>
+                Lịch sử đơn hàng
+                <Badge variant="secondary" className="ml-auto text-xs font-normal">
+                    {sortedBookings.length} đơn
+                </Badge>
+            </SheetTitle>
+          </div>
+          
+          {/* UNDO BUTTON IN HEADER */}
+          {onUndo && lastUndoAction && (
+              <Button
+                  onClick={() => setIsUndoAlertOpen(true)}
+                  variant="ghost"
+                  size="sm"
+                  className="ml-2 text-red-500 hover:bg-red-50 hover:text-red-600 border border-red-100 h-8"
+                  title="Hoàn tác tác vụ vừa thực hiện"
+              >
+                  <Undo2 size={16} className="mr-1.5" /> Hoàn tác
+              </Button>
+          )}
         </SheetHeader>
 
         {/* Search Bar */}
@@ -220,5 +273,25 @@ export const RightSheet: React.FC<RightSheetProps> = ({ bookings, trips, onSelec
         </div>
       </SheetContent>
     </Sheet>
+
+    {/* ALERT DIALOG FOR UNDO */}
+    <AlertDialog open={isUndoAlertOpen} onOpenChange={setIsUndoAlertOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-red-600 flex items-center gap-2">
+                <AlertTriangle size={20} />
+                Xác nhận hoàn tác
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-600">
+              {getUndoMessage()}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button variant="outline" onClick={() => setIsUndoAlertOpen(false)}>Hủy bỏ</Button>
+            <Button variant="destructive" onClick={handleConfirmUndo}>Đồng ý hoàn tác</Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 };

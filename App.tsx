@@ -15,6 +15,7 @@ import {
   Booking,
   Route,
   Bus,
+  UndoAction,
 } from "./types";
 import {
   BusFront,
@@ -29,12 +30,6 @@ import {
 import { api } from "./lib/api";
 import { isSameDay, formatLunarDate, formatTime } from "./utils/dateUtils";
 import { PaymentModal } from "./components/PaymentModal";
-
-// TYPE DEFINITIONS FOR UNDO ACTIONS
-type UndoAction = 
-  | { type: 'CREATED_BOOKING'; bookingId: string }
-  | { type: 'UPDATED_BOOKING'; previousBooking: Booking }
-  | { type: 'SWAPPED_SEATS'; tripId: string; seat1: string; seat2: string };
 
 function AppContent() {
   const { toast } = useToast();
@@ -921,10 +916,10 @@ function AppContent() {
           bookings={bookings}
           trips={trips}
           onSelectBooking={handleSelectBookingFromHistory}
+          onUndo={handleUndo}
+          lastUndoAction={undoStack[undoStack.length - 1]}
         />
       }
-      onUndo={handleUndo}
-      canUndo={undoStack.length > 0}
     >
       {activeTab === "sales" && (
         <div className="h-[calc(100vh-140px)] flex flex-col md:flex-row gap-4 animate-in fade-in duration-300">
