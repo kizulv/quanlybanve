@@ -227,18 +227,20 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
 
     // --- SEAT GENERATION LOGIC ---
     let finalSeats: Seat[] = [];
-    const busChanged = initialData && initialData.licensePlate !== bus.plate;
     const isNew = !initialData;
 
     // 1. Snapshot previous seats state (status map)
     const previousSeats = initialData?.seats || [];
-    const occupiedSeatMap = new Map<string, SeatStatus>(); // Key = Label, Value = Status
-    const occupiedSeatFullData = new Map<string, Seat>(); // Key = Label, Value = Full Object
-
+    
+    // Create a map based on POSITION (Floor-Row-Col)
+    // Key format: "floor-row-col"
+    const occupiedSeatPosMap = new Map<string, Seat>(); 
+    
     previousSeats.forEach((s) => {
       if (s.status !== SeatStatus.AVAILABLE) {
-        occupiedSeatMap.set(s.label, s.status);
-        occupiedSeatFullData.set(s.label, s);
+        // Use fallbacks for row/col if undefined (though they should be defined)
+        const key = `${s.floor}-${s.row ?? 0}-${s.col ?? 0}`;
+        occupiedSeatPosMap.set(key, s);
       }
     });
 
@@ -267,7 +269,7 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
                 }
               }
               newLayoutSeats.push({
-                id: label, // Using Label as ID for consistency in new trips
+                id: label, // Use Label as ID for new layout
                 label: label,
                 floor: f as 1 | 2,
                 status: SeatStatus.AVAILABLE,
@@ -300,7 +302,7 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
                   floor: f as 1 | 2,
                   status: SeatStatus.AVAILABLE,
                   price: price,
-                  row: config.rows,
+                  row: config.rows, // Bench is conceptually after last row
                   col: i,
                 });
               }
@@ -316,95 +318,48 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
           : generateSleeperLayout(price);
     }
 
-    // 3. MERGE LOGIC
+    // 3. MERGE LOGIC (Strict Positional Mapping)
     if (isNew) {
       finalSeats = newLayoutSeats;
     } else {
-      const handledOldIds = new Set<string>(); // Tracks IDs of seats mapped positionally (like Bench 2)
+      const handledOldIds = new Set<string>();
 
-      // --- SPECIAL MAPPING: Floor 2 Rear Bench Positional Mapping ---
-      // If we are editing (not new) and specifically for sleeper/buses with benches
-      if (busChanged) {
-        // 1. Identify Bench Row in OLD Bus (Floor 2, Row with >= 5 cols)
-        const oldSeatsF2 = previousSeats.filter((s) => s.floor === 2);
-        const oldRowCounts = oldSeatsF2.reduce((acc, s) => {
-          const r = s.row ?? 0;
-          acc[r] = (acc[r] || 0) + 1;
-          return acc;
-        }, {} as Record<number, number>);
-
-        const oldBenchRow = Object.keys(oldRowCounts).find(
-          (r) => oldRowCounts[Number(r)] >= 5
-        );
-
-        // 2. Identify Bench Row in NEW Bus
-        const newSeatsF2 = newLayoutSeats.filter((s) => s.floor === 2);
-        const newRowCounts = newSeatsF2.reduce((acc, s) => {
-          const r = s.row ?? 0;
-          acc[r] = (acc[r] || 0) + 1;
-          return acc;
-        }, {} as Record<number, number>);
-
-        const newBenchRow = Object.keys(newRowCounts).find(
-          (r) => newRowCounts[Number(r)] >= 5
-        );
-
-        // 3. Map Positionally (Index 0->0, 1->1...)
-        if (oldBenchRow !== undefined && newBenchRow !== undefined) {
-          const oldBenchSeats = oldSeatsF2
-            .filter((s) => s.row === Number(oldBenchRow))
-            .sort((a, b) => (a.col ?? 0) - (b.col ?? 0));
-
-          const newBenchSeats = newSeatsF2
-            .filter((s) => s.row === Number(newBenchRow))
-            .sort((a, b) => (a.col ?? 0) - (b.col ?? 0));
-
-          // Iterate positions 0 to 4
-          for (let i = 0; i < 5; i++) {
-            const oldS = oldBenchSeats[i];
-            const newS = newBenchSeats[i];
-
-            // If old seat exists at this index, is occupied, and new seat exists
-            if (oldS && newS && oldS.status !== SeatStatus.AVAILABLE) {
-              // Override mapping for this NEW label to match OLD status
-              occupiedSeatMap.set(newS.label, oldS.status);
-
-              // Mark OLD seat as handled so it doesn't appear as Orphan
-              handledOldIds.add(oldS.id);
-            }
-          }
-        }
-      }
-
-      // A. Update statuses of new layout matching old labels (or injected positional mappings)
+      // A. Map statuses from Old Position to New Position
       finalSeats = newLayoutSeats.map((newSeat) => {
-        if (occupiedSeatMap.has(newSeat.label)) {
+        const posKey = `${newSeat.floor}-${newSeat.row}-${newSeat.col}`;
+        const oldSeat = occupiedSeatPosMap.get(posKey);
+
+        if (oldSeat) {
+          handledOldIds.add(oldSeat.id);
           return {
             ...newSeat,
-            status: occupiedSeatMap.get(newSeat.label)!,
-            price: price,
+            status: oldSeat.status, // Inherit status (Booked/Sold/etc)
+            // Note: We keep the NEW Label/ID to match the new bus layout
+            // The visual SeatMap will use 'status' to color it.
+            // Booking info lookup (Phone) might fail if ID changes, 
+            // but the prompt asked for updating into the new numbers.
+            price: price, 
           };
         }
         return newSeat;
       });
 
-      // B. Handle ORPHANED seats (Occupied in old bus, but label not found in new bus)
-      const newLayoutLabels = new Set(newLayoutSeats.map((s) => s.label));
-
+      // B. Handle ORPHANED seats 
+      // (Old seats that had a position that DOES NOT EXIST in the new bus)
       previousSeats.forEach((oldSeat) => {
         if (
           oldSeat.status !== SeatStatus.AVAILABLE &&
-          !newLayoutLabels.has(oldSeat.label) &&
-          !handledOldIds.has(oldSeat.id) // Skip if handled by Bench Logic
+          !handledOldIds.has(oldSeat.id)
         ) {
+          // Add as an "Orphan" seat at the bottom
           finalSeats.push({
             ...oldSeat,
-            id: oldSeat.id, // Keep original ID
-            label: oldSeat.label,
+            id: oldSeat.id, 
+            label: `${oldSeat.label}`, // Keep old label to identify
             status: oldSeat.status,
-            price: oldSeat.price, // Keep original price
-            floor: 1, // Default floor
-            row: 99, // MARKER FOR ORPHAN ROW
+            price: oldSeat.price,
+            floor: 1, 
+            row: 99, // MARKER FOR ORPHAN ROW (Bottom of screen)
             col: 0,
           });
         }

@@ -358,12 +358,12 @@ export const SeatMap: React.FC<SeatMapProps> = ({
   const renderOverflowSection = () => {
     if (orphanSeats.length === 0) return null;
     return (
-      <div className="mt-6 mx-4 p-4 bg-amber-50 rounded-xl border border-amber-200 border-dashed">
+      <div className="mt-6 mx-4 p-4 bg-amber-50 rounded-xl border border-amber-200 border-dashed animate-in fade-in slide-in-from-top-2">
          <div className="flex items-center gap-2 mb-3 text-amber-700">
             <AlertTriangle size={16} />
-            <h4 className="text-sm font-bold uppercase">Ghế lệch sơ đồ (Do đổi xe)</h4>
+            <h4 className="text-sm font-bold uppercase">Ghế lệch sơ đồ (Do đổi xe) - Cần xếp lại</h4>
          </div>
-         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
              {orphanSeats.map(seat => (
                  <div key={seat.id} className="w-full">
                      {renderSeat(seat)}
