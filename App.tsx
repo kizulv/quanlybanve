@@ -38,7 +38,8 @@ import {
   ArrowRight,
   AlertCircle,
   FileEdit,
-  ArrowRight as ArrowRightIcon
+  ArrowRight as ArrowRightIcon,
+  Calendar
 } from "lucide-react";
 import { api } from "./lib/api";
 import { isSameDay, formatLunarDate, formatTime } from "./utils/dateUtils";
@@ -149,6 +150,9 @@ function AppContent() {
       oldPrice: number;
       newPrice: number;
       changesDetected: boolean;
+      tripDate?: Date;
+      oldSeatLabels: string[];
+      newSeatLabels: string[];
   } | null>(null);
 
   // Payment Modal State
@@ -867,7 +871,40 @@ function AppContent() {
       
       // Determine if there are *any* effective changes to commit
       const hasSeatChanges = diffCount !== 0 || newPrice !== oldPrice; 
-      // Note: We should also check if specific seats changed even if count is same, but keeping it simple for now.
+      
+      // Extract Date
+      let tripDate: Date | undefined;
+      let rawDateStr = "";
+      if (selectionBasket.length > 0) {
+          rawDateStr = selectionBasket[0].trip.departureTime;
+      } else if (editingBooking.items.length > 0) {
+          rawDateStr = editingBooking.items[0].tripDate;
+      }
+      
+      if (rawDateStr) {
+          // Handle "YYYY-MM-DD HH:MM" or "YYYY-MM-DD"
+          const datePart = rawDateStr.split(' ')[0];
+          tripDate = new Date(datePart);
+      }
+
+      // Extract Labels
+      // Old Seats
+      const oldSeatLabels: string[] = [];
+      editingBooking.items.forEach(item => {
+          const trip = trips.find(t => t.id === item.tripId);
+          item.seatIds.forEach(sid => {
+              const s = trip?.seats.find(seat => seat.id === sid);
+              oldSeatLabels.push(s ? s.label : sid);
+          });
+      });
+
+      // New Seats
+      const newSeatLabels: string[] = [];
+      selectionBasket.forEach(item => {
+          item.seats.forEach(s => {
+              newSeatLabels.push(s.label);
+          });
+      });
       
       setUpdateSummary({
           diffCount,
@@ -876,7 +913,10 @@ function AppContent() {
           newSeatCount,
           oldPrice,
           newPrice,
-          changesDetected: true // Assume true if user clicked save in edit mode
+          changesDetected: true, // Assume true if user clicked save in edit mode
+          tripDate,
+          oldSeatLabels: oldSeatLabels.sort(),
+          newSeatLabels: newSeatLabels.sort()
       });
       return;
     }
@@ -1525,20 +1565,35 @@ function AppContent() {
                 
                 {updateSummary && (
                     <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 text-sm space-y-2">
-                        {/* Seat Count Change */}
-                        <div className="flex justify-between items-center border-b border-slate-100 pb-2">
-                            <span className="text-slate-500">Số lượng vé</span>
-                            <div className="flex items-center gap-2 font-medium">
-                                <span>{updateSummary.oldSeatCount}</span>
-                                <ArrowRightIcon size={14} className="text-slate-400" />
-                                <span className={updateSummary.diffCount > 0 ? "text-green-600" : updateSummary.diffCount < 0 ? "text-red-600" : "text-slate-900"}>
-                                    {updateSummary.newSeatCount}
-                                </span>
-                                {updateSummary.diffCount !== 0 && (
-                                    <span className={`text-[10px] px-1.5 py-0.5 rounded ${updateSummary.diffCount > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                                        {updateSummary.diffCount > 0 ? `+${updateSummary.diffCount}` : updateSummary.diffCount}
+                        
+                        {/* Date Info */}
+                        {updateSummary.tripDate && (
+                            <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
+                                <Calendar size={16} className="text-slate-400" />
+                                <div className="flex flex-col">
+                                    <span className="font-bold text-slate-700">
+                                        {updateSummary.tripDate.toLocaleDateString('vi-VN')}
                                     </span>
-                                )}
+                                    <span className="text-xs text-slate-500">
+                                        {formatLunarDate(updateSummary.tripDate)}
+                                    </span>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Seat Comparison */}
+                        <div className="grid grid-cols-2 gap-4 border-b border-slate-100 pb-2">
+                            <div>
+                                <span className="text-xs text-slate-500 block mb-1">Ghế cũ ({updateSummary.oldSeatCount})</span>
+                                <div className="text-red-500 font-medium text-xs leading-relaxed break-words">
+                                    {updateSummary.oldSeatLabels.length > 0 ? updateSummary.oldSeatLabels.join(", ") : "(Không có)"}
+                                </div>
+                            </div>
+                            <div>
+                                <span className="text-xs text-slate-500 block mb-1">Ghế mới ({updateSummary.newSeatCount})</span>
+                                <div className="text-green-600 font-medium text-xs leading-relaxed break-words">
+                                    {updateSummary.newSeatLabels.length > 0 ? updateSummary.newSeatLabels.join(", ") : "(Không có)"}
+                                </div>
                             </div>
                         </div>
 
@@ -1546,8 +1601,10 @@ function AppContent() {
                         <div className="flex justify-between items-center">
                             <span className="text-slate-500">Tổng tiền</span>
                             <div className="flex items-center gap-2 font-medium">
-                                <span>{updateSummary.oldPrice.toLocaleString('vi-VN')}</span>
-                                <ArrowRightIcon size={14} className="text-slate-400" />
+                                <span className="text-slate-400 line-through decoration-slate-300 text-xs">
+                                    {updateSummary.oldPrice.toLocaleString('vi-VN')}
+                                </span>
+                                <ArrowRightIcon size={14} className="text-slate-300" />
                                 <span className={updateSummary.diffPrice > 0 ? "text-orange-600" : updateSummary.diffPrice < 0 ? "text-blue-600" : "text-slate-900"}>
                                     {updateSummary.newPrice.toLocaleString('vi-VN')}
                                 </span>
