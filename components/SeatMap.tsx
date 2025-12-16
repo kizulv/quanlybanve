@@ -271,7 +271,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
     );
   };
 
-  // --- SLEEPER LOGIC ---
+  // --- SLEEPER LOGIC (UPDATED) ---
   const renderSleeperDeck = (floorNumber: number) => {
     const floorSeats = seats.filter((s) => s.floor === floorNumber);
     const rows = floorSeats.reduce((acc, seat) => {
@@ -311,14 +311,28 @@ export const SeatMap: React.FC<SeatMapProps> = ({
             style={{ gridTemplateColumns: `repeat(${standardCols}, 1fr)` }}
           >
             {gridRows.map((rowIndex) => {
-              const rowSeats = rows[rowIndex].sort(
-                (a, b) => (a.col ?? 0) - (b.col ?? 0)
-              );
-              return rowSeats.map((seat) => (
-                <React.Fragment key={seat.id}>
-                  {renderSeat(seat, false)}
-                </React.Fragment>
-              ));
+              // FORCE 3 COLUMNS: Iterate 0, 1, 2 to ensure alignment even if seat is missing
+              return [0, 1, 2].map((colIndex) => {
+                const seat = rows[rowIndex].find(
+                  (s) => (s.col ?? 0) === colIndex
+                );
+                
+                if (seat) {
+                  return (
+                    <React.Fragment key={seat.id}>
+                      {renderSeat(seat, false)}
+                    </React.Fragment>
+                  );
+                }
+
+                // Render GHOST/PLACEHOLDER SEAT for proper grid alignment
+                return (
+                  <div
+                    key={`ghost-${floorNumber}-${rowIndex}-${colIndex}`}
+                    className="w-full h-[100px] border border-slate-100 border-dashed rounded-lg bg-slate-50/20"
+                  />
+                );
+              });
             })}
           </div>
           {benchRowIndex !== null && (

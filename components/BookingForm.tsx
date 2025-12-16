@@ -295,11 +295,12 @@ export const BookingForm: React.FC<BookingFormProps> = ({
               >
                 {item.trip.route}
                 {isEnhanced && (
-                  <Zap
-                    size={10}
-                    title="Tăng cường"
-                    className="text-[9px] ml-1 fill-amber-700 text-yellow-400"
-                  />
+                  <span title="Tăng cường" className="flex items-center">
+                    <Zap
+                      size={10}
+                      className="text-[9px] ml-1 fill-amber-700 text-yellow-400"
+                    />
+                  </span>
                 )}
               </div>
               <div className="flex justify-between items-start mb-2">
