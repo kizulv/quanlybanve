@@ -324,7 +324,6 @@ function AppContent() {
     }
 
     // 1. Check if seat is BOOKED/SOLD
-    // REMOVED check for SeatStatus.HELD to allow selecting held seats for booking
     if (
       clickedSeat.status === SeatStatus.BOOKED ||
       clickedSeat.status === SeatStatus.SOLD
@@ -363,17 +362,27 @@ function AppContent() {
     }
 
     // 2. Selection Logic (Modify the specific trip in the global trips array)
-    // Applies to AVAILABLE, HELD or SELECTED seats
     const updatedSeats = selectedTrip.seats.map((seat) => {
       if (seat.id === clickedSeat.id) {
-        // If clicking a HELD seat, selecting it overrides the HELD status in local UI to SELECTED
-        // If clicking a SELECTED seat, it reverts to AVAILABLE (dropping the HELD status if it had one is acceptable for new booking flow)
+        // CASE: Deselecting (currently SELECTED)
+        if (seat.status === SeatStatus.SELECTED) {
+           // Restore to original status (e.g. HELD) or default to AVAILABLE
+           const restoreStatus = seat.originalStatus || SeatStatus.AVAILABLE;
+           return {
+             ...seat,
+             status: restoreStatus,
+             // If restoring to HELD, we keep the original status (or just status)
+             // We can clear originalStatus now since it's back to normal
+             // But preserving note is automatic via spread
+           };
+        }
+
+        // CASE: Selecting (currently AVAILABLE or HELD)
+        const isHeld = seat.status === SeatStatus.HELD;
         return {
           ...seat,
-          status:
-            seat.status === SeatStatus.SELECTED
-              ? SeatStatus.AVAILABLE
-              : SeatStatus.SELECTED,
+          status: SeatStatus.SELECTED,
+          originalStatus: isHeld ? SeatStatus.HELD : undefined,
         };
       }
       return seat;
@@ -423,6 +432,7 @@ function AppContent() {
     setHighlightedBookingId(null); // Clear highlight when entering edit mode
 
     // 1. Restore currently SELECTED seats to CORRECT STATUS (Booked/Sold/Held or Available)
+    // IMPORTANT: If user had selected HELD seats before clicking edit, restore them to HELD
     const restoredTrips = trips.map((t) => ({
       ...t,
       seats: t.seats.map((s) => {
@@ -440,14 +450,14 @@ function AppContent() {
              const isSold = totalPaid >= activeBooking.totalPrice;
              return { ...s, status: isSold ? SeatStatus.SOLD : SeatStatus.BOOKED };
           }
-          return { ...s, status: SeatStatus.AVAILABLE };
+          // Restore to HELD if it was held, else AVAILABLE
+          return { ...s, status: s.originalStatus || SeatStatus.AVAILABLE };
         }
         return s;
       }),
     }));
 
     // 2. Convert the NEW Booking Items to Selected Seats
-    // IMPORTANT: Remove logic that filters by `selectedTripId` to allow multi-trip editing
     const newTripsState = restoredTrips.map((trip) => {
       const matchingItem = booking.items.find((i) => i.tripId === trip.id);
       if (matchingItem) {
@@ -618,7 +628,10 @@ function AppContent() {
         // Update SELECTED to HELD and Add Note
         const updatedSeats = item.trip.seats.map((s) => {
           if (s.status === SeatStatus.SELECTED) {
-            return { ...s, status: SeatStatus.HELD, note: bookingForm.note }; // Added note here
+            // Note: When moving to confirmed HELD, we don't need originalStatus anymore
+            // as this is the new committed state.
+            const { originalStatus, ...rest } = s; 
+            return { ...rest, status: SeatStatus.HELD, note: bookingForm.note };
           }
           return s;
         });
@@ -830,7 +843,6 @@ function AppContent() {
     if (editingBooking) {
       // We simply refresh data from API to restore original state
       // Or cleaner: Revert local state manually
-      // For now, easiest to just refresh data or revert selected seats to Booked
       await refreshData();
       setEditingBooking(null);
       setBookingForm({ ...bookingForm, phone: "", note: "" });
@@ -846,7 +858,7 @@ function AppContent() {
               ...t,
               seats: t.seats.map((s) =>
                 s.status === SeatStatus.SELECTED
-                  ? { ...s, status: SeatStatus.AVAILABLE }
+                  ? { ...s, status: s.originalStatus || SeatStatus.AVAILABLE } // Restore HELD/AVAILABLE
                   : s
               ),
             };

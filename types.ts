@@ -21,6 +21,7 @@ export interface Seat {
   row?: number;
   col?: number;
   note?: string; // Added note field
+  originalStatus?: SeatStatus; // Track previous status (e.g., HELD) when selected
 }
 
 export interface Passenger {
