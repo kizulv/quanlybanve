@@ -653,23 +653,11 @@ function AppContent() {
       return;
     }
 
-    const tripsToUpdate = selectionBasket.map((item) => item.trip);
-    const promises = tripsToUpdate.map(async (trip) => {
-      const resetSeats = trip.seats.map((s) =>
-        s.status === SeatStatus.SELECTED
-          ? { ...s, status: SeatStatus.AVAILABLE }
-          : s
-      );
-      return api.trips.updateSeats(trip.id, resetSeats);
-    });
-
-    try {
-      await Promise.all(promises);
-
-      // Update local state
-      setTrips((prev) =>
-        prev.map((t): BusTrip => {
-          if (selectionBasket.find((i) => i.trip.id === t.id)) {
+    // Update local state ONLY. Do not call API here.
+    setTrips((prev) =>
+      prev.map((t): BusTrip => {
+        // Optimization: only update trips that have SELECTED seats
+        if (t.seats.some(s => s.status === SeatStatus.SELECTED)) {
             return {
               ...t,
               seats: t.seats.map((s) =>
@@ -678,19 +666,17 @@ function AppContent() {
                   : s
               ),
             };
-          }
-          return t;
-        })
-      );
-      toast({
-        type: "info",
-        title: "Đã hủy chọn",
-        message: "Đã hủy chọn tất cả ghế.",
-      });
-      setPhoneError(null);
-    } catch (e) {
-      console.error(e);
-    }
+        }
+        return t;
+      })
+    );
+
+    toast({
+      type: "info",
+      title: "Đã hủy chọn",
+      message: "Đã hủy chọn tất cả ghế.",
+    });
+    setPhoneError(null);
   };
 
   const handleMoneyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
