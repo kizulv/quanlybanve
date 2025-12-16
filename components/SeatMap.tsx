@@ -121,6 +121,14 @@ export const SeatMap: React.FC<SeatMapProps> = ({
           }`}
         >
           <span>{seat.label}</span>
+          {/* PRICE DISPLAY FOR SOLD SEATS */}
+          {seat.status === SeatStatus.SOLD && (
+            <div className="mt-auto flex justify-end">
+              <span className="text-[10px] font-bold text-green-700 bg-yellow-300 px-1 rounded border border-green-200/50 shadow-sm">
+                {seat.price.toLocaleString("vi-VN")}
+              </span>
+            </div>
+          )}
           {seat.status === SeatStatus.SELECTED && (
             <Check size={12} strokeWidth={4} />
           )}
@@ -186,15 +194,6 @@ export const SeatMap: React.FC<SeatMapProps> = ({
                     {booking.passenger.note}
                   </span>
                 </div>
-              )}
-
-              {/* PRICE DISPLAY FOR SOLD SEATS */}
-              {seat.status === SeatStatus.SOLD && (
-                 <div className="mt-auto pt-1 flex justify-end">
-                    <span className="text-[10px] font-bold text-green-700 bg-white/60 px-1 rounded border border-green-200/50 shadow-sm">
-                       {seat.price.toLocaleString('vi-VN')}
-                    </span>
-                 </div>
               )}
             </>
           ) : seat.status === SeatStatus.SELECTED ? (

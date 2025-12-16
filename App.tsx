@@ -796,7 +796,7 @@ function AppContent() {
                   Đã đặt
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <div className="w-2.5 h-2.5 rounded bg-slate-400 border border-slate-500"></div>{" "}
+                  <div className="w-2.5 h-2.5 rounded bg-green-400 border border-slate-500"></div>{" "}
                   Đã bán
                 </div>
                 <div className="flex items-center gap-1.5">
