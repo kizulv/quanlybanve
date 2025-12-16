@@ -395,27 +395,6 @@ function AppContent() {
     );
   };
 
-  const handleRemoveSeat = (seatToRemove: Seat, tripId: string) => {
-      setTrips((prevTrips) =>
-        prevTrips.map((trip) => {
-          if (trip.id !== tripId) return trip;
-          
-          const updatedSeats = trip.seats.map((seat) => {
-            if (seat.id === seatToRemove.id) {
-                return { 
-                    ...seat, 
-                    status: seat.originalStatus || SeatStatus.AVAILABLE,
-                    // keep originalStatus if it was HELD, otherwise clear it effectively by restoring to available
-                    originalStatus: seat.originalStatus
-                };
-            }
-            return seat;
-          });
-          return { ...trip, seats: updatedSeats };
-        })
-      );
-  };
-
   const handleSeatRightClick = (seat: Seat, booking: Booking | null) => {
       setSeatDetailModal({
           booking,
@@ -1161,7 +1140,6 @@ function AppContent() {
               validatePhoneNumber={validatePhoneNumber}
               onInitiateSwap={initiateSwap}
               onNavigateToTrip={handleNavigateToTrip}
-              onRemoveSeat={handleRemoveSeat}
             />
 
             {/* MANIFEST LIST */}

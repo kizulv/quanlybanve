@@ -67,9 +67,6 @@ interface BookingFormProps {
   
   // NEW: Navigate Action
   onNavigateToTrip?: (date: Date, tripId: string) => void;
-
-  // NEW: Remove specific seat
-  onRemoveSeat?: (seat: Seat, tripId: string) => void;
 }
 
 export const BookingForm: React.FC<BookingFormProps> = ({
@@ -89,7 +86,6 @@ export const BookingForm: React.FC<BookingFormProps> = ({
   validatePhoneNumber,
   onInitiateSwap,
   onNavigateToTrip,
-  onRemoveSeat,
 }) => {
   const [showHistory, setShowHistory] = useState(false);
 
@@ -349,17 +345,6 @@ export const BookingForm: React.FC<BookingFormProps> = ({
                              title="Đổi chỗ"
                           >
                               <ArrowRightLeft size={10} />
-                          </button>
-                      )}
-
-                      {/* REMOVE BUTTON - Always available to fix "cannot deselect" issue */}
-                      {onRemoveSeat && (
-                          <button 
-                             onClick={(e) => { e.stopPropagation(); onRemoveSeat(s, item.trip.id); }}
-                             className={`absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-0.5 shadow-sm border border-red-600 opacity-0 group-hover:opacity-100 transition-opacity z-20 hover:bg-red-600 ${editingBooking && onInitiateSwap ? '-right-2' : '-right-2'}`}
-                             title="Bỏ chọn"
-                          >
-                              <X size={10} />
                           </button>
                       )}
                   </div>
