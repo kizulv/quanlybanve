@@ -10,6 +10,7 @@ import { Button } from "./ui/Button";
 import { History, Phone, Clock, Search, X, Calendar, Ticket, Undo2, AlertTriangle } from "lucide-react";
 import { Badge } from "./ui/Badge";
 import { Booking, BusTrip, UndoAction } from "../types";
+import { formatLunarDate } from "../utils/dateUtils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -94,40 +95,49 @@ export const RightSheet: React.FC<RightSheetProps> = ({
   const getUndoMessage = () => {
       if (!lastUndoAction) return "";
       switch(lastUndoAction.type) {
-          case 'CREATED_BOOKING':
+          case 'CREATED_BOOKING': {
+              const tripDate = new Date(lastUndoAction.tripDate);
               return (
                 <div className="space-y-2">
                     <p>Bạn có chắc muốn hủy đơn hàng vừa tạo?</p>
                     <ul className="list-disc pl-5 text-sm text-slate-700 bg-slate-50 p-2 rounded">
                         <li>Khách hàng: <strong>{lastUndoAction.phone}</strong></li>
-                        <li>Chuyến: <strong>{new Date(lastUndoAction.tripDate).toLocaleDateString('vi-VN')}</strong></li>
+                        <li>Chuyến: <strong>{tripDate.toLocaleDateString('vi-VN')} <span className="text-slate-500 font-normal">({formatLunarDate(tripDate)})</span></strong></li>
                         <li>Số lượng: <strong>{lastUndoAction.seatCount} vé</strong></li>
                         <li>Ghế: {lastUndoAction.seatLabels.join(", ")}</li>
                     </ul>
                     <p className="text-xs text-red-500 mt-2">* Hành động này sẽ xóa đơn hàng và trả lại ghế trống.</p>
                 </div>
               );
-          case 'UPDATED_BOOKING':
+          }
+          case 'UPDATED_BOOKING': {
+              let dateDisplay = null;
+              if (lastUndoAction.previousBooking.items.length > 0) {
+                  const tripDate = new Date(lastUndoAction.previousBooking.items[0].tripDate);
+                  dateDisplay = (
+                      <div className="text-xs text-slate-500 pl-2">
+                          Ngày chuyến: {tripDate.toLocaleDateString('vi-VN')} ({formatLunarDate(tripDate)})
+                      </div>
+                  );
+              }
               return (
                 <div className="space-y-2">
                     <p>Bạn có chắc muốn khôi phục trạng thái cũ?</p>
                     <div className="text-sm bg-slate-50 p-2 rounded">
                         Đơn hàng của khách <strong>{lastUndoAction.phone}</strong> sẽ quay về trạng thái trước khi chỉnh sửa.
                     </div>
-                    {lastUndoAction.previousBooking.items.length > 0 && (
-                        <div className="text-xs text-slate-500 pl-2">
-                            Ngày chuyến: {new Date(lastUndoAction.previousBooking.items[0].tripDate).toLocaleDateString('vi-VN')}
-                        </div>
-                    )}
+                    {dateDisplay}
                     <p className="text-xs text-red-500 mt-2">* Mọi thay đổi vừa thực hiện sẽ bị mất.</p>
                 </div>
               );
-          case 'SWAPPED_SEATS':
+          }
+          case 'SWAPPED_SEATS': {
+              const tripDate = new Date(lastUndoAction.tripDate);
               return (
                 <div className="space-y-2">
                     <p>Bạn có chắc muốn hoàn tác việc đổi chỗ?</p>
                     <div className="text-center text-xs font-medium text-slate-500 mb-2">
-                        Ngày {new Date(lastUndoAction.tripDate).toLocaleDateString('vi-VN')}
+                        Ngày {tripDate.toLocaleDateString('vi-VN')} <span className="text-slate-400">({formatLunarDate(tripDate)})</span>
                     </div>
                     <div className="flex items-center gap-3 justify-center bg-slate-50 p-3 rounded">
                         <span className="font-bold text-indigo-600">{lastUndoAction.label2}</span>
@@ -137,6 +147,7 @@ export const RightSheet: React.FC<RightSheetProps> = ({
                     <p className="text-xs text-slate-500 text-center">Ghế sẽ được trả về vị trí ban đầu.</p>
                 </div>
               );
+          }
       }
   };
 
