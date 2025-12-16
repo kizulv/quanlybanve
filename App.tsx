@@ -755,8 +755,24 @@ function AppContent() {
             // Find IDs of trips currently in basket
             const basketTripIds = new Set(currentBookingItems.map(i => i.tripId));
             
-            // Filter original items to keep those NOT in basket
-            const preservedItems = oldBooking.items.filter(item => !basketTripIds.has(item.tripId));
+            // Find IDs of trips that are LOADED in the UI. 
+            // If a trip is loaded in the UI, but has NO items in the basket, it means the user deliberately deselected all.
+            const loadedTripIds = new Set(trips.map(t => t.id));
+            
+            // Filter original items
+            const preservedItems = oldBooking.items.filter(item => {
+                // If it's in the basket, we have new data, so don't preserve old data.
+                if (basketTripIds.has(item.tripId)) return false;
+
+                // If it's NOT in the basket, BUT the trip is currently loaded/visible,
+                // it implies the user saw it and deselected everything. So we DO NOT preserve (we effectively delete it).
+                if (loadedTripIds.has(item.tripId)) return false;
+
+                // If the trip is NOT loaded in the UI (e.g. it's on a different date we haven't fetched/filtered),
+                // then we MUST preserve it because the user couldn't have edited it.
+                // (Note: `trips` state technically holds all fetched trips, so checking against it is safe)
+                return true;
+            });
             
             // Reconstruct seat objects for preserved items (since API expects {tripId, seats: Seat[]})
             // We need to look up these seats in `trips` state
