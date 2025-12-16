@@ -297,7 +297,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
                 {isEnhanced && (
                   <Zap
                     size={10}
-                    titile="Tăng cường"
+                    title="Tăng cường"
                     className="text-[9px] ml-1 fill-amber-700 text-yellow-400"
                   />
                 )}

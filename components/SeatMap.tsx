@@ -35,7 +35,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
       case SeatStatus.BOOKED:
         return "transition-colors bg-yellow-50 border-yellow-300 text-yellow-900 cursor-pointer hover:bg-yellow-100";
       case SeatStatus.SOLD:
-        return "transition-colors bg-slate-100 border-slate-300 text-slate-600 cursor-not-allowed";
+        return "transition-colors bg-green-50 border-green-300 text-green-900 cursor-not-allowed"; // Changed to green for paid/sold
       case SeatStatus.HELD:
         return "transition-colors bg-purple-50 border-purple-300 text-purple-900 cursor-pointer hover:bg-purple-100";
       default:
@@ -114,7 +114,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
               : seat.status === SeatStatus.BOOKED
               ? "border-yellow-200 bg-yellow-100/50"
               : seat.status === SeatStatus.SOLD
-              ? "border-slate-200 bg-slate-200/50"
+              ? "border-green-200 bg-green-100/50 text-green-900"
               : seat.status === SeatStatus.HELD
               ? "border-purple-200 bg-purple-100/50"
               : "border-slate-100 bg-slate-50/50"
@@ -134,7 +134,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
               <div
                 className={`flex items-center gap-1.5 font-bold ${
                   seat.status === SeatStatus.SOLD
-                    ? "text-slate-700"
+                    ? "text-green-800"
                     : "text-yellow-900"
                 }`}
                 title={booking.passenger.name}
@@ -156,7 +156,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
                 <div
                   className={`flex gap-1.5 ${
                     seat.status === SeatStatus.SOLD
-                      ? "text-slate-500"
+                      ? "text-green-700"
                       : "text-yellow-800"
                   }`}
                 >
@@ -186,6 +186,15 @@ export const SeatMap: React.FC<SeatMapProps> = ({
                     {booking.passenger.note}
                   </span>
                 </div>
+              )}
+
+              {/* PRICE DISPLAY FOR SOLD SEATS */}
+              {seat.status === SeatStatus.SOLD && (
+                 <div className="mt-auto pt-1 flex justify-end">
+                    <span className="text-[10px] font-bold text-green-700 bg-white/60 px-1 rounded border border-green-200/50 shadow-sm">
+                       {seat.price.toLocaleString('vi-VN')}
+                    </span>
+                 </div>
               )}
             </>
           ) : seat.status === SeatStatus.SELECTED ? (
