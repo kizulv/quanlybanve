@@ -612,35 +612,8 @@ function AppContent() {
     setIsPaymentModalOpen(true);
   };
 
-  // UNIFIED ACTION HANDLER
-  const handleConfirmAction = () => {
-    if (editingBooking) {
-      // Handle Update Existing Booking
-      // Use totalBasketPrice which now reflects the modified selection
-      setPendingPaymentContext({
-        type: "update",
-        bookingIds: [editingBooking.id],
-        totalPrice: totalBasketPrice,
-      });
-      setIsPaymentModalOpen(true);
-      return;
-    }
-
-    if (bookingMode === "booking") {
-      handleBookingOnly();
-    } else if (bookingMode === "payment") {
-      handleInitiatePayment();
-    } else if (bookingMode === "hold") {
-      processHoldSeats();
-    }
-  };
-
-  const handleConfirmPayment = async () => {
-    if (pendingPaymentContext?.type === "update") {
-      // Handle Update (Existing Booking)
-      if (!pendingPaymentContext.bookingIds) return;
-      if (!editingBooking) return;
-
+  // Helper to execute update logic directly (used when no payment modal is needed)
+  const executeBookingUpdate = async (targetBookingId: string) => {
       try {
         const payment = {
           paidCash: bookingForm.paidCash,
@@ -659,9 +632,8 @@ function AppContent() {
           seats: item.seats,
         }));
 
-        // Call Update API instead of just Payment API
         const result = await api.bookings.update(
-          editingBooking.id,
+          targetBookingId,
           bookingItems,
           passenger,
           payment
@@ -669,7 +641,7 @@ function AppContent() {
 
         // Update local list
         setBookings((prev) =>
-          prev.map((b) => (b.id === editingBooking.id ? result.booking : b))
+          prev.map((b) => (b.id === targetBookingId ? result.booking : b))
         );
 
         // Sync trips from result.updatedTrips
@@ -686,11 +658,52 @@ function AppContent() {
         toast({
           type: "success",
           title: "Cập nhật thành công",
-          message: "Đã cập nhật thông tin đơn hàng.",
+          message: "Đã lưu thay đổi đơn hàng.",
         });
       } catch (e) {
         toast({ type: "error", title: "Lỗi", message: "Cập nhật thất bại." });
       }
+  };
+
+  // UNIFIED ACTION HANDLER
+  const handleConfirmAction = () => {
+    if (editingBooking) {
+      // Handle Update Existing Booking
+      // Use totalBasketPrice which now reflects the modified selection
+      
+      // CHECK IF PRICE INCREASED
+      const priceIncreased = totalBasketPrice > editingBooking.totalPrice;
+      
+      if (!priceIncreased) {
+          // If price is same or lower, save immediately without modal
+          executeBookingUpdate(editingBooking.id);
+      } else {
+          // If price increased, need to show payment modal
+          setPendingPaymentContext({
+            type: "update",
+            bookingIds: [editingBooking.id],
+            totalPrice: totalBasketPrice,
+          });
+          setIsPaymentModalOpen(true);
+      }
+      return;
+    }
+
+    if (bookingMode === "booking") {
+      handleBookingOnly();
+    } else if (bookingMode === "payment") {
+      handleInitiatePayment();
+    } else if (bookingMode === "hold") {
+      processHoldSeats();
+    }
+  };
+
+  const handleConfirmPayment = async () => {
+    if (pendingPaymentContext?.type === "update") {
+      // Handle Update (Existing Booking)
+      if (!pendingPaymentContext.bookingIds) return;
+      // Re-use extracted function
+      await executeBookingUpdate(pendingPaymentContext.bookingIds[0]);
     } else {
       // Handle New Booking with Payment
       await processBooking(true);
@@ -874,6 +887,7 @@ function AppContent() {
                   onSeatClick={handleSeatClick}
                   bookings={tripBookings}
                   currentTripId={selectedTrip.id}
+                  onSeatSwap={initiateSwap}
                 />
               ) : (
                 <div className="h-full flex flex-col items-center justify-center text-slate-300">

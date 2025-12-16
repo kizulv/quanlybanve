@@ -9,6 +9,7 @@ import {
   MessageSquare,
   Lock,
   AlertTriangle,
+  ArrowRightLeft,
 } from "lucide-react";
 
 interface SeatMapProps {
@@ -17,6 +18,7 @@ interface SeatMapProps {
   onSeatClick: (seat: Seat) => void;
   bookings?: Booking[];
   currentTripId?: string; // New prop to identify context
+  onSeatSwap?: (seat: Seat) => void; // New prop for direct swap trigger
 }
 
 export const SeatMap: React.FC<SeatMapProps> = ({
@@ -25,6 +27,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
   onSeatClick,
   bookings = [],
   currentTripId,
+  onSeatSwap,
 }) => {
   // Helper to determine visuals based on status
   const getSeatStatusClass = (status: SeatStatus) => {
@@ -36,11 +39,11 @@ export const SeatMap: React.FC<SeatMapProps> = ({
       case SeatStatus.BOOKED:
         return "transition-colors bg-yellow-50 border-yellow-300 text-yellow-900 cursor-pointer hover:bg-yellow-100";
       case SeatStatus.SOLD:
-        return "transition-colors bg-green-50 border-green-300 text-green-900 cursor-not-allowed"; // Changed to green for paid/sold
+        return "transition-colors bg-green-50 border-green-300 text-green-900 cursor-pointer hover:bg-green-100"; // Changed: Now Interactive
       case SeatStatus.HELD:
         return "transition-colors bg-purple-50 border-purple-300 text-purple-900 cursor-pointer hover:bg-purple-100";
       default:
-        return "transition-colorsbg-white border-slate-200";
+        return "transition-colors bg-white border-slate-200";
     }
   };
 
@@ -57,12 +60,13 @@ export const SeatMap: React.FC<SeatMapProps> = ({
   const renderSeat = (seat: Seat, isBench: boolean = false) => {
     const statusClass = getSeatStatusClass(seat.status);
 
-    // HELD seats are also interactive to potentially unlock them
+    // HELD and SOLD seats are also interactive now
     const isInteractive =
       seat.status === SeatStatus.AVAILABLE ||
       seat.status === SeatStatus.SELECTED ||
       seat.status === SeatStatus.BOOKED ||
-      seat.status === SeatStatus.HELD;
+      seat.status === SeatStatus.HELD ||
+      seat.status === SeatStatus.SOLD;
 
     // FIND BOOKING INFO
     // Iterate through bookings, check nested items for currentTripId AND seatId
@@ -102,7 +106,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
       <div
         key={seat.id}
         onClick={() => isInteractive && onSeatClick(seat)}
-        className={`relative flex flex-col border transition-all duration-200 select-none overflow-hidden ${statusClass} ${
+        className={`relative flex flex-col border transition-all duration-200 select-none overflow-hidden group ${statusClass} ${
           isBench ? "w-1/5 h-[100px] rounded-lg" : "w-full h-[100px] rounded-lg"
         }
         `}
@@ -134,6 +138,20 @@ export const SeatMap: React.FC<SeatMapProps> = ({
             <Check size={12} strokeWidth={4} />
           )}
         </div>
+
+        {/* SWAP ICON OVERLAY (Only for Booked/Sold/Held) */}
+        {(seat.status === SeatStatus.BOOKED || seat.status === SeatStatus.SOLD || seat.status === SeatStatus.HELD) && onSeatSwap && (
+            <button
+                onClick={(e) => {
+                    e.stopPropagation(); // Prevent opening booking details
+                    onSeatSwap(seat);
+                }}
+                className="absolute top-8 right-1 z-20 p-1.5 bg-white/80 hover:bg-indigo-600 hover:text-white text-indigo-600 rounded-full shadow-sm border border-indigo-100 opacity-0 group-hover:opacity-100 transition-all duration-200 transform scale-75 hover:scale-100"
+                title="Đổi ghế này"
+            >
+                <ArrowRightLeft size={14} />
+            </button>
+        )}
 
         {/* Content Body */}
         <div className="flex-1 p-2 flex flex-col text-[10px] leading-tight space-y-1.5">
