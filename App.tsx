@@ -36,13 +36,24 @@ import {
   History,
   Clock,
   ArrowRight,
-  AlertCircle
+  AlertCircle,
+  FileEdit,
+  ArrowRight as ArrowRightIcon
 } from "lucide-react";
 import { api } from "./lib/api";
 import { isSameDay, formatLunarDate, formatTime } from "./utils/dateUtils";
 import { PaymentModal } from "./components/PaymentModal";
 import { Dialog } from "./components/ui/Dialog";
 import { Button } from "./components/ui/Button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "./components/ui/AlertDialog";
 
 function AppContent() {
   const { toast } = useToast();
@@ -128,6 +139,17 @@ function AppContent() {
 
   // EDIT MODE STATE
   const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
+  
+  // UPDATE CONFIRMATION DIALOG STATE
+  const [updateSummary, setUpdateSummary] = useState<{
+      diffCount: number;
+      diffPrice: number;
+      oldSeatCount: number;
+      newSeatCount: number;
+      oldPrice: number;
+      newPrice: number;
+      changesDetected: boolean;
+  } | null>(null);
 
   // Payment Modal State
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
@@ -834,10 +856,47 @@ function AppContent() {
   // UNIFIED ACTION HANDLER
   const handleConfirmAction = () => {
     if (editingBooking) {
-      // Handle Update Existing Booking
-      // Use totalBasketPrice which now reflects the modified selection
+      // 1. CALCULATE CHANGES FOR SUMMARY
+      const oldPrice = editingBooking.totalPrice;
+      const newPrice = totalBasketPrice;
+      const oldSeatCount = editingBooking.totalTickets;
+      const newSeatCount = selectionBasket.reduce((sum, item) => sum + item.seats.length, 0);
       
-      // CHECK IF PRICE INCREASED
+      const diffCount = newSeatCount - oldSeatCount;
+      const diffPrice = newPrice - oldPrice;
+      
+      // Determine if there are *any* effective changes to commit
+      const hasSeatChanges = diffCount !== 0 || newPrice !== oldPrice; 
+      // Note: We should also check if specific seats changed even if count is same, but keeping it simple for now.
+      
+      setUpdateSummary({
+          diffCount,
+          diffPrice,
+          oldSeatCount,
+          newSeatCount,
+          oldPrice,
+          newPrice,
+          changesDetected: true // Assume true if user clicked save in edit mode
+      });
+      return;
+    }
+
+    if (bookingMode === "booking") {
+      handleBookingOnly();
+    } else if (bookingMode === "payment") {
+      handleInitiatePayment();
+    } else if (bookingMode === "hold") {
+      processHoldSeats();
+    }
+  };
+
+  // PROCEED AFTER DIALOG CONFIRMATION
+  const handleProceedUpdate = async () => {
+      setUpdateSummary(null); // Close dialog
+      
+      if (!editingBooking) return;
+
+      // CHECK IF PRICE INCREASED -> PAYMENT MODAL
       const priceIncreased = totalBasketPrice > editingBooking.totalPrice;
       
       if (!priceIncreased) {
@@ -852,16 +911,6 @@ function AppContent() {
           });
           setIsPaymentModalOpen(true);
       }
-      return;
-    }
-
-    if (bookingMode === "booking") {
-      handleBookingOnly();
-    } else if (bookingMode === "payment") {
-      handleInitiatePayment();
-    } else if (bookingMode === "hold") {
-      processHoldSeats();
-    }
   };
 
   const handleConfirmPayment = async () => {
@@ -1461,6 +1510,73 @@ function AppContent() {
         bookings={bookings}
         onSave={handleSaveSeatDetail}
       />
+      
+      {/* UPDATE CONFIRMATION DIALOG */}
+      <AlertDialog open={!!updateSummary} onOpenChange={(open) => !open && setUpdateSummary(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-blue-600 flex items-center gap-2">
+                <FileEdit size={20} />
+                Xác nhận thay đổi
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="text-slate-600 pt-2 space-y-4">
+                <p>Bạn có chắc muốn lưu các thay đổi cho đơn hàng này?</p>
+                
+                {updateSummary && (
+                    <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 text-sm space-y-2">
+                        {/* Seat Count Change */}
+                        <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+                            <span className="text-slate-500">Số lượng vé</span>
+                            <div className="flex items-center gap-2 font-medium">
+                                <span>{updateSummary.oldSeatCount}</span>
+                                <ArrowRightIcon size={14} className="text-slate-400" />
+                                <span className={updateSummary.diffCount > 0 ? "text-green-600" : updateSummary.diffCount < 0 ? "text-red-600" : "text-slate-900"}>
+                                    {updateSummary.newSeatCount}
+                                </span>
+                                {updateSummary.diffCount !== 0 && (
+                                    <span className={`text-[10px] px-1.5 py-0.5 rounded ${updateSummary.diffCount > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                        {updateSummary.diffCount > 0 ? `+${updateSummary.diffCount}` : updateSummary.diffCount}
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Price Change */}
+                        <div className="flex justify-between items-center">
+                            <span className="text-slate-500">Tổng tiền</span>
+                            <div className="flex items-center gap-2 font-medium">
+                                <span>{updateSummary.oldPrice.toLocaleString('vi-VN')}</span>
+                                <ArrowRightIcon size={14} className="text-slate-400" />
+                                <span className={updateSummary.diffPrice > 0 ? "text-orange-600" : updateSummary.diffPrice < 0 ? "text-blue-600" : "text-slate-900"}>
+                                    {updateSummary.newPrice.toLocaleString('vi-VN')}
+                                </span>
+                            </div>
+                        </div>
+                        {updateSummary.diffPrice !== 0 && (
+                             <div className={`text-right text-xs font-bold ${updateSummary.diffPrice > 0 ? "text-orange-600" : "text-blue-600"}`}>
+                                 ({updateSummary.diffPrice > 0 ? "Tăng" : "Giảm"} {Math.abs(updateSummary.diffPrice).toLocaleString('vi-VN')} đ)
+                             </div>
+                        )}
+                        
+                        {/* Special warning if count is 0 */}
+                        {updateSummary.newSeatCount === 0 && (
+                            <div className="mt-2 p-2 bg-red-50 text-red-600 rounded text-xs border border-red-100 flex items-center gap-2">
+                                <AlertCircle size={14} />
+                                <span>Đơn hàng sẽ chuyển sang trạng thái <strong>Đã hủy</strong>.</span>
+                            </div>
+                        )}
+                    </div>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button variant="outline" onClick={() => setUpdateSummary(null)}>Quay lại</Button>
+            <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleProceedUpdate}>Đồng ý lưu</Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Layout>
   );
 }
