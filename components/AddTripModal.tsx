@@ -320,30 +320,82 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
     if (isNew) {
       finalSeats = newLayoutSeats;
     } else {
-      // A. Update statuses of new layout matching old labels
+      const handledOldIds = new Set<string>(); // Tracks IDs of seats mapped positionally (like Bench 2)
+
+      // --- SPECIAL MAPPING: Floor 2 Rear Bench Positional Mapping ---
+      // If we are editing (not new) and specifically for sleeper/buses with benches
+      if (busChanged) {
+        // 1. Identify Bench Row in OLD Bus (Floor 2, Row with >= 5 cols)
+        const oldSeatsF2 = previousSeats.filter((s) => s.floor === 2);
+        const oldRowCounts = oldSeatsF2.reduce((acc, s) => {
+          const r = s.row ?? 0;
+          acc[r] = (acc[r] || 0) + 1;
+          return acc;
+        }, {} as Record<number, number>);
+
+        const oldBenchRow = Object.keys(oldRowCounts).find(
+          (r) => oldRowCounts[Number(r)] >= 5
+        );
+
+        // 2. Identify Bench Row in NEW Bus
+        const newSeatsF2 = newLayoutSeats.filter((s) => s.floor === 2);
+        const newRowCounts = newSeatsF2.reduce((acc, s) => {
+          const r = s.row ?? 0;
+          acc[r] = (acc[r] || 0) + 1;
+          return acc;
+        }, {} as Record<number, number>);
+
+        const newBenchRow = Object.keys(newRowCounts).find(
+          (r) => newRowCounts[Number(r)] >= 5
+        );
+
+        // 3. Map Positionally (Index 0->0, 1->1...)
+        if (oldBenchRow !== undefined && newBenchRow !== undefined) {
+          const oldBenchSeats = oldSeatsF2
+            .filter((s) => s.row === Number(oldBenchRow))
+            .sort((a, b) => (a.col ?? 0) - (b.col ?? 0));
+
+          const newBenchSeats = newSeatsF2
+            .filter((s) => s.row === Number(newBenchRow))
+            .sort((a, b) => (a.col ?? 0) - (b.col ?? 0));
+
+          // Iterate positions 0 to 4
+          for (let i = 0; i < 5; i++) {
+            const oldS = oldBenchSeats[i];
+            const newS = newBenchSeats[i];
+
+            // If old seat exists at this index, is occupied, and new seat exists
+            if (oldS && newS && oldS.status !== SeatStatus.AVAILABLE) {
+              // Override mapping for this NEW label to match OLD status
+              occupiedSeatMap.set(newS.label, oldS.status);
+
+              // Mark OLD seat as handled so it doesn't appear as Orphan
+              handledOldIds.add(oldS.id);
+            }
+          }
+        }
+      }
+
+      // A. Update statuses of new layout matching old labels (or injected positional mappings)
       finalSeats = newLayoutSeats.map((newSeat) => {
         if (occupiedSeatMap.has(newSeat.label)) {
           return {
             ...newSeat,
             status: occupiedSeatMap.get(newSeat.label)!,
-            // Keep the new price or preserve old price? Usually new base price applies to unbooked,
-            // but booked seats might keep their booked price.
-            // For simplicity here, we update to new price unless specific logic needed.
-            price: price, 
+            price: price,
           };
         }
         return newSeat;
       });
 
       // B. Handle ORPHANED seats (Occupied in old bus, but label not found in new bus)
-      // These should be appended to the list so they are not lost.
-      // We give them a special row index (e.g. 99) so the UI can render them separately.
       const newLayoutLabels = new Set(newLayoutSeats.map((s) => s.label));
 
       previousSeats.forEach((oldSeat) => {
         if (
           oldSeat.status !== SeatStatus.AVAILABLE &&
-          !newLayoutLabels.has(oldSeat.label)
+          !newLayoutLabels.has(oldSeat.label) &&
+          !handledOldIds.has(oldSeat.id) // Skip if handled by Bench Logic
         ) {
           finalSeats.push({
             ...oldSeat,
