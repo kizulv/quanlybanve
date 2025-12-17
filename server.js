@@ -365,7 +365,8 @@ app.post("/api/bookings", async (req, res) => {
     const isFullyPaid = totalPaid >= calculatedTotalPrice;
     
     const finalStatus = status ? status : (isFullyPaid ? "confirmed" : "pending");
-    const seatStatus = finalStatus === "confirmed" ? "sold" : "booked";
+    // Standard Global Status
+    const globalSeatStatus = finalStatus === "confirmed" ? "sold" : "booked";
 
     // Update Trips (Status only, no payment info)
     for (const item of bookingItems) {
@@ -374,8 +375,20 @@ app.post("/api/bookings", async (req, res) => {
          
          const seatIds = item.seatIds;
          
+         // Create a quick lookup for ticket prices
+         const ticketPriceMap = {};
+         item.tickets.forEach(t => {
+             ticketPriceMap[t.seatId] = t.price;
+         });
+
          trip.seats = trip.seats.map(s => {
-             if (seatIds.includes(s.id)) return { ...s, status: seatStatus };
+             if (seatIds.includes(s.id)) {
+                 // Check if this specific seat has a price of 0
+                 // If price is 0 (free/gift), force status to 'booked' regardless of payment
+                 const specificPrice = ticketPriceMap[s.id];
+                 const finalSeatStatus = (specificPrice === 0) ? 'booked' : globalSeatStatus;
+                 return { ...s, status: finalSeatStatus };
+             }
              return s;
          });
          
@@ -500,7 +513,7 @@ app.put("/api/bookings/:id", async (req, res) => {
           if (isFullyPaid) finalStatus = "confirmed";
       }
 
-      const seatStatus = isFullyPaid ? "sold" : "booked";
+      const globalSeatStatus = isFullyPaid ? "sold" : "booked";
 
       // 4. Update Trips
       if (calculatedTotalTickets > 0) {
@@ -509,8 +522,20 @@ app.put("/api/bookings/:id", async (req, res) => {
               if (!trip) continue;
 
               const seatIds = item.seatIds;
+              
+              // Create lookup for ticket prices
+              const ticketPriceMap = {};
+              item.tickets.forEach(t => {
+                  ticketPriceMap[t.seatId] = t.price;
+              });
+
               trip.seats = trip.seats.map(s => {
-                  if (seatIds.includes(s.id)) return { ...s, status: seatStatus };
+                  if (seatIds.includes(s.id)) {
+                      // Force 'booked' if price is 0
+                      const specificPrice = ticketPriceMap[s.id];
+                      const finalSeatStatus = (specificPrice === 0) ? 'booked' : globalSeatStatus;
+                      return { ...s, status: finalSeatStatus };
+                  }
                   return s;
               });
               
