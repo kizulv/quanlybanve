@@ -199,11 +199,30 @@ function AppContent() {
   }, [trips, routes]);
 
   const totalBasketPrice = useMemo(() => {
-    return selectionBasket.reduce(
-      (sum, item) => sum + item.seats.reduce((s, seat) => s + seat.price, 0),
-      0
-    );
-  }, [selectionBasket]);
+    return selectionBasket.reduce((sum, basketItem) => {
+      const itemTotal = basketItem.seats.reduce((seatSum, seat) => {
+        let effectivePrice = seat.price;
+
+        // If editing, prioritize the actual historical price stored in the booking
+        // over the current base trip price.
+        if (editingBooking) {
+          const originalItem = editingBooking.items.find(
+            (i) => i.tripId === basketItem.trip.id
+          );
+
+          if (originalItem && originalItem.seatIds.includes(seat.id)) {
+            // Derive unit price from the saved total item price
+            const count = originalItem.seatIds.length;
+            if (count > 0) {
+              effectivePrice = originalItem.price / count;
+            }
+          }
+        }
+        return seatSum + effectivePrice;
+      }, 0);
+      return sum + itemTotal;
+    }, 0);
+  }, [selectionBasket, editingBooking]);
 
   // -- UTILS --
   const validatePhoneNumber = (phone: string): string | null => {
