@@ -32,8 +32,6 @@ interface BookingFormProps {
     phone: string;
     pickup: string;
     dropoff: string;
-    paidCash: number;
-    paidTransfer: number;
     note: string;
   };
   setBookingForm: React.Dispatch<
@@ -41,8 +39,6 @@ interface BookingFormProps {
       phone: string;
       pickup: string;
       dropoff: string;
-      paidCash: number;
-      paidTransfer: number;
       note: string;
     }>
   >;
@@ -129,27 +125,6 @@ export const BookingForm: React.FC<BookingFormProps> = ({
       return `${value}`;
     }
     return value.replace(/(?:^|\s)\S/g, (a) => a.toUpperCase());
-  };
-
-  // --- HANDLER FOR MODE SWITCHING ---
-  const handleModeSwitch = (mode: "booking" | "payment" | "hold") => {
-    setBookingMode(mode);
-
-    // Auto-logic for payment fields
-    if (mode === "payment") {
-      // If switching to payment, autofill full price if currently 0
-      if (bookingForm.paidCash === 0 && bookingForm.paidTransfer === 0) {
-        setBookingForm((prev) => ({
-          ...prev,
-          paidCash: totalPrice,
-          paidTransfer: 0,
-        }));
-      }
-    } else {
-      // If switching to Booking/Hold, clear payment (assume unpaid)
-      // Unless user manually keeps it, but usually switching mode means changing intent
-      setBookingForm((prev) => ({ ...prev, paidCash: 0, paidTransfer: 0 }));
-    }
   };
 
   // --- HISTORY LOGIC ---
@@ -444,11 +419,11 @@ export const BookingForm: React.FC<BookingFormProps> = ({
         </div>
       )}
 
-      {/* 3. Mode Selector - ALWAYS VISIBLE */}
+      {/* 3. Mode Selector */}
       <div className="px-3 pb-3 bg-indigo-950">
         <div className="bg-indigo-900/50 p-1 rounded-lg flex border border-indigo-800">
           <button
-            onClick={() => handleModeSwitch("booking")}
+            onClick={() => setBookingMode("booking")}
             className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-xs rounded-md transition-all ${
               bookingMode === "booking"
                 ? "bg-yellow-500 text-indigo-950 shadow-sm"
@@ -458,7 +433,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
             <Ticket size={12} /> Đặt vé
           </button>
           <button
-            onClick={() => handleModeSwitch("payment")}
+            onClick={() => setBookingMode("payment")}
             className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-xs rounded-md transition-all ${
               bookingMode === "payment"
                 ? "bg-yellow-500 text-indigo-950 shadow-sm"
@@ -468,7 +443,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
             <Banknote size={12} /> Mua vé
           </button>
           <button
-            onClick={() => handleModeSwitch("hold")}
+            onClick={() => setBookingMode("hold")}
             className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-xs rounded-md transition-all ${
               bookingMode === "hold"
                 ? "bg-yellow-500 text-indigo-950 shadow-sm"
@@ -507,7 +482,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
                 }`}
               />
 
-              {/* HISTORY DROPDOWN - Always available if matches exist */}
+              {/* HISTORY DROPDOWN */}
               {showHistory && passengerHistory.length > 0 && (
                 <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-lg shadow-xl border border-slate-200 overflow-hidden z-[50] animate-in fade-in zoom-in-95 duration-200">
                   <div className="bg-slate-50 px-3 py-1.5 border-b border-slate-100 flex justify-between items-center">
@@ -613,7 +588,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
           </div>
         )}
         
-        {/* Note field is always visible now to support Hold mode notes */}
+        {/* Note field */}
         <div className="relative">
           <textarea
             name="note"
@@ -629,7 +604,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
           />
         </div>
 
-        {/* Total Price */}
+        {/* Total Price Display - Read Only */}
         <div className="flex justify-between items-center pt-1">
           <span className="text-xs font-bold uppercase text-indigo-300">
             TỔNG TIỀN
@@ -645,7 +620,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
       <div className={`p-2 border-t rounded-b-xl bg-indigo-950 border-indigo-900 ${editingBooking ? 'grid grid-cols-2 gap-2' : ''}`}>
         {editingBooking ? (
           <>
-            {/* Pay Button - Opens Payment Modal */}
+            {/* Manual Payment Trigger */}
             <Button
               className="bg-green-600 hover:bg-green-500 text-white font-bold h-10 text-sm border border-green-700"
               onClick={onOpenPayment}
@@ -654,7 +629,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
               <CreditCard size={16} className="mr-2" /> Thanh toán
             </Button>
             
-            {/* Save/Edit Button */}
+            {/* Save Button */}
             <Button
               className={`font-bold h-10 text-sm ${selectionBasket.length === 0 ? 'bg-red-600 hover:bg-red-500 text-white border-red-700' : 'bg-yellow-500 hover:bg-yellow-400 text-indigo-950'}`}
               onClick={onConfirm}
@@ -665,11 +640,12 @@ export const BookingForm: React.FC<BookingFormProps> = ({
           </>
         ) : (
           <Button
-            className={`w-full font-bold h-10 text-sm bg-yellow-500 hover:bg-yellow-400 text-indigo-950`}
+            className={`w-full font-bold h-10 text-sm ${bookingMode === 'payment' ? 'bg-green-600 hover:bg-green-500 text-white' : 'bg-yellow-500 hover:bg-yellow-400 text-indigo-950'}`}
             onClick={onConfirm}
             disabled={selectionBasket.length === 0}
           >
-            <CheckCircle2 size={16} className="mr-2" /> Đồng ý
+            {bookingMode === 'payment' ? <CreditCard size={16} className="mr-2" /> : <CheckCircle2 size={16} className="mr-2" />} 
+            {bookingMode === 'payment' ? "Thanh toán" : "Đồng ý"}
           </Button>
         )}
       </div>

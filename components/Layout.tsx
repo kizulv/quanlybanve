@@ -11,6 +11,7 @@ import {
   BusFront,
   Zap,
   Bus,
+  BadgeDollarSign
 } from "lucide-react";
 import { Button } from "./ui/Button";
 import { Popover } from "./ui/Popover";
@@ -69,7 +70,7 @@ export const Layout: React.FC<LayoutProps> = ({
     peakDays: [],
   });
 
-  // Load schedule settings from API (instead of localStorage)
+  // Load schedule settings from API
   useEffect(() => {
     const loadSettings = async () => {
       try {
@@ -88,6 +89,7 @@ export const Layout: React.FC<LayoutProps> = ({
     { id: "sales", icon: <Bus size={20} />, label: "Bán vé" },
     { id: "tickets", icon: <Ticket size={20} />, label: "Danh sách vé" },
     { id: "schedule", icon: <CalendarIcon size={20} />, label: "Lịch trình" },
+    { id: "finance", icon: <BadgeDollarSign size={20} />, label: "Tài chính" },
   ];
 
   const pageInfo: Record<string, { title: string; description: string }> = {
@@ -102,6 +104,10 @@ export const Layout: React.FC<LayoutProps> = ({
     schedule: {
       title: "Lịch trình",
       description: "Xem tổng quan lịch chạy xe",
+    },
+    finance: {
+      title: "Tài chính",
+      description: "Quản lý doanh thu và lịch sử thanh toán",
     },
     settings: {
       title: "Cài đặt hệ thống",
@@ -124,8 +130,7 @@ export const Layout: React.FC<LayoutProps> = ({
 
   // Logic to process Enhanced Routes labels
   const tripOptions = useMemo(() => {
-    // 1. Determine Route Sorting Order (Matches ScheduleView: Regular first, then Enhanced)
-    // We sort routes first, then use that order to sort the trips.
+    // 1. Determine Route Sorting Order
     const sortedRouteIds = [...routes]
       .sort((a, b) => {
         // Sort by Enhanced status: Regular (false) < Enhanced (true)
@@ -174,11 +179,9 @@ export const Layout: React.FC<LayoutProps> = ({
     });
 
     // 3. Compute Ranks and Sort
-    // We assign a rank to each trip based on its Route's position in `sortedRouteIds`.
     tripsWithMeta.forEach((t) => {
       let rank = sortedRouteIds.indexOf(String(t.routeId));
 
-      // Fallback: Try to find by name if ID lookup failed
       if (rank === -1 && t.route) {
         const matchingRoute = routes.find((r) => r.name === t.route);
         if (matchingRoute) {
@@ -186,8 +189,6 @@ export const Layout: React.FC<LayoutProps> = ({
         }
       }
 
-      // If still not found (e.g. unknown route), push to bottom.
-      // Respect enhanced flag for these orphans.
       if (rank === -1) {
         rank = t.isEnhanced ? 9999 : 5000;
       }
@@ -195,7 +196,6 @@ export const Layout: React.FC<LayoutProps> = ({
       t._rank = rank;
     });
 
-    // Sort: Primary by Route Rank, Secondary by Time
     tripsWithMeta.sort((a, b) => {
       if (a._rank !== b._rank) return a._rank - b._rank;
       return a.departureTime.localeCompare(b.departureTime);

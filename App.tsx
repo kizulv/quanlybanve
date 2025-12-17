@@ -4,6 +4,7 @@ import { Layout } from "./components/Layout";
 import { SeatMap } from "./components/SeatMap";
 import { SettingsView } from "./components/SettingsView";
 import { ScheduleView } from "./components/ScheduleView";
+import { PaymentManager } from "./components/PaymentManager"; // New Component
 import { Badge } from "./components/ui/Badge";
 import { ToastProvider, useToast } from "./components/ui/Toast";
 import { RightSheet } from "./components/RightSheet";
@@ -128,13 +129,11 @@ function AppContent() {
     "outbound" | "inbound"
   >("outbound");
 
-  // Booking Form State
+  // Booking Form State - REMOVED PAYMENT FIELDS
   const [bookingForm, setBookingForm] = useState({
     phone: "",
     pickup: "",
     dropoff: "",
-    paidCash: 0,
-    paidTransfer: 0,
     note: "",
   });
 
@@ -173,6 +172,9 @@ function AppContent() {
     bookingIds?: string[];
     totalPrice: number;
   } | null>(null);
+  
+  // Local state for Payment Modal inputs (since removed from BookingForm)
+  const [modalPaymentInput, setModalPaymentInput] = useState({ paidCash: 0, paidTransfer: 0 });
 
   // -- CALCULATED STATES (BASKET) --
   // Calculate all selected seats across ALL trips
@@ -275,24 +277,14 @@ function AppContent() {
   }, [tripBookings, manifestSearch, selectedTrip]);
 
   // Auto update payment when total changes - ONLY IN PAYMENT MODE
+  // Update: We only set the modal input defaults when opening
   useEffect(() => {
-    if (bookingMode !== 'payment') return;
-
-    if (pendingPaymentContext && pendingPaymentContext.type === "update")
-      return;
-
-    // Use totalBasketPrice for new bookings
-    const currentTotal = pendingPaymentContext?.totalPrice || totalBasketPrice;
-
-    if (bookingForm.paidTransfer === 0) {
-      setBookingForm((prev) => ({ ...prev, paidCash: currentTotal }));
-    } else {
-      setBookingForm((prev) => ({
-        ...prev,
-        paidCash: Math.max(0, currentTotal - prev.paidTransfer),
-      }));
+    if (!isPaymentModalOpen) {
+        // Reset when closed
+        setModalPaymentInput({ paidCash: 0, paidTransfer: 0 });
     }
-  }, [totalBasketPrice, pendingPaymentContext, bookingMode]);
+  }, [isPaymentModalOpen]);
+
 
   // Scroll to highlighted booking
   useEffect(() => {
@@ -438,9 +430,6 @@ function AppContent() {
            return {
              ...seat,
              status: restoreStatus,
-             // If restoring to HELD, we keep the original status (or just status)
-             // We can clear originalStatus now since it's back to normal
-             // But preserving note is automatic via spread
            };
         }
 
@@ -521,7 +510,6 @@ function AppContent() {
     setHighlightedBookingId(null); // Clear highlight when entering edit mode
 
     // 1. Restore currently SELECTED seats to CORRECT STATUS (Booked/Sold/Held or Available)
-    // IMPORTANT: If user had selected HELD seats before clicking edit, restore them to HELD
     const restoredTrips = trips.map((t) => ({
       ...t,
       seats: t.seats.map((s) => {
@@ -576,8 +564,12 @@ function AppContent() {
       pickup: booking.passenger.pickupPoint || "",
       dropoff: booking.passenger.dropoffPoint || "",
       note: booking.passenger.note || "",
-      paidCash: booking.payment?.paidCash || 0,
-      paidTransfer: booking.payment?.paidTransfer || 0,
+    });
+
+    // Populate Payment Modal Inputs with current payments (for reference when opening modal)
+    setModalPaymentInput({
+        paidCash: booking.payment?.paidCash || 0,
+        paidTransfer: booking.payment?.paidTransfer || 0
     });
   };
 
@@ -588,7 +580,8 @@ function AppContent() {
   };
 
   // Handle Create Booking (Single or Multi-Trip)
-  const processBooking = async (isPaid: boolean, overrides: Record<string, SeatOverride> = {}) => {
+  // Payment info is passed in argument if it comes from PaymentModal
+  const processBooking = async (paymentData?: { paidCash: number; paidTransfer: number }, overrides: Record<string, SeatOverride> = {}) => {
     if (selectionBasket.length === 0) {
       toast({
         type: "warning",
@@ -610,15 +603,6 @@ function AppContent() {
       return;
     }
 
-    if (!bookingForm.phone) {
-      toast({
-        type: "warning",
-        title: "Thiếu thông tin",
-        message: "Vui lòng nhập số điện thoại khách hàng.",
-      });
-      return;
-    }
-
     const passenger: Passenger = {
       name: "Khách lẻ",
       phone: bookingForm.phone,
@@ -627,16 +611,12 @@ function AppContent() {
       dropoffPoint: bookingForm.dropoff,
     };
 
-    const payment = isPaid
-      ? {
-          paidCash: bookingForm.paidCash,
-          paidTransfer: bookingForm.paidTransfer,
-        }
-      : { paidCash: 0, paidTransfer: 0 };
+    const payment = paymentData || { paidCash: 0, paidTransfer: 0 };
+    const isPaid = (payment.paidCash + payment.paidTransfer) > 0;
 
     // Prepare items for single API call
     const bookingItems = selectionBasket.map((item) => {
-        // Apply overrides to seats (Price primarily, we don't sync per-seat pickup yet)
+        // Apply overrides to seats (Price primarily)
         const seatsWithPrice = item.seats.map(s => {
             const key = `${item.trip.id}_${s.id}`;
             const override = overrides[key];
@@ -652,8 +632,7 @@ function AppContent() {
         };
     });
 
-    // FORCE PENDING STATUS IF NOT PAID (BOOKING MODE)
-    // This handles the case where price is 0 but intention is "Booking" (Pending)
+    // FORCE PENDING STATUS IF NOT PAID
     const explicitStatus = isPaid ? undefined : "pending";
 
     try {
@@ -676,9 +655,7 @@ function AppContent() {
       // Add to Undo Stack
       if (result.bookings.length > 0) {
           const b = result.bookings[0];
-          // Collect labels for display
           const allLabels = selectionBasket.flatMap(i => i.seats.map(s => s.label));
-          // Get primary trip date (first item) for display
           const primaryTripDate = selectionBasket.length > 0 ? selectionBasket[0].trip.departureTime : "";
           
           setUndoStack(prev => [...prev, {
@@ -694,8 +671,9 @@ function AppContent() {
       // Reset
       setIsPaymentModalOpen(false);
       setPendingPaymentContext(null);
-      setBookingForm((prev) => ({ ...prev, note: "", phone: "" })); // Keep location?
+      setBookingForm((prev) => ({ ...prev, note: "", phone: "" })); 
       setPhoneError(null);
+      setModalPaymentInput({ paidCash: 0, paidTransfer: 0 });
 
       if (selectedTrip) handleTripSelect(selectedTrip.id);
 
@@ -734,18 +712,14 @@ function AppContent() {
         // Update SELECTED to HELD and Add Note
         const updatedSeats = item.trip.seats.map((s) => {
           if (s.status === SeatStatus.SELECTED) {
-            // Note: When moving to confirmed HELD, we don't need originalStatus anymore
-            // as this is the new committed state.
             const { originalStatus, ...rest } = s; 
             return { ...rest, status: SeatStatus.HELD, note: bookingForm.note };
           }
           return s;
         });
 
-        // Call API to update seats only
         await api.trips.updateSeats(item.trip.id, updatedSeats);
 
-        // Update local state
         setTrips((prev) =>
           prev.map(
             (t): BusTrip =>
@@ -759,8 +733,6 @@ function AppContent() {
         title: "Đã giữ vé",
         message: "Đã cập nhật trạng thái ghế sang Đang giữ.",
       });
-      // Clear basket is automatic since status changed from SELECTED to HELD
-      // Also clear note to be clean
       setBookingForm(prev => ({ ...prev, note: '' }));
     } catch (error) {
       console.error(error);
@@ -768,7 +740,7 @@ function AppContent() {
     }
   };
 
-  const handleBookingOnly = () => processBooking(false);
+  const handleBookingOnly = () => processBooking(undefined);
 
   const handleInitiatePayment = () => {
     if (selectionBasket.length === 0) {
@@ -783,22 +755,15 @@ function AppContent() {
     const error = validatePhoneNumber(bookingForm.phone);
     if (error) {
       setPhoneError(error);
-      toast({
-        type: "error",
-        title: "Số điện thoại không hợp lệ",
-        message: error,
-      });
+      toast({ type: "error", title: "Số điện thoại không hợp lệ", message: error });
       return;
     }
 
-    if (!bookingForm.phone) {
-      toast({
-        type: "warning",
-        title: "Thiếu thông tin",
-        message: "Vui lòng nhập số điện thoại.",
-      });
-      return;
+    // Auto-fill full price if inputs are empty
+    if (modalPaymentInput.paidCash === 0 && modalPaymentInput.paidTransfer === 0) {
+        setModalPaymentInput({ paidCash: totalBasketPrice, paidTransfer: 0 });
     }
+
     setPendingPaymentContext({
       type: "new",
       totalPrice: totalBasketPrice,
@@ -811,18 +776,19 @@ function AppContent() {
     setPendingPaymentContext({
       type: "update",
       bookingIds: [editingBooking.id],
-      totalPrice: totalBasketPrice, // Use current basket price
+      totalPrice: totalBasketPrice,
+    });
+    // Set initial values from editing booking
+    setModalPaymentInput({
+        paidCash: editingBooking.payment?.paidCash || 0,
+        paidTransfer: editingBooking.payment?.paidTransfer || 0
     });
     setIsPaymentModalOpen(true);
   };
 
-  // Helper to execute update logic directly (used when no payment modal is needed)
-  const executeBookingUpdate = async (targetBookingId: string, overrides: Record<string, SeatOverride> = {}) => {
+  // Helper to execute update logic
+  const executeBookingUpdate = async (targetBookingId: string, paymentData: { paidCash: number; paidTransfer: number }, overrides: Record<string, SeatOverride> = {}) => {
       try {
-        const payment = {
-          paidCash: bookingForm.paidCash,
-          paidTransfer: bookingForm.paidTransfer,
-        };
         const passenger = {
           name: "Khách lẻ",
           phone: bookingForm.phone,
@@ -852,36 +818,18 @@ function AppContent() {
         // STORE OLD STATE FOR UNDO
         const oldBooking = bookings.find(b => b.id === targetBookingId);
 
-        // MERGE LOGIC:
-        // Since `selectionBasket` might only contain items for the displayed trip,
-        // we must preserve items from other trips that are in `editingBooking` but not in the basket.
         let finalBookingItems = [...currentBookingItems];
         
         if (oldBooking) {
-            // Find IDs of trips currently in basket
             const basketTripIds = new Set(currentBookingItems.map(i => i.tripId));
-            
-            // Find IDs of trips that are LOADED in the UI. 
-            // If a trip is loaded in the UI, but has NO items in the basket, it means the user deliberately deselected all.
             const loadedTripIds = new Set(trips.map(t => t.id));
             
-            // Filter original items
             const preservedItems = oldBooking.items.filter(item => {
-                // If it's in the basket, we have new data, so don't preserve old data.
                 if (basketTripIds.has(item.tripId)) return false;
-
-                // If it's NOT in the basket, BUT the trip is currently loaded/visible,
-                // it implies the user saw it and deselected everything. So we DO NOT preserve (we effectively delete it).
                 if (loadedTripIds.has(item.tripId)) return false;
-
-                // If the trip is NOT loaded in the UI (e.g. it's on a different date we haven't fetched/filtered),
-                // then we MUST preserve it because the user couldn't have edited it.
-                // (Note: `trips` state technically holds all fetched trips, so checking against it is safe)
                 return true;
             });
             
-            // Reconstruct seat objects for preserved items (since API expects {tripId, seats: Seat[]})
-            // We need to look up these seats in `trips` state
             const reconstructedPreservedItems = preservedItems.map(item => {
                 const trip = trips.find(t => t.id === item.tripId);
                 const seatsObj = trip ? trip.seats.filter(s => item.seatIds.includes(s.id)) : [];
@@ -898,21 +846,18 @@ function AppContent() {
           targetBookingId,
           finalBookingItems,
           passenger,
-          payment
+          paymentData
         );
 
-        // Update local list
         setBookings((prev) =>
           prev.map((b) => (b.id === targetBookingId ? result.booking : b))
         );
 
-        // Sync trips from result.updatedTrips
         const updatedTripsMap = new Map<string, BusTrip>(
           result.updatedTrips.map((t: BusTrip) => [t.id, t])
         );
         setTrips((prev) => prev.map((t) => updatedTripsMap.get(t.id) || t));
 
-        // Add to Undo Stack
         if (oldBooking) {
             setUndoStack(prev => [...prev, {
                 type: 'UPDATED_BOOKING',
@@ -923,8 +868,8 @@ function AppContent() {
 
         setIsPaymentModalOpen(false);
         setPendingPaymentContext(null);
-        setEditingBooking(null); // Exit edit mode
-        setBookingForm({ ...bookingForm, phone: "", note: "" }); // Reset form partially
+        setEditingBooking(null); 
+        setBookingForm({ ...bookingForm, phone: "", note: "" });
 
         toast({
           type: "success",
@@ -949,19 +894,14 @@ function AppContent() {
       const diffCount = newSeatCount - oldSeatCount;
       const diffPrice = newPrice - oldPrice;
       
-      // Determine if there are *any* effective changes to commit
-      const hasSeatChanges = diffCount !== 0 || newPrice !== oldPrice; 
-      
       // 2. Build Old Trips Data
       const oldTrips = editingBooking.items.map(item => {
-          // Try to find the live trip object to get latest seat labels if possible
           const liveTrip = trips.find(t => t.id === item.tripId);
           const seatLabels = item.seatIds.map(sid => {
               if (liveTrip) {
                   const s = liveTrip.seats.find(seat => seat.id === sid);
                   return s ? s.label : sid;
               }
-              // If trip not loaded, return ID (or we could try to infer if we had map, but ID is safe fallback)
               return sid;
           });
 
@@ -1004,66 +944,59 @@ function AppContent() {
 
   // PROCEED AFTER DIALOG CONFIRMATION
   const handleProceedUpdate = async () => {
-      setUpdateSummary(null); // Close dialog
+      setUpdateSummary(null); 
       
       if (!editingBooking) return;
 
-      // UPDATE: Always show payment modal if price changed (either increased OR decreased)
-      // This allows processing refunds or additional payments.
-      const priceChanged = totalBasketPrice !== editingBooking.totalPrice;
+      // Always show payment modal for reconciliation during edit if Price changed or user manually triggered it
+      // But if user just wants to save edits without payment change, we could skip.
+      // However, separating payment from BookingForm means we don't have payment inputs visible.
+      // So safest is to open modal if they haven't manually opened it.
       
-      // NEW CHECK: Has the paid amount changed? (e.g. User manually reset payment to 0 for refund)
-      const currentFormPayment = bookingForm.paidCash + bookingForm.paidTransfer;
-      const originalPayment = (editingBooking.payment?.paidCash || 0) + (editingBooking.payment?.paidTransfer || 0);
-      const paymentChanged = currentFormPayment !== originalPayment;
-
-      if (priceChanged || paymentChanged) {
-          // If price changed OR user changed payment input manually, show payment modal to reconcile
-          setPendingPaymentContext({
-            type: "update",
-            bookingIds: [editingBooking.id],
-            totalPrice: totalBasketPrice,
-          });
-          setIsPaymentModalOpen(true);
-      } else {
-          // If price is exactly same and payment input didn't change, assume immediate save is fine.
-          executeBookingUpdate(editingBooking.id);
-      }
+      setPendingPaymentContext({
+        type: "update",
+        bookingIds: [editingBooking.id],
+        totalPrice: totalBasketPrice,
+      });
+      // Pre-fill modal with existing payment to start
+      setModalPaymentInput({
+          paidCash: editingBooking.payment?.paidCash || 0,
+          paidTransfer: editingBooking.payment?.paidTransfer || 0
+      });
+      setIsPaymentModalOpen(true);
   };
 
   const handleConfirmPayment = async (finalTotal?: number, overrides: Record<string, SeatOverride> = {}) => {
+    // Collect payment from local state (which is bound to PaymentModal inputs)
+    const paymentPayload = {
+        paidCash: modalPaymentInput.paidCash,
+        paidTransfer: modalPaymentInput.paidTransfer
+    };
+
     if (pendingPaymentContext?.type === "update") {
-      // Handle Update (Existing Booking)
       if (!pendingPaymentContext.bookingIds) return;
-      // Re-use extracted function
-      await executeBookingUpdate(pendingPaymentContext.bookingIds[0], overrides);
+      await executeBookingUpdate(pendingPaymentContext.bookingIds[0], paymentPayload, overrides);
     } else {
-      // Handle New Booking with Payment
-      await processBooking(true, overrides);
+      await processBooking(paymentPayload, overrides);
     }
   };
 
   const cancelAllSelections = async () => {
-    // If editing, reverting means discarding changes and restoring original seat status
     if (editingBooking) {
-      // We simply refresh data from API to restore original state
-      // Or cleaner: Revert local state manually
       await refreshData();
       setEditingBooking(null);
       setBookingForm({ ...bookingForm, phone: "", note: "" });
       return;
     }
 
-    // Update local state ONLY. Do not call API here.
     setTrips((prev) =>
       prev.map((t): BusTrip => {
-        // Optimization: only update trips that have SELECTED seats
         if (t.seats.some(s => s.status === SeatStatus.SELECTED)) {
             return {
               ...t,
               seats: t.seats.map((s) =>
                 s.status === SeatStatus.SELECTED
-                  ? { ...s, status: s.originalStatus || SeatStatus.AVAILABLE } // Restore HELD/AVAILABLE
+                  ? { ...s, status: s.originalStatus || SeatStatus.AVAILABLE } 
                   : s
               ),
             };
@@ -1072,36 +1005,14 @@ function AppContent() {
       })
     );
 
-    toast({
-      type: "info",
-      title: "Đã hủy chọn",
-      message: "Đã hủy chọn tất cả ghế.",
-    });
+    toast({ type: "info", title: "Đã hủy chọn", message: "Đã hủy chọn tất cả ghế." });
     setPhoneError(null);
   };
 
-  const handleMoneyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleModalMoneyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     const numValue = parseInt(value.replace(/\D/g, "") || "0", 10);
-    // Note: totalBasketPrice is only a base estimate here. 
-    // PaymentModal manages the true final total with adjustments.
-    const targetTotal = pendingPaymentContext?.totalPrice || totalBasketPrice;
-
-    setBookingForm((prev) => {
-      if (targetTotal === 0) return { ...prev, [name]: numValue };
-      let newCash = prev.paidCash;
-      let newTransfer = prev.paidTransfer;
-      if (name === "paidCash") {
-        newCash = numValue;
-        // Don't auto-adjust other field for now to allow flexible inputs in complex modal
-        // But keeping simple logic for main form inputs
-        // newTransfer = Math.max(0, targetTotal - newCash);
-      } else if (name === "paidTransfer") {
-        newTransfer = numValue;
-        // newCash = Math.max(0, targetTotal - newTransfer);
-      }
-      return { ...prev, paidCash: newCash, paidTransfer: newTransfer };
-    });
+    setModalPaymentInput((prev) => ({ ...prev, [name]: numValue }));
   };
 
   const initiateSwap = (seat: Seat) => {
@@ -1116,17 +1027,13 @@ function AppContent() {
   // --- UNDO HANDLER ---
   const handleUndo = async () => {
       if (undoStack.length === 0) return;
-
       const action = undoStack[undoStack.length - 1];
       
       try {
           switch (action.type) {
               case 'CREATED_BOOKING':
-                  // Call Delete/Cancel API
                   const delResult = await api.bookings.delete(action.bookingId);
-                  // Refresh Data
                   setBookings(delResult.bookings);
-                  // Re-sync trips manually or fetch
                   const updatedTripsMap = new Map<string, BusTrip>(
                     delResult.trips.map((t: BusTrip) => [t.id, t])
                   );
@@ -1135,10 +1042,7 @@ function AppContent() {
                   break;
 
               case 'UPDATED_BOOKING':
-                  // Restore Old Booking Data
                   const oldB = action.previousBooking;
-                  
-                  // Reconstruct items payload for API
                   const bookingItemsPayload = oldB.items.map(item => {
                       const trip = trips.find(t => t.id === item.tripId);
                       const seatsObj = trip ? trip.seats.filter(s => item.seatIds.includes(s.id)) : [];
@@ -1150,7 +1054,6 @@ function AppContent() {
 
                   const res = await api.bookings.update(oldB.id, bookingItemsPayload, oldB.passenger, oldB.payment);
                   
-                  // Update State
                   setBookings((prev) =>
                     prev.map((b) => (b.id === oldB.id ? res.booking : b))
                   );
@@ -1163,7 +1066,6 @@ function AppContent() {
                   break;
 
               case 'SWAPPED_SEATS':
-                  // Swap back: seat1 and seat2 are reversed from original action
                   const swapRes = await api.bookings.swapSeats(action.tripId, action.seat1, action.seat2);
                   setBookings(swapRes.bookings);
                   const updatedTripsMap3 = new Map<string, BusTrip>(
@@ -1174,7 +1076,6 @@ function AppContent() {
                   break;
           }
 
-          // Remove from stack
           setUndoStack(prev => prev.slice(0, -1));
 
       } catch (e) {
@@ -1429,6 +1330,9 @@ function AppContent() {
         </div>
       )}
 
+      {/* FINANCE TAB */}
+      {activeTab === "finance" && <PaymentManager />}
+
       {/* TICKET LIST TAB */}
       {activeTab === "tickets" && (
         <div className="space-y-6 animate-in fade-in duration-500">
@@ -1621,9 +1525,9 @@ function AppContent() {
         selectionBasket={selectionBasket}
         editingBooking={editingBooking}
         bookingForm={{ pickup: bookingForm.pickup, dropoff: bookingForm.dropoff }}
-        paidCash={bookingForm.paidCash}
-        paidTransfer={bookingForm.paidTransfer}
-        onMoneyChange={handleMoneyChange}
+        paidCash={modalPaymentInput.paidCash}
+        paidTransfer={modalPaymentInput.paidTransfer}
+        onMoneyChange={handleModalMoneyChange}
       />
 
       {/* SEAT DETAIL MODAL */}

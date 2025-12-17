@@ -128,7 +128,6 @@ export const api = {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ items, passenger, payment }),
       }),
-    // New Method for Passenger Only Update
     updatePassenger: (id: string, passenger: Passenger) => 
       fetchJson(`${API_URL}/bookings/${id}/passenger`, {
         method: "PATCH",
@@ -154,6 +153,20 @@ export const api = {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ tripId, seatId1, seatId2 }),
         }),
+  },
+
+  payments: {
+    getAll: () => fetchJson(`${API_URL}/payments`),
+    update: (id: string, updates: any) =>
+      fetchJson(`${API_URL}/payments/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      }),
+    delete: (id: string) =>
+      fetchJson(`${API_URL}/payments/${id}`, {
+        method: "DELETE",
+      }),
   },
 
   settings: {
