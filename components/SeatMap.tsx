@@ -128,9 +128,14 @@ export const SeatMap: React.FC<SeatMapProps> = ({
       groupTotal = bookingItem.seatIds.length;
       groupIndex = bookingItem.seatIds.indexOf(seat.id) + 1;
 
-      // Price Logic: Booking Item Price / Count
-      // This ensures edited prices are reflected (averaged per seat in group)
-      if (bookingItem.price > 0 && bookingItem.seatIds.length > 0) {
+      // NEW PRICE LOGIC: Prioritize specific ticket details
+      if (bookingItem.tickets && bookingItem.tickets.length > 0) {
+          const ticket = bookingItem.tickets.find(t => t.seatId === seat.id);
+          if (ticket) {
+              displayPrice = ticket.price;
+          }
+      } else if (bookingItem.price > 0 && bookingItem.seatIds.length > 0) {
+          // Fallback for legacy data
           displayPrice = bookingItem.price / bookingItem.seatIds.length;
       }
     }
@@ -176,8 +181,8 @@ export const SeatMap: React.FC<SeatMapProps> = ({
             {seat.label}
           </span>
           {/* PRICE DISPLAY FOR SOLD/BOOKED SEATS */}
-          {/* Updated to show calculated price instead of static price */}
-          {(seat.status === SeatStatus.SOLD || seat.status === SeatStatus.BOOKED || isGhost) && (
+          {/* Only show if price > 0 */}
+          {(seat.status === SeatStatus.SOLD || seat.status === SeatStatus.BOOKED || isGhost) && displayPrice > 0 && (
             <div className="mt-auto flex justify-end">
               <span className={`text-[10px] font-bold px-1 rounded border shadow-sm ${
                  seat.status === SeatStatus.BOOKED 
