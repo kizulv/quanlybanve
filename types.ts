@@ -67,6 +67,15 @@ export interface Booking {
   };
 }
 
+export interface BookingHistory {
+  id: string;
+  bookingId: string;
+  action: 'CREATE' | 'UPDATE' | 'CANCEL' | 'SWAP' | 'PASSENGER_UPDATE' | 'DELETE';
+  description: string;
+  details?: any;
+  timestamp: string;
+}
+
 export interface BusTrip {
   id: string;
   routeId: string | number;

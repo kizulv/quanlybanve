@@ -153,6 +153,7 @@ export const api = {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ tripId, seatId1, seatId2 }),
         }),
+    getHistory: (id: string) => fetchJson(`${API_URL}/bookings/${id}/history`),
   },
 
   payments: {

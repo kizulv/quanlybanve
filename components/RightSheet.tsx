@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from "react";
 import {
   Sheet,
@@ -7,7 +8,7 @@ import {
   SheetTrigger,
 } from "./ui/Sheet";
 import { Button } from "./ui/Button";
-import { History, Phone, Clock, Search, X, Calendar, Ticket, Undo2, AlertTriangle } from "lucide-react";
+import { History, Phone, Clock, Search, X, Calendar, Ticket, Undo2, AlertTriangle, FileClock } from "lucide-react";
 import { Badge } from "./ui/Badge";
 import { Booking, BusTrip, UndoAction } from "../types";
 import { formatLunarDate } from "../utils/dateUtils";
@@ -20,6 +21,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "./ui/AlertDialog";
+import { BookingHistoryModal } from "./BookingHistoryModal";
 
 interface RightSheetProps {
   bookings: Booking[];
@@ -37,9 +39,11 @@ export const RightSheet: React.FC<RightSheetProps> = ({
   lastUndoAction
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
-  // We need to control the sheet open state to close it upon selection
   const [isOpen, setIsOpen] = useState(false);
   const [isUndoAlertOpen, setIsUndoAlertOpen] = useState(false);
+  
+  // History Modal State
+  const [viewHistoryBooking, setViewHistoryBooking] = useState<Booking | null>(null);
 
   const sortedBookings = useMemo(() => {
     return [...bookings].sort(
@@ -47,13 +51,11 @@ export const RightSheet: React.FC<RightSheetProps> = ({
     );
   }, [bookings]);
 
-  // Filter Logic
   const filteredList = useMemo(() => {
     if (!searchTerm.trim()) return sortedBookings;
 
     const lowerTerm = searchTerm.toLowerCase();
     return sortedBookings.filter((booking) => {
-      // Check if any item in the booking matches the search
       const itemMatch = booking.items.some(item => 
         item.route.toLowerCase().includes(lowerTerm) ||
         item.licensePlate.toLowerCase().includes(lowerTerm) ||
@@ -68,7 +70,6 @@ export const RightSheet: React.FC<RightSheetProps> = ({
     });
   }, [sortedBookings, searchTerm]);
 
-  // Group by Date for Display Headers
   const listByDate = useMemo(() => {
      const groups: Record<string, Booking[]> = {};
      filteredList.forEach(item => {
@@ -91,6 +92,11 @@ export const RightSheet: React.FC<RightSheetProps> = ({
           setIsUndoAlertOpen(false);
       }
   }
+
+  const handleViewHistory = (e: React.MouseEvent, booking: Booking) => {
+      e.stopPropagation();
+      setViewHistoryBooking(booking);
+  };
 
   const getUndoMessage = () => {
       if (!lastUndoAction) return "";
@@ -189,7 +195,6 @@ export const RightSheet: React.FC<RightSheetProps> = ({
             </SheetTitle>
           </div>
           
-          {/* UNDO BUTTON IN HEADER */}
           {onUndo && lastUndoAction && (
               <Button
                   onClick={() => setIsUndoAlertOpen(true)}
@@ -253,7 +258,7 @@ export const RightSheet: React.FC<RightSheetProps> = ({
                           <div
                             key={booking.id}
                             onClick={() => handleSelect(booking)}
-                            className="p-4 hover:bg-blue-50/50 transition-colors group cursor-pointer active:bg-blue-100"
+                            className="relative p-4 hover:bg-blue-50/50 transition-colors group cursor-pointer active:bg-blue-100"
                           >
                             {/* Top Row: Passenger & Time */}
                             <div className="flex justify-between items-start mb-3">
@@ -302,7 +307,18 @@ export const RightSheet: React.FC<RightSheetProps> = ({
                             </div>
 
                             {/* Footer: Price */}
-                            <div className="flex justify-end items-end pt-2 border-t border-slate-100 border-dashed">
+                            <div className="flex justify-end items-end pt-2 border-t border-slate-100 border-dashed relative">
+                              {/* History Button - Absolute Positioned */}
+                              <div className="absolute left-0 bottom-0">
+                                  <button
+                                      onClick={(e) => handleViewHistory(e, booking)}
+                                      className="flex items-center gap-1 text-[10px] bg-slate-50 hover:bg-slate-200 text-slate-500 hover:text-slate-800 px-2 py-1 rounded border border-slate-200 transition-colors"
+                                      title="Xem lịch sử tác động"
+                                  >
+                                      <FileClock size={12} /> Lịch sử
+                                  </button>
+                              </div>
+
                               <div className="text-right">
                                 <div className="text-xs text-slate-400 mb-0.5">Tổng tiền ({booking.totalTickets} vé)</div>
                                 <div className="text-base font-bold text-slate-900 group-hover:text-primary transition-colors">
@@ -342,6 +358,13 @@ export const RightSheet: React.FC<RightSheetProps> = ({
           </AlertDialogFooter>
         </AlertDialogContent>
     </AlertDialog>
+
+    {/* BOOKING HISTORY MODAL */}
+    <BookingHistoryModal 
+        isOpen={!!viewHistoryBooking}
+        onClose={() => setViewHistoryBooking(null)}
+        booking={viewHistoryBooking}
+    />
     </>
   );
 };
