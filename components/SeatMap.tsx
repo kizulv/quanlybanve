@@ -180,15 +180,10 @@ export const SeatMap: React.FC<SeatMapProps> = ({
           <span className={isGhost ? "line-through decoration-red-400" : ""}>
             {seat.label}
           </span>
-          {/* PRICE DISPLAY FOR SOLD/BOOKED SEATS */}
-          {/* Only show if price > 0 */}
-          {(seat.status === SeatStatus.SOLD || seat.status === SeatStatus.BOOKED || isGhost) && displayPrice > 0 && (
+          {/* PRICE DISPLAY FOR SOLD SEATS ONLY */}
+          {seat.status === SeatStatus.SOLD && displayPrice > 0 && (
             <div className="mt-auto flex justify-end">
-              <span className={`text-[10px] font-bold px-1 rounded border shadow-sm ${
-                 seat.status === SeatStatus.BOOKED 
-                 ? "text-yellow-700 bg-white border-yellow-200/50" 
-                 : "text-green-700 bg-yellow-300 border-green-200/50"
-              }`}>
+              <span className="text-[10px] font-bold px-1 rounded border shadow-sm text-green-700 bg-yellow-300 border-green-200/50">
                 {displayPrice.toLocaleString("vi-VN")}
               </span>
             </div>

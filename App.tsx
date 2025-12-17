@@ -1267,7 +1267,6 @@ function AppContent() {
               selectionBasket={selectionBasket}
               bookings={bookings}
               routes={routes}
-              totalPrice={totalBasketPrice}
               phoneError={phoneError}
               setPhoneError={setPhoneError}
               editingBooking={editingBooking}

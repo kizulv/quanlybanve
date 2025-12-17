@@ -47,7 +47,6 @@ interface BookingFormProps {
   selectionBasket: { trip: BusTrip; seats: Seat[] }[];
   bookings: Booking[]; // For history lookup
   routes: Route[]; // For basket display info
-  totalPrice: number;
   phoneError: string | null;
   setPhoneError: (error: string | null) => void;
 
@@ -77,7 +76,6 @@ export const BookingForm: React.FC<BookingFormProps> = ({
   selectionBasket,
   bookings,
   routes,
-  totalPrice,
   phoneError,
   setPhoneError,
   editingBooking,
@@ -221,7 +219,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
     }
   };
 
-  // --- CHANGE DETECTION LOGIC (EDIT MODE) ---
+  // --- CHANGE DETECTION LOGIC (EDIT MODE) - SEATS ONLY ---
   const changes = useMemo(() => {
     if (!editingBooking) return null;
 
@@ -231,21 +229,15 @@ export const BookingForm: React.FC<BookingFormProps> = ({
       0
     );
 
-    const originalPrice = editingBooking.totalPrice;
-    const currentPrice = totalPrice;
-
-    if (originalCount === currentCount && originalPrice === currentPrice)
-      return null;
+    if (originalCount === currentCount) return null;
 
     const diffCount = currentCount - originalCount;
-    const diffPrice = currentPrice - originalPrice;
 
     return {
       diffCount,
-      diffPrice,
       hasChanges: true,
     };
-  }, [editingBooking, selectionBasket, totalPrice]);
+  }, [editingBooking, selectionBasket]);
 
   // --- RENDER HELPERS ---
   const renderBasketItems = () => {
@@ -403,12 +395,6 @@ export const BookingForm: React.FC<BookingFormProps> = ({
                           ? `+${changes.diffCount}`
                           : changes.diffCount}{" "}
                         vé
-                      </span>
-                    )}
-                    {changes.diffPrice !== 0 && (
-                      <span>
-                        • Tổng tiền: {changes.diffPrice > 0 ? `+` : ``}
-                        {changes.diffPrice.toLocaleString("vi-VN")} đ
                       </span>
                     )}
                   </>
@@ -602,17 +588,6 @@ export const BookingForm: React.FC<BookingFormProps> = ({
             size={12}
             className="absolute left-2 top-[9px] text-indigo-400"
           />
-        </div>
-
-        {/* Total Price Display - Read Only */}
-        <div className="flex justify-between items-center pt-1">
-          <span className="text-xs font-bold uppercase text-indigo-300">
-            TỔNG TIỀN
-          </span>
-          <span className="text-base font-bold text-yellow-400">
-            {totalPrice.toLocaleString("vi-VN")}{" "}
-            <span className="text-[10px] font-normal">đ</span>
-          </span>
         </div>
       </div>
 
