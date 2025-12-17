@@ -7,7 +7,7 @@ import {
   DollarSign, Calendar, Search, Trash2, Edit2, 
   ArrowRight, CreditCard, Banknote, Filter,
   History, Eye, User, Phone, MapPin, Clock,
-  Check, X
+  Check, X, Zap
 } from 'lucide-react';
 import { useToast } from './ui/Toast';
 import { Dialog } from './ui/Dialog';
@@ -172,6 +172,11 @@ export const PaymentManager: React.FC = () => {
       }
   };
 
+  // Helper to check enhanced
+  const isEnhancedRoute = (route: string) => {
+      return (route || '').toLowerCase().includes('tăng cường');
+  };
+
   // Calculate Summary Stats
   const totalRevenue = payments.filter(p => p.amount > 0).reduce((sum, p) => sum + p.amount, 0);
   const totalRefund = payments.filter(p => p.amount < 0).reduce((sum, p) => sum + p.amount, 0);
@@ -271,7 +276,12 @@ export const PaymentManager: React.FC = () => {
                       </td>
                       <td className="px-6 py-4">
                          <div className="flex flex-col gap-1 text-xs">
-                             <div className="font-semibold text-blue-700">{group.tripInfo.route}</div>
+                             <div className="font-semibold text-blue-700 flex items-center gap-1">
+                                {group.tripInfo.route}
+                                {isEnhancedRoute(group.tripInfo.route) && (
+                                    <Zap size={10} className="text-yellow-600 fill-yellow-600" />
+                                )}
+                             </div>
                              {group.tripInfo.date && (
                                 <div className="text-slate-500">
                                     {new Date(group.tripInfo.date).toLocaleDateString('vi-VN')}
@@ -394,14 +404,22 @@ export const PaymentManager: React.FC = () => {
                                                 </div>
                                             </div>
 
-                                            {/* Snapshot Details (New Feature - Multi Trip Support) */}
+                                            {/* Snapshot Details (Multi Trip Support) */}
                                             {details.trips && details.trips.length > 0 ? (
                                                 <div className="space-y-2 mb-2">
-                                                    {details.trips.map((t: any, idx: number) => (
+                                                    {details.trips.map((t: any, idx: number) => {
+                                                        const enhanced = isEnhancedRoute(t.route);
+                                                        return (
                                                         <div key={idx} className="bg-slate-50 p-2.5 rounded-lg border border-slate-200 text-xs">
                                                             <div className="flex items-center gap-2 mb-1.5 pb-1.5 border-b border-slate-100">
                                                                 <MapPin size={12} className="text-blue-500"/>
                                                                 <span className="font-bold text-slate-700">{t.route || '---'}</span>
+                                                                {enhanced && (
+                                                                    <span className="shrink-0 inline-flex items-center text-[9px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200 whitespace-nowrap ml-auto">
+                                                                        <Zap size={9} className="mr-0.5 fill-amber-700" />
+                                                                        Tăng cường
+                                                                    </span>
+                                                                )}
                                                             </div>
                                                             <div className="flex justify-between items-center text-slate-500 mb-1">
                                                                 <div className="flex items-center gap-1.5">
@@ -415,20 +433,31 @@ export const PaymentManager: React.FC = () => {
                                                             {t.seats && t.seats.length > 0 && (
                                                                 <div className="flex flex-wrap gap-1 mt-1">
                                                                     {t.seats.map((s: string, i: number) => (
-                                                                        <Badge key={i} variant="outline" className="bg-white text-blue-700 border-blue-200 px-1.5 py-0 text-[10px]">
+                                                                        <Badge key={i} variant="outline" className="bg-white text-blue-700 border-blue-200 px-1.5 py-0 text-[10px] flex items-center gap-1">
                                                                             {s}
+                                                                            {details.pricePerTicket > 0 && (
+                                                                                <span className="text-slate-400 font-normal border-l border-blue-100 pl-1 ml-0.5">
+                                                                                    {details.pricePerTicket.toLocaleString('vi-VN')}
+                                                                                </span>
+                                                                            )}
                                                                         </Badge>
                                                                     ))}
                                                                 </div>
                                                             )}
                                                         </div>
-                                                    ))}
+                                                    )})}
                                                 </div>
                                             ) : (details.route || details.seats?.length > 0) && (
                                                 <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200 text-xs mb-2">
                                                     <div className="flex items-center gap-2 mb-1.5 pb-1.5 border-b border-slate-100">
                                                         <MapPin size={12} className="text-blue-500"/>
                                                         <span className="font-bold text-slate-700">{details.route || '---'}</span>
+                                                        {isEnhancedRoute(details.route) && (
+                                                            <span className="shrink-0 inline-flex items-center text-[9px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200 whitespace-nowrap ml-auto">
+                                                                <Zap size={9} className="mr-0.5 fill-amber-700" />
+                                                                Tăng cường
+                                                            </span>
+                                                        )}
                                                     </div>
                                                     <div className="flex justify-between items-center text-slate-500 mb-1">
                                                         <div className="flex items-center gap-1.5">
@@ -442,8 +471,13 @@ export const PaymentManager: React.FC = () => {
                                                     {details.seats && details.seats.length > 0 && (
                                                         <div className="flex flex-wrap gap-1 mt-1">
                                                             {details.seats.map((s: string, i: number) => (
-                                                                <Badge key={i} variant="outline" className="bg-white text-blue-700 border-blue-200 px-1.5 py-0 text-[10px]">
+                                                                <Badge key={i} variant="outline" className="bg-white text-blue-700 border-blue-200 px-1.5 py-0 text-[10px] flex items-center gap-1">
                                                                     {s}
+                                                                    {details.pricePerTicket > 0 && (
+                                                                        <span className="text-slate-400 font-normal border-l border-blue-100 pl-1 ml-0.5">
+                                                                            {details.pricePerTicket.toLocaleString('vi-VN')}
+                                                                        </span>
+                                                                    )}
                                                                 </Badge>
                                                             ))}
                                                         </div>
