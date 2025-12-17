@@ -6,7 +6,8 @@ import { Button } from './ui/Button';
 import { 
   DollarSign, Calendar, Search, Trash2, Edit2, 
   ArrowRight, CreditCard, Banknote, Filter,
-  History, Eye, User, Phone, MapPin
+  History, Eye, User, Phone, MapPin, Clock,
+  Check, X
 } from 'lucide-react';
 import { useToast } from './ui/Toast';
 import { Dialog } from './ui/Dialog';
@@ -313,122 +314,133 @@ export const PaymentManager: React.FC = () => {
          </table>
       </div>
 
-      {/* DETAIL MODAL */}
+      {/* DETAIL MODAL (REFACTORED TO TIMELINE) */}
       <Dialog 
         isOpen={!!selectedGroup} 
         onClose={() => { setSelectedGroup(null); setEditingPaymentId(null); }} 
         title="Lịch sử giao dịch chi tiết"
-        className="max-w-4xl"
+        className="max-w-2xl"
       >
           {selectedGroup && (
-             <div className="space-y-6">
-                 {/* Header Info */}
-                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col md:flex-row justify-between gap-4">
+             <div className="space-y-6 max-h-[70vh] overflow-y-auto px-1">
+                 {/* Header Info Card */}
+                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row justify-between gap-4 sticky top-0 z-10">
                      <div className="flex items-start gap-3">
-                         <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600">
+                         <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 border border-indigo-200">
                              <User size={20}/>
                          </div>
                          <div>
                              <h3 className="font-bold text-slate-800">{selectedGroup.passengerName}</h3>
-                             <div className="flex items-center gap-3 text-sm text-slate-600 mt-1">
-                                 <span className="flex items-center gap-1"><Phone size={12}/> {selectedGroup.passengerPhone}</span>
-                                 <span className="text-slate-300">|</span>
-                                 <span className="flex items-center gap-1"><MapPin size={12}/> {selectedGroup.tripInfo.route}</span>
+                             <div className="flex items-center gap-3 text-xs text-slate-600 mt-1">
+                                 <span className="flex items-center gap-1 bg-white px-2 py-0.5 rounded border border-slate-200 font-mono"><Phone size={10}/> {selectedGroup.passengerPhone}</span>
+                                 <span className="flex items-center gap-1"><MapPin size={10}/> {selectedGroup.tripInfo.route}</span>
                              </div>
                          </div>
                      </div>
                      <div className="text-right">
-                         <div className="text-xs text-slate-500 uppercase font-bold">Tổng thực thu</div>
+                         <div className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Tổng thực thu</div>
                          <div className={`text-2xl font-bold ${selectedGroup.totalCollected >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                              {selectedGroup.totalCollected.toLocaleString('vi-VN')} đ
                          </div>
                      </div>
                  </div>
 
-                 {/* Transactions Table */}
-                 <div className="border border-slate-200 rounded-lg overflow-hidden">
-                     <table className="w-full text-sm">
-                        <thead className="bg-slate-50 text-slate-500 text-xs uppercase font-semibold">
-                            <tr>
-                                <th className="px-4 py-3 text-left w-12">#</th>
-                                <th className="px-4 py-3 text-left">Thời gian</th>
-                                <th className="px-4 py-3 text-left">Loại giao dịch</th>
-                                <th className="px-4 py-3 text-left">Hình thức</th>
-                                <th className="px-4 py-3 text-left">Ghi chú</th>
-                                <th className="px-4 py-3 text-right">Số tiền</th>
-                                <th className="px-4 py-3 text-center">Thao tác</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {/* Sort by timestamp ASC for history flow */}
-                            {[...selectedGroup.payments].sort((a,b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()).map((p, idx) => (
-                                <tr key={p.id} className="hover:bg-slate-50">
-                                    <td className="px-4 py-3 text-slate-400 text-xs">{idx + 1}</td>
-                                    <td className="px-4 py-3">
-                                        <div className="flex flex-col text-xs">
-                                            <span className="font-medium text-slate-700">
-                                                {new Date(p.timestamp).toLocaleDateString('vi-VN')}
+                 {/* Timeline Container */}
+                 <div className="relative border-l-2 border-slate-200 ml-4 space-y-8 py-2">
+                    {selectedGroup.payments.length === 0 ? (
+                        <div className="text-center py-8 text-slate-400">Không có giao dịch nào.</div>
+                    ) : (
+                        // Sort by timestamp ASC (Older top) to show flow
+                        [...selectedGroup.payments].sort((a,b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()).map((p, idx) => {
+                            const isPositive = p.amount >= 0;
+                            const isCash = p.method === 'cash';
+                            
+                            return (
+                                <div key={p.id} className="relative pl-6">
+                                    {/* Timeline Dot */}
+                                    <div className={`absolute -left-[9px] top-1 w-4 h-4 rounded-full border-2 border-white shadow-sm flex items-center justify-center ${isPositive ? 'bg-green-100 border-green-300' : 'bg-red-100 border-red-300'}`}>
+                                        <div className={`w-1.5 h-1.5 rounded-full ${isPositive ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                                    </div>
+
+                                    <div className="flex flex-col gap-2">
+                                        {/* Date Header */}
+                                        <div className="flex items-center gap-2">
+                                            <span className={`text-xs font-bold px-2 py-0.5 rounded border ${isPositive ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
+                                                {isPositive ? 'Thanh toán' : 'Hoàn tiền'}
                                             </span>
-                                            <span className="text-slate-500">
-                                                {new Date(p.timestamp).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})}
-                                            </span>
-                                        </div>
-                                    </td>
-                                    <td className="px-4 py-3">
-                                        <Badge variant="outline" className={p.amount >= 0 ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}>
-                                            {p.amount >= 0 ? 'Thanh toán' : 'Hoàn tiền'}
-                                        </Badge>
-                                    </td>
-                                    <td className="px-4 py-3">
-                                        <div className="flex items-center gap-1.5 text-slate-600">
-                                            {p.method === 'cash' ? <DollarSign size={14}/> : <CreditCard size={14}/>}
-                                            <span>
-                                                {p.method === 'cash' ? 'Tiền mặt' : p.method === 'transfer' ? 'Chuyển khoản' : 'Hỗn hợp'}
+                                            <span className="text-xs text-slate-400 flex items-center gap-1">
+                                                <Clock size={10} />
+                                                {new Date(p.timestamp).toLocaleString('vi-VN')}
                                             </span>
                                         </div>
-                                    </td>
-                                    <td className="px-4 py-3 max-w-[200px]">
-                                        {editingPaymentId === p.id ? (
-                                            <div className="flex gap-1">
-                                                <input 
-                                                    className="w-full text-xs border border-blue-300 rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                                    value={editNote}
-                                                    onChange={(e) => setEditNote(e.target.value)}
-                                                    onKeyDown={(e) => e.key === 'Enter' && saveEditNote()}
-                                                    autoFocus
-                                                />
-                                                <Button size="icon" className="h-6 w-6 bg-green-600 hover:bg-green-500" onClick={saveEditNote}>
-                                                    <ArrowRight size={12} className="text-white"/>
-                                                </Button>
+
+                                        {/* Card Content */}
+                                        <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow group relative">
+                                            {/* Top Row: Method & Amount */}
+                                            <div className="flex justify-between items-start mb-2">
+                                                <div className="flex items-center gap-2">
+                                                    <div className={`p-1.5 rounded-lg ${isCash ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-100 text-blue-600'}`}>
+                                                        {isCash ? <DollarSign size={16} /> : <CreditCard size={16} />}
+                                                    </div>
+                                                    <div>
+                                                        <div className="text-xs font-bold text-slate-700">
+                                                            {isCash ? 'Tiền mặt' : p.method === 'transfer' ? 'Chuyển khoản' : 'Hỗn hợp'}
+                                                        </div>
+                                                        <div className="text-[10px] text-slate-400">Hình thức</div>
+                                                    </div>
+                                                </div>
+                                                <div className={`text-lg font-bold ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
+                                                    {isPositive ? '+' : ''}{p.amount.toLocaleString('vi-VN')} đ
+                                                </div>
                                             </div>
-                                        ) : (
-                                            <span className="text-slate-600 italic truncate block cursor-pointer hover:text-blue-600" onClick={() => startEditNote(p)} title="Click để sửa">
-                                                {p.note || '--'}
-                                            </span>
-                                        )}
-                                    </td>
-                                    <td className="px-4 py-3 text-right">
-                                        <span className={`font-bold ${p.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                            {p.amount > 0 ? '+' : ''}{p.amount.toLocaleString('vi-VN')}
-                                        </span>
-                                    </td>
-                                    <td className="px-4 py-3 text-center">
-                                        <div className="flex justify-center gap-1">
-                                            <button onClick={() => startEditNote(p)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded">
-                                                <Edit2 size={14}/>
-                                            </button>
-                                            <button onClick={() => handleDeletePayment(p.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded">
-                                                <Trash2 size={14}/>
-                                            </button>
+
+                                            {/* Note Section (Editable) */}
+                                            <div className="bg-slate-50 p-2 rounded-lg border border-slate-100 text-xs text-slate-600 min-h-[30px] flex items-center relative group/note">
+                                                {editingPaymentId === p.id ? (
+                                                    <div className="flex gap-1 w-full">
+                                                        <input 
+                                                            className="flex-1 bg-white border border-blue-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 text-xs"
+                                                            value={editNote}
+                                                            onChange={(e) => setEditNote(e.target.value)}
+                                                            onKeyDown={(e) => e.key === 'Enter' && saveEditNote()}
+                                                            autoFocus
+                                                            placeholder="Nhập ghi chú..."
+                                                        />
+                                                        <button onClick={saveEditNote} className="bg-green-600 text-white p-1 rounded hover:bg-green-700"><Check size={12}/></button>
+                                                        <button onClick={() => setEditingPaymentId(null)} className="bg-slate-200 text-slate-600 p-1 rounded hover:bg-slate-300"><X size={12}/></button>
+                                                    </div>
+                                                ) : (
+                                                    <div className="w-full flex justify-between items-start">
+                                                        <span className={!p.note ? "italic text-slate-400" : ""}>
+                                                            {p.note || "(Không có ghi chú)"}
+                                                        </span>
+                                                        <button 
+                                                            onClick={() => startEditNote(p)} 
+                                                            className="opacity-0 group-hover/note:opacity-100 text-blue-500 hover:text-blue-700 transition-opacity p-0.5"
+                                                            title="Sửa ghi chú"
+                                                        >
+                                                            <Edit2 size={10} />
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Delete Action (Top Right overlay) */}
+                                            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button 
+                                                    onClick={() => handleDeletePayment(p.id)}
+                                                    className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                                                    title="Xóa giao dịch"
+                                                >
+                                                    <Trash2 size={14} />
+                                                </button>
+                                            </div>
                                         </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                     </table>
-                     {selectedGroup.payments.length === 0 && (
-                         <div className="p-8 text-center text-slate-400">Không có giao dịch nào.</div>
-                     )}
+                                    </div>
+                                </div>
+                            );
+                        })
+                    )}
                  </div>
              </div>
           )}
