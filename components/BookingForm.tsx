@@ -152,6 +152,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
     const cleanInput = bookingForm.phone.replace(/\D/g, "");
     if (cleanInput.length < 3) return [];
     return bookings.filter((b) =>
+      b.status !== 'cancelled' && // Exclude cancelled bookings
       b.passenger.phone.replace(/\D/g, "").includes(cleanInput)
     );
   }, [bookings, bookingForm.phone]);
