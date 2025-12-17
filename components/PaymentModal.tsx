@@ -9,9 +9,8 @@ import {
   Calendar, 
   MapPin, 
   Bus,
-  PlusCircle,
-  MinusCircle,
-  Ticket
+  Ticket,
+  ArrowRight
 } from "lucide-react";
 import { BusTrip, Seat, Booking } from "../types";
 import { formatLunarDate } from "../utils/dateUtils";
@@ -26,15 +25,23 @@ interface PaymentItem {
   dropoff: string;
 }
 
+// Data structure for per-seat overrides
+interface SeatOverride {
+  price?: number;
+  pickup?: string;
+  dropoff?: string;
+}
+
 interface PaymentModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (finalTotal: number, adjustments: Record<string, number>) => void;
+  // Updated onConfirm to return full seat details including overrides
+  onConfirm: (finalTotal: number, seatOverrides: Record<string, SeatOverride>) => void;
   
   // Data Sources
   selectionBasket: { trip: BusTrip; seats: Seat[] }[];
-  editingBooking?: Booking | null; // Used to extract info if in edit mode
-  bookingForm: { pickup: string; dropoff: string }; // Current form values
+  editingBooking?: Booking | null;
+  bookingForm: { pickup: string; dropoff: string };
   
   // Payment State
   paidCash: number;
@@ -55,12 +62,11 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   onMoneyChange,
   isProcessing = false,
 }) => {
-  // Store adjustments: key = "tripId_seatId", value = number (positive or negative)
-  const [adjustments, setAdjustments] = useState<Record<string, number>>({});
+  // Store overrides: key = "tripId_seatId"
+  const [seatOverrides, setSeatOverrides] = useState<Record<string, SeatOverride>>({});
 
   // 1. Normalize Data into PaymentItems
   const items: PaymentItem[] = useMemo(() => {
-    // If we have a basket (New Booking or Modified Booking items)
     if (selectionBasket.length > 0) {
       return selectionBasket.map(item => ({
         tripId: item.trip.id,
@@ -68,57 +74,72 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         tripDate: item.trip.departureTime,
         route: item.trip.route,
         seats: item.seats,
-        pickup: bookingForm.pickup || "Chưa xác định",
-        dropoff: bookingForm.dropoff || "Chưa xác định"
+        pickup: bookingForm.pickup || "",
+        dropoff: bookingForm.dropoff || ""
       }));
     }
-    
-    // Fallback for direct payment of existing booking without modification (rare case in this flow but good safety)
-    if (editingBooking) {
-       // Note: This simplified logic assumes we can reconstruct trip info. 
-       // In a real app, you might need to fetch full trip details or pass them in.
-       // For now, relying on selectionBasket is the primary flow.
-       return [];
-    }
     return [];
-  }, [selectionBasket, editingBooking, bookingForm]);
+  }, [selectionBasket, bookingForm]);
 
-  // 2. Calculate Totals
-  const { baseTotal, totalAdjustment, finalTotal } = useMemo(() => {
-    let base = 0;
-    let adj = 0;
+  // 2. Helper to get effective values for a seat
+  const getSeatValues = (tripId: string, seat: Seat, defaultPickup: string, defaultDropoff: string) => {
+    const key = `${tripId}_${seat.id}`;
+    const override = seatOverrides[key];
+    return {
+      price: override?.price !== undefined ? override.price : seat.price,
+      pickup: override?.pickup !== undefined ? override.pickup : defaultPickup,
+      dropoff: override?.dropoff !== undefined ? override.dropoff : defaultDropoff,
+      isPriceChanged: override?.price !== undefined && override.price !== seat.price
+    };
+  };
+
+  // 3. Calculate Totals
+  const { totalOriginal, finalTotal } = useMemo(() => {
+    let original = 0;
+    let final = 0;
 
     items.forEach(trip => {
       trip.seats.forEach(seat => {
-        base += seat.price;
-        const key = `${trip.tripId}_${seat.id}`;
-        adj += (adjustments[key] || 0);
+        original += seat.price;
+        const { price } = getSeatValues(trip.tripId, seat, trip.pickup, trip.dropoff);
+        final += price;
       });
     });
 
     return {
-      baseTotal: base,
-      totalAdjustment: adj,
-      finalTotal: base + adj
+      totalOriginal: original,
+      finalTotal: final
     };
-  }, [items, adjustments]);
+  }, [items, seatOverrides]);
 
   const remaining = finalTotal - paidCash - paidTransfer;
 
   // Handlers
-  const handleAdjustmentChange = (tripId: string, seatId: string, value: string) => {
-    const num = parseInt(value.replace(/\D/g, '') || '0', 10);
+  const handleOverrideChange = (tripId: string, seatId: string, field: keyof SeatOverride, value: string) => {
     const key = `${tripId}_${seatId}`;
-    setAdjustments(prev => ({
-      ...prev,
-      [key]: num
-    }));
+    
+    setSeatOverrides(prev => {
+      const current = prev[key] || {};
+      let newValue: string | number = value;
+
+      if (field === 'price') {
+        newValue = parseInt(value.replace(/\D/g, '') || '0', 10);
+      }
+
+      return {
+        ...prev,
+        [key]: {
+          ...current,
+          [field]: newValue
+        }
+      };
+    });
   };
 
   // Reset state on open
   useEffect(() => {
     if (isOpen) {
-        setAdjustments({});
+        setSeatOverrides({});
     }
   }, [isOpen]);
 
@@ -127,13 +148,13 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title="Thanh toán & Xuất vé"
-      className="max-w-4xl h-[90vh] flex flex-col"
-      footer={null} // Custom footer
+      className="max-w-5xl h-[90vh] flex flex-col"
+      footer={null} 
     >
       <div className="flex flex-col h-full overflow-hidden">
         
         {/* --- BODY: SCROLLABLE LIST OF TRIPS --- */}
-        <div className="flex-1 overflow-y-auto pr-2 space-y-6 pb-4">
+        <div className="flex-1 overflow-y-auto pr-2 space-y-6 pb-4 bg-slate-50/50 -mx-6 px-6">
           {items.length === 0 && (
              <div className="text-center py-10 text-slate-400 italic">Không có dữ liệu vé cần thanh toán.</div>
           )}
@@ -141,7 +162,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           {items.map((trip) => {
             const tripDate = new Date(trip.tripDate);
             return (
-              <div key={trip.tripId} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+              <div key={trip.tripId} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mt-4">
                 {/* Card Header */}
                 <div className="bg-slate-50 px-4 py-3 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div className="flex items-center gap-3">
@@ -164,57 +185,74 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                 {/* Seat List (Rows) */}
                 <div className="divide-y divide-slate-100">
                   {trip.seats.map((seat) => {
-                    const adjKey = `${trip.tripId}_${seat.id}`;
-                    const currentAdj = adjustments[adjKey] || 0;
+                    const { price, pickup, dropoff, isPriceChanged } = getSeatValues(trip.tripId, seat, trip.pickup, trip.dropoff);
                     
                     return (
-                      <div key={seat.id} className="p-4 flex flex-col sm:flex-row items-center gap-4 hover:bg-slate-50/50 transition-colors">
+                      <div key={seat.id} className="p-3 flex flex-col lg:flex-row items-center gap-3 hover:bg-slate-50 transition-colors">
                         
-                        {/* 1. Seat Info */}
-                        <div className="flex items-center gap-3 min-w-[80px]">
-                           <div className="w-10 h-10 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center font-bold border border-blue-100">
+                        {/* 1. Seat Label */}
+                        <div className="flex items-center gap-3 min-w-[70px]">
+                           <div className="w-9 h-9 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center font-bold border border-blue-100 shadow-sm">
                               {seat.label}
                            </div>
-                           <div className="sm:hidden font-medium text-slate-700">Ghế {seat.label}</div>
+                           <div className="lg:hidden font-medium text-slate-700 text-sm">Ghế {seat.label}</div>
                         </div>
 
-                        {/* 2. Route Detail */}
+                        {/* 2. Route Detail Inputs (Editable) */}
                         <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2 w-full">
-                           <div className="flex items-center gap-2 text-xs text-slate-600 bg-slate-50 px-2 py-1.5 rounded border border-slate-100">
-                              <MapPin size={12} className="text-green-600 shrink-0"/> 
-                              <span className="font-medium text-slate-400 mr-1">Đón:</span>
-                              <span className="truncate font-bold">{trip.pickup}</span>
+                           {/* PICKUP */}
+                           <div className="relative group">
+                              <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
+                                 <MapPin size={14} className="text-green-600" />
+                              </div>
+                              <input 
+                                type="text"
+                                className="w-full pl-8 pr-2 py-1.5 text-xs font-medium border border-slate-200 rounded focus:ring-1 focus:ring-green-500 focus:border-green-500 outline-none bg-white text-slate-700 placeholder-slate-400 transition-colors hover:border-green-300"
+                                placeholder="Điểm đón"
+                                value={pickup}
+                                onChange={(e) => handleOverrideChange(trip.tripId, seat.id, 'pickup', e.target.value)}
+                              />
+                              <div className="absolute -top-1.5 left-2 bg-white px-1 text-[9px] text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">Đón</div>
                            </div>
-                           <div className="flex items-center gap-2 text-xs text-slate-600 bg-slate-50 px-2 py-1.5 rounded border border-slate-100">
-                              <MapPin size={12} className="text-red-600 shrink-0"/> 
-                              <span className="font-medium text-slate-400 mr-1">Trả:</span>
-                              <span className="truncate font-bold">{trip.dropoff}</span>
+
+                           {/* DROPOFF */}
+                           <div className="relative group">
+                              <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
+                                 <MapPin size={14} className="text-red-600" />
+                              </div>
+                              <input 
+                                type="text"
+                                className="w-full pl-8 pr-2 py-1.5 text-xs font-medium border border-slate-200 rounded focus:ring-1 focus:ring-red-500 focus:border-red-500 outline-none bg-white text-slate-700 placeholder-slate-400 transition-colors hover:border-red-300"
+                                placeholder="Điểm trả"
+                                value={dropoff}
+                                onChange={(e) => handleOverrideChange(trip.tripId, seat.id, 'dropoff', e.target.value)}
+                              />
+                              <div className="absolute -top-1.5 left-2 bg-white px-1 text-[9px] text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">Trả</div>
                            </div>
                         </div>
 
-                        {/* 3. Price & Adjustment */}
-                        <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
-                           <div className="text-right">
-                              <div className="text-[10px] text-slate-400 uppercase font-bold">Giá vé</div>
-                              <div className="font-bold text-slate-700">{seat.price.toLocaleString('vi-VN')}</div>
+                        {/* 3. Price Input (New Price Override) */}
+                        <div className="flex items-center gap-2 w-full lg:w-auto justify-end pl-2 border-l border-slate-100">
+                           <div className="text-right hidden lg:block mr-2">
+                              <div className="text-[10px] text-slate-400 uppercase font-bold">Giá gốc</div>
+                              <div className="text-xs text-slate-500 line-through decoration-slate-300">{seat.price.toLocaleString('vi-VN')}</div>
                            </div>
                            
-                           <div className="flex items-center gap-1 text-slate-300">
-                              <PlusCircle size={16} />
-                           </div>
-
-                           <div className="w-[110px]">
-                              <label className="block text-[10px] text-slate-400 uppercase font-bold mb-0.5">Bổ sung</label>
+                           <div className="w-[130px]">
+                              <label className="block text-[9px] text-slate-500 uppercase font-bold mb-0.5 lg:hidden">Giá bán</label>
                               <div className="relative">
                                 <input 
                                   type="text"
-                                  className={`w-full text-right text-sm font-bold border rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary/20 
-                                    ${currentAdj > 0 ? 'text-orange-600 border-orange-200 bg-orange-50' : currentAdj < 0 ? 'text-green-600 border-green-200 bg-green-50' : 'text-slate-700 border-slate-200'}
+                                  className={`w-full text-right font-bold border rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary/20 
+                                    ${isPriceChanged ? 'text-orange-600 border-orange-300 bg-orange-50' : 'text-slate-900 border-slate-200'}
                                   `}
-                                  placeholder="0"
-                                  value={currentAdj === 0 ? '' : currentAdj.toLocaleString('vi-VN')}
-                                  onChange={(e) => handleAdjustmentChange(trip.tripId, seat.id, e.target.value)}
+                                  value={price.toLocaleString('vi-VN')}
+                                  onChange={(e) => handleOverrideChange(trip.tripId, seat.id, 'price', e.target.value)}
                                 />
+                                <div className="absolute inset-y-0 right-8 flex items-center pointer-events-none">
+                                   {isPriceChanged && <div className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse"></div>}
+                                </div>
+                                <div className="absolute inset-y-0 right-2 flex items-center pointer-events-none text-xs text-slate-400">đ</div>
                               </div>
                            </div>
                         </div>
@@ -229,21 +267,24 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         </div>
 
         {/* --- FOOTER: SUMMARY & PAYMENT --- */}
-        <div className="bg-slate-50 border-t border-slate-200 p-4 -mx-6 -mb-6 mt-auto shrink-0 space-y-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+        <div className="bg-slate-50 border-t border-slate-200 p-4 -mx-6 -mb-6 mt-auto shrink-0 space-y-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-10">
            
            {/* Total Summary Bar */}
            <div className="flex justify-between items-center bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
               <div className="flex gap-6 text-sm">
                  <div>
                     <span className="text-slate-500 block text-xs">Tổng giá gốc</span>
-                    <span className="font-bold text-slate-700">{baseTotal.toLocaleString('vi-VN')}</span>
+                    <span className="font-bold text-slate-700">{totalOriginal.toLocaleString('vi-VN')}</span>
                  </div>
-                 {totalAdjustment !== 0 && (
-                   <div>
-                      <span className="text-slate-500 block text-xs">Tổng bổ sung</span>
-                      <span className={`font-bold ${totalAdjustment > 0 ? 'text-orange-600' : 'text-green-600'}`}>
-                        {totalAdjustment > 0 ? '+' : ''}{totalAdjustment.toLocaleString('vi-VN')}
-                      </span>
+                 {finalTotal !== totalOriginal && (
+                   <div className="flex items-center gap-2">
+                      <ArrowRight size={14} className="text-slate-300"/>
+                      <div>
+                        <span className="text-slate-500 block text-xs">Sau điều chỉnh</span>
+                        <span className={`font-bold ${finalTotal > totalOriginal ? 'text-orange-600' : 'text-blue-600'}`}>
+                            {finalTotal.toLocaleString('vi-VN')}
+                        </span>
+                      </div>
                    </div>
                  )}
               </div>
@@ -307,7 +348,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                  </Button>
 
                  <Button
-                    onClick={() => onConfirm(finalTotal, adjustments)}
+                    onClick={() => onConfirm(finalTotal, seatOverrides)}
                     disabled={isProcessing}
                     className={`h-12 flex-1 text-base font-bold shadow-lg shadow-green-900/10 ${
                         remaining <= 0 ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-primary hover:bg-primary/90 text-white'

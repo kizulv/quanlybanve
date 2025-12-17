@@ -56,6 +56,12 @@ import {
   AlertDialogTitle,
 } from "./components/ui/AlertDialog";
 
+interface SeatOverride {
+  price?: number;
+  pickup?: string;
+  dropoff?: string;
+}
+
 function AppContent() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("sales");
@@ -563,7 +569,7 @@ function AppContent() {
   };
 
   // Handle Create Booking (Single or Multi-Trip)
-  const processBooking = async (isPaid: boolean, surcharges: Record<string, number> = {}) => {
+  const processBooking = async (isPaid: boolean, overrides: Record<string, SeatOverride> = {}) => {
     if (selectionBasket.length === 0) {
       toast({
         type: "warning",
@@ -611,13 +617,13 @@ function AppContent() {
 
     // Prepare items for single API call
     const bookingItems = selectionBasket.map((item) => {
-        // Apply surcharges to seats
+        // Apply overrides to seats (Price primarily, we don't sync per-seat pickup yet)
         const seatsWithPrice = item.seats.map(s => {
             const key = `${item.trip.id}_${s.id}`;
-            const adjustment = surcharges[key] || 0;
+            const override = overrides[key];
             return {
                 ...s,
-                price: s.price + adjustment
+                price: override?.price !== undefined ? override.price : s.price
             };
         });
 
@@ -782,7 +788,7 @@ function AppContent() {
   };
 
   // Helper to execute update logic directly (used when no payment modal is needed)
-  const executeBookingUpdate = async (targetBookingId: string, surcharges: Record<string, number> = {}) => {
+  const executeBookingUpdate = async (targetBookingId: string, overrides: Record<string, SeatOverride> = {}) => {
       try {
         const payment = {
           paidCash: bookingForm.paidCash,
@@ -798,13 +804,13 @@ function AppContent() {
 
         // Get currently selected items (from basket)
         const currentBookingItems = selectionBasket.map((item) => {
-            // Apply surcharges to seats
+            // Apply overrides (Price)
             const seatsWithPrice = item.seats.map(s => {
                 const key = `${item.trip.id}_${s.id}`;
-                const adjustment = surcharges[key] || 0;
+                const override = overrides[key];
                 return {
                     ...s,
-                    price: s.price + adjustment
+                    price: override?.price !== undefined ? override.price : s.price
                 };
             });
 
@@ -990,15 +996,15 @@ function AppContent() {
       }
   };
 
-  const handleConfirmPayment = async (finalTotal?: number, adjustments?: Record<string, number>) => {
+  const handleConfirmPayment = async (finalTotal?: number, overrides: Record<string, SeatOverride> = {}) => {
     if (pendingPaymentContext?.type === "update") {
       // Handle Update (Existing Booking)
       if (!pendingPaymentContext.bookingIds) return;
       // Re-use extracted function
-      await executeBookingUpdate(pendingPaymentContext.bookingIds[0], adjustments);
+      await executeBookingUpdate(pendingPaymentContext.bookingIds[0], overrides);
     } else {
       // Handle New Booking with Payment
-      await processBooking(true, adjustments);
+      await processBooking(true, overrides);
     }
   };
 
@@ -1387,7 +1393,6 @@ function AppContent() {
         </div>
       )}
 
-      {/* ... [Rest of the file remains unchanged] ... */}
       {/* TICKET LIST TAB */}
       {activeTab === "tickets" && (
         <div className="space-y-6 animate-in fade-in duration-500">
