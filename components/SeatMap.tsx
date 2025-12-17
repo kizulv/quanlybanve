@@ -115,6 +115,9 @@ export const SeatMap: React.FC<SeatMapProps> = ({
     let formattedPhone = "";
     let groupIndex = 0;
     let groupTotal = 0;
+    
+    // Calculate REAL price for this seat from booking
+    let displayPrice = seat.price;
 
     if (hasInfo && booking && bookingItem) {
       const rawPhone = booking.passenger.phone;
@@ -124,6 +127,12 @@ export const SeatMap: React.FC<SeatMapProps> = ({
       // Sibling logic based on current trip item
       groupTotal = bookingItem.seatIds.length;
       groupIndex = bookingItem.seatIds.indexOf(seat.id) + 1;
+
+      // Price Logic: Booking Item Price / Count
+      // This ensures edited prices are reflected (averaged per seat in group)
+      if (bookingItem.price > 0 && bookingItem.seatIds.length > 0) {
+          displayPrice = bookingItem.price / bookingItem.seatIds.length;
+      }
     }
 
     return (
@@ -166,11 +175,16 @@ export const SeatMap: React.FC<SeatMapProps> = ({
           <span className={isGhost ? "line-through decoration-red-400" : ""}>
             {seat.label}
           </span>
-          {/* PRICE DISPLAY FOR SOLD SEATS */}
-          {(seat.status === SeatStatus.SOLD || isGhost) && (
+          {/* PRICE DISPLAY FOR SOLD/BOOKED SEATS */}
+          {/* Updated to show calculated price instead of static price */}
+          {(seat.status === SeatStatus.SOLD || seat.status === SeatStatus.BOOKED || isGhost) && (
             <div className="mt-auto flex justify-end">
-              <span className="text-[10px] font-bold text-green-700 bg-yellow-300 px-1 rounded border border-green-200/50 shadow-sm">
-                {seat.price.toLocaleString("vi-VN")}
+              <span className={`text-[10px] font-bold px-1 rounded border shadow-sm ${
+                 seat.status === SeatStatus.BOOKED 
+                 ? "text-yellow-700 bg-white border-yellow-200/50" 
+                 : "text-green-700 bg-yellow-300 border-green-200/50"
+              }`}>
+                {displayPrice.toLocaleString("vi-VN")}
               </span>
             </div>
           )}

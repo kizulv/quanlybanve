@@ -89,17 +89,40 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     };
   };
 
+  // 3. Standardize Location Logic (Matches BookingForm)
   const getStandardizedLocation = (input: string) => {
     if (!input) return "";
     let value = input.trim();
+    const lower = value.toLowerCase();
+    
+    // Common mappings (Example - can be expanded or moved to shared util)
+    const mappings: Record<string, string> = {
+      "lai chau": "BX Lai Châu",
+      "lai châu": "BX Lai Châu",
+      "ha tinh": "BX Hà Tĩnh",
+      "hà tĩnh": "BX Hà Tĩnh",
+      "lao cai": "BX Lào Cai",
+      vinh: "BX Vinh",
+      "nghe an": "BX Vinh",
+      "nghệ an": "BX Vinh",
+    };
+    if (mappings[lower]) return mappings[lower];
+
+    // Auto prefix "BX" if it looks like a station but user typed quickly
     // Simple Auto Capitalize
     if (!/^bx\s/i.test(value) && value.length > 2) {
       value = value.replace(/(?:^|\s)\S/g, (a) => a.toUpperCase());
+    } else if (/^bx\s/i.test(value)) {
+       // Ensure BX is uppercase
+       value = value.replace(/^bx\s/i, "BX ");
+       // Uppercase the rest
+       value = value.replace(/(?:^|\s)\S/g, (a) => a.toUpperCase());
     }
+    
     return value;
   };
 
-  // 3. Totals
+  // 4. Totals Calculation
   const { totalOriginal, finalTotal } = useMemo(() => {
     let original = 0;
     let final = 0;
@@ -128,6 +151,13 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     });
   };
 
+  const handleLocationBlur = (tripId: string, seatId: string, field: 'pickup' | 'dropoff', value: string) => {
+      const standardized = getStandardizedLocation(value);
+      if (standardized !== value) {
+          handleOverrideChange(tripId, seatId, field, standardized);
+      }
+  };
+
   useEffect(() => {
     if (isOpen) setSeatOverrides({});
   }, [isOpen]);
@@ -137,7 +167,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title="Thanh toán & Xuất vé"
-      className="max-w-4xl bg-indigo-950 text-white border-indigo-900"
+      className="max-w-5xl bg-indigo-950 text-white border-indigo-900"
       headerClassName="bg-indigo-950 border-indigo-900 text-white"
       footer={null} 
     >
@@ -176,48 +206,56 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                         <div key={seat.id} className="flex flex-col sm:flex-row gap-2 items-start sm:items-center bg-indigo-950/50 p-2 rounded border border-indigo-900/50 hover:border-indigo-700 transition-colors">
                             {/* Label */}
                             <div className="shrink-0">
-                                <span className="inline-flex items-center justify-center w-8 h-7 bg-indigo-800 text-white font-bold text-xs rounded border border-indigo-700">
+                                <span className="inline-flex items-center justify-center w-8 h-7 bg-indigo-800 text-white font-bold text-xs rounded border border-indigo-700 shadow-sm">
                                     {seat.label}
                                 </span>
                             </div>
 
-                            {/* Inputs */}
+                            {/* Inputs Container */}
                             <div className="flex-1 grid grid-cols-2 gap-2 w-full">
-                                <div className="relative">
-                                    <MapPin size={10} className="absolute left-2 top-2 text-indigo-400" />
+                                {/* Pickup Input */}
+                                <div className="relative group">
+                                    <div className="absolute left-2 top-1.5 pointer-events-none">
+                                        <MapPin size={10} className="text-indigo-400 group-focus-within:text-yellow-400 transition-colors" />
+                                    </div>
                                     <input 
                                         type="text"
-                                        className="w-full pl-6 pr-2 py-1 text-[11px] bg-indigo-950 border border-indigo-800 rounded focus:border-yellow-400 focus:outline-none text-white placeholder-indigo-500/70"
+                                        className="w-full pl-6 pr-2 py-1 text-[11px] bg-indigo-950 border border-indigo-800 rounded focus:border-yellow-400 focus:outline-none text-white placeholder-indigo-500/50 transition-colors"
                                         placeholder="Điểm đón"
                                         value={pickup}
                                         onChange={(e) => handleOverrideChange(trip.tripId, seat.id, 'pickup', e.target.value)}
-                                        onBlur={(e) => handleOverrideChange(trip.tripId, seat.id, 'pickup', getStandardizedLocation(e.target.value))}
+                                        onBlur={(e) => handleLocationBlur(trip.tripId, seat.id, 'pickup', e.target.value)}
                                     />
                                 </div>
-                                <div className="relative">
-                                    <Locate size={10} className="absolute left-2 top-2 text-indigo-400" />
+
+                                {/* Dropoff Input */}
+                                <div className="relative group">
+                                    <div className="absolute left-2 top-1.5 pointer-events-none">
+                                        <Locate size={10} className="text-indigo-400 group-focus-within:text-yellow-400 transition-colors" />
+                                    </div>
                                     <input 
                                         type="text"
-                                        className="w-full pl-6 pr-2 py-1 text-[11px] bg-indigo-950 border border-indigo-800 rounded focus:border-yellow-400 focus:outline-none text-white placeholder-indigo-500/70"
+                                        className="w-full pl-6 pr-2 py-1 text-[11px] bg-indigo-950 border border-indigo-800 rounded focus:border-yellow-400 focus:outline-none text-white placeholder-indigo-500/50 transition-colors"
                                         placeholder="Điểm trả"
                                         value={dropoff}
                                         onChange={(e) => handleOverrideChange(trip.tripId, seat.id, 'dropoff', e.target.value)}
-                                        onBlur={(e) => handleOverrideChange(trip.tripId, seat.id, 'dropoff', getStandardizedLocation(e.target.value))}
+                                        onBlur={(e) => handleLocationBlur(trip.tripId, seat.id, 'dropoff', e.target.value)}
                                     />
                                 </div>
                             </div>
 
                             {/* Price */}
-                            <div className="w-full sm:w-24 relative shrink-0">
+                            <div className="w-full sm:w-28 relative shrink-0">
                                 <input 
                                     type="text"
-                                    className={`w-full text-right font-bold text-xs bg-indigo-950 border rounded px-2 py-1 focus:outline-none 
-                                        ${isPriceChanged ? 'text-yellow-400 border-yellow-500/50' : 'text-white border-indigo-800'}
+                                    className={`w-full text-right font-bold text-xs bg-indigo-950 border rounded px-2 py-1 focus:outline-none transition-colors
+                                        ${isPriceChanged ? 'text-yellow-400 border-yellow-500/50 ring-1 ring-yellow-500/20' : 'text-white border-indigo-800'}
                                     `}
                                     value={price.toLocaleString('vi-VN')}
                                     onChange={(e) => handleOverrideChange(trip.tripId, seat.id, 'price', e.target.value)}
                                 />
-                                {isPriceChanged && <div className="absolute top-1 right-1 w-1 h-1 bg-yellow-400 rounded-full animate-pulse"></div>}
+                                <span className="absolute right-8 top-1.5 text-[10px] text-indigo-500 pointer-events-none hidden sm:block">đ</span>
+                                {isPriceChanged && <div className="absolute top-1 right-1 w-1.5 h-1.5 bg-yellow-400 rounded-full animate-pulse shadow-sm"></div>}
                             </div>
                         </div>
                       );
@@ -230,11 +268,11 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         </div>
 
         {/* --- RIGHT: PAYMENT & ACTIONS (35%) --- */}
-        <div className="w-full md:w-[320px] bg-indigo-900/20 p-4 flex flex-col gap-4 shrink-0 border-t md:border-t-0 md:border-l border-indigo-900">
+        <div className="w-full md:w-[340px] bg-indigo-900/20 p-5 flex flex-col gap-4 shrink-0 border-t md:border-t-0 md:border-l border-indigo-900 shadow-xl">
            
            {/* Summary Card */}
-           <div className="bg-indigo-900/50 rounded-xl p-4 border border-indigo-800">
-              <div className="flex items-center gap-2 mb-3 text-indigo-300 text-xs font-bold uppercase tracking-wider">
+           <div className="bg-indigo-900/50 rounded-xl p-5 border border-indigo-800 shadow-inner">
+              <div className="flex items-center gap-2 mb-4 text-indigo-300 text-xs font-bold uppercase tracking-wider">
                   <Calculator size={14} /> Tổng thanh toán
               </div>
               
@@ -243,72 +281,74 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                  <span className="text-sm text-indigo-300 line-through decoration-indigo-500">{totalOriginal.toLocaleString('vi-VN')}</span>
               </div>
               
-              <div className="flex justify-between items-end border-b border-indigo-800/50 pb-3 mb-3">
+              <div className="flex justify-between items-end border-b border-indigo-800/50 pb-4 mb-4">
                  <span className="text-xs text-indigo-400">Phải thu</span>
-                 <span className="text-2xl font-bold text-yellow-400">{finalTotal.toLocaleString('vi-VN')} <span className="text-sm font-normal text-yellow-400/70">đ</span></span>
+                 <span className="text-3xl font-bold text-yellow-400 tracking-tight">{finalTotal.toLocaleString('vi-VN')} <span className="text-sm font-normal text-yellow-400/70">đ</span></span>
               </div>
 
               {/* Inputs */}
-              <div className="space-y-2">
-                 <div className="relative">
-                    <div className="absolute top-1.5 left-2 text-indigo-400 pointer-events-none">
-                        <DollarSign size={14} />
+              <div className="space-y-3">
+                 <div className="relative group">
+                    <div className="absolute top-2 left-3 text-indigo-400 pointer-events-none group-focus-within:text-green-500 transition-colors">
+                        <DollarSign size={16} />
                     </div>
                     <input
                       type="text"
                       name="paidCash"
                       value={paidCash.toLocaleString("vi-VN")}
                       onChange={onMoneyChange}
-                      className="w-full pl-8 pr-3 py-1.5 bg-indigo-950 border border-indigo-800 rounded text-right font-bold text-sm text-white focus:border-green-500 focus:outline-none"
+                      className="w-full pl-9 pr-12 py-2 bg-indigo-950 border border-indigo-800 rounded text-right font-bold text-sm text-white focus:border-green-500 focus:outline-none transition-colors"
                     />
-                    <span className="absolute top-1.5 right-2 text-[10px] text-indigo-500 pointer-events-none">Tiền mặt</span>
+                    <span className="absolute top-2.5 right-3 text-[10px] text-indigo-500 pointer-events-none font-bold">TM</span>
                  </div>
-                 <div className="relative">
-                    <div className="absolute top-1.5 left-2 text-indigo-400 pointer-events-none">
-                        <CreditCard size={14} />
+                 <div className="relative group">
+                    <div className="absolute top-2 left-3 text-indigo-400 pointer-events-none group-focus-within:text-blue-500 transition-colors">
+                        <CreditCard size={16} />
                     </div>
                     <input
                       type="text"
                       name="paidTransfer"
                       value={paidTransfer.toLocaleString("vi-VN")}
                       onChange={onMoneyChange}
-                      className="w-full pl-8 pr-3 py-1.5 bg-indigo-950 border border-indigo-800 rounded text-right font-bold text-sm text-white focus:border-blue-500 focus:outline-none"
+                      className="w-full pl-9 pr-12 py-2 bg-indigo-950 border border-indigo-800 rounded text-right font-bold text-sm text-white focus:border-blue-500 focus:outline-none transition-colors"
                     />
-                     <span className="absolute top-1.5 right-2 text-[10px] text-indigo-500 pointer-events-none">CK</span>
+                     <span className="absolute top-2.5 right-3 text-[10px] text-indigo-500 pointer-events-none font-bold">CK</span>
                  </div>
               </div>
 
               {remaining > 0 ? (
-                  <div className="mt-3 text-right text-xs text-red-400 font-medium">
-                      Còn thiếu: {remaining.toLocaleString('vi-VN')} đ
+                  <div className="mt-4 p-2 rounded bg-red-950/30 border border-red-900/50 text-right text-xs text-red-400 font-bold flex justify-between items-center">
+                      <span>Còn thiếu:</span>
+                      <span>{remaining.toLocaleString('vi-VN')} đ</span>
                   </div>
               ) : remaining < 0 ? (
-                  <div className="mt-3 text-right text-xs text-blue-400 font-medium">
-                      Thừa tiền: {Math.abs(remaining).toLocaleString('vi-VN')} đ
+                  <div className="mt-4 p-2 rounded bg-blue-950/30 border border-blue-900/50 text-right text-xs text-blue-400 font-bold flex justify-between items-center">
+                      <span>Thừa tiền:</span>
+                      <span>{Math.abs(remaining).toLocaleString('vi-VN')} đ</span>
                   </div>
               ) : (
-                  <div className="mt-3 text-right text-xs text-green-400 font-medium flex items-center justify-end gap-1">
-                      <CheckCircle2 size={12}/> Đủ tiền
+                  <div className="mt-4 p-2 rounded bg-green-950/30 border border-green-900/50 text-right text-xs text-green-400 font-bold flex justify-center items-center gap-2">
+                      <CheckCircle2 size={14}/> Đã đủ tiền
                   </div>
               )}
            </div>
 
-           <div className="mt-auto space-y-2">
+           <div className="mt-auto space-y-3">
               <Button
                 onClick={() => onConfirm(finalTotal, seatOverrides)}
                 disabled={isProcessing}
-                className={`w-full h-10 font-bold text-sm shadow-md transition-all ${
+                className={`w-full h-11 font-bold text-sm shadow-lg transition-all ${
                     remaining <= 0 
-                    ? 'bg-green-600 hover:bg-green-500 text-white border-green-700' 
-                    : 'bg-yellow-500 hover:bg-yellow-400 text-indigo-950 border-yellow-600'
+                    ? 'bg-green-600 hover:bg-green-500 text-white border-green-700 shadow-green-900/20' 
+                    : 'bg-yellow-500 hover:bg-yellow-400 text-indigo-950 border-yellow-600 shadow-yellow-900/20'
                 }`}
               >
-                {isProcessing ? "Đang xử lý..." : (remaining <= 0 ? "Xác nhận thanh toán" : "Lưu (Chưa đủ tiền)")}
+                {isProcessing ? "Đang xử lý..." : (remaining <= 0 ? "Xác nhận thanh toán" : "Lưu công nợ")}
               </Button>
               <Button 
                 variant="outline" 
                 onClick={onClose} 
-                className="w-full border-indigo-800 text-indigo-300 hover:bg-indigo-900 hover:text-white bg-transparent h-9 text-xs"
+                className="w-full border-indigo-800 text-indigo-300 hover:bg-indigo-900 hover:text-white bg-transparent h-10 text-xs"
               >
                 Hủy bỏ
               </Button>
