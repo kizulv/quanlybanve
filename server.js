@@ -146,7 +146,8 @@ const paymentSchema = new mongoose.Schema(
        tripDate: String,
        route: String,
        licensePlate: String,
-       pricePerTicket: Number
+       pricePerTicket: Number,
+       trips: [mongoose.Schema.Types.Mixed] // NEW: Array of trips
     }
   },
   { toJSON: { virtuals: true, transform: transformId } }
@@ -251,6 +252,14 @@ const processPaymentUpdate = async (booking, newPaymentState) => {
     const allSeats = booking.items.flatMap(i => i.seatIds);
     const avgPrice = booking.totalTickets > 0 ? booking.totalPrice / booking.totalTickets : 0;
 
+    // Collect detailed trips info
+    const tripsSnapshot = booking.items.map(item => ({
+        route: item.route,
+        tripDate: item.tripDate,
+        licensePlate: item.licensePlate,
+        seats: item.seatIds
+    }));
+
     const paymentRecord = new Payment({
         bookingId: booking._id,
         totalAmount: totalDelta,
@@ -265,7 +274,8 @@ const processPaymentUpdate = async (booking, newPaymentState) => {
             tripDate: tripDetails.tripDate,
             route: tripDetails.route,
             licensePlate: tripDetails.licensePlate,
-            pricePerTicket: avgPrice
+            pricePerTicket: avgPrice,
+            trips: tripsSnapshot // NEW FIELD
         }
     });
 

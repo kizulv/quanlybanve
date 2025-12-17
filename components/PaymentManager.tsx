@@ -394,8 +394,37 @@ export const PaymentManager: React.FC = () => {
                                                 </div>
                                             </div>
 
-                                            {/* Snapshot Details (New Feature) */}
-                                            {(details.route || details.seats?.length > 0) && (
+                                            {/* Snapshot Details (New Feature - Multi Trip Support) */}
+                                            {details.trips && details.trips.length > 0 ? (
+                                                <div className="space-y-2 mb-2">
+                                                    {details.trips.map((t: any, idx: number) => (
+                                                        <div key={idx} className="bg-slate-50 p-2.5 rounded-lg border border-slate-200 text-xs">
+                                                            <div className="flex items-center gap-2 mb-1.5 pb-1.5 border-b border-slate-100">
+                                                                <MapPin size={12} className="text-blue-500"/>
+                                                                <span className="font-bold text-slate-700">{t.route || '---'}</span>
+                                                            </div>
+                                                            <div className="flex justify-between items-center text-slate-500 mb-1">
+                                                                <div className="flex items-center gap-1.5">
+                                                                    <Calendar size={12}/> 
+                                                                    <span>{t.tripDate ? new Date(t.tripDate).toLocaleDateString('vi-VN') : '---'}</span>
+                                                                </div>
+                                                                {t.licensePlate && (
+                                                                    <span className="bg-white border px-1.5 rounded text-[10px] shadow-sm">{t.licensePlate}</span>
+                                                                )}
+                                                            </div>
+                                                            {t.seats && t.seats.length > 0 && (
+                                                                <div className="flex flex-wrap gap-1 mt-1">
+                                                                    {t.seats.map((s: string, i: number) => (
+                                                                        <Badge key={i} variant="outline" className="bg-white text-blue-700 border-blue-200 px-1.5 py-0 text-[10px]">
+                                                                            {s}
+                                                                        </Badge>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : (details.route || details.seats?.length > 0) && (
                                                 <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200 text-xs mb-2">
                                                     <div className="flex items-center gap-2 mb-1.5 pb-1.5 border-b border-slate-100">
                                                         <MapPin size={12} className="text-blue-500"/>
