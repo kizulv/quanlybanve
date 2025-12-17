@@ -116,8 +116,10 @@ export const SeatMap: React.FC<SeatMapProps> = ({
     let groupIndex = 0;
     let groupTotal = 0;
     
-    // Calculate REAL price for this seat from booking
+    // Calculate REAL price and Specific Pickup/Dropoff for this seat from booking
     let displayPrice = seat.price;
+    let displayPickup = booking?.passenger?.pickupPoint || "";
+    let displayDropoff = booking?.passenger?.dropoffPoint || "";
 
     if (hasInfo && booking && bookingItem) {
       const rawPhone = booking.passenger.phone;
@@ -128,11 +130,14 @@ export const SeatMap: React.FC<SeatMapProps> = ({
       groupTotal = bookingItem.seatIds.length;
       groupIndex = bookingItem.seatIds.indexOf(seat.id) + 1;
 
-      // NEW PRICE LOGIC: Prioritize specific ticket details
+      // NEW PRICE & LOCATION LOGIC: Prioritize specific ticket details
       if (bookingItem.tickets && bookingItem.tickets.length > 0) {
           const ticket = bookingItem.tickets.find(t => t.seatId === seat.id);
           if (ticket) {
               displayPrice = ticket.price;
+              // Use specific location if available in ticket, fallback done in Booking/API logic but good to handle here
+              displayPickup = ticket.pickup || displayPickup;
+              displayDropoff = ticket.dropoff || displayDropoff;
           }
       } else if (bookingItem.price > 0 && bookingItem.seatIds.length > 0) {
           // Fallback for legacy data
@@ -239,8 +244,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
               </div>
 
               {/* Route Info */}
-              {booking.passenger.pickupPoint ||
-              booking.passenger.dropoffPoint ? (
+              {displayPickup || displayDropoff ? (
                 <div
                   className={`flex gap-1.5 ${
                     isGhost
@@ -254,10 +258,10 @@ export const SeatMap: React.FC<SeatMapProps> = ({
                   <div className="text-wrap">
                     <span
                       className="truncate text-wrap"
-                      title={`${booking.passenger.pickupPoint} - ${booking.passenger.dropoffPoint}`}
+                      title={`${displayPickup} - ${displayDropoff}`}
                     >
-                      {booking.passenger.pickupPoint || "---"} -{" "}
-                      {booking.passenger.dropoffPoint || "---"}
+                      {displayPickup || "---"} -{" "}
+                      {displayDropoff || "---"}
                     </span>
                   </div>
                 </div>
