@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { useToast } from './ui/Toast';
 import { Dialog } from './ui/Dialog';
+import { formatLunarDate } from '../utils/dateUtils';
 
 // Define Interface for Payment Group
 interface PaymentGroup {
@@ -146,6 +147,86 @@ export const PaymentManager: React.FC = () => {
   // Helper to check enhanced
   const isEnhancedRoute = (route: string) => {
       return (route || '').toLowerCase().includes('tăng cường');
+  };
+
+  // --- DIFF LOGIC HELPERS ---
+  const normalizeTrips = (details: any) => {
+      if (details.trips && Array.isArray(details.trips)) {
+          return details.trips;
+      }
+      // Legacy structure support
+      if (details.route || (details.seats && details.seats.length > 0)) {
+          return [{
+              route: details.route || 'Unknown',
+              tripDate: details.tripDate,
+              licensePlate: details.licensePlate,
+              seats: details.seats || [],
+              tickets: [],
+              pricePerTicket: details.pricePerTicket // pass legacy price
+          }];
+      }
+      return [];
+  };
+
+  const calculateDiff = (prevTrips: any[], currTrips: any[]) => {
+      const getTripKey = (t: any) => `${t.route}-${t.tripDate}`;
+      const prevMap = new Map();
+      prevTrips.forEach(t => prevMap.set(getTripKey(t), t));
+      
+      const currMap = new Map();
+      currTrips.forEach(t => currMap.set(getTripKey(t), t));
+
+      const allKeys = new Set([...prevMap.keys(), ...currMap.keys()]);
+      const results: any[] = [];
+
+      allKeys.forEach(key => {
+          const prevT = prevMap.get(key);
+          const currT = currMap.get(key);
+          const pSeats = new Set(prevT ? (prevT.seats || []) : []);
+          const cSeats = new Set(currT ? (currT.seats || []) : []);
+
+          const meta = currT || prevT || {};
+          const seatDiffs: any[] = [];
+
+          const allSeats = new Set([...pSeats, ...cSeats]);
+          allSeats.forEach(s => {
+              const inPrev = pSeats.has(s);
+              const inCurr = cSeats.has(s);
+              let status = 'kept';
+              if (inCurr && !inPrev) status = 'added';
+              if (!inCurr && inPrev) status = 'removed';
+
+              // Determine price
+              let price = 0;
+              if (status !== 'removed' && currT) {
+                  if (currT.tickets) {
+                      const t = currT.tickets.find((tic: any) => tic.seatId === s);
+                      if (t) price = t.price;
+                  }
+                  if (price === 0 && currT.pricePerTicket) price = currT.pricePerTicket; // legacy trip specific
+              }
+              // If removed, try to get price from prev
+              if (status === 'removed' && prevT) {
+                   if (prevT.tickets) {
+                      const t = prevT.tickets.find((tic: any) => tic.seatId === s);
+                      if (t) price = t.price;
+                   }
+                   if (price === 0 && prevT.pricePerTicket) price = prevT.pricePerTicket;
+              }
+
+              seatDiffs.push({ id: s, status, price });
+          });
+
+          // Sort numeric/alpha
+          seatDiffs.sort((a,b) => a.id.localeCompare(b.id, undefined, {numeric: true}));
+
+          results.push({
+              ...meta,
+              diffSeats: seatDiffs
+          });
+      });
+
+      return results;
   };
 
   // Calculate Summary Stats
@@ -331,11 +412,20 @@ export const PaymentManager: React.FC = () => {
                         <div className="text-center py-8 text-slate-400">Không có giao dịch nào.</div>
                     ) : (
                         // Sort by timestamp ASC (Older top) to show flow
-                        [...selectedGroup.payments].sort((a,b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()).map((p, idx) => {
+                        [...selectedGroup.payments].sort((a,b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()).map((p, idx, arr) => {
                             const isPositive = p.amount >= 0;
                             const isCash = p.method === 'cash';
-                            const details = p.details || {};
                             
+                            // CALCULATE DIFF
+                            // Get Previous Payment snapshot (if exists)
+                            const prevP = idx > 0 ? arr[idx-1] : null;
+                            const currTrips = normalizeTrips(p.details);
+                            const prevTrips = prevP ? normalizeTrips(prevP.details) : [];
+                            
+                            // We treat the FIRST record as all "added" or just normal display
+                            // But consistency with "Updated" logic suggests diffing against empty.
+                            const diffResult = calculateDiff(prevTrips, currTrips);
+
                             return (
                                 <div key={p.id} className="relative pl-6">
                                     {/* Timeline Dot */}
@@ -375,13 +465,13 @@ export const PaymentManager: React.FC = () => {
                                                 </div>
                                             </div>
 
-                                            {/* Snapshot Details (Multi Trip Support) */}
-                                            {details.trips && details.trips.length > 0 ? (
+                                            {/* DIFF RESULTS */}
+                                            {diffResult.length > 0 ? (
                                                 <div className="space-y-2 mb-2">
-                                                    {details.trips.map((t: any, idx: number) => {
+                                                    {diffResult.map((t: any, tripIdx: number) => {
                                                         const enhanced = isEnhancedRoute(t.route);
                                                         return (
-                                                        <div key={idx} className="bg-slate-50 p-2.5 rounded-lg border border-slate-200 text-xs">
+                                                        <div key={tripIdx} className="bg-slate-50 p-2.5 rounded-lg border border-slate-200 text-xs">
                                                             <div className="flex items-center gap-2 mb-1.5 pb-1.5 border-b border-slate-100">
                                                                 <MapPin size={12} className="text-blue-500"/>
                                                                 <span className="font-bold text-slate-700">{t.route || '---'}</span>
@@ -396,72 +486,41 @@ export const PaymentManager: React.FC = () => {
                                                                 <div className="flex items-center gap-1.5">
                                                                     <Calendar size={12}/> 
                                                                     <span>{t.tripDate ? new Date(t.tripDate).toLocaleDateString('vi-VN') : '---'}</span>
+                                                                    {t.tripDate && (
+                                                                        <span className="text-[10px] text-slate-400">
+                                                                            ({formatLunarDate(new Date(t.tripDate))})
+                                                                        </span>
+                                                                    )}
                                                                 </div>
                                                                 {t.licensePlate && (
                                                                     <span className="bg-white border px-1.5 rounded text-[10px] shadow-sm">{t.licensePlate}</span>
                                                                 )}
                                                             </div>
-                                                            {t.seats && t.seats.length > 0 && (
-                                                                <div className="flex flex-wrap gap-1 mt-1">
-                                                                    {t.seats.map((s: string, i: number) => {
-                                                                        // Resolve specific price for this seat
-                                                                        let seatPrice = details.pricePerTicket; // default/legacy fallback
-                                                                        if (t.tickets) {
-                                                                            const found = t.tickets.find((tic: any) => tic.seatId === s);
-                                                                            if (found) seatPrice = found.price;
-                                                                        }
+                                                            
+                                                            {/* SEATS with STATUS */}
+                                                            <div className="flex flex-wrap gap-1 mt-1">
+                                                                {t.diffSeats && t.diffSeats.map((s: any, i: number) => {
+                                                                    let badgeClass = "bg-white text-blue-700 border-blue-200";
+                                                                    if (s.status === 'added') badgeClass = "bg-green-50 text-green-700 border-green-200 ring-1 ring-green-400 font-bold";
+                                                                    if (s.status === 'removed') badgeClass = "bg-red-50 text-red-400 border-red-200 line-through decoration-red-400 opacity-80";
 
-                                                                        return (
-                                                                        <Badge key={i} variant="outline" className="bg-white text-blue-700 border-blue-200 px-1.5 py-0 text-[10px] flex items-center gap-1">
-                                                                            {s}
-                                                                            {seatPrice > 0 && (
-                                                                                <span className="text-slate-400 font-normal border-l border-blue-100 pl-1 ml-0.5">
-                                                                                    {seatPrice.toLocaleString('vi-VN')}
-                                                                                </span>
-                                                                            )}
-                                                                        </Badge>
-                                                                    )})}
-                                                                </div>
-                                                            )}
+                                                                    return (
+                                                                    <Badge key={i} variant="outline" className={`${badgeClass} px-1.5 py-0 text-[10px] flex items-center gap-1`}>
+                                                                        {s.id}
+                                                                        {s.price > 0 && (
+                                                                            <span className={`font-normal border-l pl-1 ml-0.5 ${s.status === 'removed' ? 'border-red-200 text-red-300' : 'border-blue-100 text-slate-400'}`}>
+                                                                                {s.price.toLocaleString('vi-VN')}
+                                                                            </span>
+                                                                        )}
+                                                                    </Badge>
+                                                                )})}
+                                                                {t.diffSeats.length === 0 && <span className="text-[10px] italic text-slate-400">Không có ghế</span>}
+                                                            </div>
                                                         </div>
                                                     )})}
                                                 </div>
-                                            ) : (details.route || details.seats?.length > 0) && (
-                                                <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200 text-xs mb-2">
-                                                    <div className="flex items-center gap-2 mb-1.5 pb-1.5 border-b border-slate-100">
-                                                        <MapPin size={12} className="text-blue-500"/>
-                                                        <span className="font-bold text-slate-700">{details.route || '---'}</span>
-                                                        {isEnhancedRoute(details.route) && (
-                                                            <span className="shrink-0 inline-flex items-center text-[9px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200 whitespace-nowrap ml-auto">
-                                                                <Zap size={9} className="mr-0.5 fill-amber-700" />
-                                                                Tăng cường
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    <div className="flex justify-between items-center text-slate-500 mb-1">
-                                                        <div className="flex items-center gap-1.5">
-                                                            <Calendar size={12}/> 
-                                                            <span>{details.tripDate ? new Date(details.tripDate).toLocaleDateString('vi-VN') : '---'}</span>
-                                                        </div>
-                                                        {details.licensePlate && (
-                                                            <span className="bg-white border px-1.5 rounded text-[10px] shadow-sm">{details.licensePlate}</span>
-                                                        )}
-                                                    </div>
-                                                    {details.seats && details.seats.length > 0 && (
-                                                        <div className="flex flex-wrap gap-1 mt-1">
-                                                            {details.seats.map((s: string, i: number) => (
-                                                                <Badge key={i} variant="outline" className="bg-white text-blue-700 border-blue-200 px-1.5 py-0 text-[10px] flex items-center gap-1">
-                                                                    {s}
-                                                                    {details.pricePerTicket > 0 && (
-                                                                        <span className="text-slate-400 font-normal border-l border-blue-100 pl-1 ml-0.5">
-                                                                            {details.pricePerTicket.toLocaleString('vi-VN')}
-                                                                        </span>
-                                                                    )}
-                                                                </Badge>
-                                                            ))}
-                                                        </div>
-                                                    )}
-                                                </div>
+                                            ) : (
+                                                <div className="text-center text-xs italic text-slate-400 mb-2">Dữ liệu cũ không đủ thông tin chi tiết.</div>
                                             )}
 
                                             {/* Note Section (Editable) */}
