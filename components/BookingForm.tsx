@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from "react";
 import { Seat, Booking, BusTrip, Route } from "../types";
 import { Button } from "./ui/Button";
@@ -57,10 +56,10 @@ interface BookingFormProps {
   onConfirm: () => void;
   onCancel: () => void;
   validatePhoneNumber: (phone: string) => string | null;
-  
+
   // NEW: Swap Action
   onInitiateSwap?: (seat: Seat) => void;
-  
+
   // NEW: Navigate Action
   onNavigateToTrip?: (date: Date, tripId: string) => void;
 
@@ -129,9 +128,10 @@ export const BookingForm: React.FC<BookingFormProps> = ({
   const historyMatches = useMemo(() => {
     const cleanInput = bookingForm.phone.replace(/\D/g, "");
     if (cleanInput.length < 3) return [];
-    return bookings.filter((b) =>
-      b.status !== 'cancelled' && // Exclude cancelled bookings
-      b.passenger.phone.replace(/\D/g, "").includes(cleanInput)
+    return bookings.filter(
+      (b) =>
+        b.status !== "cancelled" && // Exclude cancelled bookings
+        b.passenger.phone.replace(/\D/g, "").includes(cleanInput)
     );
   }, [bookings, bookingForm.phone]);
 
@@ -270,11 +270,15 @@ export const BookingForm: React.FC<BookingFormProps> = ({
           return (
             <div
               key={idx}
-              className={`bg-indigo-900 border border-indigo-700 rounded-lg p-2.5 text-white relative transition-colors ${onNavigateToTrip ? 'cursor-pointer hover:border-yellow-400/50 hover:bg-indigo-800' : ''}`}
+              className={`bg-indigo-900 border border-indigo-700 rounded-lg p-2.5 text-white relative transition-colors ${
+                onNavigateToTrip
+                  ? "cursor-pointer hover:border-yellow-400/50 hover:bg-indigo-800"
+                  : ""
+              }`}
               onClick={() => {
-                  if (onNavigateToTrip) {
-                      onNavigateToTrip(tripDate, item.trip.id);
-                  }
+                if (onNavigateToTrip) {
+                  onNavigateToTrip(tripDate, item.trip.id);
+                }
               }}
               title="Nhấn để xem chuyến xe này"
             >
@@ -304,22 +308,23 @@ export const BookingForm: React.FC<BookingFormProps> = ({
               <div className="flex flex-wrap gap-2">
                 {item.seats.map((s) => (
                   <div key={s.id} className="relative group">
-                      <span
-                        className="inline-block bg-indigo-100 text-indigo-700 text-[10px] font-bold px-1.5 py-0.5 rounded border border-indigo-200 cursor-default"
+                    <span className="inline-block bg-indigo-100 text-indigo-700 text-[10px] font-bold px-1.5 py-0.5 rounded border border-indigo-200 cursor-default">
+                      {s.label}
+                    </span>
+
+                    {/* SWAP BUTTON - Only in edit mode */}
+                    {editingBooking && onInitiateSwap && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onInitiateSwap(s);
+                        }}
+                        className="absolute -top-3 right-3 bg-white text-indigo-600 rounded-full p-0.5 shadow-sm border border-slate-200 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-indigo-50"
+                        title="Đổi chỗ"
                       >
-                        {s.label}
-                      </span>
-                      
-                      {/* SWAP BUTTON - Only in edit mode */}
-                      {editingBooking && onInitiateSwap && (
-                          <button 
-                             onClick={(e) => { e.stopPropagation(); onInitiateSwap(s); }}
-                             className="absolute -top-3 right-3 bg-white text-indigo-600 rounded-full p-0.5 shadow-sm border border-slate-200 opacity-0 group-hover:opacity-100 transition-opacity z-20 hover:bg-indigo-50"
-                             title="Đổi chỗ"
-                          >
-                              <ArrowRightLeft size={10} />
-                          </button>
-                      )}
+                        <ArrowRightLeft size={10} />
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -336,7 +341,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
   );
 
   return (
-    <div className="bg-indigo-950 rounded-xl shadow-lg border border-indigo-900 flex flex-col overflow-visible shrink-0 z-20 max-h-[75%] transition-colors duration-300">
+    <div className="bg-indigo-950 rounded-xl shadow-lg border border-indigo-900 flex flex-col overflow-visible shrink-0 max-h-[75%] transition-colors duration-300">
       {/* 1. Basket Header */}
       <div className="px-3 h-[40px] bg-gradient-to-r from-indigo-950 via-indigo-900 to-indigo-950 border-b border-indigo-900 flex items-center justify-between shrink-0 rounded-t-xl">
         <div className="flex items-center gap-2 text-sm font-bold text-white">
@@ -573,7 +578,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
             <span className="opacity-80">Chế độ Giữ vé</span>
           </div>
         )}
-        
+
         {/* Note field */}
         <div className="relative">
           <textarea
@@ -582,7 +587,11 @@ export const BookingForm: React.FC<BookingFormProps> = ({
             onChange={handleInputChange}
             className="w-full pl-6 pr-2 py-1.5 text-xs rounded border text-white placeholder-indigo-400 outline-none resize-none h-8
              bg-indigo-950 border-indigo-800 focus:border-yellow-400"
-            placeholder={bookingMode === "hold" ? "Ghi chú giữ chỗ (VD: Tên khách)" : "Ghi chú"}
+            placeholder={
+              bookingMode === "hold"
+                ? "Ghi chú giữ chỗ (VD: Tên khách)"
+                : "Ghi chú"
+            }
           />
           <Notebook
             size={12}
@@ -592,7 +601,11 @@ export const BookingForm: React.FC<BookingFormProps> = ({
       </div>
 
       {/* 5. Submit Button */}
-      <div className={`p-2 border-t rounded-b-xl bg-indigo-950 border-indigo-900 ${editingBooking ? 'grid grid-cols-2 gap-2' : ''}`}>
+      <div
+        className={`p-2 border-t rounded-b-xl bg-indigo-950 border-indigo-900 ${
+          editingBooking ? "grid grid-cols-2 gap-2" : ""
+        }`}
+      >
         {editingBooking ? (
           <>
             {/* Manual Payment Trigger */}
@@ -603,10 +616,14 @@ export const BookingForm: React.FC<BookingFormProps> = ({
             >
               <CreditCard size={16} className="mr-2" /> Thanh toán
             </Button>
-            
+
             {/* Save Button */}
             <Button
-              className={`font-bold h-10 text-sm ${selectionBasket.length === 0 ? 'bg-red-600 hover:bg-red-500 text-white border-red-700' : 'bg-yellow-500 hover:bg-yellow-400 text-indigo-950'}`}
+              className={`font-bold h-10 text-sm ${
+                selectionBasket.length === 0
+                  ? "bg-red-600 hover:bg-red-500 text-white border-red-700"
+                  : "bg-yellow-500 hover:bg-yellow-400 text-indigo-950"
+              }`}
               onClick={onConfirm}
             >
               <Save size={16} className="mr-2" />{" "}
@@ -615,12 +632,20 @@ export const BookingForm: React.FC<BookingFormProps> = ({
           </>
         ) : (
           <Button
-            className={`w-full font-bold h-10 text-sm ${bookingMode === 'payment' ? 'bg-green-600 hover:bg-green-500 text-white' : 'bg-yellow-500 hover:bg-yellow-400 text-indigo-950'}`}
+            className={`w-full font-bold h-10 text-sm ${
+              bookingMode === "payment"
+                ? "bg-green-600 hover:bg-green-500 text-white"
+                : "bg-yellow-500 hover:bg-yellow-400 text-indigo-950"
+            }`}
             onClick={onConfirm}
             disabled={selectionBasket.length === 0}
           >
-            {bookingMode === 'payment' ? <CreditCard size={16} className="mr-2" /> : <CheckCircle2 size={16} className="mr-2" />} 
-            {bookingMode === 'payment' ? "Thanh toán" : "Đồng ý"}
+            {bookingMode === "payment" ? (
+              <CreditCard size={16} className="mr-2" />
+            ) : (
+              <CheckCircle2 size={16} className="mr-2" />
+            )}
+            {bookingMode === "payment" ? "Thanh toán" : "Đồng ý"}
           </Button>
         )}
       </div>

@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Seat, SeatStatus, BusType, Booking } from "../types";
 import {
@@ -41,7 +40,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
       case SeatStatus.AVAILABLE:
         return "transition-colors bg-white border-slate-300 text-slate-400 hover:border-primary hover:text-primary hover:shadow-md cursor-pointer hover:bg-slate-50";
       case SeatStatus.SELECTED:
-        return "transition-colors bg-primary border-primary text-white shadow-md cursor-pointer z-10";
+        return "transition-colors bg-primary border-primary text-white shadow-md cursor-pointer";
       case SeatStatus.BOOKED:
         return "transition-colors bg-yellow-50 border-yellow-300 text-yellow-900 cursor-pointer hover:bg-yellow-100";
       case SeatStatus.SOLD:
@@ -115,7 +114,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
     let formattedPhone = "";
     let groupIndex = 0;
     let groupTotal = 0;
-    
+
     // Calculate REAL price and Specific Pickup/Dropoff for this seat from booking
     let displayPrice = seat.price;
     let displayPickup = booking?.passenger?.pickupPoint || "";
@@ -132,16 +131,16 @@ export const SeatMap: React.FC<SeatMapProps> = ({
 
       // NEW PRICE & LOCATION LOGIC: Prioritize specific ticket details
       if (bookingItem.tickets && bookingItem.tickets.length > 0) {
-          const ticket = bookingItem.tickets.find(t => t.seatId === seat.id);
-          if (ticket) {
-              displayPrice = ticket.price;
-              // Use specific location if available in ticket, fallback done in Booking/API logic but good to handle here
-              displayPickup = ticket.pickup || displayPickup;
-              displayDropoff = ticket.dropoff || displayDropoff;
-          }
+        const ticket = bookingItem.tickets.find((t) => t.seatId === seat.id);
+        if (ticket) {
+          displayPrice = ticket.price;
+          // Use specific location if available in ticket, fallback done in Booking/API logic but good to handle here
+          displayPickup = ticket.pickup || displayPickup;
+          displayDropoff = ticket.dropoff || displayDropoff;
+        }
       } else if (bookingItem.price > 0 && bookingItem.seatIds.length > 0) {
-          // Fallback for legacy data
-          displayPrice = bookingItem.price / bookingItem.seatIds.length;
+        // Fallback for legacy data
+        displayPrice = bookingItem.price / bookingItem.seatIds.length;
       }
     }
 
@@ -153,12 +152,12 @@ export const SeatMap: React.FC<SeatMapProps> = ({
           e.preventDefault();
           e.stopPropagation();
           if (onSeatRightClick) {
-             if (hasInfo && booking) {
-                onSeatRightClick(seat, booking);
-             } else if (seat.status === SeatStatus.HELD) {
-                // Allow right clicking on HELD seats (no booking)
-                onSeatRightClick(seat, null);
-             }
+            if (hasInfo && booking) {
+              onSeatRightClick(seat, booking);
+            } else if (seat.status === SeatStatus.HELD) {
+              // Allow right clicking on HELD seats (no booking)
+              onSeatRightClick(seat, null);
+            }
           }
         }}
         className={`relative flex flex-col border transition-all duration-200 select-none overflow-hidden group ${statusClass} ${
@@ -260,8 +259,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
                       className="truncate text-wrap"
                       title={`${displayPickup} - ${displayDropoff}`}
                     >
-                      {displayPickup || "---"} -{" "}
-                      {displayDropoff || "---"}
+                      {displayPickup || "---"} - {displayDropoff || "---"}
                     </span>
                   </div>
                 </div>
@@ -292,21 +290,27 @@ export const SeatMap: React.FC<SeatMapProps> = ({
           ) : seat.status === SeatStatus.HELD ? (
             <div className="flex flex-col h-full text-purple-800/80 items-center justify-center">
               <div className="flex items-center justify-center mb-1">
-                 <Lock size={14} className="opacity-60 mr-1" />
-                 <span className="font-bold text-[10px]">ĐANG GIỮ</span>
+                <Lock size={14} className="opacity-60 mr-1" />
+                <span className="font-bold text-[10px]">ĐANG GIỮ</span>
               </div>
               {seat.note ? (
-                 <div className="w-full bg-purple-100/80 rounded px-1 py-1 mt-1 border border-purple-200">
-                    <div className="flex items-start gap-1 text-[9px]">
-                        <StickyNote size={8} className="shrink-0 mt-0.5 opacity-70"/>
-                        <span className="truncate-2-lines leading-tight italic" title={seat.note}>
-                           {seat.note}
-                        </span>
-                    </div>
-                 </div>
+                <div className="w-full bg-purple-100/80 rounded px-1 py-1 mt-1 border border-purple-200">
+                  <div className="flex items-start gap-1 text-[9px]">
+                    <StickyNote
+                      size={8}
+                      className="shrink-0 mt-0.5 opacity-70"
+                    />
+                    <span
+                      className="truncate-2-lines leading-tight italic"
+                      title={seat.note}
+                    >
+                      {seat.note}
+                    </span>
+                  </div>
+                </div>
               ) : (
                 <span className="font-medium text-[9px] text-center opacity-50">
-                    (Không có ghi chú)
+                  (Không có ghi chú)
                 </span>
               )}
             </div>
