@@ -10,6 +10,7 @@ interface DialogProps {
   children: React.ReactNode;
   footer?: React.ReactNode;
   className?: string;
+  headerClassName?: string;
 }
 
 export const Dialog: React.FC<DialogProps> = ({ 
@@ -18,7 +19,8 @@ export const Dialog: React.FC<DialogProps> = ({
   title, 
   children, 
   footer,
-  className = '' 
+  className = '',
+  headerClassName = ''
 }) => {
   const overlayRef = useRef<HTMLDivElement>(null);
 
@@ -46,7 +48,8 @@ export const Dialog: React.FC<DialogProps> = ({
     }
   };
 
-  // Only apply default max-w-lg if the parent hasn't specified a max-width
+  // Determine if we should apply default white bg or use provided one
+  const bgClass = className.includes('bg-') ? '' : 'bg-white';
   const widthClass = className.includes('max-w-') ? '' : 'max-w-lg';
 
   return (
@@ -64,32 +67,32 @@ export const Dialog: React.FC<DialogProps> = ({
       {/* Modal Content */}
       <div 
         className={`
-          relative bg-white rounded-xl shadow-2xl w-full ${widthClass} 
+          relative rounded-xl shadow-2xl w-full ${widthClass} ${bgClass}
           flex flex-col max-h-[90vh] overflow-hidden 
-          animate-in zoom-in-95 fade-in duration-200 
+          animate-in zoom-in-95 fade-in duration-200 border border-slate-200/20
           ${className}
         `}
         role="dialog"
         aria-modal="true"
       >
-        <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 shrink-0">
-          <h2 className="text-lg font-bold text-slate-800 tracking-tight">{title}</h2>
+        <div className={`flex justify-between items-center px-4 py-3 border-b border-slate-100/10 shrink-0 ${headerClassName}`}>
+          <h2 className="text-base font-bold tracking-tight">{title}</h2>
           <Button 
             variant="ghost" 
             size="icon" 
             onClick={onClose} 
-            className="h-8 w-8 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full"
+            className="h-8 w-8 opacity-70 hover:opacity-100 rounded-full hover:bg-white/10"
           >
-            <X size={20} />
+            <X size={18} />
           </Button>
         </div>
         
-        <div className="p-6 overflow-y-auto min-h-0 flex-1">
+        <div className="flex-1 overflow-y-auto min-h-0">
           {children}
         </div>
 
         {footer && (
-          <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3 shrink-0">
+          <div className="px-4 py-3 border-t border-slate-100/10 shrink-0">
             {footer}
           </div>
         )}
