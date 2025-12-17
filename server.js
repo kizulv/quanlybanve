@@ -103,7 +103,7 @@ const bookingItemSchema = new mongoose.Schema({
     price: Number
 }, { _id: false });
 
-// Updated Booking Schema: One record containing multiple items
+// Updated Booking Schema: REMOVED Payment Field
 const bookingSchema = new mongoose.Schema(
   {
     passenger: {
@@ -119,25 +119,25 @@ const bookingSchema = new mongoose.Schema(
     createdAt: String,
     totalPrice: Number,
     totalTickets: Number,
-    payment: {
-      paidCash: Number,
-      paidTransfer: Number,
-    },
+    // Note: Payment field removed. Payments are now derived.
   },
   { toJSON: { virtuals: true, transform: transformId } }
 );
 
 // --- UPDATED PAYMENT SCHEMA ---
+// Independent Payment Ledger
 const paymentSchema = new mongoose.Schema(
   {
     bookingId: { type: mongoose.Schema.Types.ObjectId, ref: 'Booking' },
-    amount: Number, // Can be negative for refunds
-    method: String, // 'cash' | 'transfer' | 'mixed'
+    totalAmount: Number, // Total transaction amount
+    cashAmount: { type: Number, default: 0 }, // Specific cash delta
+    transferAmount: { type: Number, default: 0 }, // Specific transfer delta
+    method: String, // Primary method label ('cash' | 'transfer' | 'mixed')
     type: String, // 'payment' | 'refund' | 'adjustment'
     note: String,
     timestamp: { type: Date, default: Date.now },
-    performedBy: String, // Optional: User ID
-    // Snapshot details for easier querying
+    performedBy: String,
+    // Snapshot details for easier querying without joining Booking
     details: {
        seats: [String],
        tripDate: String,
@@ -198,36 +198,49 @@ const seedData = async () => {
   }
 };
 
-// --- HELPER: CREATE PAYMENT RECORD ---
-const recordPayment = async (booking, oldPayment, newPayment) => {
-    const oldTotal = (oldPayment?.paidCash || 0) + (oldPayment?.paidTransfer || 0);
-    const newTotal = (newPayment?.paidCash || 0) + (newPayment?.paidTransfer || 0);
-    const diff = newTotal - oldTotal;
+// --- HELPER: GET CURRENT PAYMENTS FOR BOOKING ---
+const getBookingPayments = async (bookingId) => {
+    const payments = await Payment.find({ bookingId });
+    const paidCash = payments.reduce((sum, p) => sum + (p.cashAmount || 0), 0);
+    const paidTransfer = payments.reduce((sum, p) => sum + (p.transferAmount || 0), 0);
+    return { paidCash, paidTransfer };
+};
 
-    if (diff === 0) return;
-
-    const type = diff > 0 ? 'payment' : 'refund';
+// --- HELPER: RECORD PAYMENT DELTA ---
+// Calculates the difference between what's in DB and what is requested
+const processPaymentUpdate = async (booking, newPaymentState) => {
+    // 1. Get current totals from Payment Collection
+    const current = await getBookingPayments(booking._id);
     
-    // Determine primary method for history
+    // 2. Calculate Deltas
+    const newCash = newPaymentState?.paidCash || 0;
+    const newTransfer = newPaymentState?.paidTransfer || 0;
+    
+    const cashDelta = newCash - current.paidCash;
+    const transferDelta = newTransfer - current.paidTransfer;
+    const totalDelta = cashDelta + transferDelta;
+
+    if (totalDelta === 0 && cashDelta === 0 && transferDelta === 0) return;
+
+    const type = totalDelta >= 0 ? 'payment' : 'refund';
+    
     let method = 'mixed';
-    const cashDiff = (newPayment?.paidCash || 0) - (oldPayment?.paidCash || 0);
-    const transferDiff = (newPayment?.paidTransfer || 0) - (oldPayment?.paidTransfer || 0);
+    if (transferDelta === 0 && cashDelta !== 0) method = 'cash';
+    else if (cashDelta === 0 && transferDelta !== 0) method = 'transfer';
 
-    if (transferDiff === 0 && cashDiff !== 0) method = 'cash';
-    else if (cashDiff === 0 && transferDiff !== 0) method = 'transfer';
-
-    // Extract snapshot details from Booking
-    // If multi-trip, we join strings or pick the first significant one
+    // Extract snapshot details
     const tripDetails = booking.items[0] || {};
     const allSeats = booking.items.flatMap(i => i.seatIds);
     const avgPrice = booking.totalTickets > 0 ? booking.totalPrice / booking.totalTickets : 0;
 
     const paymentRecord = new Payment({
         bookingId: booking._id,
-        amount: diff,
+        totalAmount: totalDelta,
+        cashAmount: cashDelta,
+        transferAmount: transferDelta,
         type,
         method,
-        note: type === 'refund' ? 'Hoàn tiền' : 'Thanh toán',
+        note: type === 'refund' ? 'Hoàn tiền' : 'Thanh toán/Cập nhật',
         timestamp: new Date(),
         details: {
             seats: allSeats,
@@ -243,55 +256,55 @@ const recordPayment = async (booking, oldPayment, newPayment) => {
 
 // --- ROUTES ---
 
-// 1. Buses
-app.get("/api/buses", async (req, res) => {
-  try { const buses = await Bus.find(); res.json(buses); } catch (e) { res.status(500).json({ error: e.message }); }
-});
-app.post("/api/buses", async (req, res) => {
-  try { const bus = new Bus(req.body); await bus.save(); res.json(bus); } catch (e) { res.status(500).json({ error: e.message }); }
-});
-app.put("/api/buses/:id", async (req, res) => {
-  try { const bus = await Bus.findByIdAndUpdate(req.params.id, req.body, { new: true }); res.json(bus); } catch (e) { res.status(500).json({ error: e.message }); }
-});
-app.delete("/api/buses/:id", async (req, res) => {
-  try { await Bus.findByIdAndDelete(req.params.id); res.json({ success: true }); } catch (e) { res.status(500).json({ error: e.message }); }
-});
+// ... (Buses, Routes, Trips endpoints remain same) ...
+app.get("/api/buses", async (req, res) => { try { const buses = await Bus.find(); res.json(buses); } catch (e) { res.status(500).json({ error: e.message }); } });
+app.post("/api/buses", async (req, res) => { try { const bus = new Bus(req.body); await bus.save(); res.json(bus); } catch (e) { res.status(500).json({ error: e.message }); } });
+app.put("/api/buses/:id", async (req, res) => { try { const bus = await Bus.findByIdAndUpdate(req.params.id, req.body, { new: true }); res.json(bus); } catch (e) { res.status(500).json({ error: e.message }); } });
+app.delete("/api/buses/:id", async (req, res) => { try { await Bus.findByIdAndDelete(req.params.id); res.json({ success: true }); } catch (e) { res.status(500).json({ error: e.message }); } });
 
-// 2. Routes
-app.get("/api/routes", async (req, res) => {
-  try { const routes = await Route.find(); res.json(routes); } catch (e) { res.status(500).json({ error: e.message }); }
-});
-app.post("/api/routes", async (req, res) => {
-  try { const route = new Route(req.body); await route.save(); res.json(route); } catch (e) { res.status(500).json({ error: e.message }); }
-});
-app.put("/api/routes/:id", async (req, res) => {
-  try { const route = await Route.findByIdAndUpdate(req.params.id, req.body, { new: true }); res.json(route); } catch (e) { res.status(500).json({ error: e.message }); }
-});
-app.delete("/api/routes/:id", async (req, res) => {
-  try { await Route.findByIdAndDelete(req.params.id); res.json({ success: true }); } catch (e) { res.status(500).json({ error: e.message }); }
-});
+app.get("/api/routes", async (req, res) => { try { const routes = await Route.find(); res.json(routes); } catch (e) { res.status(500).json({ error: e.message }); } });
+app.post("/api/routes", async (req, res) => { try { const route = new Route(req.body); await route.save(); res.json(route); } catch (e) { res.status(500).json({ error: e.message }); } });
+app.put("/api/routes/:id", async (req, res) => { try { const route = await Route.findByIdAndUpdate(req.params.id, req.body, { new: true }); res.json(route); } catch (e) { res.status(500).json({ error: e.message }); } });
+app.delete("/api/routes/:id", async (req, res) => { try { await Route.findByIdAndDelete(req.params.id); res.json({ success: true }); } catch (e) { res.status(500).json({ error: e.message }); } });
 
-// 3. Trips
-app.get("/api/trips", async (req, res) => {
-  try { const trips = await Trip.find(); res.json(trips); } catch (e) { res.status(500).json({ error: e.message }); }
-});
-app.post("/api/trips", async (req, res) => {
-  try { const trip = new Trip(req.body); await trip.save(); res.json(trip); } catch (e) { res.status(500).json({ error: e.message }); }
-});
-app.put("/api/trips/:id", async (req, res) => {
-  try { const trip = await Trip.findByIdAndUpdate(req.params.id, req.body, { new: true }); res.json(trip); } catch (e) { res.status(500).json({ error: e.message }); }
-});
-app.delete("/api/trips/:id", async (req, res) => {
-  try { await Trip.findByIdAndDelete(req.params.id); res.json({ success: true }); } catch (e) { res.status(500).json({ error: e.message }); }
-});
-app.put("/api/trips/:id/seats", async (req, res) => {
-  try { const trip = await Trip.findByIdAndUpdate(req.params.id, { seats: req.body.seats }, { new: true }); res.json(trip); } catch (e) { res.status(500).json({ error: e.message }); }
-});
+app.get("/api/trips", async (req, res) => { try { const trips = await Trip.find(); res.json(trips); } catch (e) { res.status(500).json({ error: e.message }); } });
+app.post("/api/trips", async (req, res) => { try { const trip = new Trip(req.body); await trip.save(); res.json(trip); } catch (e) { res.status(500).json({ error: e.message }); } });
+app.put("/api/trips/:id", async (req, res) => { try { const trip = await Trip.findByIdAndUpdate(req.params.id, req.body, { new: true }); res.json(trip); } catch (e) { res.status(500).json({ error: e.message }); } });
+app.delete("/api/trips/:id", async (req, res) => { try { await Trip.findByIdAndDelete(req.params.id); res.json({ success: true }); } catch (e) { res.status(500).json({ error: e.message }); } });
+app.put("/api/trips/:id/seats", async (req, res) => { try { const trip = await Trip.findByIdAndUpdate(req.params.id, { seats: req.body.seats }, { new: true }); res.json(trip); } catch (e) { res.status(500).json({ error: e.message }); } });
 
-// 4. Bookings
+
+// 4. Bookings - UPDATED TO USE AGGREGATION
 app.get("/api/bookings", async (req, res) => {
   try {
-    const bookings = await Booking.find();
+    // Join Bookings with Payments to calculate totals on the fly
+    const bookings = await Booking.aggregate([
+      {
+        $lookup: {
+          from: "payments",
+          localField: "_id",
+          foreignField: "bookingId",
+          as: "paymentRecords"
+        }
+      },
+      {
+        $addFields: {
+          id: "$_id", // Ensure ID is available as string
+          payment: {
+            paidCash: { $sum: "$paymentRecords.cashAmount" },
+            paidTransfer: { $sum: "$paymentRecords.transferAmount" }
+          }
+        }
+      },
+      {
+        $project: {
+          paymentRecords: 0, // Remove the raw joined array
+          _id: 0, 
+          __v: 0
+        }
+      }
+    ]);
+    
     res.json(bookings);
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -355,6 +368,7 @@ app.post("/api/bookings", async (req, res) => {
          updatedTrips.push(trip);
     }
 
+    // Save Booking WITHOUT Payment field
     const booking = new Booking({
       passenger,
       items: bookingItems,
@@ -362,16 +376,40 @@ app.post("/api/bookings", async (req, res) => {
       createdAt: now,
       totalPrice: calculatedTotalPrice,
       totalTickets: calculatedTotalTickets,
-      payment: payment,
+      // No payment field in schema anymore
     });
     
     await booking.save();
 
-    // RECORD PAYMENT
-    // We pass the new booking object as context
-    await recordPayment(booking, { paidCash: 0, paidTransfer: 0 }, payment);
+    // RECORD PAYMENT IN SEPARATE DB
+    if (totalPaid > 0 || payment) {
+        await processPaymentUpdate(booking, payment);
+    }
 
-    res.json({ bookings: [booking], updatedTrips: updatedTrips }); 
+    // Fetch the single booking with aggregated payment to return correct structure
+    const aggregatedBookings = await Booking.aggregate([
+        { $match: { _id: booking._id } },
+        {
+            $lookup: {
+                from: "payments",
+                localField: "_id",
+                foreignField: "bookingId",
+                as: "paymentRecords"
+            }
+        },
+        {
+            $addFields: {
+                id: "$_id",
+                payment: {
+                    paidCash: { $sum: "$paymentRecords.cashAmount" },
+                    paidTransfer: { $sum: "$paymentRecords.transferAmount" }
+                }
+            }
+        },
+        { $project: { paymentRecords: 0, _id: 0, __v: 0 } }
+    ]);
+
+    res.json({ bookings: aggregatedBookings, updatedTrips: updatedTrips }); 
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: e.message });
@@ -433,10 +471,10 @@ app.put("/api/bookings/:id", async (req, res) => {
       
       let finalStatus;
       if (calculatedTotalTickets === 0) {
-          finalStatus = "cancelled"; // Hủy hết ghế -> Đã hủy
+          finalStatus = "cancelled";
       } else {
-          finalStatus = "modified"; // Có thay đổi -> Đã thay đổi
-          if (isFullyPaid) finalStatus = "confirmed"; // Re-confirm if paid enough
+          finalStatus = "modified";
+          if (isFullyPaid) finalStatus = "confirmed";
       }
 
       const seatStatus = isFullyPaid ? "sold" : "booked";
@@ -460,24 +498,45 @@ app.put("/api/bookings/:id", async (req, res) => {
           }
       }
 
-      // 5. Update Booking Record IN MEMORY first to use for Payment Record Context
-      const oldPayment = oldBooking.payment;
-      
+      // 5. Update Booking Record (No Payment Field)
       oldBooking.passenger = passenger;
       oldBooking.items = bookingItems;
-      oldBooking.payment = payment;
       oldBooking.status = finalStatus;
       oldBooking.totalPrice = calculatedTotalPrice;
       oldBooking.totalTickets = calculatedTotalTickets;
       
       await oldBooking.save();
 
-      // 6. RECORD PAYMENT DIFFERENCE
-      await recordPayment(oldBooking, oldPayment, payment);
+      // 6. RECORD PAYMENT DIFFERENCE (INDEPENDENT DB)
+      // This function will calculate the delta between DB and `payment` object and save it
+      await processPaymentUpdate(oldBooking, payment);
 
       const allTrips = await Trip.find();
 
-      res.json({ booking: oldBooking, updatedTrips: allTrips });
+      // Fetch updated booking with aggregated payment
+      const aggregatedBooking = await Booking.aggregate([
+        { $match: { _id: oldBooking._id } },
+        {
+            $lookup: {
+                from: "payments",
+                localField: "_id",
+                foreignField: "bookingId",
+                as: "paymentRecords"
+            }
+        },
+        {
+            $addFields: {
+                id: "$_id",
+                payment: {
+                    paidCash: { $sum: "$paymentRecords.cashAmount" },
+                    paidTransfer: { $sum: "$paymentRecords.transferAmount" }
+                }
+            }
+        },
+        { $project: { paymentRecords: 0, _id: 0, __v: 0 } }
+      ]);
+
+      res.json({ booking: aggregatedBooking[0], updatedTrips: allTrips });
 
   } catch (e) {
       console.error(e);
@@ -491,15 +550,39 @@ app.patch("/api/bookings/:id/passenger", async (req, res) => {
         const { passenger } = req.body;
         const bookingId = req.params.id;
         
-        const updatedBooking = await Booking.findByIdAndUpdate(
+        // No payment changes here, just info
+        await Booking.findByIdAndUpdate(
             bookingId,
             { passenger: passenger },
             { new: true }
         );
 
-        if (!updatedBooking) return res.status(404).json({ error: "Booking not found" });
+        // Fetch Aggregated
+        const aggregatedBooking = await Booking.aggregate([
+            { $match: { _id: new mongoose.Types.ObjectId(bookingId) } },
+            {
+                $lookup: {
+                    from: "payments",
+                    localField: "_id",
+                    foreignField: "bookingId",
+                    as: "paymentRecords"
+                }
+            },
+            {
+                $addFields: {
+                    id: "$_id",
+                    payment: {
+                        paidCash: { $sum: "$paymentRecords.cashAmount" },
+                        paidTransfer: { $sum: "$paymentRecords.transferAmount" }
+                    }
+                }
+            },
+            { $project: { paymentRecords: 0, _id: 0, __v: 0 } }
+        ]);
+
+        if (!aggregatedBooking || aggregatedBooking.length === 0) return res.status(404).json({ error: "Booking not found" });
         
-        res.json({ booking: updatedBooking });
+        res.json({ booking: aggregatedBooking[0] });
     } catch (e) {
         console.error(e);
         res.status(500).json({ error: e.message });
@@ -528,13 +611,37 @@ app.delete("/api/bookings/:id", async (req, res) => {
             }
         }
 
-        // Record voided payment if it was paid
-        await recordPayment(booking, booking.payment, { paidCash: 0, paidTransfer: 0 });
+        // OPTIONAL: Delete associated payments or keep them? 
+        // User asked for "Independent" DB. Usually we keep financial records.
+        // But for "Undo Create", we probably want to clean up or mark void.
+        // For simplicity in this specific "Undo" context, we delete the booking. 
+        // The payments become orphans (or we could delete them).
+        // Let's delete payments for this booking since it's a hard delete action.
+        await Payment.deleteMany({ bookingId: booking._id });
 
         await Booking.findByIdAndDelete(bookingId);
         
         const allTrips = await Trip.find();
-        const allBookings = await Booking.find();
+        const allBookings = await Booking.aggregate([
+            {
+              $lookup: {
+                from: "payments",
+                localField: "_id",
+                foreignField: "bookingId",
+                as: "paymentRecords"
+              }
+            },
+            {
+              $addFields: {
+                id: "$_id",
+                payment: {
+                  paidCash: { $sum: "$paymentRecords.cashAmount" },
+                  paidTransfer: { $sum: "$paymentRecords.transferAmount" }
+                }
+              }
+            },
+            { $project: { paymentRecords: 0, _id: 0, __v: 0 } }
+        ]);
 
         res.json({ success: true, trips: allTrips, bookings: allBookings });
     } catch (e) {
@@ -546,9 +653,20 @@ app.delete("/api/bookings/:id", async (req, res) => {
 // 5. Payment Management APIs
 app.get("/api/payments", async (req, res) => {
     try {
-        // Populate booking for extra context if needed, though we snapshot details now
         const payments = await Payment.find().populate('bookingId').sort({ timestamp: -1 });
-        res.json(payments);
+        // Use the explicit amount fields
+        const formattedPayments = payments.map(p => {
+            const doc = p.toJSON();
+            // Total amount usually represents the transaction value (positive or negative)
+            // If totalAmount is missing (legacy), derive it
+            if (doc.totalAmount === undefined) {
+                doc.amount = (doc.cashAmount || 0) + (doc.transferAmount || 0);
+            } else {
+                doc.amount = doc.totalAmount;
+            }
+            return doc;
+        });
+        res.json(formattedPayments);
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
@@ -696,7 +814,28 @@ app.post("/api/bookings/swap", async (req, res) => {
             await trip.save();
         }
         
-        const allBookings = await Booking.find();
+        // Aggregate bookings again to return correct payment structure
+        const allBookings = await Booking.aggregate([
+            {
+              $lookup: {
+                from: "payments",
+                localField: "_id",
+                foreignField: "bookingId",
+                as: "paymentRecords"
+              }
+            },
+            {
+              $addFields: {
+                id: "$_id",
+                payment: {
+                  paidCash: { $sum: "$paymentRecords.cashAmount" },
+                  paidTransfer: { $sum: "$paymentRecords.transferAmount" }
+                }
+              }
+            },
+            { $project: { paymentRecords: 0, _id: 0, __v: 0 } }
+        ]);
+        
         const allTrips = await Trip.find();
         
         res.json({ bookings: allBookings, trips: allTrips });

@@ -51,6 +51,7 @@ export interface Booking {
   createdAt: string;
   totalPrice: number;
   totalTickets: number; // New field
+  // Computed property from Payment Collection (Not stored in Booking DB)
   payment?: {
     paidCash: number;
     paidTransfer: number;
