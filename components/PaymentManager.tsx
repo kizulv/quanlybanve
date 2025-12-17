@@ -333,7 +333,6 @@ export const PaymentManager: React.FC = () => {
                              <h3 className="font-bold text-slate-800">{selectedGroup.passengerName}</h3>
                              <div className="flex items-center gap-3 text-xs text-slate-600 mt-1">
                                  <span className="flex items-center gap-1 bg-white px-2 py-0.5 rounded border border-slate-200 font-mono"><Phone size={10}/> {selectedGroup.passengerPhone}</span>
-                                 <span className="flex items-center gap-1"><MapPin size={10}/> {selectedGroup.tripInfo.route}</span>
                              </div>
                          </div>
                      </div>
@@ -354,6 +353,7 @@ export const PaymentManager: React.FC = () => {
                         [...selectedGroup.payments].sort((a,b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()).map((p, idx) => {
                             const isPositive = p.amount >= 0;
                             const isCash = p.method === 'cash';
+                            const details = p.details || {};
                             
                             return (
                                 <div key={p.id} className="relative pl-6">
@@ -393,6 +393,34 @@ export const PaymentManager: React.FC = () => {
                                                     {isPositive ? '+' : ''}{p.amount.toLocaleString('vi-VN')} đ
                                                 </div>
                                             </div>
+
+                                            {/* Snapshot Details (New Feature) */}
+                                            {(details.route || details.seats?.length > 0) && (
+                                                <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200 text-xs mb-2">
+                                                    <div className="flex items-center gap-2 mb-1.5 pb-1.5 border-b border-slate-100">
+                                                        <MapPin size={12} className="text-blue-500"/>
+                                                        <span className="font-bold text-slate-700">{details.route || '---'}</span>
+                                                    </div>
+                                                    <div className="flex justify-between items-center text-slate-500 mb-1">
+                                                        <div className="flex items-center gap-1.5">
+                                                            <Calendar size={12}/> 
+                                                            <span>{details.tripDate ? new Date(details.tripDate).toLocaleDateString('vi-VN') : '---'}</span>
+                                                        </div>
+                                                        {details.licensePlate && (
+                                                            <span className="bg-white border px-1.5 rounded text-[10px] shadow-sm">{details.licensePlate}</span>
+                                                        )}
+                                                    </div>
+                                                    {details.seats && details.seats.length > 0 && (
+                                                        <div className="flex flex-wrap gap-1 mt-1">
+                                                            {details.seats.map((s: string, i: number) => (
+                                                                <Badge key={i} variant="outline" className="bg-white text-blue-700 border-blue-200 px-1.5 py-0 text-[10px]">
+                                                                    {s}
+                                                                </Badge>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
 
                                             {/* Note Section (Editable) */}
                                             <div className="bg-slate-50 p-2 rounded-lg border border-slate-100 text-xs text-slate-600 min-h-[30px] flex items-center relative group/note">
