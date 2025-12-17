@@ -175,6 +175,7 @@ function AppContent() {
   
   // Local state for Payment Modal inputs (since removed from BookingForm)
   const [modalPaymentInput, setModalPaymentInput] = useState({ paidCash: 0, paidTransfer: 0 });
+  const [modalInitialOverrides, setModalInitialOverrides] = useState<Record<string, SeatOverride>>({});
 
   // -- CALCULATED STATES (BASKET) --
   // Calculate all selected seats across ALL trips
@@ -212,12 +213,13 @@ function AppContent() {
             (i) => i.tripId === basketItem.trip.id
           );
 
-          if (originalItem && originalItem.seatIds.includes(seat.id)) {
-            // Derive unit price from the saved total item price
+          if (originalItem && originalItem.tickets) {
+             const ticket = originalItem.tickets.find(t => t.seatId === seat.id);
+             if (ticket) effectivePrice = ticket.price;
+          } else if (originalItem && originalItem.seatIds.includes(seat.id)) {
+            // Legacy fallback
             const count = originalItem.seatIds.length;
-            if (count > 0) {
-              effectivePrice = originalItem.price / count;
-            }
+            if (count > 0) effectivePrice = originalItem.price / count;
           }
         }
         return seatSum + effectivePrice;
@@ -282,6 +284,7 @@ function AppContent() {
     if (!isPaymentModalOpen) {
         // Reset when closed
         setModalPaymentInput({ paidCash: 0, paidTransfer: 0 });
+        setModalInitialOverrides({});
     }
   }, [isPaymentModalOpen]);
 
@@ -614,21 +617,24 @@ function AppContent() {
     const payment = paymentData || { paidCash: 0, paidTransfer: 0 };
     const isPaid = (payment.paidCash + payment.paidTransfer) > 0;
 
-    // Prepare items for single API call
+    // Prepare items for single API call (NEW STRUCTURE)
     const bookingItems = selectionBasket.map((item) => {
-        // Apply overrides to seats (Price primarily)
-        const seatsWithPrice = item.seats.map(s => {
+        // Build detailed ticket info per seat using overrides
+        const tickets = item.seats.map(s => {
             const key = `${item.trip.id}_${s.id}`;
             const override = overrides[key];
             return {
-                ...s,
-                price: override?.price !== undefined ? override.price : s.price
+                seatId: s.id,
+                price: override?.price !== undefined ? override.price : s.price,
+                pickup: override?.pickup !== undefined ? override.pickup : (passenger.pickupPoint || ''),
+                dropoff: override?.dropoff !== undefined ? override.dropoff : (passenger.dropoffPoint || '')
             };
         });
 
         return {
           tripId: item.trip.id,
-          seats: seatsWithPrice,
+          seats: item.seats, // Keeping raw seats for legacy check
+          tickets: tickets // NEW DETAILED TICKETS
         };
     });
 
@@ -674,6 +680,7 @@ function AppContent() {
       setBookingForm((prev) => ({ ...prev, note: "", phone: "" })); 
       setPhoneError(null);
       setModalPaymentInput({ paidCash: 0, paidTransfer: 0 });
+      setModalInitialOverrides({});
 
       if (selectedTrip) handleTripSelect(selectedTrip.id);
 
@@ -768,11 +775,30 @@ function AppContent() {
       type: "new",
       totalPrice: totalBasketPrice,
     });
+    setModalInitialOverrides({}); // Reset overrides for new booking
     setIsPaymentModalOpen(true);
   };
 
   const handleManualPaymentForEdit = () => {
     if (!editingBooking) return;
+    
+    // CONSTRUCT INITIAL OVERRIDES FROM EXISTING BOOKING DETAILS
+    const overrides: Record<string, SeatOverride> = {};
+    editingBooking.items.forEach(item => {
+        // If modern ticket details exist
+        if (item.tickets && item.tickets.length > 0) {
+            item.tickets.forEach(ticket => {
+                overrides[`${item.tripId}_${ticket.seatId}`] = {
+                    price: ticket.price,
+                    pickup: ticket.pickup,
+                    dropoff: ticket.dropoff
+                };
+            });
+        }
+    });
+
+    setModalInitialOverrides(overrides);
+
     setPendingPaymentContext({
       type: "update",
       bookingIds: [editingBooking.id],
@@ -797,21 +823,23 @@ function AppContent() {
           dropoffPoint: bookingForm.dropoff,
         };
 
-        // Get currently selected items (from basket)
+        // Get currently selected items (from basket) and build DETAILED TICKETS
         const currentBookingItems = selectionBasket.map((item) => {
-            // Apply overrides (Price)
-            const seatsWithPrice = item.seats.map(s => {
+            const tickets = item.seats.map(s => {
                 const key = `${item.trip.id}_${s.id}`;
                 const override = overrides[key];
                 return {
-                    ...s,
-                    price: override?.price !== undefined ? override.price : s.price
+                    seatId: s.id,
+                    price: override?.price !== undefined ? override.price : s.price,
+                    pickup: override?.pickup !== undefined ? override.pickup : (passenger.pickupPoint || ''),
+                    dropoff: override?.dropoff !== undefined ? override.dropoff : (passenger.dropoffPoint || '')
                 };
             });
 
             return {
               tripId: item.trip.id,
-              seats: seatsWithPrice,
+              seats: item.seats,
+              tickets: tickets
             };
         });
 
@@ -824,18 +852,24 @@ function AppContent() {
             const basketTripIds = new Set(currentBookingItems.map(i => i.tripId));
             const loadedTripIds = new Set(trips.map(t => t.id));
             
+            // Preserve items that are NOT currently being edited (on other trips/pages)
             const preservedItems = oldBooking.items.filter(item => {
                 if (basketTripIds.has(item.tripId)) return false;
                 if (loadedTripIds.has(item.tripId)) return false;
                 return true;
             });
             
+            // Reconstruct preserved items needed for the payload
             const reconstructedPreservedItems = preservedItems.map(item => {
                 const trip = trips.find(t => t.id === item.tripId);
                 const seatsObj = trip ? trip.seats.filter(s => item.seatIds.includes(s.id)) : [];
+                
+                // If the preserved item has tickets detail, keep it
+                // Otherwise reconstruct basics
                 return {
                     tripId: item.tripId,
-                    seats: seatsObj.length > 0 ? seatsObj : item.seatIds.map(sid => ({ id: sid, price: 0 } as Seat))
+                    seats: seatsObj.length > 0 ? seatsObj : item.seatIds.map(sid => ({ id: sid, price: 0 } as Seat)),
+                    tickets: item.tickets // Important: Pass existing detailed tickets back
                 };
             });
 
@@ -870,6 +904,7 @@ function AppContent() {
         setPendingPaymentContext(null);
         setEditingBooking(null); 
         setBookingForm({ ...bookingForm, phone: "", note: "" });
+        setModalInitialOverrides({});
 
         toast({
           type: "success",
@@ -948,20 +983,32 @@ function AppContent() {
       
       if (!editingBooking) return;
 
-      // Always show payment modal for reconciliation during edit if Price changed or user manually triggered it
-      // But if user just wants to save edits without payment change, we could skip.
-      // However, separating payment from BookingForm means we don't have payment inputs visible.
-      // So safest is to open modal if they haven't manually opened it.
-      
-      setPendingPaymentContext({
-        type: "update",
-        bookingIds: [editingBooking.id],
-        totalPrice: totalBasketPrice,
-      });
+      // Always show payment modal for reconciliation during edit
       // Pre-fill modal with existing payment to start
       setModalPaymentInput({
           paidCash: editingBooking.payment?.paidCash || 0,
           paidTransfer: editingBooking.payment?.paidTransfer || 0
+      });
+      
+      // Populate overrides from existing data
+      const overrides: Record<string, SeatOverride> = {};
+      editingBooking.items.forEach(item => {
+          if (item.tickets) {
+              item.tickets.forEach(ticket => {
+                  overrides[`${item.tripId}_${ticket.seatId}`] = {
+                      price: ticket.price,
+                      pickup: ticket.pickup,
+                      dropoff: ticket.dropoff
+                  };
+              });
+          }
+      });
+      setModalInitialOverrides(overrides);
+
+      setPendingPaymentContext({
+        type: "update",
+        bookingIds: [editingBooking.id],
+        totalPrice: totalBasketPrice,
       });
       setIsPaymentModalOpen(true);
   };
@@ -1048,7 +1095,8 @@ function AppContent() {
                       const seatsObj = trip ? trip.seats.filter(s => item.seatIds.includes(s.id)) : [];
                       return {
                           tripId: item.tripId,
-                          seats: seatsObj.length > 0 ? seatsObj : item.seatIds.map(sid => ({ id: sid, price: 0 } as Seat))
+                          seats: seatsObj.length > 0 ? seatsObj : item.seatIds.map(sid => ({ id: sid, price: 0 } as Seat)),
+                          tickets: item.tickets // Restore old tickets
                       };
                   });
 
@@ -1528,6 +1576,7 @@ function AppContent() {
         paidCash={modalPaymentInput.paidCash}
         paidTransfer={modalPaymentInput.paidTransfer}
         onMoneyChange={handleModalMoneyChange}
+        initialOverrides={modalInitialOverrides}
       />
 
       {/* SEAT DETAIL MODAL */}

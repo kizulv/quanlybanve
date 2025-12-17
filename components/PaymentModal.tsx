@@ -46,6 +46,7 @@ interface PaymentModalProps {
   paidTransfer: number;
   onMoneyChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   isProcessing?: boolean;
+  initialOverrides?: Record<string, SeatOverride>; // NEW PROP
 }
 
 export const PaymentModal: React.FC<PaymentModalProps> = ({
@@ -59,6 +60,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   paidTransfer,
   onMoneyChange,
   isProcessing = false,
+  initialOverrides = {}, // Default empty
 }) => {
   const [seatOverrides, setSeatOverrides] = useState<Record<string, SeatOverride>>({});
 
@@ -176,9 +178,14 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       }
   };
 
+  // Reset or Load Initial
   useEffect(() => {
-    if (isOpen) setSeatOverrides({});
-  }, [isOpen]);
+    if (isOpen) {
+        setSeatOverrides(initialOverrides);
+    } else {
+        setSeatOverrides({});
+    }
+  }, [isOpen, initialOverrides]);
 
   return (
     <Dialog

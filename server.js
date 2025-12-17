@@ -94,6 +94,14 @@ const tripSchema = new mongoose.Schema(
   { toJSON: { virtuals: true, transform: transformId } }
 );
 
+// Ticket Detail Schema (Granular per seat)
+const ticketDetailSchema = new mongoose.Schema({
+    seatId: String,
+    price: Number,
+    pickup: String,
+    dropoff: String
+}, { _id: false });
+
 // Booking Item Schema: Snapshot of trip details at time of booking
 const bookingItemSchema = new mongoose.Schema({
     tripId: String,
@@ -101,7 +109,8 @@ const bookingItemSchema = new mongoose.Schema({
     route: String,
     licensePlate: String,
     seatIds: [String],
-    price: Number // Agreed Cost (Invoice Amount), NOT Payment.
+    tickets: [ticketDetailSchema], // NEW: Detailed ticket info
+    price: Number // Total price for this line item (sum of tickets)
 }, { _id: false });
 
 // Booking Schema: Strictly Invoice/Order Data. No Payment Data.
@@ -326,8 +335,16 @@ app.post("/api/bookings", async (req, res) => {
         const trip = await Trip.findById(item.tripId);
         if (!trip) continue;
 
-        const seatIds = item.seats.map(s => s.id);
-        const itemPrice = item.seats.reduce((sum, s) => sum + s.price, 0);
+        // Use tickets array from body if present, or fallback to simple seats
+        const tickets = item.tickets || item.seats.map(s => ({ 
+            seatId: s.id, 
+            price: s.price, 
+            pickup: passenger.pickupPoint || '', 
+            dropoff: passenger.dropoffPoint || '' 
+        }));
+
+        const seatIds = tickets.map(t => t.seatId);
+        const itemPrice = tickets.reduce((sum, t) => sum + t.price, 0);
         
         calculatedTotalPrice += itemPrice;
         calculatedTotalTickets += seatIds.length;
@@ -338,6 +355,7 @@ app.post("/api/bookings", async (req, res) => {
             route: trip.route,
             licensePlate: trip.licensePlate,
             seatIds: seatIds,
+            tickets: tickets, // Save detailed info
             price: itemPrice
         });
     }
@@ -350,11 +368,11 @@ app.post("/api/bookings", async (req, res) => {
     const seatStatus = finalStatus === "confirmed" ? "sold" : "booked";
 
     // Update Trips (Status only, no payment info)
-    for (const item of items) {
+    for (const item of bookingItems) {
          const trip = await Trip.findById(item.tripId);
          if (!trip) continue;
          
-         const seatIds = item.seats.map(s => s.id);
+         const seatIds = item.seatIds;
          
          trip.seats = trip.seats.map(s => {
              if (seatIds.includes(s.id)) return { ...s, status: seatStatus };
@@ -445,8 +463,16 @@ app.put("/api/bookings/:id", async (req, res) => {
           const trip = await Trip.findById(item.tripId);
           if (!trip) continue; 
           
-          const seatIds = item.seats.map(s => s.id);
-          const itemPrice = item.seats.reduce((sum, s) => sum + s.price, 0);
+          // Use tickets array from body if present
+          const tickets = item.tickets || item.seats.map(s => ({ 
+            seatId: s.id, 
+            price: s.price, 
+            pickup: passenger.pickupPoint || '', 
+            dropoff: passenger.dropoffPoint || '' 
+          }));
+
+          const seatIds = tickets.map(t => t.seatId);
+          const itemPrice = tickets.reduce((sum, t) => sum + t.price, 0);
           
           calculatedTotalPrice += itemPrice;
           calculatedTotalTickets += seatIds.length;
@@ -457,6 +483,7 @@ app.put("/api/bookings/:id", async (req, res) => {
               route: trip.route,
               licensePlate: trip.licensePlate,
               seatIds: seatIds,
+              tickets: tickets,
               price: itemPrice
           });
       }
@@ -477,11 +504,11 @@ app.put("/api/bookings/:id", async (req, res) => {
 
       // 4. Update Trips
       if (calculatedTotalTickets > 0) {
-          for (const item of items) {
+          for (const item of bookingItems) {
               const trip = await Trip.findById(item.tripId);
               if (!trip) continue;
 
-              const seatIds = item.seats.map(s => s.id);
+              const seatIds = item.seatIds;
               trip.seats = trip.seats.map(s => {
                   if (seatIds.includes(s.id)) return { ...s, status: seatStatus };
                   return s;
@@ -753,14 +780,26 @@ app.post("/api/bookings/swap", async (req, res) => {
         if (booking2) {
              booking1.items = booking1.items.map(item => {
                  if (item.tripId === tripId) {
-                     return { ...item, seatIds: item.seatIds.map(s => s === seatId1 ? seatId2 : s) };
+                     // Swap seatId in array
+                     const newSeatIds = item.seatIds.map(s => s === seatId1 ? seatId2 : s);
+                     // Swap ticket details if present
+                     let newTickets = item.tickets;
+                     if (newTickets) {
+                         newTickets = newTickets.map(t => t.seatId === seatId1 ? { ...t, seatId: seatId2 } : t);
+                     }
+                     return { ...item, seatIds: newSeatIds, tickets: newTickets };
                  }
                  return item;
              });
              
              booking2.items = booking2.items.map(item => {
                  if (item.tripId === tripId) {
-                     return { ...item, seatIds: item.seatIds.map(s => s === seatId2 ? seatId1 : s) };
+                     const newSeatIds = item.seatIds.map(s => s === seatId2 ? seatId1 : s);
+                     let newTickets = item.tickets;
+                     if (newTickets) {
+                         newTickets = newTickets.map(t => t.seatId === seatId2 ? { ...t, seatId: seatId1 } : t);
+                     }
+                     return { ...item, seatIds: newSeatIds, tickets: newTickets };
                  }
                  return item;
              });
@@ -781,7 +820,12 @@ app.post("/api/bookings/swap", async (req, res) => {
         } else {
             booking1.items = booking1.items.map(item => {
                  if (item.tripId === tripId) {
-                     return { ...item, seatIds: item.seatIds.map(s => s === seatId1 ? seatId2 : s) };
+                     const newSeatIds = item.seatIds.map(s => s === seatId1 ? seatId2 : s);
+                     let newTickets = item.tickets;
+                     if (newTickets) {
+                         newTickets = newTickets.map(t => t.seatId === seatId1 ? { ...t, seatId: seatId2 } : t);
+                     }
+                     return { ...item, seatIds: newSeatIds, tickets: newTickets };
                  }
                  return item;
             });

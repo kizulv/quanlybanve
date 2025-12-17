@@ -33,13 +33,22 @@ export interface Passenger {
   dropoffPoint?: string;
 }
 
+// Detailed Ticket Info stored in DB
+export interface TicketDetail {
+  seatId: string;
+  price: number;
+  pickup: string;
+  dropoff: string;
+}
+
 // New Interface for Line Items
 export interface BookingItem {
   tripId: string;
   tripDate: string; // Snapshot
   route: string;    // Snapshot
   licensePlate: string; // Snapshot
-  seatIds: string[];
+  seatIds: string[]; // Kept for easy indexing
+  tickets: TicketDetail[]; // NEW: Detailed info per seat
   price: number; // Total price for these seats
 }
 
