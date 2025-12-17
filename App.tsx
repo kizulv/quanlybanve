@@ -249,8 +249,10 @@ function AppContent() {
     });
   }, [tripBookings, manifestSearch, selectedTrip]);
 
-  // Auto update payment when total changes
+  // Auto update payment when total changes - ONLY IN PAYMENT MODE
   useEffect(() => {
+    if (bookingMode !== 'payment') return;
+
     if (pendingPaymentContext && pendingPaymentContext.type === "update")
       return;
 
@@ -265,7 +267,7 @@ function AppContent() {
         paidCash: Math.max(0, currentTotal - prev.paidTransfer),
       }));
     }
-  }, [totalBasketPrice, pendingPaymentContext]);
+  }, [totalBasketPrice, pendingPaymentContext, bookingMode]);
 
   // Scroll to highlighted booking
   useEffect(() => {
@@ -625,12 +627,17 @@ function AppContent() {
         };
     });
 
+    // FORCE PENDING STATUS IF NOT PAID (BOOKING MODE)
+    // This handles the case where price is 0 but intention is "Booking" (Pending)
+    const explicitStatus = isPaid ? undefined : "pending";
+
     try {
       // Single API Call
       const result = await api.bookings.create(
         bookingItems,
         passenger,
-        payment
+        payment,
+        explicitStatus
       );
 
       // Update Local State with returned data
@@ -669,7 +676,7 @@ function AppContent() {
 
       toast({
         type: "success",
-        title: "Thanh toán thành công",
+        title: isPaid ? "Thanh toán thành công" : "Đặt vé thành công",
         message: `Đã tạo 1 đơn hàng gồm ${selectionBasket.reduce(
           (a, b) => a + b.seats.length,
           0
@@ -1380,6 +1387,7 @@ function AppContent() {
         </div>
       )}
 
+      {/* ... [Rest of the file remains unchanged] ... */}
       {/* TICKET LIST TAB */}
       {activeTab === "tickets" && (
         <div className="space-y-6 animate-in fade-in duration-500">

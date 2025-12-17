@@ -1,3 +1,4 @@
+
 import express from "express";
 import mongoose from "mongoose";
 import cors from "cors";
@@ -233,7 +234,7 @@ app.get("/api/bookings", async (req, res) => {
 
 app.post("/api/bookings", async (req, res) => {
   try {
-    const { items, passenger, payment } = req.body; 
+    const { items, passenger, payment, status } = req.body; 
     
     if (!items || items.length === 0) {
         return res.status(400).json({ error: "No items to book" });
@@ -268,9 +269,13 @@ app.post("/api/bookings", async (req, res) => {
     // Determine status
     const totalPaid = (payment?.paidCash || 0) + (payment?.paidTransfer || 0);
     const isFullyPaid = totalPaid >= calculatedTotalPrice;
+    
     // Default logic for creation: confirmed if paid, otherwise pending (maps to "Tạo mới" in UI)
-    const finalStatus = isFullyPaid ? "confirmed" : "pending";
-    const seatStatus = isFullyPaid ? "sold" : "booked";
+    // ALLOW OVERRIDE: If status is explicitly passed (e.g. forced 'pending' for free tickets), use it.
+    const finalStatus = status ? status : (isFullyPaid ? "confirmed" : "pending");
+    
+    // Seat status: If booking is 'confirmed', seat is 'sold'. Else 'booked'.
+    const seatStatus = finalStatus === "confirmed" ? "sold" : "booked";
 
     for (const item of items) {
          const trip = await Trip.findById(item.tripId);
@@ -366,6 +371,7 @@ app.put("/api/bookings/:id", async (req, res) => {
           finalStatus = "modified"; // Có thay đổi -> Đã thay đổi
       }
 
+      // Seat status logic for updates: If fully paid -> sold, else booked.
       const seatStatus = isFullyPaid ? "sold" : "booked";
 
       // 4. Update Trips with New Seats Status (Only if tickets exist)

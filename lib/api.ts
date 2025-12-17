@@ -1,3 +1,4 @@
+
 import { Bus, BusTrip, Route, Passenger, Seat, Booking } from "../types";
 
 // Dynamically determine the API URL based on current window location
@@ -108,12 +109,13 @@ export const api = {
     create: (
       items: { tripId: string; seats: Seat[] }[],
       passenger: Passenger,
-      payment?: { paidCash: number; paidTransfer: number }
+      payment?: { paidCash: number; paidTransfer: number },
+      status?: string
     ) =>
       fetchJson(`${API_URL}/bookings`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items, passenger, payment }),
+        body: JSON.stringify({ items, passenger, payment, status }),
       }),
     update: (
       id: string,
