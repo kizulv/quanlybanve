@@ -257,7 +257,8 @@ const processPaymentUpdate = async (booking, newPaymentState) => {
         route: item.route,
         tripDate: item.tripDate,
         licensePlate: item.licensePlate,
-        seats: item.seatIds
+        seats: item.seatIds,
+        tickets: item.tickets // NEW: Include ticket details for precise pricing
     }));
 
     const paymentRecord = new Payment({

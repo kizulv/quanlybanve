@@ -4,9 +4,9 @@ import { api } from '../lib/api';
 import { Badge } from './ui/Badge';
 import { Button } from './ui/Button';
 import { 
-  DollarSign, Calendar, Search, Trash2, Edit2, 
-  ArrowRight, CreditCard, Banknote, Filter,
-  History, Eye, User, Phone, MapPin, Clock,
+  DollarSign, Calendar, Search, Edit2, 
+  ArrowRight, CreditCard, Banknote, 
+  Eye, User, Phone, MapPin, Clock,
   Check, X, Zap
 } from 'lucide-react';
 import { useToast } from './ui/Toast';
@@ -113,35 +113,6 @@ export const PaymentManager: React.FC = () => {
   }, [groupedPayments, searchTerm]);
 
   // --- HANDLERS ---
-  const handleDeletePayment = async (id: string) => {
-    if (!confirm('Bạn có chắc muốn xóa bản ghi thanh toán này?')) return;
-    try {
-      await api.payments.delete(id);
-      
-      // Update local state
-      const updatedPayments = payments.filter(p => p.id !== id);
-      setPayments(updatedPayments);
-      
-      // Also update selected group if open
-      if (selectedGroup) {
-          const updatedGroupPayments = selectedGroup.payments.filter(p => p.id !== id);
-          if (updatedGroupPayments.length === 0) {
-              setSelectedGroup(null);
-          } else {
-              setSelectedGroup({
-                  ...selectedGroup,
-                  payments: updatedGroupPayments,
-                  totalCollected: updatedGroupPayments.reduce((sum, p) => sum + p.amount, 0)
-              });
-          }
-      }
-
-      toast({ type: 'success', title: 'Đã xóa', message: 'Đã xóa bản ghi thanh toán' });
-    } catch (e) {
-      toast({ type: 'error', title: 'Lỗi', message: 'Không thể xóa' });
-    }
-  };
-
   const startEditNote = (payment: any) => {
       setEditingPaymentId(payment.id);
       setEditNote(payment.note || '');
@@ -432,16 +403,24 @@ export const PaymentManager: React.FC = () => {
                                                             </div>
                                                             {t.seats && t.seats.length > 0 && (
                                                                 <div className="flex flex-wrap gap-1 mt-1">
-                                                                    {t.seats.map((s: string, i: number) => (
+                                                                    {t.seats.map((s: string, i: number) => {
+                                                                        // Resolve specific price for this seat
+                                                                        let seatPrice = details.pricePerTicket; // default/legacy fallback
+                                                                        if (t.tickets) {
+                                                                            const found = t.tickets.find((tic: any) => tic.seatId === s);
+                                                                            if (found) seatPrice = found.price;
+                                                                        }
+
+                                                                        return (
                                                                         <Badge key={i} variant="outline" className="bg-white text-blue-700 border-blue-200 px-1.5 py-0 text-[10px] flex items-center gap-1">
                                                                             {s}
-                                                                            {details.pricePerTicket > 0 && (
+                                                                            {seatPrice > 0 && (
                                                                                 <span className="text-slate-400 font-normal border-l border-blue-100 pl-1 ml-0.5">
-                                                                                    {details.pricePerTicket.toLocaleString('vi-VN')}
+                                                                                    {seatPrice.toLocaleString('vi-VN')}
                                                                                 </span>
                                                                             )}
                                                                         </Badge>
-                                                                    ))}
+                                                                    )})}
                                                                 </div>
                                                             )}
                                                         </div>
@@ -514,17 +493,6 @@ export const PaymentManager: React.FC = () => {
                                                         </button>
                                                     </div>
                                                 )}
-                                            </div>
-
-                                            {/* Delete Action (Top Right overlay) */}
-                                            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <button 
-                                                    onClick={() => handleDeletePayment(p.id)}
-                                                    className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
-                                                    title="Xóa giao dịch"
-                                                >
-                                                    <Trash2 size={14} />
-                                                </button>
                                             </div>
                                         </div>
                                     </div>
