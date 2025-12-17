@@ -1008,20 +1008,22 @@ function AppContent() {
       
       if (!editingBooking) return;
 
-      // CHECK IF PRICE INCREASED -> PAYMENT MODAL
-      const priceIncreased = totalBasketPrice > editingBooking.totalPrice;
+      // UPDATE: Always show payment modal if price changed (either increased OR decreased)
+      // This allows processing refunds or additional payments.
+      const priceChanged = totalBasketPrice !== editingBooking.totalPrice;
       
-      if (!priceIncreased) {
-          // If price is same or lower, save immediately without modal
-          executeBookingUpdate(editingBooking.id);
-      } else {
-          // If price increased, need to show payment modal
+      if (priceChanged) {
+          // If price changed, show payment modal to reconcile
           setPendingPaymentContext({
             type: "update",
             bookingIds: [editingBooking.id],
             totalPrice: totalBasketPrice,
           });
           setIsPaymentModalOpen(true);
+      } else {
+          // If price is exactly same, check if user wants to change payment status manually?
+          // For now, if price is same, we assume immediate save is fine unless user clicked "Thanh toán" manually.
+          executeBookingUpdate(editingBooking.id);
       }
   };
 

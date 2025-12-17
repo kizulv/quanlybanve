@@ -13,7 +13,8 @@ import {
   ArrowRight,
   Locate,
   Calculator,
-  Tag
+  Tag,
+  RotateCcw
 } from "lucide-react";
 import { BusTrip, Seat, Booking } from "../types";
 import { formatLunarDate } from "../utils/dateUtils";
@@ -138,6 +139,23 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
   const remaining = finalTotal - paidCash - paidTransfer;
 
+  // Logic to determine button text and color
+  const getActionInfo = () => {
+      if (isProcessing) return { text: "Đang xử lý...", colorClass: "bg-slate-600 border-slate-700" };
+      
+      if (editingBooking) {
+          if (remaining < 0) return { text: "Xác nhận hoàn tiền", colorClass: "bg-blue-600 hover:bg-blue-500 border-blue-700 text-white" };
+          if (remaining > 0) return { text: "Thanh toán thêm & Lưu", colorClass: "bg-green-600 hover:bg-green-500 border-green-700 text-white" };
+          return { text: "Cập nhật đơn hàng", colorClass: "bg-green-600 hover:bg-green-500 border-green-700 text-white" };
+      }
+
+      // New Booking
+      if (remaining <= 0) return { text: "Xác nhận thanh toán", colorClass: "bg-green-600 hover:bg-green-500 border-green-700 text-white" };
+      return { text: "Lưu công nợ", colorClass: "bg-yellow-500 hover:bg-yellow-400 text-indigo-950 border-yellow-600" };
+  };
+
+  const actionInfo = getActionInfo();
+
   // Handlers
   const handleOverrideChange = (tripId: string, seatId: string, field: keyof SeatOverride, value: string) => {
     const key = `${tripId}_${seatId}`;
@@ -166,7 +184,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     <Dialog
       isOpen={isOpen}
       onClose={onClose}
-      title="Thanh toán & Xuất vé"
+      title={editingBooking ? "Cập nhật thanh toán" : "Thanh toán & Xuất vé"}
       className="max-w-5xl bg-indigo-950 text-white border-indigo-900"
       headerClassName="bg-indigo-950 border-indigo-900 text-white"
       footer={null} 
@@ -323,7 +341,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                   </div>
               ) : remaining < 0 ? (
                   <div className="mt-4 p-2 rounded bg-blue-950/30 border border-blue-900/50 text-right text-xs text-blue-400 font-bold flex justify-between items-center">
-                      <span>Thừa tiền:</span>
+                      <span className="flex items-center gap-1"><RotateCcw size={12}/> Cần hoàn lại:</span>
                       <span>{Math.abs(remaining).toLocaleString('vi-VN')} đ</span>
                   </div>
               ) : (
@@ -337,13 +355,9 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               <Button
                 onClick={() => onConfirm(finalTotal, seatOverrides)}
                 disabled={isProcessing}
-                className={`w-full h-11 font-bold text-sm shadow-lg transition-all ${
-                    remaining <= 0 
-                    ? 'bg-green-600 hover:bg-green-500 text-white border-green-700 shadow-green-900/20' 
-                    : 'bg-yellow-500 hover:bg-yellow-400 text-indigo-950 border-yellow-600 shadow-yellow-900/20'
-                }`}
+                className={`w-full h-11 font-bold text-sm shadow-lg transition-all ${actionInfo.colorClass}`}
               >
-                {isProcessing ? "Đang xử lý..." : (remaining <= 0 ? "Xác nhận thanh toán" : "Lưu công nợ")}
+                {actionInfo.text}
               </Button>
               <Button 
                 variant="outline" 
