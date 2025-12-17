@@ -23,6 +23,7 @@ import {
   Locate,
   Notebook,
   ArrowRightLeft,
+  CreditCard,
 } from "lucide-react";
 
 interface BookingFormProps {
@@ -67,6 +68,9 @@ interface BookingFormProps {
   
   // NEW: Navigate Action
   onNavigateToTrip?: (date: Date, tripId: string) => void;
+
+  // NEW: Manual Payment Trigger
+  onOpenPayment?: () => void;
 }
 
 export const BookingForm: React.FC<BookingFormProps> = ({
@@ -86,6 +90,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
   validatePhoneNumber,
   onInitiateSwap,
   onNavigateToTrip,
+  onOpenPayment,
 }) => {
   const [showHistory, setShowHistory] = useState(false);
 
@@ -637,23 +642,36 @@ export const BookingForm: React.FC<BookingFormProps> = ({
       </div>
 
       {/* 5. Submit Button */}
-      <div className="p-2 border-t rounded-b-xl bg-indigo-950 border-indigo-900">
-        <Button
-          className={`w-full font-bold h-10 text-sm bg-yellow-500 hover:bg-yellow-400 text-indigo-950`}
-          onClick={onConfirm}
-          disabled={!editingBooking && selectionBasket.length === 0}
-        >
-          {editingBooking ? (
-            <>
+      <div className={`p-2 border-t rounded-b-xl bg-indigo-950 border-indigo-900 ${editingBooking ? 'grid grid-cols-2 gap-2' : ''}`}>
+        {editingBooking ? (
+          <>
+            {/* Pay Button - Opens Payment Modal */}
+            <Button
+              className="bg-green-600 hover:bg-green-500 text-white font-bold h-10 text-sm border border-green-700"
+              onClick={onOpenPayment}
+              title="Mở hộp thoại thanh toán"
+            >
+              <CreditCard size={16} className="mr-2" /> Thanh toán
+            </Button>
+            
+            {/* Save/Edit Button */}
+            <Button
+              className={`font-bold h-10 text-sm ${selectionBasket.length === 0 ? 'bg-red-600 hover:bg-red-500 text-white border-red-700' : 'bg-yellow-500 hover:bg-yellow-400 text-indigo-950'}`}
+              onClick={onConfirm}
+            >
               <Save size={16} className="mr-2" />{" "}
-              {selectionBasket.length === 0 ? "Xác nhận hủy" : "Chỉnh sửa"}
-            </>
-          ) : (
-            <>
-              <CheckCircle2 size={16} className="mr-2" /> Đồng ý
-            </>
-          )}
-        </Button>
+              {selectionBasket.length === 0 ? "Xác nhận hủy" : "Lưu thay đổi"}
+            </Button>
+          </>
+        ) : (
+          <Button
+            className={`w-full font-bold h-10 text-sm bg-yellow-500 hover:bg-yellow-400 text-indigo-950`}
+            onClick={onConfirm}
+            disabled={selectionBasket.length === 0}
+          >
+            <CheckCircle2 size={16} className="mr-2" /> Đồng ý
+          </Button>
+        )}
       </div>
     </div>
   );

@@ -787,6 +787,16 @@ function AppContent() {
     setIsPaymentModalOpen(true);
   };
 
+  const handleManualPaymentForEdit = () => {
+    if (!editingBooking) return;
+    setPendingPaymentContext({
+      type: "update",
+      bookingIds: [editingBooking.id],
+      totalPrice: totalBasketPrice, // Use current basket price
+    });
+    setIsPaymentModalOpen(true);
+  };
+
   // Helper to execute update logic directly (used when no payment modal is needed)
   const executeBookingUpdate = async (targetBookingId: string, overrides: Record<string, SeatOverride> = {}) => {
       try {
@@ -1292,6 +1302,7 @@ function AppContent() {
               validatePhoneNumber={validatePhoneNumber}
               onInitiateSwap={initiateSwap}
               onNavigateToTrip={handleNavigateToTrip}
+              onOpenPayment={handleManualPaymentForEdit}
             />
 
             {/* MANIFEST LIST */}
