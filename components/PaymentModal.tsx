@@ -10,7 +10,8 @@ import {
   MapPin, 
   Bus,
   Ticket,
-  ArrowRight
+  ArrowRight,
+  Locate
 } from "lucide-react";
 import { BusTrip, Seat, Booking } from "../types";
 import { formatLunarDate } from "../utils/dateUtils";
@@ -93,6 +94,31 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     };
   };
 
+  // --- LOGIC FROM BOOKINGFORM (Standardization) ---
+  const getStandardizedLocation = (input: string) => {
+    if (!input) return "";
+    let value = input.trim();
+    const lower = value.toLowerCase();
+    const mappings: Record<string, string> = {
+      "lai chau": "BX Lai Châu",
+      "lai châu": "BX Lai Châu",
+      "ha tinh": "BX Hà Tĩnh",
+      "hà tĩnh": "BX Hà Tĩnh",
+      "lao cai": "BX Lào Cai",
+      vinh: "BX Vinh",
+      "nghe an": "BX Vinh",
+      "nghệ an": "BX Vinh",
+    };
+    if (mappings[lower]) return mappings[lower];
+
+    // Auto prefix if needed
+    if (!/^bx\s/i.test(value) && value.length > 2) {
+      value = value.replace(/(?:^|\s)\S/g, (a) => a.toUpperCase());
+      return `${value}`;
+    }
+    return value.replace(/(?:^|\s)\S/g, (a) => a.toUpperCase());
+  };
+
   // 3. Calculate Totals
   const { totalOriginal, finalTotal } = useMemo(() => {
     let original = 0;
@@ -134,6 +160,20 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         }
       };
     });
+  };
+
+  const handleInputChange = (tripId: string, seatId: string, field: 'pickup' | 'dropoff', value: string) => {
+      // Auto-capitalize first letters
+      const formatted = value.replace(/(?:^|\s)\S/g, (a) => a.toUpperCase());
+      handleOverrideChange(tripId, seatId, field, formatted);
+  };
+
+  const handleInputBlur = (tripId: string, seatId: string, field: 'pickup' | 'dropoff', value: string) => {
+      // Standardize on blur
+      const standardized = getStandardizedLocation(value);
+      if (standardized !== value) {
+          handleOverrideChange(tripId, seatId, field, standardized);
+      }
   };
 
   // Reset state on open
@@ -188,75 +228,72 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                     const { price, pickup, dropoff, isPriceChanged } = getSeatValues(trip.tripId, seat, trip.pickup, trip.dropoff);
                     
                     return (
-                      <div key={seat.id} className="p-3 flex flex-col lg:flex-row items-center gap-3 hover:bg-slate-50 transition-colors">
-                        
-                        {/* 1. Seat Label */}
-                        <div className="flex items-center gap-3 min-w-[70px]">
-                           <div className="w-9 h-9 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center font-bold border border-blue-100 shadow-sm">
-                              {seat.label}
-                           </div>
-                           <div className="lg:hidden font-medium text-slate-700 text-sm">Ghế {seat.label}</div>
-                        </div>
-
-                        {/* 2. Route Detail Inputs (Editable) */}
-                        <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2 w-full">
-                           {/* PICKUP */}
-                           <div className="relative group">
-                              <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
-                                 <MapPin size={14} className="text-green-600" />
-                              </div>
-                              <input 
-                                type="text"
-                                className="w-full pl-8 pr-2 py-1.5 text-xs font-medium border border-slate-200 rounded focus:ring-1 focus:ring-green-500 focus:border-green-500 outline-none bg-white text-slate-700 placeholder-slate-400 transition-colors hover:border-green-300"
-                                placeholder="Điểm đón"
-                                value={pickup}
-                                onChange={(e) => handleOverrideChange(trip.tripId, seat.id, 'pickup', e.target.value)}
-                              />
-                              <div className="absolute -top-1.5 left-2 bg-white px-1 text-[9px] text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">Đón</div>
-                           </div>
-
-                           {/* DROPOFF */}
-                           <div className="relative group">
-                              <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
-                                 <MapPin size={14} className="text-red-600" />
-                              </div>
-                              <input 
-                                type="text"
-                                className="w-full pl-8 pr-2 py-1.5 text-xs font-medium border border-slate-200 rounded focus:ring-1 focus:ring-red-500 focus:border-red-500 outline-none bg-white text-slate-700 placeholder-slate-400 transition-colors hover:border-red-300"
-                                placeholder="Điểm trả"
-                                value={dropoff}
-                                onChange={(e) => handleOverrideChange(trip.tripId, seat.id, 'dropoff', e.target.value)}
-                              />
-                              <div className="absolute -top-1.5 left-2 bg-white px-1 text-[9px] text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">Trả</div>
-                           </div>
-                        </div>
-
-                        {/* 3. Price Input (New Price Override) */}
-                        <div className="flex items-center gap-2 w-full lg:w-auto justify-end pl-2 border-l border-slate-100">
-                           <div className="text-right hidden lg:block mr-2">
-                              <div className="text-[10px] text-slate-400 uppercase font-bold">Giá gốc</div>
-                              <div className="text-xs text-slate-500 line-through decoration-slate-300">{seat.price.toLocaleString('vi-VN')}</div>
-                           </div>
-                           
-                           <div className="w-[130px]">
-                              <label className="block text-[9px] text-slate-500 uppercase font-bold mb-0.5 lg:hidden">Giá bán</label>
-                              <div className="relative">
-                                <input 
-                                  type="text"
-                                  className={`w-full text-right font-bold border rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary/20 
-                                    ${isPriceChanged ? 'text-orange-600 border-orange-300 bg-orange-50' : 'text-slate-900 border-slate-200'}
-                                  `}
-                                  value={price.toLocaleString('vi-VN')}
-                                  onChange={(e) => handleOverrideChange(trip.tripId, seat.id, 'price', e.target.value)}
-                                />
-                                <div className="absolute inset-y-0 right-8 flex items-center pointer-events-none">
-                                   {isPriceChanged && <div className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse"></div>}
+                      <div key={seat.id} className="p-4 border-b border-slate-100 last:border-0 hover:bg-slate-50 transition-colors">
+                        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
+                            
+                            {/* 1. Seat Info */}
+                            <div className="flex items-center gap-3 w-full md:w-auto md:min-w-[90px]">
+                                <div className="w-10 h-10 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center font-bold border border-blue-100 shadow-sm text-sm">
+                                    {seat.label}
                                 </div>
-                                <div className="absolute inset-y-0 right-2 flex items-center pointer-events-none text-xs text-slate-400">đ</div>
-                              </div>
-                           </div>
-                        </div>
+                                <div className="md:hidden font-bold text-slate-700">Ghế {seat.label}</div>
+                            </div>
 
+                            {/* 2. Route Detail Inputs (Editable) */}
+                            <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
+                                {/* PICKUP */}
+                                <div className="relative">
+                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <MapPin size={14} className="text-green-600" />
+                                    </div>
+                                    <input 
+                                        type="text"
+                                        className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-md focus:ring-1 focus:ring-green-500 focus:border-green-500 outline-none bg-white text-slate-700 placeholder-slate-400 transition-colors hover:border-green-300"
+                                        placeholder="Điểm đón"
+                                        value={pickup}
+                                        onChange={(e) => handleInputChange(trip.tripId, seat.id, 'pickup', e.target.value)}
+                                        onBlur={(e) => handleInputBlur(trip.tripId, seat.id, 'pickup', e.target.value)}
+                                    />
+                                </div>
+
+                                {/* DROPOFF */}
+                                <div className="relative">
+                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <Locate size={14} className="text-red-600" />
+                                    </div>
+                                    <input 
+                                        type="text"
+                                        className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-md focus:ring-1 focus:ring-red-500 focus:border-red-500 outline-none bg-white text-slate-700 placeholder-slate-400 transition-colors hover:border-red-300"
+                                        placeholder="Điểm trả"
+                                        value={dropoff}
+                                        onChange={(e) => handleInputChange(trip.tripId, seat.id, 'dropoff', e.target.value)}
+                                        onBlur={(e) => handleInputBlur(trip.tripId, seat.id, 'dropoff', e.target.value)}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* 3. Price Override */}
+                            <div className="w-full md:w-auto flex items-center justify-between md:justify-end gap-3 md:pl-4 md:border-l border-slate-100">
+                                <div className="text-right">
+                                    <div className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-1">Giá vé</div>
+                                    <div className="relative w-full md:w-32">
+                                        <input 
+                                            type="text"
+                                            className={`w-full text-right font-bold text-sm border rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500 
+                                                ${isPriceChanged ? 'text-orange-600 border-orange-300 bg-orange-50' : 'text-slate-700 border-slate-200'}
+                                            `}
+                                            value={price.toLocaleString('vi-VN')}
+                                            onChange={(e) => handleOverrideChange(trip.tripId, seat.id, 'price', e.target.value)}
+                                        />
+                                        <div className="absolute inset-y-0 right-8 flex items-center pointer-events-none">
+                                            {isPriceChanged && <div className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse"></div>}
+                                        </div>
+                                        <div className="absolute inset-y-0 right-2 flex items-center pointer-events-none text-xs text-slate-400">đ</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
                       </div>
                     );
                   })}
