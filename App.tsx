@@ -177,11 +177,20 @@ function AppContent() {
         (s) => s.status === SeatStatus.SELECTED
       );
       if (selected.length > 0) {
-        basket.push({ trip, seats: selected });
+        // Fallback: If seat price is 0, use Route's default price
+        const route = routes.find(r => r.id === trip.routeId || r.name === trip.route);
+        const defaultPrice = route?.price || 0;
+
+        const seatsWithPrice = selected.map(s => ({
+            ...s,
+            price: s.price > 0 ? s.price : defaultPrice
+        }));
+
+        basket.push({ trip, seats: seatsWithPrice });
       }
     });
     return basket;
-  }, [trips]);
+  }, [trips, routes]);
 
   const totalBasketPrice = useMemo(() => {
     return selectionBasket.reduce(
