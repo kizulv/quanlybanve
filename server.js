@@ -127,6 +127,20 @@ const bookingSchema = new mongoose.Schema(
   { toJSON: { virtuals: true, transform: transformId } }
 );
 
+// --- NEW PAYMENT SCHEMA ---
+const paymentSchema = new mongoose.Schema(
+  {
+    bookingId: { type: mongoose.Schema.Types.ObjectId, ref: 'Booking' },
+    amount: Number, // Can be negative for refunds
+    method: String, // 'cash' | 'transfer' | 'mixed'
+    type: String, // 'payment' | 'refund' | 'adjustment'
+    note: String,
+    timestamp: { type: Date, default: Date.now },
+    performedBy: String, // Optional: User ID
+  },
+  { toJSON: { virtuals: true, transform: transformId } }
+);
+
 const settingSchema = new mongoose.Schema(
   {
     key: { type: String, required: true, unique: true },
@@ -139,6 +153,7 @@ const Bus = mongoose.model("Bus", busSchema);
 const Route = mongoose.model("Route", routeSchema);
 const Trip = mongoose.model("Trip", tripSchema);
 const Booking = mongoose.model("Booking", bookingSchema);
+const Payment = mongoose.model("Payment", paymentSchema);
 const Setting = mongoose.model("Setting", settingSchema);
 
 // --- SEED DATA FUNCTION ---
@@ -173,6 +188,37 @@ const seedData = async () => {
   } catch (e) {
     console.error("Seed data failed:", e);
   }
+};
+
+// --- HELPER: CREATE PAYMENT RECORD ---
+const recordPayment = async (bookingId, oldPayment, newPayment) => {
+    const oldTotal = (oldPayment?.paidCash || 0) + (oldPayment?.paidTransfer || 0);
+    const newTotal = (newPayment?.paidCash || 0) + (newPayment?.paidTransfer || 0);
+    const diff = newTotal - oldTotal;
+
+    if (diff === 0) return;
+
+    const type = diff > 0 ? 'payment' : 'refund';
+    
+    // Determine primary method for history
+    // Logic: If Cash changed more, label as Cash, etc. Simple heuristic.
+    let method = 'mixed';
+    const cashDiff = (newPayment?.paidCash || 0) - (oldPayment?.paidCash || 0);
+    const transferDiff = (newPayment?.paidTransfer || 0) - (oldPayment?.paidTransfer || 0);
+
+    if (transferDiff === 0 && cashDiff !== 0) method = 'cash';
+    else if (cashDiff === 0 && transferDiff !== 0) method = 'transfer';
+
+    const paymentRecord = new Payment({
+        bookingId,
+        amount: diff,
+        type,
+        method,
+        note: type === 'refund' ? 'Hoàn tiền khi chỉnh sửa/hủy' : 'Thanh toán',
+        timestamp: new Date()
+    });
+
+    await paymentRecord.save();
 };
 
 // --- ROUTES ---
@@ -270,11 +316,8 @@ app.post("/api/bookings", async (req, res) => {
     const totalPaid = (payment?.paidCash || 0) + (payment?.paidTransfer || 0);
     const isFullyPaid = totalPaid >= calculatedTotalPrice;
     
-    // Default logic for creation: confirmed if paid, otherwise pending (maps to "Tạo mới" in UI)
-    // ALLOW OVERRIDE: If status is explicitly passed (e.g. forced 'pending' for free tickets), use it.
+    // Default logic for creation
     const finalStatus = status ? status : (isFullyPaid ? "confirmed" : "pending");
-    
-    // Seat status: If booking is 'confirmed', seat is 'sold'. Else 'booked'.
     const seatStatus = finalStatus === "confirmed" ? "sold" : "booked";
 
     for (const item of items) {
@@ -303,6 +346,9 @@ app.post("/api/bookings", async (req, res) => {
     });
     
     await booking.save();
+
+    // RECORD PAYMENT IF ANY
+    await recordPayment(booking._id, { paidCash: 0, paidTransfer: 0 }, payment);
 
     res.json({ bookings: [booking], updatedTrips: updatedTrips }); 
   } catch (e) {
@@ -369,12 +415,14 @@ app.put("/api/bookings/:id", async (req, res) => {
           finalStatus = "cancelled"; // Hủy hết ghế -> Đã hủy
       } else {
           finalStatus = "modified"; // Có thay đổi -> Đã thay đổi
+          if (isFullyPaid) finalStatus = "confirmed"; // Re-confirm if paid enough
       }
 
-      // Seat status logic for updates: If fully paid -> sold, else booked.
+      // Seat status logic: If cancelled, no seats to update (already reverted).
+      // Else if fully paid -> sold, else booked.
       const seatStatus = isFullyPaid ? "sold" : "booked";
 
-      // 4. Update Trips with New Seats Status (Only if tickets exist)
+      // 4. Update Trips with New Seats Status
       if (calculatedTotalTickets > 0) {
           for (const item of items) {
               const trip = await Trip.findById(item.tripId);
@@ -393,7 +441,10 @@ app.put("/api/bookings/:id", async (req, res) => {
           }
       }
 
-      // 5. Update Booking Record
+      // 5. RECORD PAYMENT DIFFERENCE (Refund or Additional)
+      await recordPayment(oldBooking._id, oldBooking.payment, payment);
+
+      // 6. Update Booking Record
       oldBooking.passenger = passenger;
       oldBooking.items = bookingItems;
       oldBooking.payment = payment;
@@ -457,6 +508,9 @@ app.delete("/api/bookings/:id", async (req, res) => {
             }
         }
 
+        // Record voided payment if it was paid
+        await recordPayment(bookingId, booking.payment, { paidCash: 0, paidTransfer: 0 });
+
         await Booking.findByIdAndDelete(bookingId);
         
         const allTrips = await Trip.find();
@@ -469,6 +523,7 @@ app.delete("/api/bookings/:id", async (req, res) => {
     }
 });
 
+// PAY LATER (Update Payment)
 app.put("/api/bookings/payment", async (req, res) => {
   try {
     const { bookingIds, payment } = req.body;
@@ -477,6 +532,9 @@ app.put("/api/bookings/payment", async (req, res) => {
     
     for (const b of targetBookings) {
         if (b.status === 'cancelled') continue; 
+
+        // RECORD PAYMENT
+        await recordPayment(b._id, b.payment, payment);
 
         const totalPaid = (payment.paidCash || 0) + (payment.paidTransfer || 0);
         const newStatus = totalPaid >= b.totalPrice ? "confirmed" : "pending";

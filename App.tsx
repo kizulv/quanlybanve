@@ -1012,8 +1012,13 @@ function AppContent() {
       // This allows processing refunds or additional payments.
       const priceChanged = totalBasketPrice !== editingBooking.totalPrice;
       
-      if (priceChanged) {
-          // If price changed, show payment modal to reconcile
+      // NEW CHECK: Has the paid amount changed? (e.g. User manually reset payment to 0 for refund)
+      const currentFormPayment = bookingForm.paidCash + bookingForm.paidTransfer;
+      const originalPayment = (editingBooking.payment?.paidCash || 0) + (editingBooking.payment?.paidTransfer || 0);
+      const paymentChanged = currentFormPayment !== originalPayment;
+
+      if (priceChanged || paymentChanged) {
+          // If price changed OR user changed payment input manually, show payment modal to reconcile
           setPendingPaymentContext({
             type: "update",
             bookingIds: [editingBooking.id],
@@ -1021,8 +1026,7 @@ function AppContent() {
           });
           setIsPaymentModalOpen(true);
       } else {
-          // If price is exactly same, check if user wants to change payment status manually?
-          // For now, if price is same, we assume immediate save is fine unless user clicked "Thanh toán" manually.
+          // If price is exactly same and payment input didn't change, assume immediate save is fine.
           executeBookingUpdate(editingBooking.id);
       }
   };
