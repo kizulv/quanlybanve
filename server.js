@@ -147,7 +147,7 @@ const paymentSchema = new mongoose.Schema(
        route: String,
        licensePlate: String,
        pricePerTicket: Number,
-       trips: [mongoose.Schema.Types.Mixed] // NEW: Array of trips
+       trips: [mongoose.Schema.Types.Mixed] 
     }
   },
   { toJSON: { virtuals: true, transform: transformId } }
@@ -252,14 +252,25 @@ const processPaymentUpdate = async (booking, newPaymentState) => {
     const allSeats = booking.items.flatMap(i => i.seatIds);
     const avgPrice = booking.totalTickets > 0 ? booking.totalPrice / booking.totalTickets : 0;
 
-    // Collect detailed trips info
-    const tripsSnapshot = booking.items.map(item => ({
-        route: item.route,
-        tripDate: item.tripDate,
-        licensePlate: item.licensePlate,
-        seats: item.seatIds,
-        tickets: item.tickets // NEW: Include ticket details for precise pricing
-    }));
+    // Collect detailed trips info with enhanced status
+    const tripsSnapshot = [];
+    for (const item of booking.items) {
+        const trip = await Trip.findById(item.tripId);
+        let isEnhanced = false;
+        if (trip) {
+            const route = await Route.findById(trip.routeId);
+            isEnhanced = route?.isEnhanced || trip.name?.toLowerCase().includes('tăng cường') || trip.route?.toLowerCase().includes('tăng cường');
+        }
+
+        tripsSnapshot.push({
+            route: item.route,
+            tripDate: item.tripDate,
+            licensePlate: item.licensePlate,
+            seats: item.seatIds,
+            tickets: item.tickets,
+            isEnhanced: isEnhanced // CRITICAL FIX: Add this flag
+        });
+    }
 
     const paymentRecord = new Payment({
         bookingId: booking._id,
@@ -276,7 +287,7 @@ const processPaymentUpdate = async (booking, newPaymentState) => {
             route: tripDetails.route,
             licensePlate: tripDetails.licensePlate,
             pricePerTicket: avgPrice,
-            trips: tripsSnapshot // NEW FIELD
+            trips: tripsSnapshot 
         }
     });
 
@@ -347,7 +358,6 @@ app.post("/api/bookings", async (req, res) => {
     const bookingItems = [];
     const updatedTrips = [];
 
-    // STRUCTURED LOG DATA
     const logTripDetails = [];
 
     for (const item of items) {
@@ -367,8 +377,6 @@ app.post("/api/bookings", async (req, res) => {
         calculatedTotalPrice += itemPrice;
         calculatedTotalTickets += seatIds.length;
 
-        // Populate log data based on ACTUAL Trip
-        // Find seat labels for clarity
         const seatLabels = seatIds.map(sid => {
             const s = trip.seats.find(ts => ts.id === sid);
             return s ? s.label : sid;
@@ -429,13 +437,12 @@ app.post("/api/bookings", async (req, res) => {
     
     await booking.save();
 
-    // LOG HISTORY: CREATE with structured details
     await logBookingAction(
         booking._id,
         'CREATE',
         'Tạo mới đơn hàng',
         { 
-            trips: logTripDetails, // Array of {route, date, seats}
+            trips: logTripDetails,
             totalTickets: calculatedTotalTickets 
         }
     );
@@ -473,11 +480,8 @@ app.put("/api/bookings/:id", async (req, res) => {
       const oldBooking = await Booking.findById(bookingId);
       if (!oldBooking) return res.status(404).json({ error: "Booking not found" });
 
-      // LOGIC: COMPARE TOKENS (TripID + SeatID)
-      // Map: TripId -> { date, route, oldSeats: [], newSeats: [] }
       const comparisonMap = {};
 
-      // 1. Process Old Items
       oldBooking.items.forEach(item => {
           if (!comparisonMap[item.tripId]) {
               comparisonMap[item.tripId] = { 
@@ -491,7 +495,6 @@ app.put("/api/bookings/:id", async (req, res) => {
           }
       });
 
-      // 2. Revert Old Seats (DB Action)
       for (const oldItem of oldBooking.items) {
           const trip = await Trip.findById(oldItem.tripId);
           if (trip) {
@@ -503,7 +506,6 @@ app.put("/api/bookings/:id", async (req, res) => {
           }
       }
 
-      // 3. Process New Items & Build Map
       let calculatedTotalPrice = 0;
       let calculatedTotalTickets = 0;
       const bookingItems = [];
@@ -522,7 +524,6 @@ app.put("/api/bookings/:id", async (req, res) => {
           calculatedTotalPrice += itemPrice;
           calculatedTotalTickets += seatIds.length;
 
-          // Update Comparison Map
           if (!comparisonMap[trip.id]) {
               comparisonMap[trip.id] = { 
                   date: trip.departureTime, 
@@ -531,7 +532,6 @@ app.put("/api/bookings/:id", async (req, res) => {
                   newSeats: new Set(seatIds) 
               };
           } else {
-              // Update metadata in case it changed (unlikely for same ID but good practice)
               comparisonMap[trip.id].date = trip.departureTime;
               comparisonMap[trip.id].route = trip.route;
               seatIds.forEach(s => comparisonMap[trip.id].newSeats.add(s));
@@ -548,17 +548,14 @@ app.put("/api/bookings/:id", async (req, res) => {
           });
       }
 
-      // 4. Calculate Final Changes per Trip
       const changesLog = [];
       
-      // Need async loop to fetch Trip for label resolution
       for (const tripId of Object.keys(comparisonMap)) {
           const data = comparisonMap[tripId];
           const addedIds = [...data.newSeats].filter(x => !data.oldSeats.has(x));
           const removedIds = [...data.oldSeats].filter(x => !data.newSeats.has(x));
 
           if (addedIds.length > 0 || removedIds.length > 0) {
-              // Resolve IDs to Labels
               const trip = await Trip.findById(tripId);
               const resolveLabel = (sid) => {
                   if (!trip) return sid;
@@ -575,7 +572,6 @@ app.put("/api/bookings/:id", async (req, res) => {
           }
       }
 
-      // 5. Determine Status & Update DB
       const totalPaid = (payment?.paidCash || 0) + (payment?.paidTransfer || 0);
       const isFullyPaid = totalPaid >= calculatedTotalPrice;
       let finalStatus = calculatedTotalTickets === 0 ? "cancelled" : (isFullyPaid ? "confirmed" : "modified");
@@ -602,7 +598,6 @@ app.put("/api/bookings/:id", async (req, res) => {
           }
       }
 
-      // LOG HISTORY: UPDATE
       let historyDesc = "Cập nhật vé";
       if (changesLog.length > 0) {
           historyDesc = "Thay đổi lịch trình/ghế";
@@ -615,7 +610,7 @@ app.put("/api/bookings/:id", async (req, res) => {
         'UPDATE',
         historyDesc,
         { 
-            changes: changesLog, // Array of { route, date, added:[], removed:[] }
+            changes: changesLog,
             passengerChanged: (oldBooking.passenger.phone !== passenger.phone || oldBooking.passenger.name !== passenger.name)
         }
       );
@@ -691,7 +686,6 @@ app.delete("/api/bookings/:id", async (req, res) => {
         const booking = await Booking.findById(bookingId);
         if (!booking) return res.status(404).json({ error: "Booking not found" });
 
-        // Generate details for log
         const cancelDetails = [];
         for (const item of booking.items) {
             const trip = await Trip.findById(item.tripId);
@@ -811,7 +805,6 @@ app.post("/api/bookings/swap", async (req, res) => {
         const booking1 = await Booking.findOne({ status: { $ne: 'cancelled' }, "items": { $elemMatch: { tripId: tripId, seatIds: seatId1 } } });
         if (!booking1) return res.status(404).json({ error: "Source seat has no active booking" });
 
-        // LOG HISTORY: SWAP
         await logBookingAction(
             booking1._id,
             'SWAP',

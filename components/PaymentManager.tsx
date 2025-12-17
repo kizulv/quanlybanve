@@ -7,11 +7,12 @@ import {
   DollarSign, Calendar, Search, Edit2, 
   ArrowRight, CreditCard, Banknote, 
   Eye, User, Phone, MapPin, Clock,
-  Check, X, Zap, LayoutGrid, Ticket
+  Check, X, Zap, Ticket, Loader2
 } from 'lucide-react';
 import { useToast } from './ui/Toast';
 import { Dialog } from './ui/Dialog';
 import { formatLunarDate } from '../utils/dateUtils';
+import { Booking, BusTrip } from '../types';
 
 // Define Interface for Payment Group
 interface PaymentGroup {
@@ -32,6 +33,8 @@ interface PaymentGroup {
 export const PaymentManager: React.FC = () => {
   const { toast } = useToast();
   const [payments, setPayments] = useState<any[]>([]);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [trips, setTrips] = useState<BusTrip[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   
@@ -42,21 +45,27 @@ export const PaymentManager: React.FC = () => {
   const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
   const [editNote, setEditNote] = useState('');
 
-  const fetchPayments = async () => {
+  const fetchData = async () => {
     setLoading(true);
     try {
-      const data = await api.payments.getAll();
-      setPayments(data);
+      const [paymentsData, bookingsData, tripsData] = await Promise.all([
+        api.payments.getAll(),
+        api.bookings.getAll(),
+        api.trips.getAll()
+      ]);
+      setPayments(paymentsData);
+      setBookings(bookingsData);
+      setTrips(tripsData);
     } catch (e) {
       console.error(e);
-      toast({ type: 'error', title: 'Lỗi', message: 'Không thể tải lịch sử thanh toán' });
+      toast({ type: 'error', title: 'Lỗi', message: 'Không thể tải dữ liệu tài chính' });
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchPayments();
+    fetchData();
   }, []);
 
   // --- GROUPING LOGIC ---
@@ -96,57 +105,62 @@ export const PaymentManager: React.FC = () => {
     return Object.values(groups).sort((a, b) => b.latestTransaction.getTime() - a.latestTransaction.getTime());
   }, [payments]);
 
-  // --- STATS CALCULATION ---
+  // --- ACCURATE STATS CALCULATION ---
   const stats = useMemo(() => {
+      // 1. Financial Totals directly from Payments (Cash flow)
       let cashTotal = 0;
       let transferTotal = 0;
-      
-      let cabinTickets = 0;
-      let sleeperTickets = 0;
-      let enhancedTickets = 0;
-
-      // Group payments by booking to find the final "current" seat count for each
-      // because we want "Tổng số vé hiện tại đã thanh toán"
-      // If a seat was added then removed, net is 0.
-      
-      const seatCountMap: Record<string, { cabin: number, sleeper: number, enhanced: number }> = {};
-
       payments.forEach(p => {
           cashTotal += (p.cashAmount || 0);
           transferTotal += (p.transferAmount || 0);
+      });
 
-          // Logic for tickets: we look at the diffResult logic but applied globally per seat
-          const trips = normalizeTrips(p.details);
-          const bId = p.bookingId?.id || 'orphaned';
-          
-          trips.forEach(t => {
-              const isEnhanced = isEnhancedRoute(t.route);
-              const isCabin = (t.route || '').toLowerCase().includes('cabin') || 
-                              (t.licensePlate || '').includes('29B-123') || // Common cabin plate in seed
-                              (t.seats && t.seats.some((s: string) => s.startsWith('A') || s.startsWith('B'))); // Cabin labels
-              
-              // We count the seats in this specific transaction
-              // But we need to distinguish between a payment (+) and a refund (-)
-              // Actually, simplified: loop through all payments, sum up net seats per type
-              const multiplier = p.amount >= 0 ? 1 : -1;
-              const count = (t.seats || []).length;
+      // 2. Ticket Totals from Bookings (Current State - NO DOUBLE COUNTING)
+      let cabinTickets = 0;
+      let sleeperTickets = 0;
+      let enhancedTickets = 0;
+      let totalTickets = 0;
 
-              if (isEnhanced) enhancedTickets += (count * multiplier);
-              else if (isCabin) cabinTickets += (count * multiplier);
-              else sleeperTickets += (count * multiplier);
-          });
+      // Map for quick Trip lookups
+      const tripMap = new Map(trips.map(t => [t.id, t]));
+
+      // Iterate through current active bookings that are confirmed (sold)
+      bookings.forEach(booking => {
+          const paid = (booking.payment?.paidCash || 0) + (booking.payment?.paidTransfer || 0);
+          // Count tickets only if the booking has at least partial payment and not cancelled
+          if (booking.status !== 'cancelled' && paid > 0) {
+              booking.items.forEach(item => {
+                  const trip = tripMap.get(item.tripId);
+                  
+                  // Use Trip info to identify Enhanced / Cabin
+                  const isEnhanced = item.route?.toLowerCase().includes('tăng cường') || 
+                                    trip?.name?.toLowerCase().includes('tăng cường') ||
+                                    trip?.route?.toLowerCase().includes('tăng cường');
+
+                  const isCabin = (item.route || '').toLowerCase().includes('cabin') || 
+                                  (item.licensePlate || '').includes('29B-123') ||
+                                  (item.seatIds && item.seatIds.some((s: string) => s.startsWith('A') || s.startsWith('B')));
+
+                  const count = (item.seatIds || []).length;
+                  totalTickets += count;
+
+                  if (isEnhanced) enhancedTickets += count;
+                  else if (isCabin) cabinTickets += count;
+                  else sleeperTickets += count;
+              });
+          }
       });
 
       return {
           cashTotal,
           transferTotal,
           grandTotal: cashTotal + transferTotal,
-          cabinTickets: Math.max(0, cabinTickets),
-          sleeperTickets: Math.max(0, sleeperTickets),
-          enhancedTickets: Math.max(0, enhancedTickets),
-          totalTickets: Math.max(0, cabinTickets + sleeperTickets + enhancedTickets)
+          cabinTickets,
+          sleeperTickets,
+          enhancedTickets,
+          totalTickets
       };
-  }, [payments]);
+  }, [payments, bookings, trips]);
 
   // --- FILTER LOGIC ---
   const filteredGroups = useMemo(() => {
@@ -185,8 +199,9 @@ export const PaymentManager: React.FC = () => {
       }
   };
 
-  function isEnhancedRoute(route: string) {
-      return (route || '').toLowerCase().includes('tăng cường');
+  function isEnhancedTrip(tripData: any) {
+      if (tripData.isEnhanced !== undefined) return tripData.isEnhanced;
+      return (tripData.route || '').toLowerCase().includes('tăng cường');
   };
 
   function normalizeTrips(details: any) {
@@ -241,6 +256,15 @@ export const PaymentManager: React.FC = () => {
       return results;
   };
 
+  if (loading) {
+      return (
+          <div className="flex flex-col items-center justify-center h-64 text-slate-400">
+              <Loader2 className="animate-spin mb-4" size={48} />
+              <p>Đang tải dữ liệu tài chính...</p>
+          </div>
+      );
+  }
+
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6 animate-in fade-in duration-500">
       <div className="flex justify-between items-center border-b border-slate-200 pb-5">
@@ -250,10 +274,10 @@ export const PaymentManager: React.FC = () => {
            </h2>
            <p className="text-slate-500 mt-1">Tổng hợp doanh thu và số lượng vé đã thanh toán.</p>
         </div>
-        <Button onClick={fetchPayments} variant="outline" size="sm">Làm mới</Button>
+        <Button onClick={fetchData} variant="outline" size="sm">Làm mới</Button>
       </div>
 
-      {/* NEW STATS SUMMARY */}
+      {/* STATS SUMMARY */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Revenue Box */}
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
@@ -292,7 +316,7 @@ export const PaymentManager: React.FC = () => {
                    <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center">
                       <Ticket size={20}/>
                    </div>
-                   <h3 className="font-bold text-slate-700">Tổng số vé đã thanh toán</h3>
+                   <h3 className="font-bold text-slate-700">Vé hiện tại đã thanh toán</h3>
                 </div>
                 <div className="text-right">
                    <p className="text-2xl font-black text-blue-700">{stats.totalTickets} vé</p>
@@ -343,9 +367,7 @@ export const PaymentManager: React.FC = () => {
                </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-               {loading ? (
-                   <tr><td colSpan={6} className="p-8 text-center text-slate-400">Đang tải...</td></tr>
-               ) : filteredGroups.length === 0 ? (
+               {filteredGroups.length === 0 ? (
                    <tr><td colSpan={6} className="p-8 text-center text-slate-400">Không có dữ liệu phù hợp.</td></tr>
                ) : filteredGroups.map(group => (
                    <tr key={group.bookingId} className="hover:bg-slate-50 transition-colors">
@@ -364,7 +386,7 @@ export const PaymentManager: React.FC = () => {
                          <div className="flex flex-col gap-1 text-xs">
                              <div className="font-semibold text-blue-700 flex items-center gap-1">
                                 {group.tripInfo.route}
-                                {isEnhancedRoute(group.tripInfo.route) && (
+                                {(group.tripInfo.route || '').toLowerCase().includes('tăng cường') && (
                                     <Zap size={10} className="text-yellow-600 fill-yellow-600" />
                                 )}
                              </div>
@@ -489,7 +511,7 @@ export const PaymentManager: React.FC = () => {
                                             {diffResult.length > 0 ? (
                                                 <div className="space-y-2 mb-2">
                                                     {diffResult.map((t: any, tripIdx: number) => {
-                                                        const enhanced = isEnhancedRoute(t.route);
+                                                        const enhanced = isEnhancedTrip(t);
                                                         return (
                                                         <div key={tripIdx} className="bg-slate-50 p-2.5 rounded-lg border border-slate-200 text-xs">
                                                             <div className="flex items-center gap-2 mb-1.5 pb-1.5 border-b border-slate-100">
