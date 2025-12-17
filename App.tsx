@@ -552,7 +552,7 @@ function AppContent() {
   };
 
   // Handle Create Booking (Single or Multi-Trip)
-  const processBooking = async (isPaid: boolean) => {
+  const processBooking = async (isPaid: boolean, surcharges: Record<string, number> = {}) => {
     if (selectionBasket.length === 0) {
       toast({
         type: "warning",
@@ -599,10 +599,22 @@ function AppContent() {
       : { paidCash: 0, paidTransfer: 0 };
 
     // Prepare items for single API call
-    const bookingItems = selectionBasket.map((item) => ({
-      tripId: item.trip.id,
-      seats: item.seats,
-    }));
+    const bookingItems = selectionBasket.map((item) => {
+        // Apply surcharges to seats
+        const seatsWithPrice = item.seats.map(s => {
+            const key = `${item.trip.id}_${s.id}`;
+            const adjustment = surcharges[key] || 0;
+            return {
+                ...s,
+                price: s.price + adjustment
+            };
+        });
+
+        return {
+          tripId: item.trip.id,
+          seats: seatsWithPrice,
+        };
+    });
 
     try {
       // Single API Call
@@ -754,7 +766,7 @@ function AppContent() {
   };
 
   // Helper to execute update logic directly (used when no payment modal is needed)
-  const executeBookingUpdate = async (targetBookingId: string) => {
+  const executeBookingUpdate = async (targetBookingId: string, surcharges: Record<string, number> = {}) => {
       try {
         const payment = {
           paidCash: bookingForm.paidCash,
@@ -769,10 +781,22 @@ function AppContent() {
         };
 
         // Get currently selected items (from basket)
-        const currentBookingItems = selectionBasket.map((item) => ({
-          tripId: item.trip.id,
-          seats: item.seats,
-        }));
+        const currentBookingItems = selectionBasket.map((item) => {
+            // Apply surcharges to seats
+            const seatsWithPrice = item.seats.map(s => {
+                const key = `${item.trip.id}_${s.id}`;
+                const adjustment = surcharges[key] || 0;
+                return {
+                    ...s,
+                    price: s.price + adjustment
+                };
+            });
+
+            return {
+              tripId: item.trip.id,
+              seats: seatsWithPrice,
+            };
+        });
 
         // STORE OLD STATE FOR UNDO
         const oldBooking = bookings.find(b => b.id === targetBookingId);
@@ -950,15 +974,15 @@ function AppContent() {
       }
   };
 
-  const handleConfirmPayment = async () => {
+  const handleConfirmPayment = async (finalTotal?: number, adjustments?: Record<string, number>) => {
     if (pendingPaymentContext?.type === "update") {
       // Handle Update (Existing Booking)
       if (!pendingPaymentContext.bookingIds) return;
       // Re-use extracted function
-      await executeBookingUpdate(pendingPaymentContext.bookingIds[0]);
+      await executeBookingUpdate(pendingPaymentContext.bookingIds[0], adjustments);
     } else {
       // Handle New Booking with Payment
-      await processBooking(true);
+      await processBooking(true, adjustments);
     }
   };
 
@@ -1002,6 +1026,8 @@ function AppContent() {
   const handleMoneyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     const numValue = parseInt(value.replace(/\D/g, "") || "0", 10);
+    // Note: totalBasketPrice is only a base estimate here. 
+    // PaymentModal manages the true final total with adjustments.
     const targetTotal = pendingPaymentContext?.totalPrice || totalBasketPrice;
 
     setBookingForm((prev) => {
@@ -1010,10 +1036,12 @@ function AppContent() {
       let newTransfer = prev.paidTransfer;
       if (name === "paidCash") {
         newCash = numValue;
-        newTransfer = Math.max(0, targetTotal - newCash);
+        // Don't auto-adjust other field for now to allow flexible inputs in complex modal
+        // But keeping simple logic for main form inputs
+        // newTransfer = Math.max(0, targetTotal - newCash);
       } else if (name === "paidTransfer") {
         newTransfer = numValue;
-        newCash = Math.max(0, targetTotal - newTransfer);
+        // newCash = Math.max(0, targetTotal - newTransfer);
       }
       return { ...prev, paidCash: newCash, paidTransfer: newTransfer };
     });
@@ -1532,7 +1560,9 @@ function AppContent() {
           setPendingPaymentContext(null);
         }}
         onConfirm={handleConfirmPayment}
-        totalPrice={pendingPaymentContext?.totalPrice || totalBasketPrice}
+        selectionBasket={selectionBasket}
+        editingBooking={editingBooking}
+        bookingForm={{ pickup: bookingForm.pickup, dropoff: bookingForm.dropoff }}
         paidCash={bookingForm.paidCash}
         paidTransfer={bookingForm.paidTransfer}
         onMoneyChange={handleMoneyChange}
