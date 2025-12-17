@@ -11,7 +11,8 @@ import {
   Bus,
   Ticket,
   ArrowRight,
-  Locate
+  Locate,
+  Clock
 } from "lucide-react";
 import { BusTrip, Seat, Booking } from "../types";
 import { formatLunarDate } from "../utils/dateUtils";
@@ -194,7 +195,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       <div className="flex flex-col h-full overflow-hidden">
         
         {/* --- BODY: SCROLLABLE LIST OF TRIPS --- */}
-        <div className="flex-1 overflow-y-auto pr-2 space-y-6 pb-4 bg-slate-50/50 -mx-6 px-6">
+        <div className="flex-1 overflow-y-auto pr-2 space-y-4 pb-4 bg-slate-50/50 -mx-6 px-6 pt-4">
           {items.length === 0 && (
              <div className="text-center py-10 text-slate-400 italic">Không có dữ liệu vé cần thanh toán.</div>
           )}
@@ -202,53 +203,52 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           {items.map((trip) => {
             const tripDate = new Date(trip.tripDate);
             return (
-              <div key={trip.tripId} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mt-4">
+              <div key={trip.tripId} className="bg-indigo-900 rounded-xl border border-indigo-800 shadow-md overflow-hidden">
                 {/* Card Header */}
-                <div className="bg-slate-50 px-4 py-3 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="bg-indigo-950/50 px-4 py-2 border-b border-indigo-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div className="flex items-center gap-3">
-                    <div className="bg-blue-100 text-blue-600 p-2 rounded-lg">
-                      <Bus size={20} />
+                    <div className="bg-indigo-800 text-indigo-300 p-1.5 rounded-lg border border-indigo-700/50">
+                      <Bus size={18} />
                     </div>
                     <div>
-                      <h4 className="font-bold text-slate-800 text-sm">{trip.route}</h4>
-                      <div className="text-xs text-slate-500 font-medium">{trip.tripName}</div>
+                      <h4 className="font-bold text-white text-sm">{trip.route}</h4>
+                      <div className="text-[10px] text-indigo-300 font-medium opacity-80">{trip.tripName}</div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 text-xs font-medium bg-white px-3 py-1.5 rounded-full border border-slate-200 text-slate-600 shadow-sm">
-                    <Calendar size={14} className="text-slate-400"/>
+                  <div className="flex items-center gap-2 text-xs font-medium bg-indigo-950/80 px-3 py-1 rounded-full border border-indigo-800 text-indigo-300">
+                    <Calendar size={12} className="text-indigo-400"/>
                     <span>{tripDate.toLocaleDateString('vi-VN')}</span>
-                    <span className="w-1 h-1 rounded-full bg-slate-300 mx-1"></span>
-                    <span>{formatLunarDate(tripDate)}</span>
+                    <span className="text-[9px] bg-indigo-800 px-1 rounded text-white">{formatLunarDate(tripDate)}</span>
                   </div>
                 </div>
 
                 {/* Seat List (Rows) */}
-                <div className="divide-y divide-slate-100">
+                <div className="divide-y divide-indigo-800/50">
                   {trip.seats.map((seat) => {
                     const { price, pickup, dropoff, isPriceChanged } = getSeatValues(trip.tripId, seat, trip.pickup, trip.dropoff);
                     
                     return (
-                      <div key={seat.id} className="p-4 border-b border-slate-100 last:border-0 hover:bg-slate-50 transition-colors">
-                        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
+                      <div key={seat.id} className="p-3 hover:bg-indigo-800/30 transition-colors">
+                        <div className="flex flex-col md:flex-row gap-3 items-start md:items-center">
                             
                             {/* 1. Seat Info */}
-                            <div className="flex items-center gap-3 w-full md:w-auto md:min-w-[90px]">
-                                <div className="w-10 h-10 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center font-bold border border-blue-100 shadow-sm text-sm">
+                            <div className="flex items-center gap-2 w-full md:w-auto md:min-w-[80px]">
+                                <div className="w-8 h-8 rounded-lg bg-indigo-700 text-white flex items-center justify-center font-bold border border-indigo-600 shadow-sm text-xs">
                                     {seat.label}
                                 </div>
-                                <div className="md:hidden font-bold text-slate-700">Ghế {seat.label}</div>
+                                <div className="md:hidden font-bold text-indigo-200 text-sm">Ghế {seat.label}</div>
                             </div>
 
                             {/* 2. Route Detail Inputs (Editable) */}
-                            <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
+                            <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2 w-full">
                                 {/* PICKUP */}
                                 <div className="relative">
-                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <MapPin size={14} className="text-green-600" />
+                                    <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
+                                        <MapPin size={12} className="text-indigo-400" />
                                     </div>
                                     <input 
                                         type="text"
-                                        className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-md focus:ring-1 focus:ring-green-500 focus:border-green-500 outline-none bg-white text-slate-700 placeholder-slate-400 transition-colors hover:border-green-300"
+                                        className="w-full pl-8 pr-2 py-1.5 text-xs border border-indigo-700 rounded bg-indigo-950 text-white placeholder-indigo-500/70 focus:ring-1 focus:ring-green-500 focus:border-green-500 outline-none transition-colors"
                                         placeholder="Điểm đón"
                                         value={pickup}
                                         onChange={(e) => handleInputChange(trip.tripId, seat.id, 'pickup', e.target.value)}
@@ -258,12 +258,12 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
                                 {/* DROPOFF */}
                                 <div className="relative">
-                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <Locate size={14} className="text-red-600" />
+                                    <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
+                                        <Locate size={12} className="text-indigo-400" />
                                     </div>
                                     <input 
                                         type="text"
-                                        className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-md focus:ring-1 focus:ring-red-500 focus:border-red-500 outline-none bg-white text-slate-700 placeholder-slate-400 transition-colors hover:border-red-300"
+                                        className="w-full pl-8 pr-2 py-1.5 text-xs border border-indigo-700 rounded bg-indigo-950 text-white placeholder-indigo-500/70 focus:ring-1 focus:ring-red-500 focus:border-red-500 outline-none transition-colors"
                                         placeholder="Điểm trả"
                                         value={dropoff}
                                         onChange={(e) => handleInputChange(trip.tripId, seat.id, 'dropoff', e.target.value)}
@@ -273,22 +273,24 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                             </div>
 
                             {/* 3. Price Override */}
-                            <div className="w-full md:w-auto flex items-center justify-between md:justify-end gap-3 md:pl-4 md:border-l border-slate-100">
-                                <div className="text-right">
-                                    <div className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-1">Giá vé</div>
-                                    <div className="relative w-full md:w-32">
+                            <div className="w-full md:w-auto flex items-center justify-between md:justify-end gap-3 md:pl-3 md:border-l border-indigo-800">
+                                <div className="text-right flex items-center md:block gap-2 w-full md:w-auto">
+                                    <div className="text-[10px] text-indigo-400 uppercase font-bold tracking-wider mb-0.5 md:hidden">Giá vé</div>
+                                    <div className="relative flex-1 md:w-28">
                                         <input 
                                             type="text"
-                                            className={`w-full text-right font-bold text-sm border rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500 
-                                                ${isPriceChanged ? 'text-orange-600 border-orange-300 bg-orange-50' : 'text-slate-700 border-slate-200'}
+                                            className={`w-full text-right font-bold text-sm border rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-yellow-500 
+                                                ${isPriceChanged 
+                                                    ? 'text-orange-300 border-orange-500/50 bg-orange-950/30' 
+                                                    : 'text-yellow-400 border-indigo-700 bg-indigo-950'}
                                             `}
                                             value={price.toLocaleString('vi-VN')}
                                             onChange={(e) => handleOverrideChange(trip.tripId, seat.id, 'price', e.target.value)}
                                         />
-                                        <div className="absolute inset-y-0 right-8 flex items-center pointer-events-none">
+                                        <div className="absolute inset-y-0 right-7 flex items-center pointer-events-none">
                                             {isPriceChanged && <div className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse"></div>}
                                         </div>
-                                        <div className="absolute inset-y-0 right-2 flex items-center pointer-events-none text-xs text-slate-400">đ</div>
+                                        <div className="absolute inset-y-0 right-2 flex items-center pointer-events-none text-xs text-indigo-500">đ</div>
                                     </div>
                                 </div>
                             </div>
@@ -304,10 +306,10 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         </div>
 
         {/* --- FOOTER: SUMMARY & PAYMENT --- */}
-        <div className="bg-slate-50 border-t border-slate-200 p-4 -mx-6 -mb-6 mt-auto shrink-0 space-y-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-10">
+        <div className="bg-white border-t border-slate-200 p-4 -mx-6 -mb-6 mt-auto shrink-0 space-y-4 shadow-[0_-4px_10px_-1px_rgba(0,0,0,0.05)] z-20">
            
            {/* Total Summary Bar */}
-           <div className="flex justify-between items-center bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+           <div className="flex justify-between items-center bg-slate-50 p-3 rounded-lg border border-slate-200">
               <div className="flex gap-6 text-sm">
                  <div>
                     <span className="text-slate-500 block text-xs">Tổng giá gốc</span>
@@ -326,77 +328,79 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                  )}
               </div>
               <div className="text-right">
-                 <span className="text-slate-500 block text-xs uppercase font-bold tracking-wider">Tổng thanh toán</span>
-                 <span className="text-2xl font-bold text-primary">{finalTotal.toLocaleString('vi-VN')} <span className="text-sm text-slate-400">đ</span></span>
+                 <span className="text-slate-500 block text-[10px] uppercase font-bold tracking-wider">Tổng thanh toán</span>
+                 <span className="text-2xl font-bold text-indigo-700">{finalTotal.toLocaleString('vi-VN')} <span className="text-sm text-slate-400 font-medium">VNĐ</span></span>
               </div>
            </div>
 
            {/* Payment Inputs */}
            <div className="grid grid-cols-2 gap-4">
               <div>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-green-600">
-                    <DollarSign size={16} />
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-green-600 group-focus-within:text-green-500">
+                    <DollarSign size={18} />
                   </div>
                   <input
                     type="text"
                     name="paidCash"
                     value={paidCash.toLocaleString("vi-VN")}
                     onChange={onMoneyChange}
-                    className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none bg-white text-slate-900 font-bold text-base shadow-sm text-right"
-                    placeholder="Tiền mặt"
+                    className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none bg-white text-slate-900 font-bold text-lg shadow-sm text-right transition-all"
+                    placeholder="0"
                   />
-                  <div className="absolute -top-2.5 left-2 bg-slate-50 px-1 text-[10px] font-bold text-green-700 uppercase">Tiền mặt</div>
+                  <div className="absolute -top-2.5 left-3 bg-white px-1 text-[10px] font-bold text-green-600 uppercase tracking-wide">Tiền mặt</div>
                 </div>
               </div>
 
               <div>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-blue-600">
-                    <CreditCard size={16} />
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-blue-600 group-focus-within:text-blue-500">
+                    <CreditCard size={18} />
                   </div>
                   <input
                     type="text"
                     name="paidTransfer"
                     value={paidTransfer.toLocaleString("vi-VN")}
                     onChange={onMoneyChange}
-                    className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none bg-white text-slate-900 font-bold text-base shadow-sm text-right"
-                    placeholder="Chuyển khoản"
+                    className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none bg-white text-slate-900 font-bold text-lg shadow-sm text-right transition-all"
+                    placeholder="0"
                   />
-                  <div className="absolute -top-2.5 left-2 bg-slate-50 px-1 text-[10px] font-bold text-blue-700 uppercase">Chuyển khoản</div>
+                  <div className="absolute -top-2.5 left-3 bg-white px-1 text-[10px] font-bold text-blue-600 uppercase tracking-wide">Chuyển khoản</div>
                 </div>
               </div>
            </div>
 
            {/* Action Buttons */}
            <div className="flex gap-3 pt-2">
-              <Button variant="outline" onClick={onClose} disabled={isProcessing} className="h-12 px-6">
+              <Button variant="outline" onClick={onClose} disabled={isProcessing} className="h-12 px-6 border-slate-300 text-slate-600 hover:bg-slate-50">
                 Đóng
               </Button>
               
               <div className="flex-1 flex gap-3 justify-end">
                  <Button 
                     variant="secondary" 
-                    className="h-12 bg-slate-200 text-slate-700 hover:bg-slate-300 border border-slate-300 flex-1"
+                    className="h-12 bg-slate-100 text-slate-400 border border-slate-200 flex-1 hover:bg-slate-100 cursor-not-allowed"
                     disabled
                     title="Chức năng đang phát triển"
                  >
-                    <Ticket size={18} className="mr-2"/> Tạo thanh toán (Chờ)
+                    <Ticket size={18} className="mr-2 opacity-50"/> In vé / QR
                  </Button>
 
                  <Button
                     onClick={() => onConfirm(finalTotal, seatOverrides)}
                     disabled={isProcessing}
-                    className={`h-12 flex-1 text-base font-bold shadow-lg shadow-green-900/10 ${
-                        remaining <= 0 ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-primary hover:bg-primary/90 text-white'
+                    className={`h-12 flex-1 text-base font-bold shadow-lg shadow-green-900/10 transition-all ${
+                        remaining <= 0 
+                            ? 'bg-green-600 hover:bg-green-700 text-white hover:shadow-green-900/20' 
+                            : 'bg-indigo-600 hover:bg-indigo-700 text-white hover:shadow-indigo-900/20'
                     }`}
                   >
                     {isProcessing ? (
                       "Đang xử lý..."
                     ) : (
                       <>
-                        <CheckCircle2 size={18} className="mr-2" /> 
-                        {remaining <= 0 ? "Đã Thanh toán" : "Xác nhận (Chưa đủ)"}
+                        <CheckCircle2 size={20} className="mr-2" /> 
+                        {remaining <= 0 ? "HOÀN TẤT" : `XÁC NHẬN (${remaining.toLocaleString('vi-VN')} đ)`}
                       </>
                     )}
                   </Button>
