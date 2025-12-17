@@ -7,7 +7,7 @@ import {
   DollarSign, Calendar, Search, Edit2, 
   ArrowRight, CreditCard, Banknote, 
   Eye, User, Phone, MapPin, Clock,
-  Check, X, Zap
+  Check, X, Zap, LayoutGrid, Ticket
 } from 'lucide-react';
 import { useToast } from './ui/Toast';
 import { Dialog } from './ui/Dialog';
@@ -65,7 +65,6 @@ export const PaymentManager: React.FC = () => {
 
     payments.forEach(payment => {
        const booking = payment.bookingId;
-       // If booking is deleted (null), group by "orphaned"
        const bKey = booking ? booking.id : 'orphaned'; 
        
        if (!groups[bKey]) {
@@ -85,7 +84,6 @@ export const PaymentManager: React.FC = () => {
           };
        }
 
-       // Add payment to group
        groups[bKey].payments.push(payment);
        groups[bKey].totalCollected += payment.amount;
        
@@ -95,8 +93,59 @@ export const PaymentManager: React.FC = () => {
        }
     });
 
-    // Convert to array and sort by latest transaction desc
     return Object.values(groups).sort((a, b) => b.latestTransaction.getTime() - a.latestTransaction.getTime());
+  }, [payments]);
+
+  // --- STATS CALCULATION ---
+  const stats = useMemo(() => {
+      let cashTotal = 0;
+      let transferTotal = 0;
+      
+      let cabinTickets = 0;
+      let sleeperTickets = 0;
+      let enhancedTickets = 0;
+
+      // Group payments by booking to find the final "current" seat count for each
+      // because we want "Tổng số vé hiện tại đã thanh toán"
+      // If a seat was added then removed, net is 0.
+      
+      const seatCountMap: Record<string, { cabin: number, sleeper: number, enhanced: number }> = {};
+
+      payments.forEach(p => {
+          cashTotal += (p.cashAmount || 0);
+          transferTotal += (p.transferAmount || 0);
+
+          // Logic for tickets: we look at the diffResult logic but applied globally per seat
+          const trips = normalizeTrips(p.details);
+          const bId = p.bookingId?.id || 'orphaned';
+          
+          trips.forEach(t => {
+              const isEnhanced = isEnhancedRoute(t.route);
+              const isCabin = (t.route || '').toLowerCase().includes('cabin') || 
+                              (t.licensePlate || '').includes('29B-123') || // Common cabin plate in seed
+                              (t.seats && t.seats.some((s: string) => s.startsWith('A') || s.startsWith('B'))); // Cabin labels
+              
+              // We count the seats in this specific transaction
+              // But we need to distinguish between a payment (+) and a refund (-)
+              // Actually, simplified: loop through all payments, sum up net seats per type
+              const multiplier = p.amount >= 0 ? 1 : -1;
+              const count = (t.seats || []).length;
+
+              if (isEnhanced) enhancedTickets += (count * multiplier);
+              else if (isCabin) cabinTickets += (count * multiplier);
+              else sleeperTickets += (count * multiplier);
+          });
+      });
+
+      return {
+          cashTotal,
+          transferTotal,
+          grandTotal: cashTotal + transferTotal,
+          cabinTickets: Math.max(0, cabinTickets),
+          sleeperTickets: Math.max(0, sleeperTickets),
+          enhancedTickets: Math.max(0, enhancedTickets),
+          totalTickets: Math.max(0, cabinTickets + sleeperTickets + enhancedTickets)
+      };
   }, [payments]);
 
   // --- FILTER LOGIC ---
@@ -123,20 +172,12 @@ export const PaymentManager: React.FC = () => {
       if (!editingPaymentId) return;
       try {
           await api.payments.update(editingPaymentId, { note: editNote });
-          
-          // Update local state
           const updatedPayments = payments.map(p => p.id === editingPaymentId ? { ...p, note: editNote } : p);
           setPayments(updatedPayments);
-          
-          // Update selected group
           if (selectedGroup) {
               const updatedGroupPayments = selectedGroup.payments.map(p => p.id === editingPaymentId ? { ...p, note: editNote } : p);
-              setSelectedGroup({
-                  ...selectedGroup,
-                  payments: updatedGroupPayments
-              });
+              setSelectedGroup({ ...selectedGroup, payments: updatedGroupPayments });
           }
-
           setEditingPaymentId(null);
           toast({ type: 'success', title: 'Đã cập nhật', message: 'Đã lưu ghi chú' });
       } catch (e) {
@@ -144,50 +185,38 @@ export const PaymentManager: React.FC = () => {
       }
   };
 
-  // Helper to check enhanced
-  const isEnhancedRoute = (route: string) => {
+  function isEnhancedRoute(route: string) {
       return (route || '').toLowerCase().includes('tăng cường');
   };
 
-  // --- DIFF LOGIC HELPERS ---
-  const normalizeTrips = (details: any) => {
-      if (details.trips && Array.isArray(details.trips)) {
-          return details.trips;
-      }
-      // Legacy structure support
+  function normalizeTrips(details: any) {
+      if (details.trips && Array.isArray(details.trips)) return details.trips;
       if (details.route || (details.seats && details.seats.length > 0)) {
           return [{
               route: details.route || 'Unknown',
               tripDate: details.tripDate,
               licensePlate: details.licensePlate,
               seats: details.seats || [],
-              tickets: [],
-              pricePerTicket: details.pricePerTicket // pass legacy price
           }];
       }
       return [];
   };
 
-  const calculateDiff = (prevTrips: any[], currTrips: any[]) => {
+  function calculateDiff(prevTrips: any[], currTrips: any[]) {
       const getTripKey = (t: any) => `${t.route}-${t.tripDate}`;
       const prevMap = new Map();
       prevTrips.forEach(t => prevMap.set(getTripKey(t), t));
-      
       const currMap = new Map();
       currTrips.forEach(t => currMap.set(getTripKey(t), t));
-
       const allKeys = new Set([...prevMap.keys(), ...currMap.keys()]);
       const results: any[] = [];
-
       allKeys.forEach(key => {
           const prevT = prevMap.get(key);
           const currT = currMap.get(key);
           const pSeats = new Set(prevT ? (prevT.seats || []) : []);
           const cSeats = new Set(currT ? (currT.seats || []) : []);
-
           const meta = currT || prevT || {};
           const seatDiffs: any[] = [];
-
           const allSeats = new Set([...pSeats, ...cSeats]);
           allSeats.forEach(s => {
               const inPrev = pSeats.has(s);
@@ -195,43 +224,22 @@ export const PaymentManager: React.FC = () => {
               let status = 'kept';
               if (inCurr && !inPrev) status = 'added';
               if (!inCurr && inPrev) status = 'removed';
-
-              // Determine price
               let price = 0;
               if (status !== 'removed' && currT) {
-                  if (currT.tickets) {
-                      const t = currT.tickets.find((tic: any) => tic.seatId === s);
-                      if (t) price = t.price;
-                  }
-                  if (price === 0 && currT.pricePerTicket) price = currT.pricePerTicket; // legacy trip specific
+                  if (currT.tickets) { const t = currT.tickets.find((tic: any) => tic.seatId === s); if (t) price = t.price; }
+                  if (price === 0 && currT.pricePerTicket) price = currT.pricePerTicket;
               }
-              // If removed, try to get price from prev
               if (status === 'removed' && prevT) {
-                   if (prevT.tickets) {
-                      const t = prevT.tickets.find((tic: any) => tic.seatId === s);
-                      if (t) price = t.price;
-                   }
+                   if (prevT.tickets) { const t = prevT.tickets.find((tic: any) => tic.seatId === s); if (t) price = t.price; }
                    if (price === 0 && prevT.pricePerTicket) price = prevT.pricePerTicket;
               }
-
               seatDiffs.push({ id: s, status, price });
           });
-
-          // Sort numeric/alpha
           seatDiffs.sort((a,b) => a.id.localeCompare(b.id, undefined, {numeric: true}));
-
-          results.push({
-              ...meta,
-              diffSeats: seatDiffs
-          });
+          results.push({ ...meta, diffSeats: seatDiffs });
       });
-
       return results;
   };
-
-  // Calculate Summary Stats
-  const totalRevenue = payments.filter(p => p.amount > 0).reduce((sum, p) => sum + p.amount, 0);
-  const totalRefund = payments.filter(p => p.amount < 0).reduce((sum, p) => sum + p.amount, 0);
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6 animate-in fade-in duration-500">
@@ -240,44 +248,70 @@ export const PaymentManager: React.FC = () => {
            <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
               <Banknote size={28} className="text-green-600"/> Quản lý Tài chính
            </h2>
-           <p className="text-slate-500 mt-1">Theo dõi dòng tiền và lịch sử thanh toán chi tiết.</p>
+           <p className="text-slate-500 mt-1">Tổng hợp doanh thu và số lượng vé đã thanh toán.</p>
         </div>
         <Button onClick={fetchPayments} variant="outline" size="sm">Làm mới</Button>
       </div>
 
-      {/* Stats Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
-             <div className="w-12 h-12 rounded-full bg-green-50 text-green-600 flex items-center justify-center">
-                <ArrowRight size={24} className="-rotate-45"/>
+      {/* NEW STATS SUMMARY */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Revenue Box */}
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+             <div className="flex justify-between items-center mb-4">
+                <div className="flex items-center gap-2">
+                   <div className="w-10 h-10 rounded-full bg-green-50 text-green-600 flex items-center justify-center">
+                      <DollarSign size={20}/>
+                   </div>
+                   <h3 className="font-bold text-slate-700">Tổng tiền đã thanh toán</h3>
+                </div>
+                <div className="text-right">
+                   <p className="text-2xl font-black text-green-700">{stats.grandTotal.toLocaleString('vi-VN')} đ</p>
+                </div>
              </div>
-             <div>
-                <p className="text-xs font-bold text-slate-400 uppercase">Tổng thu</p>
-                <p className="text-xl font-bold text-green-700">
-                    {totalRevenue.toLocaleString('vi-VN')} đ
-                </p>
+             
+             <div className="grid grid-cols-2 gap-3 mt-2">
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                   <p className="text-[10px] font-bold text-slate-400 uppercase mb-1 flex items-center gap-1">
+                      <DollarSign size={10}/> Tiền mặt
+                   </p>
+                   <p className="text-base font-bold text-slate-700">{stats.cashTotal.toLocaleString('vi-VN')} đ</p>
+                </div>
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                   <p className="text-[10px] font-bold text-slate-400 uppercase mb-1 flex items-center gap-1">
+                      <CreditCard size={10}/> Chuyển khoản
+                   </p>
+                   <p className="text-base font-bold text-slate-700">{stats.transferTotal.toLocaleString('vi-VN')} đ</p>
+                </div>
              </div>
           </div>
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
-             <div className="w-12 h-12 rounded-full bg-red-50 text-red-600 flex items-center justify-center">
-                <ArrowRight size={24} className="rotate-135"/>
+
+          {/* Tickets Box */}
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+             <div className="flex justify-between items-center mb-4">
+                <div className="flex items-center gap-2">
+                   <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center">
+                      <Ticket size={20}/>
+                   </div>
+                   <h3 className="font-bold text-slate-700">Tổng số vé đã thanh toán</h3>
+                </div>
+                <div className="text-right">
+                   <p className="text-2xl font-black text-blue-700">{stats.totalTickets} vé</p>
+                </div>
              </div>
-             <div>
-                <p className="text-xs font-bold text-slate-400 uppercase">Tổng hoàn tiền</p>
-                <p className="text-xl font-bold text-red-700">
-                    {Math.abs(totalRefund).toLocaleString('vi-VN')} đ
-                </p>
-             </div>
-          </div>
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
-             <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center">
-                <Banknote size={24}/>
-             </div>
-             <div>
-                <p className="text-xs font-bold text-slate-400 uppercase">Giao dịch</p>
-                <p className="text-xl font-bold text-slate-800">
-                    {payments.length}
-                </p>
+
+             <div className="grid grid-cols-3 gap-2 mt-2">
+                <div className="bg-indigo-50/50 p-3 rounded-xl border border-indigo-100 flex flex-col items-center">
+                   <p className="text-[10px] font-bold text-indigo-400 uppercase mb-1">Xe Phòng</p>
+                   <p className="text-xl font-bold text-indigo-700">{stats.cabinTickets}</p>
+                </div>
+                <div className="bg-blue-50/50 p-3 rounded-xl border border-blue-100 flex flex-col items-center">
+                   <p className="text-[10px] font-bold text-blue-400 uppercase mb-1">Xe Thường</p>
+                   <p className="text-xl font-bold text-blue-700">{stats.sleeperTickets}</p>
+                </div>
+                <div className="bg-amber-50/50 p-3 rounded-xl border border-amber-100 flex flex-col items-center">
+                   <p className="text-[10px] font-bold text-amber-500 uppercase mb-1">Tăng cường</p>
+                   <p className="text-xl font-bold text-amber-700">{stats.enhancedTickets}</p>
+                </div>
              </div>
           </div>
       </div>
@@ -376,7 +410,7 @@ export const PaymentManager: React.FC = () => {
          </table>
       </div>
 
-      {/* DETAIL MODAL (REFACTORED TO TIMELINE) */}
+      {/* DETAIL MODAL (TIMELINE) */}
       <Dialog 
         isOpen={!!selectedGroup} 
         onClose={() => { setSelectedGroup(null); setEditingPaymentId(null); }} 
@@ -385,7 +419,6 @@ export const PaymentManager: React.FC = () => {
       >
           {selectedGroup && (
              <div className="space-y-6 max-h-[70vh] overflow-y-auto px-1">
-                 {/* Header Info Card */}
                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row justify-between gap-4 sticky top-0 z-10">
                      <div className="flex items-start gap-3">
                          <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 border border-indigo-200">
@@ -406,35 +439,25 @@ export const PaymentManager: React.FC = () => {
                      </div>
                  </div>
 
-                 {/* Timeline Container */}
                  <div className="relative border-l-2 border-slate-200 ml-4 space-y-8 py-2">
                     {selectedGroup.payments.length === 0 ? (
                         <div className="text-center py-8 text-slate-400">Không có giao dịch nào.</div>
                     ) : (
-                        // Sort by timestamp ASC (Older top) to show flow
                         [...selectedGroup.payments].sort((a,b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()).map((p, idx, arr) => {
                             const isPositive = p.amount >= 0;
                             const isCash = p.method === 'cash';
-                            
-                            // CALCULATE DIFF
-                            // Get Previous Payment snapshot (if exists)
                             const prevP = idx > 0 ? arr[idx-1] : null;
                             const currTrips = normalizeTrips(p.details);
                             const prevTrips = prevP ? normalizeTrips(prevP.details) : [];
-                            
-                            // We treat the FIRST record as all "added" or just normal display
-                            // But consistency with "Updated" logic suggests diffing against empty.
                             const diffResult = calculateDiff(prevTrips, currTrips);
 
                             return (
                                 <div key={p.id} className="relative pl-6">
-                                    {/* Timeline Dot */}
                                     <div className={`absolute -left-[9px] top-1 w-4 h-4 rounded-full border-2 border-white shadow-sm flex items-center justify-center ${isPositive ? 'bg-green-100 border-green-300' : 'bg-red-100 border-red-300'}`}>
                                         <div className={`w-1.5 h-1.5 rounded-full ${isPositive ? 'bg-green-500' : 'bg-red-500'}`}></div>
                                     </div>
 
                                     <div className="flex flex-col gap-2">
-                                        {/* Date Header */}
                                         <div className="flex items-center gap-2">
                                             <span className={`text-xs font-bold px-2 py-0.5 rounded border ${isPositive ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
                                                 {isPositive ? 'Thanh toán' : 'Hoàn tiền'}
@@ -445,9 +468,7 @@ export const PaymentManager: React.FC = () => {
                                             </span>
                                         </div>
 
-                                        {/* Card Content */}
                                         <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow group relative">
-                                            {/* Top Row: Method & Amount */}
                                             <div className="flex justify-between items-start mb-2">
                                                 <div className="flex items-center gap-2">
                                                     <div className={`p-1.5 rounded-lg ${isCash ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-100 text-blue-600'}`}>
@@ -465,7 +486,6 @@ export const PaymentManager: React.FC = () => {
                                                 </div>
                                             </div>
 
-                                            {/* DIFF RESULTS */}
                                             {diffResult.length > 0 ? (
                                                 <div className="space-y-2 mb-2">
                                                     {diffResult.map((t: any, tripIdx: number) => {
@@ -496,14 +516,11 @@ export const PaymentManager: React.FC = () => {
                                                                     <span className="bg-white border px-1.5 rounded text-[10px] shadow-sm">{t.licensePlate}</span>
                                                                 )}
                                                             </div>
-                                                            
-                                                            {/* SEATS with STATUS */}
                                                             <div className="flex flex-wrap gap-1 mt-1">
                                                                 {t.diffSeats && t.diffSeats.map((s: any, i: number) => {
                                                                     let badgeClass = "bg-white text-blue-700 border-blue-200";
                                                                     if (s.status === 'added') badgeClass = "bg-green-50 text-green-700 border-green-200 ring-1 ring-green-400 font-bold";
                                                                     if (s.status === 'removed') badgeClass = "bg-red-50 text-red-400 border-red-200 line-through decoration-red-400 opacity-80";
-
                                                                     return (
                                                                     <Badge key={i} variant="outline" className={`${badgeClass} px-1.5 py-0 text-[10px] flex items-center gap-1`}>
                                                                         {s.id}
@@ -514,7 +531,6 @@ export const PaymentManager: React.FC = () => {
                                                                         )}
                                                                     </Badge>
                                                                 )})}
-                                                                {t.diffSeats.length === 0 && <span className="text-[10px] italic text-slate-400">Không có ghế</span>}
                                                             </div>
                                                         </div>
                                                     )})}
@@ -523,7 +539,6 @@ export const PaymentManager: React.FC = () => {
                                                 <div className="text-center text-xs italic text-slate-400 mb-2">Dữ liệu cũ không đủ thông tin chi tiết.</div>
                                             )}
 
-                                            {/* Note Section (Editable) */}
                                             <div className="bg-slate-50 p-2 rounded-lg border border-slate-100 text-xs text-slate-600 min-h-[30px] flex items-center relative group/note">
                                                 {editingPaymentId === p.id ? (
                                                     <div className="flex gap-1 w-full">
