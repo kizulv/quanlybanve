@@ -72,7 +72,7 @@ const routeSchema = new mongoose.Schema(
     departureTime: String,
     returnTime: String,
     status: String,
-    isEnhanced: Boolean,
+    isEnhanced: { type: Boolean, default: false },
   },
   { toJSON: { virtuals: true, transform: transformId } }
 );
@@ -108,7 +108,9 @@ const bookingItemSchema = new mongoose.Schema({
     licensePlate: String,
     seatIds: [String],
     tickets: [ticketDetailSchema], 
-    price: Number 
+    price: Number,
+    isEnhanced: { type: Boolean, default: false },
+    busType: String
 }, { _id: false });
 
 const bookingSchema = new mongoose.Schema(
@@ -255,20 +257,13 @@ const processPaymentUpdate = async (booking, newPaymentState) => {
     // Collect detailed trips info with enhanced status
     const tripsSnapshot = [];
     for (const item of booking.items) {
-        const trip = await Trip.findById(item.tripId);
-        let isEnhanced = false;
-        if (trip) {
-            const route = await Route.findById(trip.routeId);
-            isEnhanced = route?.isEnhanced || trip.name?.toLowerCase().includes('tăng cường') || trip.route?.toLowerCase().includes('tăng cường');
-        }
-
         tripsSnapshot.push({
             route: item.route,
             tripDate: item.tripDate,
             licensePlate: item.licensePlate,
             seats: item.seatIds,
             tickets: item.tickets,
-            isEnhanced: isEnhanced // CRITICAL FIX: Add this flag
+            isEnhanced: item.isEnhanced // Use from booking item snapshot
         });
     }
 
@@ -364,6 +359,9 @@ app.post("/api/bookings", async (req, res) => {
         const trip = await Trip.findById(item.tripId);
         if (!trip) continue;
 
+        const route = await Route.findById(trip.routeId);
+        const isEnhanced = route?.isEnhanced || trip.name?.toLowerCase().includes('tăng cường') || trip.route?.toLowerCase().includes('tăng cường');
+
         const tickets = item.tickets || item.seats.map(s => ({ 
             seatId: s.id, 
             price: s.price, 
@@ -396,7 +394,9 @@ app.post("/api/bookings", async (req, res) => {
             licensePlate: trip.licensePlate,
             seatIds: seatIds,
             tickets: tickets,
-            price: itemPrice
+            price: itemPrice,
+            isEnhanced: isEnhanced,
+            busType: trip.type
         });
     }
 
@@ -514,6 +514,9 @@ app.put("/api/bookings/:id", async (req, res) => {
       for (const item of items) {
           const trip = await Trip.findById(item.tripId);
           if (!trip) continue; 
+
+          const route = await Route.findById(trip.routeId);
+          const isEnhanced = route?.isEnhanced || trip.name?.toLowerCase().includes('tăng cường') || trip.route?.toLowerCase().includes('tăng cường');
           
           const tickets = item.tickets || item.seats.map(s => ({ 
             seatId: s.id, price: s.price, pickup: passenger.pickupPoint || '', dropoff: passenger.dropoffPoint || '' 
@@ -544,7 +547,9 @@ app.put("/api/bookings/:id", async (req, res) => {
               licensePlate: trip.licensePlate,
               seatIds: seatIds,
               tickets: tickets,
-              price: itemPrice
+              price: itemPrice,
+              isEnhanced: isEnhanced,
+              busType: trip.type
           });
       }
 

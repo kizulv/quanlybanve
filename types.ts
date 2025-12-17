@@ -50,6 +50,8 @@ export interface BookingItem {
   seatIds: string[]; // Kept for easy indexing
   tickets: TicketDetail[]; // NEW: Detailed info per seat
   price: number; // Total price for these seats
+  isEnhanced?: boolean; // NEW: Accurate snapshot for reporting
+  busType?: BusType;    // NEW: Accurate snapshot for reporting
 }
 
 export interface Booking {

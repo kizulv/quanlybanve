@@ -12,7 +12,7 @@ import {
 import { useToast } from './ui/Toast';
 import { Dialog } from './ui/Dialog';
 import { formatLunarDate } from '../utils/dateUtils';
-import { Booking, BusTrip } from '../types';
+import { Booking, BusTrip, BusType } from '../types';
 
 // Define Interface for Payment Group
 interface PaymentGroup {
@@ -34,7 +34,6 @@ export const PaymentManager: React.FC = () => {
   const { toast } = useToast();
   const [payments, setPayments] = useState<any[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
-  const [trips, setTrips] = useState<BusTrip[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   
@@ -48,14 +47,12 @@ export const PaymentManager: React.FC = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [paymentsData, bookingsData, tripsData] = await Promise.all([
+      const [paymentsData, bookingsData] = await Promise.all([
         api.payments.getAll(),
-        api.bookings.getAll(),
-        api.trips.getAll()
+        api.bookings.getAll()
       ]);
       setPayments(paymentsData);
       setBookings(bookingsData);
-      setTrips(tripsData);
     } catch (e) {
       console.error(e);
       toast({ type: 'error', title: 'Lỗi', message: 'Không thể tải dữ liệu tài chính' });
@@ -121,32 +118,31 @@ export const PaymentManager: React.FC = () => {
       let enhancedTickets = 0;
       let totalTickets = 0;
 
-      // Map for quick Trip lookups
-      const tripMap = new Map(trips.map(t => [t.id, t]));
-
-      // Iterate through current active bookings that are confirmed (sold)
+      // Iterate through current active bookings that have at least partial payment
       bookings.forEach(booking => {
           const paid = (booking.payment?.paidCash || 0) + (booking.payment?.paidTransfer || 0);
-          // Count tickets only if the booking has at least partial payment and not cancelled
+          
           if (booking.status !== 'cancelled' && paid > 0) {
               booking.items.forEach(item => {
-                  const trip = tripMap.get(item.tripId);
-                  
-                  // Use Trip info to identify Enhanced / Cabin
-                  const isEnhanced = item.route?.toLowerCase().includes('tăng cường') || 
-                                    trip?.name?.toLowerCase().includes('tăng cường') ||
-                                    trip?.route?.toLowerCase().includes('tăng cường');
-
-                  const isCabin = (item.route || '').toLowerCase().includes('cabin') || 
-                                  (item.licensePlate || '').includes('29B-123') ||
-                                  (item.seatIds && item.seatIds.some((s: string) => s.startsWith('A') || s.startsWith('B')));
-
                   const count = (item.seatIds || []).length;
-                  totalTickets += count;
+                  
+                  // Use priority: ENHANCED > BUS TYPE
+                  // logic checks snapshot first, then fallback to string matching
+                  const isEnhanced = item.isEnhanced === true || item.route?.toLowerCase().includes('tăng cường');
 
-                  if (isEnhanced) enhancedTickets += count;
-                  else if (isCabin) cabinTickets += count;
-                  else sleeperTickets += count;
+                  if (isEnhanced) {
+                      enhancedTickets += count;
+                  } else {
+                      // Accurate classification for non-enhanced trips
+                      const isCabin = item.busType === BusType.CABIN || (item.route || '').toLowerCase().includes('cabin');
+                      if (isCabin) {
+                          cabinTickets += count;
+                      } else {
+                          sleeperTickets += count;
+                      }
+                  }
+                  
+                  totalTickets += count;
               });
           }
       });
@@ -160,7 +156,7 @@ export const PaymentManager: React.FC = () => {
           enhancedTickets,
           totalTickets
       };
-  }, [payments, bookings, trips]);
+  }, [payments, bookings]);
 
   // --- FILTER LOGIC ---
   const filteredGroups = useMemo(() => {
@@ -197,11 +193,6 @@ export const PaymentManager: React.FC = () => {
       } catch (e) {
           toast({ type: 'error', title: 'Lỗi', message: 'Không thể cập nhật' });
       }
-  };
-
-  function isEnhancedTrip(tripData: any) {
-      if (tripData.isEnhanced !== undefined) return tripData.isEnhanced;
-      return (tripData.route || '').toLowerCase().includes('tăng cường');
   };
 
   function normalizeTrips(details: any) {
@@ -511,13 +502,13 @@ export const PaymentManager: React.FC = () => {
                                             {diffResult.length > 0 ? (
                                                 <div className="space-y-2 mb-2">
                                                     {diffResult.map((t: any, tripIdx: number) => {
-                                                        const enhanced = isEnhancedTrip(t);
+                                                        const isEnhanced = t.isEnhanced === true || (t.route || '').toLowerCase().includes('tăng cường');
                                                         return (
                                                         <div key={tripIdx} className="bg-slate-50 p-2.5 rounded-lg border border-slate-200 text-xs">
                                                             <div className="flex items-center gap-2 mb-1.5 pb-1.5 border-b border-slate-100">
                                                                 <MapPin size={12} className="text-blue-500"/>
                                                                 <span className="font-bold text-slate-700">{t.route || '---'}</span>
-                                                                {enhanced && (
+                                                                {isEnhanced && (
                                                                     <span className="shrink-0 inline-flex items-center text-[9px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200 whitespace-nowrap ml-auto">
                                                                         <Zap size={9} className="mr-0.5 fill-amber-700" />
                                                                         Tăng cường
