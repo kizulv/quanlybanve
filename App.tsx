@@ -142,6 +142,12 @@ function AppContent() {
   const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
   
   // UPDATE CONFIRMATION DIALOG STATE
+  interface TripSummaryItem {
+      route: string;
+      date: Date;
+      seats: string[];
+  }
+
   const [updateSummary, setUpdateSummary] = useState<{
       diffCount: number;
       diffPrice: number;
@@ -150,9 +156,8 @@ function AppContent() {
       oldPrice: number;
       newPrice: number;
       changesDetected: boolean;
-      tripDate?: Date;
-      oldSeatLabels: string[];
-      newSeatLabels: string[];
+      oldTrips: TripSummaryItem[];
+      newTrips: TripSummaryItem[];
   } | null>(null);
 
   // Payment Modal State
@@ -872,39 +877,32 @@ function AppContent() {
       // Determine if there are *any* effective changes to commit
       const hasSeatChanges = diffCount !== 0 || newPrice !== oldPrice; 
       
-      // Extract Date
-      let tripDate: Date | undefined;
-      let rawDateStr = "";
-      if (selectionBasket.length > 0) {
-          rawDateStr = selectionBasket[0].trip.departureTime;
-      } else if (editingBooking.items.length > 0) {
-          rawDateStr = editingBooking.items[0].tripDate;
-      }
-      
-      if (rawDateStr) {
-          // Handle "YYYY-MM-DD HH:MM" or "YYYY-MM-DD"
-          const datePart = rawDateStr.split(' ')[0];
-          tripDate = new Date(datePart);
-      }
-
-      // Extract Labels
-      // Old Seats
-      const oldSeatLabels: string[] = [];
-      editingBooking.items.forEach(item => {
-          const trip = trips.find(t => t.id === item.tripId);
-          item.seatIds.forEach(sid => {
-              const s = trip?.seats.find(seat => seat.id === sid);
-              oldSeatLabels.push(s ? s.label : sid);
+      // 2. Build Old Trips Data
+      const oldTrips = editingBooking.items.map(item => {
+          // Try to find the live trip object to get latest seat labels if possible
+          const liveTrip = trips.find(t => t.id === item.tripId);
+          const seatLabels = item.seatIds.map(sid => {
+              if (liveTrip) {
+                  const s = liveTrip.seats.find(seat => seat.id === sid);
+                  return s ? s.label : sid;
+              }
+              // If trip not loaded, return ID (or we could try to infer if we had map, but ID is safe fallback)
+              return sid;
           });
+
+          return {
+              route: item.route,
+              date: new Date(item.tripDate),
+              seats: seatLabels.sort()
+          };
       });
 
-      // New Seats
-      const newSeatLabels: string[] = [];
-      selectionBasket.forEach(item => {
-          item.seats.forEach(s => {
-              newSeatLabels.push(s.label);
-          });
-      });
+      // 3. Build New Trips Data
+      const newTrips = selectionBasket.map(item => ({
+          route: item.trip.route,
+          date: new Date(item.trip.departureTime),
+          seats: item.seats.map(s => s.label).sort()
+      }));
       
       setUpdateSummary({
           diffCount,
@@ -913,10 +911,9 @@ function AppContent() {
           newSeatCount,
           oldPrice,
           newPrice,
-          changesDetected: true, // Assume true if user clicked save in edit mode
-          tripDate,
-          oldSeatLabels: oldSeatLabels.sort(),
-          newSeatLabels: newSeatLabels.sort()
+          changesDetected: true,
+          oldTrips,
+          newTrips
       });
       return;
     }
@@ -1553,7 +1550,7 @@ function AppContent() {
       
       {/* UPDATE CONFIRMATION DIALOG */}
       <AlertDialog open={!!updateSummary} onOpenChange={(open) => !open && setUpdateSummary(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-w-3xl">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-blue-600 flex items-center gap-2">
                 <FileEdit size={20} />
@@ -1564,65 +1561,89 @@ function AppContent() {
                 <p>Bạn có chắc muốn lưu các thay đổi cho đơn hàng này?</p>
                 
                 {updateSummary && (
-                    <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 text-sm space-y-2">
-                        
-                        {/* Date Info */}
-                        {updateSummary.tripDate && (
-                            <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
-                                <Calendar size={16} className="text-slate-400" />
-                                <div className="flex flex-col">
-                                    <span className="font-bold text-slate-700">
-                                        {updateSummary.tripDate.toLocaleDateString('vi-VN')}
-                                    </span>
-                                    <span className="text-xs text-slate-500">
-                                        {formatLunarDate(updateSummary.tripDate)}
-                                    </span>
+                    <div className="grid grid-cols-2 gap-4 py-2 text-sm">
+                        {/* LEFT: OLD */}
+                        <div className="space-y-3">
+                            <h4 className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2 bg-slate-50 p-2 rounded">
+                                <History size={14}/> Trước khi sửa
+                            </h4>
+                            {updateSummary.oldTrips.length === 0 && <p className="text-xs italic text-slate-400 pl-2">Trống</p>}
+                            {updateSummary.oldTrips.map((trip, idx) => (
+                                <div key={idx} className="bg-slate-50 border border-slate-200 rounded-lg p-3 opacity-90">
+                                    <div className="text-xs font-bold text-slate-700 mb-1 flex items-center gap-1">
+                                        <ArrowRightIcon size={10} className="text-slate-400"/>
+                                        {trip.route}
+                                    </div>
+                                    <div className="text-[10px] text-slate-500 mb-2 pl-3.5">
+                                        {trip.date.toLocaleDateString('vi-VN')} - {formatLunarDate(trip.date)}
+                                    </div>
+                                    <div className="flex flex-wrap gap-1 pl-3.5">
+                                        {trip.seats.map(s => (
+                                            <span key={s} className="bg-white text-slate-600 border border-slate-200 px-1.5 py-0.5 rounded text-[10px] font-bold">
+                                                {s}
+                                            </span>
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
-                        )}
-
-                        {/* Seat Comparison */}
-                        <div className="grid grid-cols-2 gap-4 border-b border-slate-100 pb-2">
-                            <div>
-                                <span className="text-xs text-slate-500 block mb-1">Ghế cũ ({updateSummary.oldSeatCount})</span>
-                                <div className="text-red-500 font-medium text-xs leading-relaxed break-words">
-                                    {updateSummary.oldSeatLabels.length > 0 ? updateSummary.oldSeatLabels.join(", ") : "(Không có)"}
-                                </div>
-                            </div>
-                            <div>
-                                <span className="text-xs text-slate-500 block mb-1">Ghế mới ({updateSummary.newSeatCount})</span>
-                                <div className="text-green-600 font-medium text-xs leading-relaxed break-words">
-                                    {updateSummary.newSeatLabels.length > 0 ? updateSummary.newSeatLabels.join(", ") : "(Không có)"}
-                                </div>
-                            </div>
+                            ))}
                         </div>
 
-                        {/* Price Change */}
-                        <div className="flex justify-between items-center">
-                            <span className="text-slate-500">Tổng tiền</span>
-                            <div className="flex items-center gap-2 font-medium">
-                                <span className="text-slate-400 line-through decoration-slate-300 text-xs">
-                                    {updateSummary.oldPrice.toLocaleString('vi-VN')}
-                                </span>
-                                <ArrowRightIcon size={14} className="text-slate-300" />
-                                <span className={updateSummary.diffPrice > 0 ? "text-orange-600" : updateSummary.diffPrice < 0 ? "text-blue-600" : "text-slate-900"}>
-                                    {updateSummary.newPrice.toLocaleString('vi-VN')}
-                                </span>
-                            </div>
+                        {/* RIGHT: NEW */}
+                        <div className="space-y-3">
+                            <h4 className="text-xs font-bold text-blue-600 uppercase flex items-center gap-2 bg-blue-50 p-2 rounded">
+                                <FileEdit size={14}/> Sau khi sửa
+                            </h4>
+                            {updateSummary.newTrips.length === 0 && (
+                                <div className="p-3 bg-red-50 text-red-600 rounded-lg border border-red-100 text-xs italic flex items-center gap-2">
+                                    <AlertCircle size={14} /> Hủy hết vé
+                                </div>
+                            )}
+                            {updateSummary.newTrips.map((trip, idx) => (
+                                <div key={idx} className="bg-white border border-blue-200 rounded-lg p-3 shadow-sm ring-1 ring-blue-50">
+                                    <div className="text-xs font-bold text-blue-800 mb-1 flex items-center gap-1">
+                                        <ArrowRightIcon size={10} className="text-blue-400"/>
+                                        {trip.route}
+                                    </div>
+                                    <div className="text-[10px] text-blue-600 mb-2 pl-3.5">
+                                        {trip.date.toLocaleDateString('vi-VN')} - {formatLunarDate(trip.date)}
+                                    </div>
+                                    <div className="flex flex-wrap gap-1 pl-3.5">
+                                        {trip.seats.map(s => (
+                                            <span key={s} className="bg-blue-100 text-blue-700 border border-blue-200 px-1.5 py-0.5 rounded text-[10px] font-bold">
+                                                {s}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
                         </div>
-                        {updateSummary.diffPrice !== 0 && (
-                             <div className={`text-right text-xs font-bold ${updateSummary.diffPrice > 0 ? "text-orange-600" : "text-blue-600"}`}>
-                                 ({updateSummary.diffPrice > 0 ? "Tăng" : "Giảm"} {Math.abs(updateSummary.diffPrice).toLocaleString('vi-VN')} đ)
-                             </div>
-                        )}
-                        
-                        {/* Special warning if count is 0 */}
-                        {updateSummary.newSeatCount === 0 && (
-                            <div className="mt-2 p-2 bg-red-50 text-red-600 rounded text-xs border border-red-100 flex items-center gap-2">
-                                <AlertCircle size={14} />
-                                <span>Đơn hàng sẽ chuyển sang trạng thái <strong>Đã hủy</strong>.</span>
-                            </div>
-                        )}
+                    </div>
+                )}
+
+                {updateSummary && (
+                    <div className="flex justify-between items-center pt-3 border-t border-slate-100">
+                        <span className="text-slate-500 text-xs">Tổng tiền:</span>
+                        <div className="flex items-center gap-2 font-medium">
+                            <span className="text-slate-400 line-through decoration-slate-300 text-xs">
+                                {updateSummary.oldPrice.toLocaleString('vi-VN')}
+                            </span>
+                            <ArrowRightIcon size={14} className="text-slate-300" />
+                            <span className={updateSummary.diffPrice > 0 ? "text-orange-600 font-bold" : updateSummary.diffPrice < 0 ? "text-blue-600 font-bold" : "text-slate-900 font-bold"}>
+                                {updateSummary.newPrice.toLocaleString('vi-VN')} đ
+                            </span>
+                            {updateSummary.diffPrice !== 0 && (
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded ${updateSummary.diffPrice > 0 ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'}`}>
+                                    {updateSummary.diffPrice > 0 ? '+' : ''}{updateSummary.diffPrice.toLocaleString('vi-VN')}
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                )}
+                
+                {updateSummary && updateSummary.newSeatCount === 0 && (
+                    <div className="p-2 bg-red-50 text-red-600 rounded text-xs border border-red-100 flex items-center gap-2 justify-center">
+                        <AlertCircle size={14} />
+                        <span>Đơn hàng sẽ chuyển sang trạng thái <strong>Đã hủy</strong>.</span>
                     </div>
                 )}
               </div>
