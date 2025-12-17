@@ -41,7 +41,8 @@ interface SeatOverride {
 interface PaymentModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (finalTotal: number, seatOverrides: Record<string, SeatOverride>) => void;
+  // Updated signature to accept note suffix
+  onConfirm: (finalTotal: number, seatOverrides: Record<string, SeatOverride>, noteSuffix?: string) => void;
   selectionBasket: { trip: BusTrip; seats: Seat[] }[];
   editingBooking?: Booking | null;
   bookingForm: { pickup: string; dropoff: string };
@@ -49,7 +50,7 @@ interface PaymentModalProps {
   paidTransfer: number;
   onMoneyChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   isProcessing?: boolean;
-  initialOverrides?: Record<string, SeatOverride>; // NEW PROP
+  initialOverrides?: Record<string, SeatOverride>;
 }
 
 export const PaymentModal: React.FC<PaymentModalProps> = ({
@@ -63,7 +64,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   paidTransfer,
   onMoneyChange,
   isProcessing = false,
-  initialOverrides = {}, // Default empty
+  initialOverrides = {},
 }) => {
   const [seatOverrides, setSeatOverrides] = useState<Record<string, SeatOverride>>({});
 
@@ -95,13 +96,12 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     };
   };
 
-  // 3. Standardize Location Logic (Matches BookingForm)
+  // 3. Standardize Location Logic
   const getStandardizedLocation = (input: string) => {
     if (!input) return "";
     let value = input.trim();
     const lower = value.toLowerCase();
     
-    // Common mappings (Example - can be expanded or moved to shared util)
     const mappings: Record<string, string> = {
       "lai chau": "BX Lai Châu",
       "lai châu": "BX Lai Châu",
@@ -114,17 +114,12 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     };
     if (mappings[lower]) return mappings[lower];
 
-    // Auto prefix "BX" if it looks like a station but user typed quickly
-    // Simple Auto Capitalize
     if (!/^bx\s/i.test(value) && value.length > 2) {
       value = value.replace(/(?:^|\s)\S/g, (a) => a.toUpperCase());
     } else if (/^bx\s/i.test(value)) {
-       // Ensure BX is uppercase
        value = value.replace(/^bx\s/i, "BX ");
-       // Uppercase the rest
        value = value.replace(/(?:^|\s)\S/g, (a) => a.toUpperCase());
     }
-    
     return value;
   };
 
@@ -146,25 +141,29 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const oldTotal = editingBooking ? editingBooking.totalPrice : 0;
   const previouslyPaid = editingBooking ? ((editingBooking.payment?.paidCash || 0) + (editingBooking.payment?.paidTransfer || 0)) : 0;
   
-  // DIFFERENCE (What needs to be settled relative to PREVIOUSLY PAID)
-  // Logic: The customer needs to pay up to 'finalTotal'. They have already paid 'previouslyPaid'.
-  const amountToSettle = finalTotal - previouslyPaid; 
+  // LOGIC:
+  // finalTotal: Giá trị mới của đơn hàng.
+  // previouslyPaid: Khách đã trả trước đó (trong DB).
+  // paidCash + paidTransfer: Số tiền nhập vào ô input (Có thể user nhập thêm, hoặc giữ nguyên).
+  
+  // Số tiền CẦN thanh toán thêm (hoặc hoàn) dựa trên giá trị đơn hàng
+  const diffFromPrevious = finalTotal - previouslyPaid; 
 
-  // Remaining relative to INPUTS (for the "Pay" button enablement)
-  const remainingInput = finalTotal - paidCash - paidTransfer;
+  // Số tiền còn thiếu dựa trên INPUT hiện tại (để hiện cảnh báo dư/thiếu)
+  const currentInputTotal = paidCash + paidTransfer;
+  const remainingBalance = finalTotal - currentInputTotal;
 
   // Logic to determine button text and color
   const getActionInfo = () => {
       if (isProcessing) return { text: "Đang xử lý...", colorClass: "bg-slate-600 border-slate-700" };
       
       if (editingBooking) {
-          if (remainingInput < 0) return { text: "Xác nhận & Lưu", colorClass: "bg-blue-600 hover:bg-blue-500 border-blue-700 text-white" };
-          if (remainingInput > 0) return { text: "Lưu (Còn thiếu tiền)", colorClass: "bg-amber-500 hover:bg-amber-400 border-amber-600 text-white" };
-          return { text: "Cập nhật đơn hàng", colorClass: "bg-green-600 hover:bg-green-500 border-green-700 text-white" };
+          if (remainingBalance === 0) return { text: "Cập nhật đơn hàng", colorClass: "bg-blue-600 hover:bg-blue-500 border-blue-700 text-white" };
+          return { text: "Xác nhận & Lưu", colorClass: "bg-indigo-600 hover:bg-indigo-500 border-indigo-700 text-white" };
       }
 
       // New Booking
-      if (remainingInput <= 0) return { text: "Xác nhận thanh toán", colorClass: "bg-green-600 hover:bg-green-500 border-green-700 text-white" };
+      if (remainingBalance <= 0) return { text: "Xác nhận thanh toán", colorClass: "bg-green-600 hover:bg-green-500 border-green-700 text-white" };
       return { text: "Lưu công nợ", colorClass: "bg-yellow-500 hover:bg-yellow-400 text-indigo-950 border-yellow-600" };
   };
 
@@ -192,25 +191,12 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
   // Helper to Auto-Fill Payment Inputs based on Difference
   const handleQuickSettle = (method: 'cash' | 'transfer') => {
-      // Calculate what the NEW total for this method should be to settle the difference
-      // New Input Value = Current Input Value + Amount Needed
-      // But simpler: We want to match 'finalTotal'.
-      // If we are settling 'amountToSettle', we add it to the existing paid amount.
-      
-      // Let's rely on current inputs.
-      // If amountToSettle > 0 (Collect more): Add difference to input.
-      // If amountToSettle < 0 (Refund): Subtract difference from input.
-      
-      // Since amountToSettle is based on DB state, but inputs might be changed by user manually...
-      // Let's make it simple: Add the *Difference between FinalTotal and CurrentInputs* to the selected method.
-      // This makes the "Remaining" go to 0.
-      
-      const gap = remainingInput; 
+      // Logic: Add the *Missing Amount* to the selected method to make Balance = 0.
+      const gap = remainingBalance; 
       
       const currentVal = method === 'cash' ? paidCash : paidTransfer;
       const newVal = currentVal + gap;
       
-      // Construct Synthetic Event
       const event = {
           target: {
               name: method === 'cash' ? 'paidCash' : 'paidTransfer',
@@ -219,6 +205,18 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       } as React.ChangeEvent<HTMLInputElement>;
       
       onMoneyChange(event);
+  };
+
+  const handleConfirmClick = () => {
+      let noteSuffix = "";
+      // If there is a remaining balance (positive or negative), append to note
+      if (remainingBalance > 0) {
+          noteSuffix = `(Cần thu thêm: ${remainingBalance.toLocaleString('vi-VN')}đ)`;
+      } else if (remainingBalance < 0) {
+          noteSuffix = `(Cần hoàn lại: ${Math.abs(remainingBalance).toLocaleString('vi-VN')}đ)`;
+      }
+
+      onConfirm(finalTotal, seatOverrides, noteSuffix);
   };
 
   // Reset or Load Initial
@@ -349,7 +347,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                   <div className="space-y-2 pb-3 border-b border-indigo-800/50">
                       <div className="flex justify-between items-center text-xs">
                           <span className="text-indigo-400 flex items-center gap-1"><History size={12}/> Tổng tiền cũ:</span>
-                          <span className="text-indigo-300">{oldTotal.toLocaleString('vi-VN')} đ</span>
+                          <span className="text-indigo-300 decoration-slate-500 line-through decoration-1">{oldTotal.toLocaleString('vi-VN')} đ</span>
                       </div>
                       <div className="flex justify-between items-center text-xs">
                           <span className="text-yellow-500 flex items-center gap-1"><TrendingUp size={12}/> Tổng tiền mới:</span>
@@ -365,54 +363,56 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               </div>
            </div>
 
-           {/* SETTLEMENT CARD (Shows difference) */}
-           {editingBooking && amountToSettle !== 0 && (
+           {/* SETTLEMENT CARD (Shows difference from PREVIOUS payment) */}
+           {editingBooking && diffFromPrevious !== 0 && (
                <div className={`p-4 rounded-xl border shadow-sm animate-in fade-in slide-in-from-top-2 flex flex-col gap-3
-                   ${amountToSettle > 0 
+                   ${diffFromPrevious > 0 
                        ? 'bg-amber-950/40 border-amber-700/50 text-amber-100' 
                        : 'bg-blue-950/40 border-blue-700/50 text-blue-100'
                    }
                `}>
                    <div className="flex items-start gap-3">
-                       <div className={`p-2 rounded-full shrink-0 ${amountToSettle > 0 ? 'bg-amber-500/20 text-amber-400' : 'bg-blue-500/20 text-blue-400'}`}>
-                           {amountToSettle > 0 ? <AlertCircle size={20}/> : <RotateCcw size={20}/>}
+                       <div className={`p-2 rounded-full shrink-0 ${diffFromPrevious > 0 ? 'bg-amber-500/20 text-amber-400' : 'bg-blue-500/20 text-blue-400'}`}>
+                           {diffFromPrevious > 0 ? <AlertCircle size={20}/> : <RotateCcw size={20}/>}
                        </div>
                        <div>
                            <h4 className="font-bold text-sm">
-                               {amountToSettle > 0 ? 'Thu thêm của khách' : 'Hoàn lại cho khách'}
+                               {diffFromPrevious > 0 ? 'Cần thu thêm' : 'Cần hoàn lại'}
                            </h4>
                            <div className="text-2xl font-bold mt-1">
-                               {Math.abs(amountToSettle).toLocaleString('vi-VN')} <span className="text-xs font-normal opacity-70">đ</span>
+                               {Math.abs(diffFromPrevious).toLocaleString('vi-VN')} <span className="text-xs font-normal opacity-70">đ</span>
                            </div>
                            <p className="text-[10px] opacity-70 mt-1">
                                (Đã thanh toán trước đó: {previouslyPaid.toLocaleString('vi-VN')} đ)
                            </p>
                        </div>
                    </div>
-
-                   {/* QUICK ACTION BUTTONS */}
-                   <div className="grid grid-cols-2 gap-2 mt-1">
-                       <button 
-                           onClick={() => handleQuickSettle('cash')}
-                           className={`text-xs font-bold py-2 px-3 rounded border transition-colors flex items-center justify-center gap-1
-                               ${amountToSettle > 0 
-                                   ? 'bg-amber-600/30 hover:bg-amber-600/50 border-amber-600/50 text-amber-200' 
-                                   : 'bg-blue-600/30 hover:bg-blue-600/50 border-blue-600/50 text-blue-200'}
-                           `}
-                       >
-                           <DollarSign size={12}/> {amountToSettle > 0 ? 'Đã thu TM' : 'Đã hoàn TM'}
-                       </button>
-                       <button 
-                           onClick={() => handleQuickSettle('transfer')}
-                           className={`text-xs font-bold py-2 px-3 rounded border transition-colors flex items-center justify-center gap-1
-                               ${amountToSettle > 0 
-                                   ? 'bg-amber-600/30 hover:bg-amber-600/50 border-amber-600/50 text-amber-200' 
-                                   : 'bg-blue-600/30 hover:bg-blue-600/50 border-blue-600/50 text-blue-200'}
-                           `}
-                       >
-                           <CreditCard size={12}/> {amountToSettle > 0 ? 'Đã thu CK' : 'Đã hoàn CK'}
-                       </button>
-                   </div>
+                   
+                   {/* Auto-Fill Buttons if input doesn't match needed amount yet */}
+                   {remainingBalance !== 0 && (
+                       <div className="grid grid-cols-2 gap-2 mt-1">
+                           <button 
+                               onClick={() => handleQuickSettle('cash')}
+                               className={`text-[10px] font-bold py-2 px-2 rounded border transition-colors flex items-center justify-center gap-1
+                                   ${diffFromPrevious > 0 
+                                       ? 'bg-amber-600/30 hover:bg-amber-600/50 border-amber-600/50 text-amber-200' 
+                                       : 'bg-blue-600/30 hover:bg-blue-600/50 border-blue-600/50 text-blue-200'}
+                               `}
+                           >
+                               <DollarSign size={10}/> {diffFromPrevious > 0 ? 'Thu thêm TM' : 'Hoàn tiền TM'}
+                           </button>
+                           <button 
+                               onClick={() => handleQuickSettle('transfer')}
+                               className={`text-[10px] font-bold py-2 px-2 rounded border transition-colors flex items-center justify-center gap-1
+                                   ${diffFromPrevious > 0 
+                                       ? 'bg-amber-600/30 hover:bg-amber-600/50 border-amber-600/50 text-amber-200' 
+                                       : 'bg-blue-600/30 hover:bg-blue-600/50 border-blue-600/50 text-blue-200'}
+                               `}
+                           >
+                               <CreditCard size={10}/> {diffFromPrevious > 0 ? 'Thu thêm CK' : 'Hoàn tiền CK'}
+                           </button>
+                       </div>
+                   )}
                </div>
            )}
 
@@ -449,26 +449,38 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                  </div>
            </div>
 
-           {/* Remaining Status */}
-           {remainingInput > 0 ? (
+           {/* Remaining Status - VISUAL FEEDBACK */}
+           {remainingBalance > 0 ? (
                   <div className="p-2 rounded bg-red-950/30 border border-red-900/50 text-right text-xs text-red-400 font-bold flex justify-between items-center">
-                      <span>Còn thiếu:</span>
-                      <span>{remainingInput.toLocaleString('vi-VN')} đ</span>
+                      <span>Đang thiếu:</span>
+                      <span>{remainingBalance.toLocaleString('vi-VN')} đ</span>
                   </div>
-              ) : remainingInput < 0 ? (
+              ) : remainingBalance < 0 ? (
                   <div className="p-2 rounded bg-blue-950/30 border border-blue-900/50 text-right text-xs text-blue-400 font-bold flex justify-between items-center">
-                      <span className="flex items-center gap-1"><RotateCcw size={12}/> Dư / Cần hoàn:</span>
-                      <span>{Math.abs(remainingInput).toLocaleString('vi-VN')} đ</span>
+                      <span className="flex items-center gap-1"><RotateCcw size={12}/> Đang dư:</span>
+                      <span>{Math.abs(remainingBalance).toLocaleString('vi-VN')} đ</span>
                   </div>
               ) : (
                   <div className="p-2 rounded bg-green-950/30 border border-green-900/50 text-right text-xs text-green-400 font-bold flex justify-center items-center gap-2">
                       <CheckCircle2 size={14}/> Đã khớp thanh toán
                   </div>
            )}
+           
+           {/* NOTE ALERT */}
+           {remainingBalance !== 0 && (
+                <div className="text-[10px] text-center text-indigo-300 italic">
+                    * Hệ thống sẽ tự động thêm ghi chú: <br/>
+                    <span className="font-bold text-yellow-400">
+                        {remainingBalance > 0 
+                            ? `(Cần thu thêm: ${remainingBalance.toLocaleString('vi-VN')}đ)` 
+                            : `(Cần hoàn lại: ${Math.abs(remainingBalance).toLocaleString('vi-VN')}đ)`}
+                    </span>
+                </div>
+           )}
 
            <div className="mt-auto space-y-3 pt-2">
               <Button
-                onClick={() => onConfirm(finalTotal, seatOverrides)}
+                onClick={handleConfirmClick}
                 disabled={isProcessing}
                 className={`w-full h-11 font-bold text-sm shadow-lg transition-all ${actionInfo.colorClass}`}
               >

@@ -584,7 +584,7 @@ function AppContent() {
 
   // Handle Create Booking (Single or Multi-Trip)
   // Payment info is passed in argument if it comes from PaymentModal
-  const processBooking = async (paymentData?: { paidCash: number; paidTransfer: number }, overrides: Record<string, SeatOverride> = {}) => {
+  const processBooking = async (paymentData?: { paidCash: number; paidTransfer: number }, overrides: Record<string, SeatOverride> = {}, noteSuffix: string = "") => {
     if (selectionBasket.length === 0) {
       toast({
         type: "warning",
@@ -606,10 +606,13 @@ function AppContent() {
       return;
     }
 
+    // APPEND SUFFIX IF EXISTS
+    const finalNote = noteSuffix ? `${bookingForm.note} ${noteSuffix}` : bookingForm.note;
+
     const passenger: Passenger = {
       name: "Khách lẻ",
       phone: bookingForm.phone,
-      note: bookingForm.note,
+      note: finalNote,
       pickupPoint: bookingForm.pickup,
       dropoffPoint: bookingForm.dropoff,
     };
@@ -813,12 +816,15 @@ function AppContent() {
   };
 
   // Helper to execute update logic
-  const executeBookingUpdate = async (targetBookingId: string, paymentData: { paidCash: number; paidTransfer: number }, overrides: Record<string, SeatOverride> = {}) => {
+  const executeBookingUpdate = async (targetBookingId: string, paymentData: { paidCash: number; paidTransfer: number }, overrides: Record<string, SeatOverride> = {}, noteSuffix: string = "") => {
       try {
+        // APPEND SUFFIX IF EXISTS
+        const finalNote = noteSuffix ? `${bookingForm.note} ${noteSuffix}` : bookingForm.note;
+
         const passenger = {
           name: "Khách lẻ",
           phone: bookingForm.phone,
-          note: bookingForm.note,
+          note: finalNote,
           pickupPoint: bookingForm.pickup,
           dropoffPoint: bookingForm.dropoff,
         };
@@ -1013,7 +1019,7 @@ function AppContent() {
       setIsPaymentModalOpen(true);
   };
 
-  const handleConfirmPayment = async (finalTotal?: number, overrides: Record<string, SeatOverride> = {}) => {
+  const handleConfirmPayment = async (finalTotal?: number, overrides: Record<string, SeatOverride> = {}, noteSuffix: string = "") => {
     // Collect payment from local state (which is bound to PaymentModal inputs)
     const paymentPayload = {
         paidCash: modalPaymentInput.paidCash,
@@ -1022,9 +1028,9 @@ function AppContent() {
 
     if (pendingPaymentContext?.type === "update") {
       if (!pendingPaymentContext.bookingIds) return;
-      await executeBookingUpdate(pendingPaymentContext.bookingIds[0], paymentPayload, overrides);
+      await executeBookingUpdate(pendingPaymentContext.bookingIds[0], paymentPayload, overrides, noteSuffix);
     } else {
-      await processBooking(paymentPayload, overrides);
+      await processBooking(paymentPayload, overrides, noteSuffix);
     }
   };
 
