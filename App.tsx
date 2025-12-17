@@ -147,10 +147,15 @@ function AppContent() {
   const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
   
   // UPDATE CONFIRMATION DIALOG STATE
-  interface TripSummaryItem {
+  interface DiffSeat {
+      label: string;
+      status: 'kept' | 'added' | 'removed';
+  }
+
+  interface TripDiffItem {
       route: string;
       date: Date;
-      seats: string[];
+      seats: DiffSeat[];
   }
 
   const [updateSummary, setUpdateSummary] = useState<{
@@ -160,9 +165,7 @@ function AppContent() {
       newSeatCount: number;
       oldPrice: number;
       newPrice: number;
-      changesDetected: boolean;
-      oldTrips: TripSummaryItem[];
-      newTrips: TripSummaryItem[];
+      diffTrips: TripDiffItem[]; // NEW: Combined diff
   } | null>(null);
 
   // Payment Modal State
@@ -410,8 +413,8 @@ function AppContent() {
         });
 
         const updatedTrip = { ...selectedTrip, seats: updatedSeats };
-        setTrips((prevTrips) =>
-          prevTrips.map((t) => (t.id === selectedTrip.id ? updatedTrip : t))
+        setTrips((prev) =>
+          prev.map((t) => (t.id === selectedTrip.id ? updatedTrip : t))
         );
         return;
       }
@@ -449,8 +452,8 @@ function AppContent() {
 
     // Optimistically update global state
     const updatedTrip = { ...selectedTrip, seats: updatedSeats };
-    setTrips((prevTrips) =>
-      prevTrips.map((t) => (t.id === selectedTrip.id ? updatedTrip : t))
+    setTrips((prev) =>
+      prev.map((t) => (t.id === selectedTrip.id ? updatedTrip : t))
     );
   };
 
@@ -935,30 +938,79 @@ function AppContent() {
       const diffCount = newSeatCount - oldSeatCount;
       const diffPrice = newPrice - oldPrice;
       
-      // 2. Build Old Trips Data
-      const oldTrips = editingBooking.items.map(item => {
+      // 2. Prepare Data for Maps
+      // Map TripID -> Seat Labels array
+      const oldTripMap = new Map<string, string[]>();
+      editingBooking.items.forEach(item => {
+          // Attempt to resolve labels using live data if available, else use ID
           const liveTrip = trips.find(t => t.id === item.tripId);
-          const seatLabels = item.seatIds.map(sid => {
+          const labels = item.seatIds.map(sid => {
               if (liveTrip) {
                   const s = liveTrip.seats.find(seat => seat.id === sid);
                   return s ? s.label : sid;
               }
               return sid;
           });
-
-          return {
-              route: item.route,
-              date: new Date(item.tripDate),
-              seats: seatLabels.sort()
-          };
+          oldTripMap.set(item.tripId, labels);
       });
 
-      // 3. Build New Trips Data
-      const newTrips = selectionBasket.map(item => ({
-          route: item.trip.route,
-          date: new Date(item.trip.departureTime),
-          seats: item.seats.map(s => s.label).sort()
-      }));
+      const newTripMap = new Map<string, string[]>();
+      selectionBasket.forEach(item => {
+          const labels = item.seats.map(s => s.label);
+          newTripMap.set(item.trip.id, labels);
+      });
+
+      // 3. Compare and Build Diff List
+      const allTripIds = new Set([...oldTripMap.keys(), ...newTripMap.keys()]);
+      const diffTrips: TripDiffItem[] = [];
+
+      allTripIds.forEach(tripId => {
+          const oldSeats = oldTripMap.get(tripId) || [];
+          const newSeats = newTripMap.get(tripId) || [];
+          const oldSet = new Set(oldSeats);
+          const newSet = new Set(newSeats);
+
+          // Calculate Diff
+          const added = newSeats.filter(s => !oldSet.has(s));
+          const removed = oldSeats.filter(s => !newSet.has(s));
+          const kept = oldSeats.filter(s => newSet.has(s));
+
+          if (added.length === 0 && removed.length === 0 && kept.length === 0) return;
+
+          // Resolve trip metadata
+          // Try finding in Basket first, then Editing Booking (which has snapshots), then Live Trips
+          let route = "";
+          let dateStr = "";
+
+          const basketItem = selectionBasket.find(i => i.trip.id === tripId);
+          if (basketItem) {
+              route = basketItem.trip.route;
+              dateStr = basketItem.trip.departureTime;
+          } else {
+              const oldItem = editingBooking.items.find(i => i.tripId === tripId);
+              if (oldItem) {
+                  route = oldItem.route;
+                  dateStr = oldItem.tripDate;
+              }
+          }
+
+          // Build Seat Diff List
+          const seatDiffs: DiffSeat[] = [];
+          
+          // Order: Kept, Removed, Added (or standard logical order)
+          kept.forEach(s => seatDiffs.push({ label: s, status: 'kept' }));
+          removed.forEach(s => seatDiffs.push({ label: s, status: 'removed' }));
+          added.forEach(s => seatDiffs.push({ label: s, status: 'added' }));
+
+          // Sort seat diffs by label for nicer display
+          seatDiffs.sort((a,b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
+
+          diffTrips.push({
+              route,
+              date: new Date(dateStr),
+              seats: seatDiffs
+          });
+      });
       
       setUpdateSummary({
           diffCount,
@@ -967,9 +1019,7 @@ function AppContent() {
           newSeatCount,
           oldPrice,
           newPrice,
-          changesDetected: true,
-          oldTrips,
-          newTrips
+          diffTrips
       });
       return;
     }
@@ -1176,7 +1226,7 @@ function AppContent() {
           <div className={`flex-1 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col overflow-hidden transition-all ${swapSourceSeat ? 'ring-2 ring-indigo-500 ring-offset-2' : ''}`}>
             <div className={`px-4 h-[40px] border-b flex items-center justify-between shrink-0 rounded-t-xl transition-colors ${swapSourceSeat ? 'bg-indigo-600 border-indigo-600' : 'bg-gradient-to-r from-indigo-950 via-indigo-900 to-indigo-950 border-indigo-900'}`}>
               <div className="flex items-center gap-3">
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white shrink-0 border ${swapSourceSeat ? 'bg-indigo-500 border-indigo-400' : 'bg-indigo-900 border-indigo-800'}`}>
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white shrink-0 border ${swapSourceSeat ? 'bg-indigo-50 border-indigo-400' : 'bg-indigo-900 border-indigo-800'}`}>
                   {swapSourceSeat ? <ArrowRightLeft size={16} className="animate-pulse" /> : <BusFront size={16} />}
                 </div>
                 {selectedTrip ? (
@@ -1336,6 +1386,9 @@ function AppContent() {
                   );
                   const seatsToShow = tripItem ? tripItem.seatIds : [];
                   const isHighlighted = booking.id === highlightedBookingId;
+                  
+                  // NEW: Calculate subtotal for THIS selected trip only
+                  const tripSubtotal = tripItem ? (tripItem.price || 0) : 0;
 
                   return (
                     <div
@@ -1369,9 +1422,8 @@ function AppContent() {
                             isFullyPaid ? "text-indigo-600" : "text-yellow-600"
                           }`}
                         >
-                          {isFullyPaid
-                            ? booking.totalPrice.toLocaleString("vi-VN")
-                            : "Vé đặt"}
+                          {/* UPDATED: Only show the price for the specific trip found in this booking */}
+                          {tripSubtotal.toLocaleString("vi-VN")}
                         </div>
                       </div>
                     </div>
@@ -1607,62 +1659,34 @@ function AppContent() {
                 <p>Bạn có chắc muốn lưu các thay đổi cho đơn hàng này?</p>
                 
                 {updateSummary && (
-                    <div className="grid grid-cols-2 gap-4 py-2 text-sm">
-                        {/* LEFT: OLD */}
-                        <div className="space-y-3">
-                            <h4 className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2 bg-slate-50 p-2 rounded">
-                                <History size={14}/> Trước khi sửa
-                            </h4>
-                            {updateSummary.oldTrips.length === 0 && <p className="text-xs italic text-slate-400 pl-2">Trống</p>}
-                            {updateSummary.oldTrips.map((trip, idx) => (
-                                <div key={idx} className="bg-slate-50 border border-slate-200 rounded-lg p-3 opacity-90">
-                                    <div className="text-xs font-bold text-slate-700 mb-1 flex items-center gap-1">
-                                        <ArrowRightIcon size={10} className="text-slate-400"/>
-                                        {trip.route}
-                                    </div>
-                                    <div className="text-[10px] text-slate-500 mb-2 pl-3.5">
-                                        {trip.date.toLocaleDateString('vi-VN')} - {formatLunarDate(trip.date)}
-                                    </div>
-                                    <div className="flex flex-wrap gap-1 pl-3.5">
-                                        {trip.seats.map(s => (
-                                            <span key={s} className="bg-white text-slate-600 border border-slate-200 px-1.5 py-0.5 rounded text-[10px] font-bold">
-                                                {s}
+                    <div className="space-y-4 py-2 text-sm bg-slate-50 rounded-lg p-4 border border-slate-100">
+                        {/* COMBINED DIFF LIST */}
+                        {updateSummary.diffTrips.map((trip, idx) => (
+                            <div key={idx} className="space-y-2">
+                                <div className="text-xs font-bold text-slate-700 flex items-center gap-2 border-b border-slate-200 pb-1">
+                                    <MapPin size={12} className="text-blue-500"/> {trip.route}
+                                    <span className="font-normal text-slate-400">•</span>
+                                    <Calendar size={12} className="text-slate-400"/>
+                                    <span className="font-normal text-slate-500">{trip.date.toLocaleDateString('vi-VN')}</span>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                    {trip.seats.map((s, sIdx) => {
+                                        let style = "bg-slate-100 text-slate-600 border border-slate-200";
+                                        if (s.status === 'added') style = "bg-green-100 text-green-700 border border-green-200 ring-1 ring-green-400 font-bold";
+                                        if (s.status === 'removed') style = "bg-red-50 text-red-400 border border-red-100 line-through decoration-red-400 decoration-2";
+                                        
+                                        return (
+                                            <span key={sIdx} className={`px-2 py-1 rounded text-[11px] ${style}`}>
+                                                {s.label}
                                             </span>
-                                        ))}
-                                    </div>
+                                        );
+                                    })}
+                                    {trip.seats.length === 0 && (
+                                        <span className="text-xs text-slate-400 italic">Không có ghế</span>
+                                    )}
                                 </div>
-                            ))}
-                        </div>
-
-                        {/* RIGHT: NEW */}
-                        <div className="space-y-3">
-                            <h4 className="text-xs font-bold text-blue-600 uppercase flex items-center gap-2 bg-blue-50 p-2 rounded">
-                                <FileEdit size={14}/> Sau khi sửa
-                            </h4>
-                            {updateSummary.newTrips.length === 0 && (
-                                <div className="p-3 bg-red-50 text-red-600 rounded-lg border border-red-100 text-xs italic flex items-center gap-2">
-                                    <AlertCircle size={14} /> Hủy hết vé
-                                </div>
-                            )}
-                            {updateSummary.newTrips.map((trip, idx) => (
-                                <div key={idx} className="bg-white border border-blue-200 rounded-lg p-3 shadow-sm ring-1 ring-blue-50">
-                                    <div className="text-xs font-bold text-blue-800 mb-1 flex items-center gap-1">
-                                        <ArrowRightIcon size={10} className="text-blue-400"/>
-                                        {trip.route}
-                                    </div>
-                                    <div className="text-[10px] text-blue-600 mb-2 pl-3.5">
-                                        {trip.date.toLocaleDateString('vi-VN')} - {formatLunarDate(trip.date)}
-                                    </div>
-                                    <div className="flex flex-wrap gap-1 pl-3.5">
-                                        {trip.seats.map(s => (
-                                            <span key={s} className="bg-blue-100 text-blue-700 border border-blue-200 px-1.5 py-0.5 rounded text-[10px] font-bold">
-                                                {s}
-                                            </span>
-                                        ))}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
+                            </div>
+                        ))}
                     </div>
                 )}
 
