@@ -1400,81 +1400,90 @@ function AppContent() {
             }`}
           >
             <div
-              className={`px-2 sm:px-4 h-[40px] border-b flex items-center justify-between shrink-0 rounded-t-xl transition-colors ${
+              className={`px-4 h-[40px] border-b flex items-center justify-between shrink-0 rounded-t-xl transition-colors ${
                 swapSourceSeat
                   ? "bg-indigo-600 border-indigo-600"
                   : "bg-gradient-to-r from-indigo-950 via-indigo-900 to-indigo-950 border-indigo-900"
               }`}
             >
-              <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+              <div className="flex items-center gap-3">
                 <div
-                  className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-white shrink-0 border ${
+                  className={`w-8 h-8 rounded-lg flex items-center justify-center text-white shrink-0 border ${
                     swapSourceSeat
                       ? "bg-indigo-50 border-indigo-400"
                       : "bg-indigo-900 border-indigo-800"
                   }`}
                 >
                   {swapSourceSeat ? (
-                    <ArrowRightLeft size={14} className="animate-pulse" />
+                    <ArrowRightLeft size={16} className="animate-pulse" />
                   ) : (
-                    <BusFront size={14} />
+                    <BusFront size={16} />
                   )}
                 </div>
                 {selectedTrip ? (
                   <div className="min-w-0">
-                    <div className="flex items-center gap-1 sm:gap-2 flex-nowrap">
-                      <h2 className="text-[11px] sm:text-sm font-bold text-white leading-none truncate max-w-[100px] sm:max-w-none">
+                    <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                      <h2 className="text-xs sm:text-sm font-bold text-white leading-none truncate max-w-[120px] sm:max-w-none">
                         {swapSourceSeat
-                          ? `Đổi: ${swapSourceSeat.label}`
+                          ? `Đang đổi: ${swapSourceSeat.label}`
                           : selectedTrip.name}
                       </h2>
+                      {selectedTrip.seats.some(
+                        (s) => s.status === SeatStatus.SELECTED
+                      ) &&
+                        !swapSourceSeat && (
+                          <Badge className="bg-primary border-transparent h-4 text-[9px] px-1 whitespace-nowrap">
+                            Đang chọn
+                          </Badge>
+                        )}
                       {!swapSourceSeat && (
-                        <div className="flex items-center gap-1 text-[9px] sm:text-xs">
-                          <span className="bg-yellow-400 px-1 py-0.5 rounded inline-flex items-center justify-center font-bold text-slate-900 border border-yellow-500 whitespace-nowrap">
+                        <div className="flex items-center gap-1 sm:gap-2 text-[10px] sm:text-xs">
+                          <span className="bg-yellow-400 px-1.5 py-0.5 rounded-md inline-flex items-center justify-center font-bold text-slate-900 border border-yellow-500 whitespace-nowrap">
                             {selectedTrip.licensePlate}
+                          </span>
+                          <span className="bg-slate-400 px-1.5 py-0.5 rounded-md inline-flex items-center justify-center text-white border border-slate-500 whitespace-nowrap hidden sm:inline-flex">
+                            {selectedTrip.departureTime.split(" ")[1]}
                           </span>
                         </div>
                       )}
                     </div>
                   </div>
                 ) : (
-                  <div className="text-white text-[11px] sm:text-sm font-medium">
-                    Chọn chuyến
+                  <div className="text-white text-xs sm:text-sm font-medium">
+                    Chọn chuyến xe
                   </div>
                 )}
               </div>
 
-              <div className="flex items-center gap-2">
-                {swapSourceSeat && (
-                  <button
-                    onClick={() => setSwapSourceSeat(null)}
-                    className="text-white text-[10px] sm:text-xs bg-white/20 hover:bg-white/30 px-2 py-1 rounded"
-                  >
-                    Hủy
-                  </button>
-                )}
+              {swapSourceSeat && (
+                <button
+                  onClick={() => setSwapSourceSeat(null)}
+                  className="text-white text-xs bg-white/20 hover:bg-white/30 px-2 py-1 rounded"
+                >
+                  Hủy
+                </button>
+              )}
 
-                {!swapSourceSeat && (
-                  <div className="flex gap-2 sm:gap-4 text-[10px] sm:text-[12px] text-white hidden md:flex">
-                    <div className="flex items-center gap-1">
-                      <div className="w-2 h-2 rounded border border-white/50 bg-white/10"></div>{" "}
-                      Trống
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <div className="w-2 h-2 rounded bg-primary border border-white"></div>{" "}
-                      Chọn
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <div className="w-2 h-2 rounded bg-yellow-400 border border-yellow-500"></div>{" "}
-                      Đặt
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <div className="w-2 h-2 rounded bg-green-400 border border-slate-500"></div>{" "}
-                      Bán
-                    </div>
+              {!swapSourceSeat && (
+                <div className="flex gap-2 sm:gap-4 text-[10px] sm:text-[12px] text-white hidden lg:flex">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2.5 h-2.5 rounded border border-white/50 bg-white/10"></div>{" "}
+                    Trống
                   </div>
-                )}
-              </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2.5 h-2.5 rounded bg-primary border border-white"></div>{" "}
+                    Chọn
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2.5 h-2.5 rounded bg-yellow-400 border border-yellow-500"></div>{" "}
+                    Đặt
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2.5 h-2.5 rounded bg-green-400 border border-slate-500"></div>{" "}
+                    Bán
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="flex-1 overflow-y-auto">
