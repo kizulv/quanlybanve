@@ -53,12 +53,12 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
   // Layout Builder State
   const [config, setConfig] = useState<BusLayoutConfig>({
     floors: 2,
-    rows: 11,
+    rows: 6,
     cols: 2,
     activeSeats: [],
     seatLabels: {},
     hasRearBench: false,
-    benchFloors: [1],
+    benchFloors: [1, 2],
     hasFloorSeats: false,
     floorSeatCount: 0
   });
@@ -83,7 +83,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
           floors: 2,
           benchFloors:
             initialData.layoutConfig.benchFloors ||
-            (initialData.layoutConfig.hasRearBench ? [1] : []),
+            (initialData.layoutConfig.hasRearBench ? [1, 2] : []),
         });
       } else {
         initDefaultConfig(initialData.type);
@@ -147,7 +147,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
       };
     };
 
-    // Reset floor labels
+    // Reset floor labels to recalculate sequence
     const floorSeatKeys = activeSeats.filter(k => k.includes('-floor-')).sort((a,b) => {
         const ka = parseKey(a);
         const kb = parseKey(b);
@@ -189,55 +189,28 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
 
   const initDefaultConfig = (busType: BusType) => {
     let active: string[] = [];
-    let rows = 11; // 22 phòng = 11 hàng * 2 dãy (mỗi hàng 1 tầng 1 + 1 tầng 2)
+    let rows = 6;
     let cols = 2;
     let hasBench = false;
 
     if (busType === BusType.CABIN) {
-      rows = 11;
+      rows = 6;
       cols = 2;
       for (let f = 1; f <= 2; f++) {
         for (let r = 0; r < rows; r++) {
-          for (let c = 0; c < cols; c++) {
-              // Tầng 1 cho dãy B (col 0), Tầng 2 cho dãy B? 
-              // Theo logic Cabin hiện tại: Mỗi ô dọc là r, c. Ở đây r=0..10, c=0..1.
-              // Chúng ta chỉ kích hoạt 22 phòng: (11 hàng * 2 dãy)
-              active.push(`${f}-${r}-${c}`);
-          }
+          for (let c = 0; c < cols; c++) active.push(`${f}-${r}-${c}`);
         }
-      }
-      // Lọc lại để chỉ lấy 22 phòng (ví dụ: mỗi hàng chỉ có 1 phòng/dãy trải qua 2 tầng)
-      // Nhưng logic UI hiện tại là render 2 tầng chồng lên nhau. 
-      // Xe 22 phòng thực tế là 11 cabin bên trái, 11 cabin bên phải.
-      // Vậy là 11 hàng, 2 dãy, mỗi hàng/dãy có tầng 1 và tầng 2? Đó là 44 chỗ.
-      // ĐÚNG: Xe 22 phòng là 11 hàng, mỗi hàng có 2 phòng (1 Trái - A, 1 Phải - B).
-      // Nhưng mỗi phòng đó là 1 cabin đơn. Vậy tổng 11 hàng * 2 dãy = 22 phòng.
-      // Cấu hình: 11 hàng, 2 dãy, nhưng mỗi tọa độ (r,c) chỉ có 1 tầng? 
-      // Hoặc 11 hàng, 1 dãy, 2 tầng? -> Không, thường là 2 dãy.
-      // CHUẨN: 11 hàng, 2 dãy. Tầng 1 là phòng lẻ, Tầng 2 là phòng chẵn.
-      active = [];
-      for (let r = 0; r < 11; r++) {
-          active.push(`1-${r}-0`); // B tầng 1
-          active.push(`2-${r}-0`); // B tầng 2 (Nếu xe 22 phòng là chồng tầng)
-          // Đợi đã, 22 phòng thường là 11 hàng, mỗi hàng 2 phòng chồng lên nhau? -> Đó là 1 dãy.
-          // Xe 22 phòng thường có 2 dãy. Mỗi dãy 11 phòng. Vậy mỗi dãy là 11 hàng, 1 tầng? 
-          // Không, thường là 11 hàng, 2 dãy, mỗi vị trí là 1 phòng đơn (tổng 22).
-          // Ta sẽ để 11 hàng, 2 dãy, tầng 1 cho dãy B, tầng 2 cho dãy A? -> Không trực quan.
-          // CHỐT: 11 hàng, 2 dãy, tầng 1. Tổng 22.
-          active.push(`1-${r}-0`); 
-          active.push(`1-${r}-1`);
       }
       hasBench = false;
     } else {
-      // Xe 41 giường: 6 hàng * 3 dãy * 2 tầng = 36. + 5 ghế băng cuối tầng 1 = 41.
       rows = 6;
       cols = 3;
       for (let f = 1; f <= 2; f++) {
         for (let r = 0; r < rows; r++) {
           for (let c = 0; c < cols; c++) active.push(`${f}-${r}-${c}`);
         }
+        for (let i = 0; i < 5; i++) active.push(`${f}-bench-${i}`);
       }
-      for (let i = 0; i < 5; i++) active.push(`1-bench-${i}`);
       hasBench = true;
     }
 
@@ -249,7 +222,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
       activeSeats: active,
       seatLabels: finalLabels,
       hasRearBench: hasBench,
-      benchFloors: [1],
+      benchFloors: [1, 2],
       hasFloorSeats: false,
       floorSeatCount: 0
     });
@@ -257,8 +230,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
 
   const toggleFloorSeats = (checked: boolean) => {
       let newActive = [...config.activeSeats];
-      // Yêu cầu: Xe phòng 6 sàn, Xe giường 12 sàn
-      const count = type === BusType.CABIN ? 6 : 12;
+      const count = type === BusType.CABIN ? 6 : 5;
       if (checked) {
           for (let i = 0; i < count; i++) {
               const key = `1-floor-${i}`;
@@ -316,17 +288,47 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
     let newActive = [...config.activeSeats];
     let newLabels = { ...config.seatLabels };
     if (checked) {
-      // Mặc định xe giường nằm chỉ có băng 5 ở tầng 1
-      const f = 1;
-      for (let i = 0; i < 5; i++) {
-        const key = `${f}-bench-${i}`;
-        if (!newActive.includes(key)) newActive.push(key);
+      for (let f = 1; f <= 2; f++) {
+        for (let i = 0; i < 5; i++) {
+          const key = `${f}-bench-${i}`;
+          if (!newActive.includes(key)) newActive.push(key);
+        }
+      }
+      if (type === BusType.CABIN) {
+          newActive.forEach((key) => {
+            if (key.includes("bench") && !newLabels[key]) {
+              const parts = key.split("-");
+              const f = parts[0];
+              const i = parseInt(parts[2]);
+              const prefix = f === "1" ? "A" : "B";
+              newLabels[key] = `${prefix}-G${i + 1}`;
+            }
+          });
       }
     } else {
       newActive = newActive.filter((k) => !k.includes("bench"));
     }
-    newLabels = recalculateLabels(newActive, type, config.cols, newLabels);
-    setConfig({ ...config, hasRearBench: checked, activeSeats: newActive, seatLabels: newLabels, benchFloors: checked ? [1] : [] });
+    if (type === BusType.SLEEPER) {
+        newLabels = recalculateLabels(newActive, type, config.cols, newLabels);
+    }
+    setConfig({ ...config, hasRearBench: checked, activeSeats: newActive, seatLabels: newLabels, benchFloors: checked ? [1, 2] : [] });
+  };
+
+  const toggleBenchFloor = (floor: number, checked: boolean) => {
+    let newActive = [...config.activeSeats];
+    let currentFloors = config.benchFloors || [];
+    let newBenchFloors = checked ? [...new Set([...currentFloors, floor])] : currentFloors.filter((f) => f !== floor);
+    if (checked) {
+      for (let i = 0; i < 5; i++) {
+        const key = `${floor}-bench-${i}`;
+        if (!newActive.includes(key)) newActive.push(key);
+      }
+    } else {
+      newActive = newActive.filter((k) => !k.startsWith(`${floor}-bench-`));
+    }
+    let newLabels = { ...config.seatLabels };
+    if (type === BusType.SLEEPER) newLabels = recalculateLabels(newActive, type, config.cols);
+    setConfig({ ...config, activeSeats: newActive, seatLabels: newLabels, benchFloors: newBenchFloors });
   };
 
   const handleSave = async () => {
@@ -366,7 +368,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
         onContextMenu={(e) => { e.preventDefault(); if (isActive) setEditingSeat({ key, label, floor }); }}
         className={`
           relative flex flex-col items-center justify-center transition-all duration-200 border rounded-t-xl rounded-b-md
-          ${isBench ? "h-8 w-7 text-[10px]" : (isFloor ? "h-7 w-11 text-[9px]" : "h-10 w-11 text-xs")}
+          ${isBench ? "h-9 w-7 text-[10px]" : (isFloor ? "h-8 w-12 text-[10px]" : "h-11 w-12 text-xs")}
           ${isEditing ? "ring-2 ring-primary ring-offset-2 z-10" : ""}
           ${isActive ? "bg-primary border-primary text-white shadow-sm hover:bg-primary/90" : "bg-slate-50 text-slate-300 border-slate-200 border-dashed hover:border-slate-300"}
           ${isFloor ? "rounded-lg" : ""}
@@ -378,7 +380,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
             <div className="absolute top-1 w-1/2 h-0.5 bg-white/30 rounded-full"></div>
           </>
         ) : (
-          <div className="w-1.5 h-1.5 rounded-full bg-slate-200" />
+          <div className="w-2 h-2 rounded-full bg-slate-200" />
         )}
       </button>
     );
@@ -390,112 +392,122 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
         footer={<><Button variant="outline" onClick={onClose} disabled={isSaving}>Đóng</Button><Button onClick={handleSave} className="flex items-center gap-2" disabled={isSaving || !plate}>{isSaving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}{isSaving ? "Đang lưu..." : "Lưu cấu hình"}</Button></>}
       >
         <div className="grid grid-cols-12 gap-6 lg:h-[70vh]">
-          <div className="col-span-12 lg:col-span-4 h-full flex flex-col gap-4 overflow-y-auto pr-2">
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-              <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-3 pb-2 border-b border-slate-200 text-sm"><Info size={16} /> Thông tin xe</h3>
-              <div className="space-y-3">
-                <div><label className="block text-xs text-slate-600 mb-1">Biển kiểm soát <span className="text-red-500">*</span></label>
-                    <input value={plate} onChange={(e) => setPlate(e.target.value)} placeholder="29B-123.45" className="w-full px-3 py-1.5 border border-slate-200 rounded-lg outline-none bg-white text-slate-900 font-bold text-sm shadow-sm" />
+          <div className="col-span-12 lg:col-span-6 h-full flex flex-col gap-4 overflow-y-auto pr-2">
+            <div className="bg-slate-50 p-5 rounded-xl border border-slate-200">
+              <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-4 pb-2 border-b border-slate-200"><Info size={18} /> Thông tin xe</h3>
+              <div className="space-y-4">
+                <div><label className="block text-sm text-slate-700 mb-1.5">Biển kiểm soát <span className="text-red-500">*</span></label>
+                  <div className="relative"><div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><span className="text-slate-400 font-bold text-xs">VN</span></div>
+                    <input value={plate} onChange={(e) => setPlate(e.target.value)} placeholder="29B-123.45" className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none bg-white text-slate-900 shadow-sm font-bold" />
+                  </div>
                 </div>
-                <div><label className="block text-xs text-slate-600 mb-1">Số điện thoại xe</label>
-                    <input value={phoneNumber} onChange={handlePhoneChange} placeholder="0912 076 076" className="w-full px-3 py-1.5 border border-slate-200 rounded-lg outline-none bg-white text-sm" />
+                <div><label className="block text-sm text-slate-700 mb-1.5">Số điện thoại theo xe</label>
+                  <div className="relative"><div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Phone size={16} className="text-slate-400" /></div>
+                    <input value={phoneNumber} onChange={handlePhoneChange} placeholder="VD: 0912 076 076" className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none bg-white text-slate-900 shadow-sm" />
+                  </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                    <div><label className="block text-xs text-slate-600 mb-1">Tình trạng</label>
-                    <select value={status} onChange={handleStatusChange} className="w-full px-2 py-1.5 border border-slate-200 rounded-lg bg-white text-xs">
+                <div className="grid grid-cols-2 gap-4">
+                    <div><label className="block text-sm text-slate-700 mb-1.5">Tình trạng</label>
+                    <select value={status} onChange={handleStatusChange} className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none bg-white text-slate-900 shadow-sm">
                         <option value="Hoạt động">Hoạt động</option>
-                        <option value="Xe thuê/Tăng cường">Thuê/Tăng cường</option>
+                        <option value="Xe thuê/Tăng cường">Xe thuê/Tăng cường</option>
                         <option value="Ngưng hoạt động">Ngưng hoạt động</option>
+                        <option value="Đã bán">Đã bán</option>
                     </select>
                     </div>
-                    <div><label className="block text-xs text-slate-600 mb-1">Tuyến mặc định</label>
-                    <select value={defaultRouteId} onChange={(e) => setDefaultRouteId(e.target.value)} disabled={status !== 'Hoạt động'} className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs disabled:bg-slate-100">
-                        <option value="">-- Chọn --</option>
+                    <div><label className="block text-sm text-slate-700 mb-1.5">Tuyến mặc định</label>
+                    <select value={defaultRouteId} onChange={(e) => setDefaultRouteId(e.target.value)} disabled={status !== 'Hoạt động'} className="w-full px-3 py-2 border border-slate-200 rounded-lg disabled:bg-slate-100">
+                        <option value="">-- Chọn tuyến --</option>
                         {routes.filter(r => !r.isEnhanced && r.status !== 'inactive').map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
                     </select>
                     </div>
                 </div>
-                <div><label className="block text-xs text-slate-600 mb-1">Loại phương tiện</label>
+                <div><label className="block text-sm text-slate-700 mb-1.5">Loại phương tiện</label>
                   <div className="flex gap-2">
-                    <button type="button" onClick={() => { setType(BusType.CABIN); initDefaultConfig(BusType.CABIN); }} className={`flex-1 py-2 rounded-lg border-2 text-center text-xs font-bold ${type === BusType.CABIN ? "border-primary bg-blue-50" : "border-slate-200 bg-white"}`}>Xe phòng (22)</button>
-                    <button type="button" onClick={() => { setType(BusType.SLEEPER); initDefaultConfig(BusType.SLEEPER); }} className={`flex-1 py-2 rounded-lg border-2 text-center text-xs font-bold ${type === BusType.SLEEPER ? "border-primary bg-blue-50" : "border-slate-200 bg-white"}`}>Giường đơn (41)</button>
+                    <button type="button" onClick={() => { setType(BusType.CABIN); initDefaultConfig(BusType.CABIN); }} className={`flex-1 p-3 rounded-lg border-2 text-left ${type === BusType.CABIN ? "border-primary bg-white shadow-sm" : "border-slate-200 bg-white"}`}><div className="font-bold text-sm">Xe phòng</div></button>
+                    <button type="button" onClick={() => { setType(BusType.SLEEPER); initDefaultConfig(BusType.SLEEPER); }} className={`flex-1 p-3 rounded-lg border-2 text-left ${type === BusType.SLEEPER ? "border-primary bg-white shadow-sm" : "border-slate-200 bg-white"}`}><div className="font-bold text-sm">Giường đơn</div></button>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white p-4 rounded-xl border border-slate-200 flex-1 flex flex-col shadow-sm">
-              <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-3 pb-2 border-b border-slate-100 text-sm"><Settings2 size={16} /> Cấu hình sơ đồ</h3>
-              <div className="space-y-4">
-                <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-3">
+            <div className="bg-white p-5 rounded-xl border border-slate-200 flex-1 flex flex-col shadow-sm">
+              <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-4 pb-2 border-b border-slate-100"><Settings2 size={18} /> Cấu hình sơ đồ</h3>
+              <div className="space-y-6">
+                <div><div className="flex justify-between mb-2 text-sm"><span className="text-slate-700">Số hàng ghế</span></div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button type="button" onClick={() => handleRowChange(5)} className={`px-4 py-2 rounded-md text-sm font-bold border transition-colors ${config.rows === 5 ? "bg-primary text-white border-primary" : "bg-slate-50 text-slate-600 border-slate-200"}`}>5 Hàng</button>
+                    <button type="button" onClick={() => handleRowChange(6)} className={`px-4 py-2 rounded-md text-sm font-bold border transition-colors ${config.rows === 6 ? "bg-primary text-white border-primary" : "bg-slate-50 text-slate-600 border-slate-200"}`}>6 Hàng</button>
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-4">
                     <div className="flex items-center justify-between">
-                      <div className="flex flex-col">
-                        <span className="text-xs font-bold text-slate-700">Vé nằm SÀN</span>
-                        <span className="text-[10px] text-slate-500">{type === BusType.CABIN ? "Cho phép 6 chỗ" : "Cho phép 12 chỗ"}</span>
-                      </div>
+                      <span className="text-sm font-bold text-slate-700 flex items-center gap-2"><MoveDown size={14}/> Cho phép vé nằm Sàn</span>
                       <div onClick={() => toggleFloorSeats(!config.hasFloorSeats)} className={`w-10 h-6 rounded-full p-1 cursor-pointer transition-colors ${config.hasFloorSeats ? "bg-primary" : "bg-slate-300"}`}>
                         <div className={`w-4 h-4 bg-white rounded-full transform transition-transform ${config.hasFloorSeats ? "translate-x-4" : "translate-x-0"}`} />
                       </div>
                     </div>
                     {type === BusType.SLEEPER && (
-                        <div className="flex items-center justify-between border-t border-slate-200 pt-2">
-                        <span className="text-xs text-slate-700">Băng 5 cuối (Tầng 1)</span>
+                        <div className="flex items-center justify-between border-t border-slate-200 pt-3">
+                        <span className="text-sm text-slate-700">Ghế cuối (5 ghế/băng)</span>
                         <div onClick={() => toggleRearBenchMaster(!config.hasRearBench)} className={`w-10 h-6 rounded-full p-1 cursor-pointer transition-colors ${config.hasRearBench ? "bg-primary" : "bg-slate-300"}`}><div className={`w-4 h-4 bg-white rounded-full transform transition-transform ${config.hasRearBench ? "translate-x-4" : "translate-x-0"}`} /></div>
                         </div>
                     )}
                 </div>
-                
+              </div>
+              <div className="mt-auto pt-4">
                 {editingSeat ? (
                   <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg animate-in fade-in slide-in-from-bottom-2">
-                    <div className="flex justify-between items-center mb-2"><span className="text-[10px] font-bold text-blue-700 uppercase">Đổi tên ghế: {editingSeat.key}</span><button onClick={() => setEditingSeat(null)}><X size={14} className="text-slate-400" /></button></div>
-                    <input autoFocus className="w-full px-3 py-1 text-sm border border-slate-300 rounded mb-2 bg-white" value={editingSeat.label} onChange={(e) => setEditingSeat({ ...editingSeat, label: e.target.value })} onKeyDown={(e) => e.key === "Enter" && handleUpdateLabel()} />
-                    <Button size="sm" className="w-full h-7 bg-blue-600 text-white text-xs" onClick={handleUpdateLabel}>Cập nhật</Button>
+                    <div className="flex justify-between items-center mb-2"><span className="text-xs font-bold text-blue-700 uppercase">Đổi tên ghế</span><button onClick={() => setEditingSeat(null)}><X size={14} className="text-slate-400" /></button></div>
+                    <input autoFocus className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded mb-2 bg-white" value={editingSeat.label} onChange={(e) => setEditingSeat({ ...editingSeat, label: e.target.value })} onKeyDown={(e) => e.key === "Enter" && handleUpdateLabel()} />
+                    <Button size="sm" className="w-full h-8 bg-blue-600 text-white" onClick={handleUpdateLabel}>Cập nhật</Button>
                   </div>
                 ) : (
-                  <div className="bg-slate-50 p-2 rounded-lg text-[10px] text-slate-500 flex gap-2 items-center border border-slate-100"><Info size={14} className="shrink-0 text-slate-400" /><p>Nhấp ghế để Ẩn/Hiện. Chuột phải để đổi tên thủ công.</p></div>
+                  <div className="bg-slate-50 p-3 rounded-lg text-xs text-slate-500 flex gap-2 flex items-center border border-slate-100"><Info size={16} className="shrink-0 text-slate-400" /><p>Nhấp ghế để Ẩn/Hiện. Chuột phải để đổi tên.</p></div>
                 )}
               </div>
             </div>
           </div>
 
-          <div className="col-span-12 lg:col-span-8 h-full bg-slate-100/50 rounded-xl border border-slate-200 overflow-hidden relative flex flex-col">
-            <div className="absolute top-4 right-4 bg-white/90 backdrop-blur px-3 py-1 rounded-full text-[10px] font-bold text-primary shadow-sm z-10">Tổng: {config.activeSeats.length} chỗ</div>
-            <div className="flex-1 overflow-auto p-4 md:p-8">
+          <div className="col-span-12 lg:col-span-6 h-full bg-slate-100/50 rounded-xl border border-slate-200 overflow-hidden relative flex flex-col">
+            <div className="absolute top-4 right-4 bg-white/90 backdrop-blur px-3 py-1 rounded-full text-xs font-bold text-primary shadow-sm z-10">Tổng cộng: {config.activeSeats.length} ghế</div>
+            <div className="flex-1 overflow-auto p-8">
               <div className="min-h-full min-w-full flex flex-col justify-center items-center gap-6">
                 {type === BusType.CABIN ? (
-                  <div className="flex gap-4 md:gap-12">
-                    <div className="bg-white rounded-2xl border border-slate-300 w-[160px] overflow-hidden shadow-sm">
-                        <div className="bg-slate-50 border-b py-2 text-center text-[10px] font-bold text-slate-500">DÃY B (PHÒNG LẺ)</div>
-                        <div className="p-3 space-y-2">{[...Array(config.rows)].map((_, r) => <div key={r} className="flex gap-2 justify-center"><SeatButton floor={1} row={r} col={0} /><SeatButton floor={2} row={r} col={0} /></div>)}</div>
+                  <div className="flex gap-4 md:gap-8">
+                    <div className="bg-white rounded-2xl border border-slate-300 w-[180px] overflow-hidden">
+                        <div className="bg-slate-50 border-b py-2 text-center text-xs font-bold text-slate-500">DÃY B</div>
+                        <div className="p-4 space-y-3">{[...Array(config.rows)].map((_, r) => <div key={r} className="flex gap-2 justify-center"><SeatButton floor={1} row={r} col={0} /><SeatButton floor={2} row={r} col={0} /></div>)}</div>
                     </div>
                     {config.hasFloorSeats && (
-                        <div className="w-[70px] bg-slate-200/50 rounded-xl border border-dashed border-slate-300 flex flex-col items-center p-2 gap-2">
-                             <div className="text-[9px] font-bold text-slate-400 uppercase mb-1">SÀN</div>
-                             {[...Array(config.floorSeatCount)].map((_, i) => <SeatButton key={i} floor={1} index={i} isFloor={true} />)}
+                        <div className="w-[80px] bg-slate-200/50 rounded-xl border border-dashed border-slate-300 flex flex-col items-center p-2 gap-3">
+                             <div className="text-[10px] font-bold text-slate-400 uppercase mb-2">SÀN</div>
+                             {[...Array(config.rows)].map((_, i) => <SeatButton key={i} floor={1} index={i} isFloor={true} />)}
                         </div>
                     )}
-                    <div className="bg-white rounded-2xl border border-slate-300 w-[160px] overflow-hidden shadow-sm">
-                        <div className="bg-slate-50 border-b py-2 text-center text-[10px] font-bold text-slate-500">DÃY A (PHÒNG CHẴN)</div>
-                        <div className="p-3 space-y-2">{[...Array(config.rows)].map((_, r) => <div key={r} className="flex gap-2 justify-center"><SeatButton floor={1} row={r} col={1} /><SeatButton floor={2} row={r} col={1} /></div>)}</div>
+                    <div className="bg-white rounded-2xl border border-slate-300 w-[180px] overflow-hidden">
+                        <div className="bg-slate-50 border-b py-2 text-center text-xs font-bold text-slate-500">DÃY A</div>
+                        <div className="p-4 space-y-3">{[...Array(config.rows)].map((_, r) => <div key={r} className="flex gap-2 justify-center"><SeatButton floor={1} row={r} col={1} /><SeatButton floor={2} row={r} col={1} /></div>)}</div>
                     </div>
                   </div>
                 ) : (
                   <div className="flex flex-col items-center gap-6">
-                    <div className="flex gap-3 md:gap-8">
+                    <div className="flex gap-4 md:gap-8">
                         {[1, 2].map((floor) => (
-                            <div key={floor} className="bg-white rounded-2xl border border-slate-300 w-[180px] overflow-hidden shadow-sm">
-                            <div className="bg-slate-50 border-b py-2 text-center text-[10px] font-bold text-slate-500">TẦNG {floor}</div>
-                            <div className="p-3 flex flex-col items-center gap-2">
-                                <div className="grid grid-cols-3 gap-1.5">{[...Array(config.rows)].map((_, r) => [0, 1, 2].map(c => <SeatButton key={`${floor}-${r}-${c}`} floor={floor} row={r} col={c} />))}</div>
-                                {config.hasRearBench && config.benchFloors?.includes(floor) && <div className="flex justify-center gap-1 mt-1 pt-1 border-t border-dashed border-slate-200">{[...Array(5)].map((_, i) => <SeatButton key={i} isBench={true} index={i} floor={floor} />)}</div>}
+                            <div key={floor} className="bg-white rounded-2xl border border-slate-300 w-[200px] overflow-hidden">
+                            <div className="bg-slate-50 border-b py-2 text-center text-xs font-bold text-slate-500">TẦNG {floor}</div>
+                            <div className="p-4 flex flex-col items-center gap-3">
+                                <div className="grid grid-cols-3 gap-2">{[...Array(config.rows)].map((_, r) => [0, 1, 2].map(c => <SeatButton key={`${floor}-${r}-${c}`} floor={floor} row={r} col={c} />))}</div>
+                                {config.hasRearBench && config.benchFloors?.includes(floor) && <div className="flex justify-center gap-1">{[...Array(5)].map((_, i) => <SeatButton key={i} isBench={true} index={i} floor={floor} />)}</div>}
                             </div>
                             </div>
                         ))}
                     </div>
                     {config.hasFloorSeats && (
-                        <div className="w-full max-w-[400px] bg-slate-200/50 rounded-xl border border-dashed border-slate-300 p-3">
-                            <div className="text-center mb-2 text-[9px] font-bold text-slate-400 uppercase">DÃY VÉ SÀN NẰM (GIỮA LỐI ĐI)</div>
-                            <div className="grid grid-cols-6 gap-2 justify-items-center">{[...Array(config.floorSeatCount)].map((_, i) => <SeatButton key={i} floor={1} index={i} isFloor={true} />)}</div>
+                        <div className="w-full bg-slate-200/50 rounded-xl border border-dashed border-slate-300 p-4">
+                            <div className="text-center mb-2 text-xs font-bold text-slate-400">SÀN NẰM (DƯỚI BĂNG 5)</div>
+                            <div className="flex justify-center gap-2">{[...Array(5)].map((_, i) => <SeatButton key={i} floor={1} index={i} isFloor={true} />)}</div>
                         </div>
                     )}
                   </div>

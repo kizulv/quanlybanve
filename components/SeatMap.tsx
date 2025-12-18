@@ -146,11 +146,11 @@ export const SeatMap: React.FC<SeatMapProps> = ({
         }}
         className={`relative flex flex-col border transition-all duration-200 select-none overflow-hidden group ${statusClass} ${
           customWidth ? customWidth : (isBench ? "w-1/5 min-h-[90px] md:h-[100px] rounded-lg" : "w-full min-h-[90px] md:h-[100px] rounded-lg")
-        } ${isFloor ? 'border-dashed border-2' : ''}
+        } ${isFloor ? 'border-dashed' : ''}
         `}
       >
         <div
-          className={`px-2 py-1 text-[10px] font-bold border-b flex justify-between items-center whitespace-nowrap ${
+          className={`px-2 py-1 text-xs font-bold border-b flex justify-between items-center whitespace-nowrap ${
             seat.status === SeatStatus.SELECTED
               ? "border-primary/50 bg-primary/10"
               : isGhost
@@ -169,15 +169,15 @@ export const SeatMap: React.FC<SeatMapProps> = ({
           </span>
           {seat.status === SeatStatus.SOLD && displayPrice > 0 && (
             <div className="mt-auto flex justify-end">
-              <span className="text-[8px] md:text-[9px] font-bold px-1 rounded border shadow-sm text-green-700 bg-yellow-300 border-green-200/50">
+              <span className="text-[9px] md:text-[10px] font-bold px-1 rounded border shadow-sm text-green-700 bg-yellow-300 border-green-200/50">
                 {displayPrice.toLocaleString("vi-VN")}
               </span>
             </div>
           )}
           {seat.status === SeatStatus.SELECTED && (
-            <Check size={10} strokeWidth={4} />
+            <Check size={12} strokeWidth={4} />
           )}
-          {isGhost && <XCircle size={10} className="text-red-400" />}
+          {isGhost && <XCircle size={12} className="text-red-400" />}
         </div>
 
         {(seat.status === SeatStatus.BOOKED ||
@@ -190,14 +190,14 @@ export const SeatMap: React.FC<SeatMapProps> = ({
                 e.stopPropagation();
                 onSeatSwap(seat);
               }}
-              className="absolute top-7 right-1 z-20 p-1 bg-white/80 hover:bg-indigo-600 hover:text-white text-indigo-600 rounded-full shadow-sm border border-indigo-100 md:opacity-0 group-hover:opacity-100 transition-all duration-200 transform scale-75 hover:scale-100"
+              className="absolute top-8 right-1 z-20 p-1.5 bg-white/80 hover:bg-indigo-600 hover:text-white text-indigo-600 rounded-full shadow-sm border border-indigo-100 md:opacity-0 group-hover:opacity-100 transition-all duration-200 transform scale-75 hover:scale-100"
               title="Đổi ghế này"
             >
-              <ArrowRightLeft size={12} />
+              <ArrowRightLeft size={14} />
             </button>
           )}
 
-        <div className="flex-1 p-1 flex flex-col text-[9px] md:text-[10px] leading-tight space-y-1">
+        <div className="flex-1 p-1.5 md:p-2 flex flex-col text-[10px] leading-none space-y-1 md:space-y-1.5">
           {hasInfo ? (
             <>
               <div
@@ -208,12 +208,13 @@ export const SeatMap: React.FC<SeatMapProps> = ({
                     ? "text-green-800"
                     : "text-yellow-900"
                 }`}
+                title={booking.passenger.phone}
               >
-                <Phone size={9} className="shrink-0 opacity-60" />
-                <div className="flex items-center gap-0.5 min-w-0">
+                <Phone size={10} className="shrink-0 opacity-60" />
+                <div className="flex items-center gap-1 min-w-0">
                   <span className="truncate">{formattedPhone}</span>
                   {groupTotal > 1 && (
-                    <span className="shrink-0 bg-white/50 px-0.5 rounded text-[7px] font-normal border opacity-70">
+                    <span className="shrink-0 bg-white/50 text-inherit px-0.5 rounded text-[8px] font-normal border border-current opacity-70">
                       {groupIndex}/{groupTotal}
                     </span>
                   )}
@@ -230,35 +231,62 @@ export const SeatMap: React.FC<SeatMapProps> = ({
                       : "text-yellow-800"
                   }`}
                 >
-                  <MapPin size={9} className="shrink-0 opacity-60" />
-                  <span className="truncate" title={`${displayPickup} - ${displayDropoff}`}>
-                    {displayPickup || "---"} - {displayDropoff || "---"}
-                  </span>
+                  <MapPin size={10} className="shrink-0 opacity-60 mt-0.5" />
+                  <div className="truncate w-full">
+                    <span
+                      className="truncate"
+                      title={`${displayPickup} - ${displayDropoff}`}
+                    >
+                      {displayPickup || "---"} - {displayDropoff || "---"}
+                    </span>
+                  </div>
                 </div>
               ) : (
-                <div className="opacity-50 italic text-[8px]">Chưa có điểm đón</div>
+                <div className="opacity-50 italic pl-3 text-[9px]">
+                  Chưa có điểm đón
+                </div>
+              )}
+
+              {booking.passenger.note && (
+                <div
+                  className={`flex items-center gap-1 truncate ${
+                    isGhost ? "text-slate-400" : "text-orange-600"
+                  }`}
+                  title={booking.passenger.note}
+                >
+                  <MessageSquare size={10} className="shrink-0 opacity-60" />
+                  <span className="truncate italic text-[9px]">
+                    {booking.passenger.note}
+                  </span>
+                </div>
               )}
             </>
           ) : seat.status === SeatStatus.SELECTED ? (
             <div className="flex flex-col items-center justify-center h-full text-white/90">
-              <Check size={18} />
-              <span className="font-medium text-[8px]">Đang chọn</span>
+              <Check size={20} className="md:mb-1" />
+              <span className="font-medium text-[9px] md:text-[10px]">
+                Đang chọn
+              </span>
             </div>
           ) : seat.status === SeatStatus.HELD ? (
             <div className="flex flex-col h-full text-purple-800/80 items-center justify-center">
               <div className="flex items-center justify-center">
-                <Lock size={10} className="opacity-60 mr-1" />
-                <span className="font-bold text-[8px]">ĐANG GIỮ</span>
+                <Lock size={12} className="opacity-60 mr-1" />
+                <span className="font-bold text-[9px] md:text-[10px]">
+                  ĐANG GIỮ
+                </span>
               </div>
               {seat.note && (
                 <div className="w-full bg-purple-100/80 rounded px-1 py-0.5 mt-1 border border-purple-200">
-                    <span className="truncate italic text-[8px] block">{seat.note}</span>
+                  <div className="flex items-start gap-1 text-[9px] truncate">
+                    <span className="truncate italic">{seat.note}</span>
+                  </div>
                 </div>
               )}
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-slate-300">
-              <span className="text-[8px] uppercase font-bold tracking-tighter">{isFloor ? 'SÀN' : 'Trống'}</span>
+              <span className="text-[9px] md:text-[10px]">{isFloor ? 'SÀN' : 'Trống'}</span>
             </div>
           )}
         </div>
@@ -270,7 +298,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
   const regularSeats = seats.filter((s) => (s.row ?? 0) < 99 && !s.isFloorSeat);
   const floorSeats = seats.filter((s) => s.isFloorSeat);
 
-  // --- CABIN LOGIC ---
+  // --- CABIN LOGIC: RENDER BY COLUMN (DÃY) ---
   const renderCabinColumn = (colIndex: number, label: string) => {
     const colSeats = regularSeats.filter((s) => (s.col ?? 0) === colIndex);
     const rows = Array.from(new Set(colSeats.map((s) => s.row ?? 0))).sort(
@@ -278,17 +306,17 @@ export const SeatMap: React.FC<SeatMapProps> = ({
     );
 
     return (
-      <div className="relative overflow-hidden flex flex-col w-full md:w-[300px] bg-white rounded-xl border border-slate-200 shadow-sm">
-        <div className="py-2 text-center bg-slate-50 border-b">
-          <span className="text-xs font-black text-slate-500 uppercase tracking-widest">
+      <div className="relative overflow-hidden flex flex-col w-full md:w-1/3 bg-white rounded-xl border border-slate-100 md:border-none shadow-sm md:shadow-none">
+        <div className="py-2 text-center bg-slate-50 md:bg-transparent border-b md:border-none">
+          <span className="text-sm font-bold text-slate-600 md:text-slate-500 uppercase tracking-wider">
             {label}
           </span>
         </div>
 
-        <div className="p-3 flex flex-col items-center gap-3">
-          <div className="flex gap-4 p-1.5 bg-slate-100 text-[9px] font-black text-slate-400 uppercase w-full justify-around rounded-lg">
-            <span>Tầng 1</span>
-            <span>Tầng 2</span>
+        <div className="p-3 pt-0 md:px-4 flex flex-col items-center gap-3">
+          <div className="flex gap-4 md:gap-8 p-2 bg-slate-100 text-[10px] font-bold text-slate-400 uppercase w-full justify-center">
+            <span className="w-full md:w-1/2 text-center">Tầng 1</span>
+            <span className="w-full md:w-1/2 text-center">Tầng 2</span>
           </div>
 
           {rows.map((rowIndex) => {
@@ -300,19 +328,19 @@ export const SeatMap: React.FC<SeatMapProps> = ({
             );
 
             return (
-              <div key={rowIndex} className="flex w-full gap-3">
-                <div className="w-1/2">
+              <div key={rowIndex} className="flex w-full gap-3 md:gap-4">
+                <div className="w-full md:w-1/2">
                   {floor1Seat ? (
                     renderSeat(floor1Seat)
                   ) : (
-                    <div className="w-full h-[90px] border border-dashed border-slate-100 rounded-lg" />
+                    <div className="w-full min-h-[90px] md:h-[100px] border border-dashed border-slate-100 rounded-lg" />
                   )}
                 </div>
-                <div className="w-1/2">
+                <div className="w-full md:w-1/2">
                   {floor2Seat ? (
                     renderSeat(floor2Seat)
                   ) : (
-                    <div className="w-full h-[90px] border border-dashed border-slate-100 rounded-lg" />
+                    <div className="w-full min-h-[90px] md:h-[100px] border border-dashed border-slate-100 rounded-lg" />
                   )}
                 </div>
               </div>
@@ -323,19 +351,23 @@ export const SeatMap: React.FC<SeatMapProps> = ({
     );
   };
 
-  const renderFloorColumn = (title: string = "DÃY SÀN") => {
+  const renderFloorColumn = () => {
+    const rows = Array.from(new Set(regularSeats.map(s => s.row ?? 0))).sort((a,b) => a - b);
     return (
-        <div className="relative overflow-hidden flex flex-col w-full md:w-[120px] bg-slate-100/50 rounded-xl border-2 border-dashed border-slate-300">
-             <div className="py-2 text-center bg-slate-200/50 border-b border-dashed border-slate-300">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{title}</span>
+        <div className="relative overflow-hidden flex flex-col w-full md:w-1/4 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+             <div className="py-2 text-center bg-slate-100/50 border-b border-dashed border-slate-200">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">SÀN</span>
              </div>
              <div className="p-3 flex flex-col items-center gap-3">
-                {floorSeats.sort((a,b) => (a.row ?? 0) - (b.row ?? 0)).map(seat => (
-                    <div key={seat.id} className="w-full h-[90px] flex justify-center">
-                        {renderSeat(seat)}
-                    </div>
-                ))}
-                {floorSeats.length === 0 && <div className="py-20 text-[9px] text-slate-300 font-bold uppercase -rotate-90 whitespace-nowrap">Lối đi</div>}
+                <div className="p-2 bg-transparent text-[10px] font-bold text-slate-300 uppercase w-full text-center">Lối đi</div>
+                {rows.map(rowIndex => {
+                    const seat = floorSeats.find(s => s.row === rowIndex);
+                    return (
+                        <div key={rowIndex} className="w-full h-[90px] md:h-[100px] flex justify-center">
+                            {seat ? renderSeat(seat) : <div className="w-full border border-dashed border-slate-100/50 rounded-lg" />}
+                        </div>
+                    );
+                })}
              </div>
         </div>
     );
@@ -368,9 +400,9 @@ export const SeatMap: React.FC<SeatMapProps> = ({
     });
 
     return (
-      <div className="relative overflow-hidden flex flex-col w-full md:w-1/2 bg-white rounded-xl border border-slate-200 shadow-sm mb-4 md:mb-0">
-        <div className="py-2 text-center bg-slate-50 border-b">
-          <span className="text-xs font-black text-slate-500 uppercase tracking-widest">
+      <div className="relative overflow-hidden flex flex-col w-full md:w-1/2 bg-white rounded-xl border border-slate-100 md:border-none shadow-sm md:shadow-none mb-4 md:mb-0">
+        <div className="text-center bg-slate-50 md:bg-transparent border-b md:border-none">
+          <span className="text-xs font-bold text-slate-600 md:text-slate-500 uppercase tracking-wider">
             TẦNG {floorNumber}
           </span>
         </div>
@@ -397,7 +429,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
                 return (
                   <div
                     key={`ghost-${floorNumber}-${rowIndex}-${colIndex}`}
-                    className="w-full h-[90px] border border-slate-100 border-dashed rounded-lg bg-slate-50/20"
+                    className="w-full min-h-[90px] md:h-[100px] border border-slate-100 border-dashed rounded-lg bg-slate-50/20"
                   />
                 );
               });
@@ -423,7 +455,9 @@ export const SeatMap: React.FC<SeatMapProps> = ({
       <div className="mt-6 mx-2 md:mx-4 p-4 bg-amber-50 rounded-xl border border-amber-200 border-dashed animate-in fade-in slide-in-from-top-2">
         <div className="flex items-center gap-2 mb-3 text-amber-700">
           <AlertTriangle size={16} />
-          <h4 className="text-sm font-bold uppercase">Ghế lệch sơ đồ (Cần xếp lại)</h4>
+          <h4 className="text-sm font-bold uppercase">
+            Ghế lệch sơ đồ (Cần xếp lại)
+          </h4>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
           {orphanSeats.map((seat) => (
@@ -439,14 +473,14 @@ export const SeatMap: React.FC<SeatMapProps> = ({
   const renderSleeperFloorSection = () => {
     if (floorSeats.length === 0) return null;
     return (
-        <div className="mt-6 p-4 bg-slate-100/50 rounded-xl border-2 border-dashed border-slate-300">
-            <div className="text-center mb-4">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">DÃY VÉ SÀN NẰM (GIỮA LỐI ĐI)</span>
+        <div className="mt-6 p-4 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+            <div className="text-center mb-3">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">DÃY NẰM SÀN (DƯỚI BĂNG 5)</span>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3 justify-items-center">
-                {floorSeats.sort((a,b) => a.label.localeCompare(b.label, undefined, {numeric: true})).map(s => (
-                    <div key={s.id} className="w-full max-w-[100px]">
-                        {renderSeat(s, false, "w-full h-[85px] rounded-lg shadow-sm")}
+            <div className="flex flex-wrap justify-center gap-3">
+                {floorSeats.map(s => (
+                    <div key={s.id} className="w-1/4 min-w-[80px]">
+                        {renderSeat(s, false, "w-full min-h-[80px] rounded-lg")}
                     </div>
                 ))}
             </div>
@@ -456,11 +490,11 @@ export const SeatMap: React.FC<SeatMapProps> = ({
 
   if (busType === BusType.CABIN) {
     return (
-      <div className="flex flex-col py-4 px-2 md:px-0">
-        <div className="flex flex-col md:flex-row w-full gap-4 md:gap-8 justify-center items-start">
-          {renderCabinColumn(0, "DÃY B (PHÒNG LẺ)")}
-          {renderFloorColumn("6 VÉ SÀN")}
-          {renderCabinColumn(1, "DÃY A (PHÒNG CHẴN)")}
+      <div className="flex flex-col py-2 px-2 md:px-0">
+        <div className="flex flex-col md:flex-row w-full gap-4 md:gap-4 justify-center">
+          {renderCabinColumn(0, "DÃY B")}
+          {floorSeats.length > 0 && renderFloorColumn()}
+          {renderCabinColumn(1, "DÃY A")}
         </div>
         {renderOverflowSection()}
       </div>
@@ -468,8 +502,8 @@ export const SeatMap: React.FC<SeatMapProps> = ({
   }
 
   return (
-    <div className="flex flex-col py-4 px-2 md:px-0">
-      <div className="flex flex-col md:flex-row w-full gap-4 md:gap-6 justify-center items-start">
+    <div className="flex flex-col py-2 px-2 md:px-0">
+      <div className="flex flex-col md:flex-row w-full gap-2 md:gap-4">
         {renderSleeperDeck(1)}
         {renderSleeperDeck(2)}
       </div>
