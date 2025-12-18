@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import { Badge } from "./ui/Badge";
 import { Booking, BusTrip, UndoAction } from "../types";
-import { formatLunarDate } from "../utils/dateUtils";
+import { formatLunarDate, formatTime } from "../utils/dateUtils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -308,30 +308,43 @@ export const RightSheet: React.FC<RightSheetProps> = ({
                                 </div>
                               )}
                               <div className="mb-3 grid grid-cols-2 gap-2">
-                                {booking.items.map((item, idx) => (
-                                  <div
-                                    key={idx}
-                                    className="w-full p-2.5 rounded-md bg-slate-50/80 border border-slate-100 group-hover:bg-primary/5 group-hover:border-primary/10 transition-colors"
-                                  >
-                                    <div className="flex items-center gap-1.5 font-bold text-slate-700 text-[12px]">
-                                      {item.route}
+                                {booking.items.map((item, idx) => {
+                                  const tripDateObj = new Date(item.tripDate);
+                                  return (
+                                    <div
+                                      key={idx}
+                                      className="w-full p-2.5 rounded-md bg-slate-50/80 border border-slate-100 group-hover:bg-primary/5 group-hover:border-primary/10 transition-colors"
+                                    >
+                                      <div className="flex items-center gap-1.5 font-bold text-slate-700 text-[12px]">
+                                        {item.route}
+                                      </div>
+                                      <div className="flex items-center gap-1.5 text-slate-500 text-[10px] mb-2 font-medium">
+                                        <Calendar size={10} className="text-slate-400" />
+                                        <span>
+                                          {tripDateObj.getDate()}/{tripDateObj.getMonth() + 1}
+                                        </span>
+                                        <span className="text-slate-300">•</span>
+                                        <span className="text-slate-400">
+                                          {formatLunarDate(tripDateObj).replace(" Âm Lịch", " Âm")}
+                                        </span>
+                                        <span className="text-slate-300">•</span>
+                                        <span className="text-slate-600 font-bold">
+                                          {formatTime(item.tripDate)}
+                                        </span>
+                                      </div>
+                                      <div className="flex flex-wrap items-center text-center gap-1.5">
+                                        {item.seatIds.map((s) => (
+                                          <Badge
+                                            key={s}
+                                            className="bg-indigo-600 text-white border-transparent text-[10px] font-bold px-[6px] py-0 h-4 shadow-sm text-center "
+                                          >
+                                            {s}
+                                          </Badge>
+                                        ))}
+                                      </div>
                                     </div>
-                                    <div className="flex items-center gap-1.5 text-slate-500 text-[10px] mb-2">
-                                      <Clock size={10} />
-                                      {item.licensePlate}
-                                    </div>
-                                    <div className="flex flex-wrap items-center text-center gap-1.5">
-                                      {item.seatIds.map((s) => (
-                                        <Badge
-                                          key={s}
-                                          className="bg-indigo-600 text-white border-transparent text-[10px] font-bold px-[6px] py-0 h-4 shadow-sm text-center "
-                                        >
-                                          {s}
-                                        </Badge>
-                                      ))}
-                                    </div>
-                                  </div>
-                                ))}
+                                  );
+                                })}
                               </div>
 
                               {/* Card Bottom: Summary & Actions */}
