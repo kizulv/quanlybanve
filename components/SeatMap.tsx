@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Seat, SeatStatus, BusType, Booking } from "../types";
 import {
@@ -162,7 +161,9 @@ export const SeatMap: React.FC<SeatMapProps> = ({
           }
         }}
         className={`relative flex flex-col border transition-all duration-200 select-none overflow-hidden group ${statusClass} ${
-          isBench ? "w-1/5 min-h-[90px] md:h-[100px] rounded-lg" : "w-full min-h-[90px] md:h-[100px] rounded-lg"
+          isBench
+            ? "w-1/5 min-h-[90px] md:h-[100px] rounded-lg"
+            : "w-full min-h-[90px] md:h-[100px] rounded-lg"
         }
         `}
       >
@@ -265,7 +266,9 @@ export const SeatMap: React.FC<SeatMapProps> = ({
                   </div>
                 </div>
               ) : (
-                <div className="opacity-50 italic pl-3 text-[9px]">Chưa có điểm đón</div>
+                <div className="opacity-50 italic pl-3 text-[9px]">
+                  Chưa có điểm đón
+                </div>
               )}
 
               {/* Note */}
@@ -286,13 +289,17 @@ export const SeatMap: React.FC<SeatMapProps> = ({
           ) : seat.status === SeatStatus.SELECTED ? (
             <div className="flex flex-col items-center justify-center h-full text-white/90">
               <Check size={20} className="md:mb-1" />
-              <span className="font-medium text-[9px] md:text-[10px]">Đang chọn</span>
+              <span className="font-medium text-[9px] md:text-[10px]">
+                Đang chọn
+              </span>
             </div>
           ) : seat.status === SeatStatus.HELD ? (
             <div className="flex flex-col h-full text-purple-800/80 items-center justify-center">
               <div className="flex items-center justify-center">
                 <Lock size={12} className="opacity-60 mr-1" />
-                <span className="font-bold text-[9px] md:text-[10px]">ĐANG GIỮ</span>
+                <span className="font-bold text-[9px] md:text-[10px]">
+                  ĐANG GIỮ
+                </span>
               </div>
               {seat.note && (
                 <div className="w-full bg-purple-100/80 rounded px-1 py-0.5 mt-1 border border-purple-200">
@@ -326,14 +333,14 @@ export const SeatMap: React.FC<SeatMapProps> = ({
 
     return (
       <div className="relative overflow-hidden flex flex-col w-full md:w-1/2 bg-white rounded-xl border border-slate-100 md:border-none shadow-sm md:shadow-none">
-        <div className="pt-3 pb-1 text-center bg-slate-50 md:bg-transparent border-b md:border-none">
+        <div className="py-2 text-center bg-slate-50 md:bg-transparent border-b md:border-none">
           <span className="text-sm font-bold text-slate-600 md:text-slate-500 uppercase tracking-wider">
             {label}
           </span>
         </div>
 
-        <div className="p-3 md:px-4 flex flex-col items-center gap-3">
-          <div className="flex gap-4 md:gap-8 px-2 text-[10px] font-bold text-slate-400 uppercase w-full justify-center">
+        <div className="p-3 pt-0 md:px-4 flex flex-col items-center gap-3">
+          <div className="flex gap-4 md:gap-8 p-2 bg-slate-100 text-[10px] font-bold text-slate-400 uppercase w-full justify-center">
             <span className="w-full md:w-1/2 text-center">Tầng 1</span>
             <span className="w-full md:w-1/2 text-center">Tầng 2</span>
           </div>
@@ -398,7 +405,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
 
     return (
       <div className="relative overflow-hidden flex flex-col w-full md:w-1/2 bg-white rounded-xl border border-slate-100 md:border-none shadow-sm md:shadow-none mb-4 md:mb-0">
-        <div className="py-2 text-center bg-slate-50 md:bg-transparent border-b md:border-none">
+        <div className="text-center bg-slate-50 md:bg-transparent border-b md:border-none">
           <span className="text-xs font-bold text-slate-600 md:text-slate-500 uppercase tracking-wider">
             TẦNG {floorNumber}
           </span>
