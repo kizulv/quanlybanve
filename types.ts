@@ -60,6 +60,7 @@ export interface Booking {
   items: BookingItem[]; // CHANGED: Array of trips/seats
   status: "pending" | "confirmed" | "cancelled" | "modified"; // Added 'modified'
   createdAt: string;
+  updatedAt: string; // NEW: Track last modification
   totalPrice: number;
   totalTickets: number; // New field
   // Computed property from Payment Collection (Not stored in Booking DB)

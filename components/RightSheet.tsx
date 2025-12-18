@@ -48,10 +48,13 @@ export const RightSheet: React.FC<RightSheetProps> = ({
   
   const [viewHistoryBooking, setViewHistoryBooking] = useState<Booking | null>(null);
 
+  // Use updatedAt for sorting (fallback to createdAt for old records)
   const sortedBookings = useMemo(() => {
-    return [...bookings].sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
+    return [...bookings].sort((a, b) => {
+      const timeA = new Date(a.updatedAt || a.createdAt).getTime();
+      const timeB = new Date(b.updatedAt || b.createdAt).getTime();
+      return timeB - timeA;
+    });
   }, [bookings]);
 
   const filteredList = useMemo(() => {
@@ -74,7 +77,8 @@ export const RightSheet: React.FC<RightSheetProps> = ({
   const listByDate = useMemo(() => {
      const groups: Record<string, Booking[]> = {};
      filteredList.forEach(item => {
-         const date = new Date(item.createdAt);
+         // Group by the date of last modification
+         const date = new Date(item.updatedAt || item.createdAt);
          const dateStr = date.toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
          if (!groups[dateStr]) groups[dateStr] = [];
          groups[dateStr].push(item);
@@ -181,6 +185,7 @@ export const RightSheet: React.FC<RightSheetProps> = ({
                       {items.map((booking) => {
                         const paid = (booking.payment?.paidCash || 0) + (booking.payment?.paidTransfer || 0);
                         const isFullyPaid = paid >= booking.totalPrice;
+                        const displayTime = new Date(booking.updatedAt || booking.createdAt).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'});
 
                         return (
                           <div
@@ -200,7 +205,10 @@ export const RightSheet: React.FC<RightSheetProps> = ({
                                   <div className="text-[11px] text-slate-500 font-medium ml-9 flex items-center gap-1.5">
                                      <span className="truncate max-w-[150px]">{booking.passenger.name || 'Khách lẻ'}</span>
                                      <span className="text-slate-300">•</span>
-                                     <span className="flex items-center gap-1"><Clock size={10}/>{new Date(booking.createdAt).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})}</span>
+                                     <span className="flex items-center gap-1" title="Thời gian chỉnh sửa gần nhất">
+                                        <Clock size={10} className="text-amber-500"/>
+                                        <span className="text-amber-600/80 font-bold">Chỉnh sửa gần nhất: {displayTime}</span>
+                                     </span>
                                   </div>
                                </div>
                                <div className="flex flex-col items-end gap-1.5">

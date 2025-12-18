@@ -126,6 +126,7 @@ const bookingSchema = new mongoose.Schema(
     items: [bookingItemSchema],
     status: String, 
     createdAt: String,
+    updatedAt: String, // NEW: Track last modified
     totalPrice: Number, 
     totalTickets: Number,
   },
@@ -222,6 +223,8 @@ const logBookingAction = async (bookingId, action, description, details = {}) =>
       details,
       timestamp: new Date()
     });
+    // Auto update the Booking's updatedAt field
+    await Booking.findByIdAndUpdate(bookingId, { updatedAt: new Date().toISOString() });
   } catch (e) {
     console.error("Failed to log history:", e);
   }
@@ -287,6 +290,8 @@ const processPaymentUpdate = async (booking, newPaymentState) => {
     });
 
     await paymentRecord.save();
+    // Payment is a modification
+    await Booking.findByIdAndUpdate(booking._id, { updatedAt: new Date().toISOString() });
 };
 
 // --- ROUTES ---
@@ -431,6 +436,7 @@ app.post("/api/bookings", async (req, res) => {
       items: bookingItems,
       status: finalStatus,
       createdAt: now,
+      updatedAt: now, // NEW
       totalPrice: calculatedTotalPrice,
       totalTickets: calculatedTotalTickets,
     });
@@ -610,6 +616,15 @@ app.put("/api/bookings/:id", async (req, res) => {
           historyDesc = "Thay đổi thông tin hành khách";
       }
 
+      oldBooking.passenger = passenger;
+      oldBooking.items = bookingItems;
+      oldBooking.status = finalStatus;
+      oldBooking.totalPrice = calculatedTotalPrice;
+      oldBooking.totalTickets = calculatedTotalTickets;
+      oldBooking.updatedAt = new Date().toISOString(); // Explicit update
+      
+      await oldBooking.save();
+
       await logBookingAction(
         oldBooking._id,
         'UPDATE',
@@ -620,13 +635,6 @@ app.put("/api/bookings/:id", async (req, res) => {
         }
       );
 
-      oldBooking.passenger = passenger;
-      oldBooking.items = bookingItems;
-      oldBooking.status = finalStatus;
-      oldBooking.totalPrice = calculatedTotalPrice;
-      oldBooking.totalTickets = calculatedTotalTickets;
-      
-      await oldBooking.save();
       await processPaymentUpdate(oldBooking, payment);
 
       const allTrips = await Trip.find();
@@ -659,7 +667,10 @@ app.patch("/api/bookings/:id/passenger", async (req, res) => {
         const oldBooking = await Booking.findById(bookingId);
         if (!oldBooking) return res.status(404).json({ error: "Booking not found" });
 
-        await Booking.findByIdAndUpdate(bookingId, { passenger: passenger }, { new: true });
+        await Booking.findByIdAndUpdate(bookingId, { 
+            passenger: passenger,
+            updatedAt: new Date().toISOString()
+        }, { new: true });
 
         await logBookingAction(
             bookingId,
@@ -810,27 +821,9 @@ app.post("/api/bookings/swap", async (req, res) => {
         const booking1 = await Booking.findOne({ status: { $ne: 'cancelled' }, "items": { $elemMatch: { tripId: tripId, seatIds: seatId1 } } });
         if (!booking1) return res.status(404).json({ error: "Source seat has no active booking" });
 
-        await logBookingAction(
-            booking1._id,
-            'SWAP',
-            `Đổi ghế ${seat1.label} sang ${seat2.label}`,
-            { 
-                route: trip.route,
-                date: trip.departureTime,
-                from: seat1.label, 
-                to: seat2.label 
-            }
-        );
-
         const booking2 = await Booking.findOne({ status: { $ne: 'cancelled' }, "items": { $elemMatch: { tripId: tripId, seatIds: seatId2 } } });
 
         if (booking2) {
-             await logBookingAction(
-                booking2._id,
-                'SWAP',
-                `Đổi ghế ${seat2.label} sang ${seat1.label} (Hoán đổi)`,
-                { route: trip.route, date: trip.departureTime, from: seat2.label, to: seat1.label }
-            );
              booking1.items = booking1.items.map(item => {
                  if (item.tripId === tripId) {
                      const newSeatIds = item.seatIds.map(s => s === seatId1 ? seatId2 : s);
@@ -856,9 +849,27 @@ app.post("/api/bookings/swap", async (req, res) => {
                  if (s.id === seatId2) return { ...s, status: status1 };
                  return s;
              });
+
+             const updateNow = new Date().toISOString();
+             booking1.updatedAt = updateNow;
+             booking2.updatedAt = updateNow;
+
              await booking1.save();
              await booking2.save();
              await trip.save();
+
+             await logBookingAction(
+                booking1._id,
+                'SWAP',
+                `Đổi ghế ${seat1.label} sang ${seat2.label}`,
+                { route: trip.route, date: trip.departureTime, from: seat1.label, to: seat2.label }
+             );
+             await logBookingAction(
+                booking2._id,
+                'SWAP',
+                `Đổi ghế ${seat2.label} sang ${seat1.label} (Hoán đổi)`,
+                { route: trip.route, date: trip.departureTime, from: seat2.label, to: seat1.label }
+             );
         } else {
             booking1.items = booking1.items.map(item => {
                  if (item.tripId === tripId) {
@@ -875,8 +886,17 @@ app.post("/api/bookings/swap", async (req, res) => {
                 if (s.id === seatId2) return { ...s, status: status1 };
                 return s;
             });
+
+            booking1.updatedAt = new Date().toISOString();
             await booking1.save();
             await trip.save();
+
+            await logBookingAction(
+                booking1._id,
+                'SWAP',
+                `Đổi ghế ${seat1.label} sang ${seat2.label}`,
+                { route: trip.route, date: trip.departureTime, from: seat1.label, to: seat2.label }
+            );
         }
         
         const allBookings = await Booking.aggregate([
