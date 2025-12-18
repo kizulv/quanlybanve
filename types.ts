@@ -20,6 +20,7 @@ export interface Seat {
   price: number;
   row?: number;
   col?: number;
+  isFloorSeat?: boolean; // NEW: Mark as floor seat
   note?: string; // Added note field
   originalStatus?: SeatStatus; // Track previous status (e.g., HELD) when selected
 }
@@ -120,6 +121,8 @@ export interface BusLayoutConfig {
   seatLabels?: Record<string, string>;
   hasRearBench?: boolean;
   benchFloors?: number[];
+  hasFloorSeats?: boolean; // NEW: Enable floor seats
+  floorSeatCount?: number; // NEW: Number of floor seats
 }
 
 export interface Bus {

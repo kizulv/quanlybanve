@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Seat, SeatStatus, BusType, Booking } from "../types";
 import {
@@ -62,9 +63,8 @@ export const SeatMap: React.FC<SeatMapProps> = ({
     return phone;
   };
 
-  const renderSeat = (seat: Seat, isBench: boolean = false) => {
+  const renderSeat = (seat: Seat, isBench: boolean = false, customWidth?: string) => {
     // 1. Detect if this seat is a "Ghost" (Deselected during edit)
-    // It is AVAILABLE now, but was originally in the editingBooking for this trip
     const isGhost =
       seat.status === SeatStatus.AVAILABLE &&
       editingBooking?.items.some(
@@ -74,22 +74,13 @@ export const SeatMap: React.FC<SeatMapProps> = ({
 
     let statusClass = getSeatStatusClass(seat.status);
 
-    // Override visual for Ghost seats
     if (isGhost) {
       statusClass =
         "transition-all bg-slate-50/50 border-red-300 border-dashed text-slate-400 opacity-60 cursor-pointer hover:opacity-100 hover:bg-white hover:border-red-400 grayscale";
     }
 
-    // HELD and SOLD seats are also interactive now
-    const isInteractive =
-      seat.status === SeatStatus.AVAILABLE ||
-      seat.status === SeatStatus.SELECTED ||
-      seat.status === SeatStatus.BOOKED ||
-      seat.status === SeatStatus.HELD ||
-      seat.status === SeatStatus.SOLD;
+    const isInteractive = true;
 
-    // FIND BOOKING INFO
-    // Iterate through bookings, check nested items for currentTripId AND seatId
     const booking = bookings.find(
       (b) =>
         b.items.some(
@@ -98,12 +89,10 @@ export const SeatMap: React.FC<SeatMapProps> = ({
         ) && b.status !== "cancelled"
     );
 
-    // Find specific item info for grouping logic
     const bookingItem = booking
       ? booking.items.find((item) => item.tripId === currentTripId)
       : null;
 
-    // If it's a ghost seat, we still want to show the original info (which exists in `booking` since we haven't saved yet)
     const hasInfo =
       (seat.status === SeatStatus.BOOKED ||
         seat.status === SeatStatus.SOLD ||
@@ -115,7 +104,6 @@ export const SeatMap: React.FC<SeatMapProps> = ({
     let groupIndex = 0;
     let groupTotal = 0;
 
-    // Calculate REAL price and Specific Pickup/Dropoff for this seat from booking
     let displayPrice = seat.price;
     let displayPickup = booking?.passenger?.pickupPoint || "";
     let displayDropoff = booking?.passenger?.dropoffPoint || "";
@@ -124,25 +112,22 @@ export const SeatMap: React.FC<SeatMapProps> = ({
       const rawPhone = booking.passenger.phone;
       const normalizedPhone = rawPhone.replace(/\D/g, "");
       formattedPhone = formatPhone(normalizedPhone || rawPhone);
-
-      // Sibling logic based on current trip item
       groupTotal = bookingItem.seatIds.length;
       groupIndex = bookingItem.seatIds.indexOf(seat.id) + 1;
 
-      // NEW PRICE & LOCATION LOGIC: Prioritize specific ticket details
       if (bookingItem.tickets && bookingItem.tickets.length > 0) {
         const ticket = bookingItem.tickets.find((t) => t.seatId === seat.id);
         if (ticket) {
           displayPrice = ticket.price;
-          // Use specific location if available in ticket, fallback done in Booking/API logic but good to handle here
           displayPickup = ticket.pickup || displayPickup;
           displayDropoff = ticket.dropoff || displayDropoff;
         }
       } else if (bookingItem.price > 0 && bookingItem.seatIds.length > 0) {
-        // Fallback for legacy data
         displayPrice = bookingItem.price / bookingItem.seatIds.length;
       }
     }
+
+    const isFloor = seat.isFloorSeat;
 
     return (
       <div
@@ -155,19 +140,15 @@ export const SeatMap: React.FC<SeatMapProps> = ({
             if (hasInfo && booking) {
               onSeatRightClick(seat, booking);
             } else if (seat.status === SeatStatus.HELD) {
-              // Allow right clicking on HELD seats (no booking)
               onSeatRightClick(seat, null);
             }
           }
         }}
         className={`relative flex flex-col border transition-all duration-200 select-none overflow-hidden group ${statusClass} ${
-          isBench
-            ? "w-1/5 min-h-[90px] md:h-[100px] rounded-lg"
-            : "w-full min-h-[90px] md:h-[100px] rounded-lg"
-        }
+          customWidth ? customWidth : (isBench ? "w-1/5 min-h-[90px] md:h-[100px] rounded-lg" : "w-full min-h-[90px] md:h-[100px] rounded-lg")
+        } ${isFloor ? 'border-dashed' : ''}
         `}
       >
-        {/* Header: Seat Label */}
         <div
           className={`px-2 py-1 text-xs font-bold border-b flex justify-between items-center whitespace-nowrap ${
             seat.status === SeatStatus.SELECTED
@@ -186,7 +167,6 @@ export const SeatMap: React.FC<SeatMapProps> = ({
           <span className={isGhost ? "line-through decoration-red-400" : ""}>
             {seat.label}
           </span>
-          {/* PRICE DISPLAY FOR SOLD SEATS ONLY */}
           {seat.status === SeatStatus.SOLD && displayPrice > 0 && (
             <div className="mt-auto flex justify-end">
               <span className="text-[9px] md:text-[10px] font-bold px-1 rounded border shadow-sm text-green-700 bg-yellow-300 border-green-200/50">
@@ -200,7 +180,6 @@ export const SeatMap: React.FC<SeatMapProps> = ({
           {isGhost && <XCircle size={12} className="text-red-400" />}
         </div>
 
-        {/* SWAP ICON OVERLAY (Only for Booked/Sold/Held and NOT Ghost) */}
         {(seat.status === SeatStatus.BOOKED ||
           seat.status === SeatStatus.SOLD ||
           seat.status === SeatStatus.HELD) &&
@@ -208,7 +187,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
           onSeatSwap && (
             <button
               onClick={(e) => {
-                e.stopPropagation(); // Prevent opening booking details
+                e.stopPropagation();
                 onSeatSwap(seat);
               }}
               className="absolute top-8 right-1 z-20 p-1.5 bg-white/80 hover:bg-indigo-600 hover:text-white text-indigo-600 rounded-full shadow-sm border border-indigo-100 md:opacity-0 group-hover:opacity-100 transition-all duration-200 transform scale-75 hover:scale-100"
@@ -218,11 +197,9 @@ export const SeatMap: React.FC<SeatMapProps> = ({
             </button>
           )}
 
-        {/* Content Body */}
         <div className="flex-1 p-1.5 md:p-2 flex flex-col text-[10px] leading-none space-y-1 md:space-y-1.5">
           {hasInfo ? (
             <>
-              {/* Passenger Phone */}
               <div
                 className={`flex items-center gap-1 font-bold whitespace-nowrap ${
                   isGhost
@@ -244,7 +221,6 @@ export const SeatMap: React.FC<SeatMapProps> = ({
                 </div>
               </div>
 
-              {/* Route Info */}
               {displayPickup || displayDropoff ? (
                 <div
                   className={`flex gap-1 overflow-hidden whitespace-nowrap ${
@@ -271,7 +247,6 @@ export const SeatMap: React.FC<SeatMapProps> = ({
                 </div>
               )}
 
-              {/* Note */}
               {booking.passenger.note && (
                 <div
                   className={`flex items-center gap-1 truncate ${
@@ -311,7 +286,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-slate-300">
-              <span className="text-[9px] md:text-[10px]">Trống</span>
+              <span className="text-[9px] md:text-[10px]">{isFloor ? 'SÀN' : 'Trống'}</span>
             </div>
           )}
         </div>
@@ -319,10 +294,9 @@ export const SeatMap: React.FC<SeatMapProps> = ({
     );
   };
 
-  // Identify "Orphaned" seats (seats with row 99 from changing buses)
   const orphanSeats = seats.filter((s) => (s.row ?? 0) >= 99);
-  // Filter regular seats
-  const regularSeats = seats.filter((s) => (s.row ?? 0) < 99);
+  const regularSeats = seats.filter((s) => (s.row ?? 0) < 99 && !s.isFloorSeat);
+  const floorSeats = seats.filter((s) => s.isFloorSeat);
 
   // --- CABIN LOGIC: RENDER BY COLUMN (DÃY) ---
   const renderCabinColumn = (colIndex: number, label: string) => {
@@ -332,7 +306,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
     );
 
     return (
-      <div className="relative overflow-hidden flex flex-col w-full md:w-1/2 bg-white rounded-xl border border-slate-100 md:border-none shadow-sm md:shadow-none">
+      <div className="relative overflow-hidden flex flex-col w-full md:w-1/3 bg-white rounded-xl border border-slate-100 md:border-none shadow-sm md:shadow-none">
         <div className="py-2 text-center bg-slate-50 md:bg-transparent border-b md:border-none">
           <span className="text-sm font-bold text-slate-600 md:text-slate-500 uppercase tracking-wider">
             {label}
@@ -377,10 +351,32 @@ export const SeatMap: React.FC<SeatMapProps> = ({
     );
   };
 
+  const renderFloorColumn = () => {
+    const rows = Array.from(new Set(regularSeats.map(s => s.row ?? 0))).sort((a,b) => a - b);
+    return (
+        <div className="relative overflow-hidden flex flex-col w-full md:w-1/4 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+             <div className="py-2 text-center bg-slate-100/50 border-b border-dashed border-slate-200">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">SÀN</span>
+             </div>
+             <div className="p-3 flex flex-col items-center gap-3">
+                <div className="p-2 bg-transparent text-[10px] font-bold text-slate-300 uppercase w-full text-center">Lối đi</div>
+                {rows.map(rowIndex => {
+                    const seat = floorSeats.find(s => s.row === rowIndex);
+                    return (
+                        <div key={rowIndex} className="w-full h-[90px] md:h-[100px] flex justify-center">
+                            {seat ? renderSeat(seat) : <div className="w-full border border-dashed border-slate-100/50 rounded-lg" />}
+                        </div>
+                    );
+                })}
+             </div>
+        </div>
+    );
+  };
+
   // --- SLEEPER LOGIC ---
   const renderSleeperDeck = (floorNumber: number) => {
-    const floorSeats = regularSeats.filter((s) => s.floor === floorNumber);
-    const rows = floorSeats.reduce((acc, seat) => {
+    const floorSeatsStandard = regularSeats.filter((s) => s.floor === floorNumber);
+    const rows = floorSeatsStandard.reduce((acc, seat) => {
       const r = seat.row ?? 0;
       if (!acc[r]) acc[r] = [];
       acc[r].push(seat);
@@ -474,11 +470,30 @@ export const SeatMap: React.FC<SeatMapProps> = ({
     );
   };
 
+  const renderSleeperFloorSection = () => {
+    if (floorSeats.length === 0) return null;
+    return (
+        <div className="mt-6 p-4 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+            <div className="text-center mb-3">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">DÃY NẰM SÀN (DƯỚI BĂNG 5)</span>
+            </div>
+            <div className="flex flex-wrap justify-center gap-3">
+                {floorSeats.map(s => (
+                    <div key={s.id} className="w-1/4 min-w-[80px]">
+                        {renderSeat(s, false, "w-full min-h-[80px] rounded-lg")}
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+  };
+
   if (busType === BusType.CABIN) {
     return (
       <div className="flex flex-col py-2 px-2 md:px-0">
         <div className="flex flex-col md:flex-row w-full gap-4 md:gap-4 justify-center">
           {renderCabinColumn(0, "DÃY B")}
+          {floorSeats.length > 0 && renderFloorColumn()}
           {renderCabinColumn(1, "DÃY A")}
         </div>
         {renderOverflowSection()}
@@ -492,6 +507,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
         {renderSleeperDeck(1)}
         {renderSleeperDeck(2)}
       </div>
+      {renderSleeperFloorSection()}
       {renderOverflowSection()}
     </div>
   );
