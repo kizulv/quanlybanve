@@ -221,6 +221,49 @@ export const Layout: React.FC<LayoutProps> = ({
 
   const selectedTripDisplay = tripOptions.find((t) => t.id === selectedTripId);
 
+  // Helper component for Direction Toggle
+  const DirectionToggle = () => {
+    if (!onDirectionChange) return null;
+    return (
+      <label className="flex items-center gap-2 cursor-pointer select-none bg-white border border-slate-200 rounded-md px-2 md:px-3 h-9 hover:border-slate-300 transition-colors">
+        <div
+          className={`relative flex items-center justify-center w-4 h-4 border rounded bg-white transition-colors ${
+            selectedDirection === "outbound"
+              ? "border-primary"
+              : "border-slate-300"
+          }`}
+        >
+          <input
+            type="checkbox"
+            className="peer appearance-none absolute inset-0 w-full h-full cursor-pointer"
+            checked={selectedDirection === "outbound"}
+            onChange={(e) =>
+              onDirectionChange(
+                e.target.checked ? "outbound" : "inbound"
+              )
+            }
+          />
+          {selectedDirection === "outbound" && (
+            <Check
+              size={12}
+              className="text-primary pointer-events-none"
+              strokeWidth={3}
+            />
+          )}
+        </div>
+        <span
+          className={`text-xs md:text-sm font-medium whitespace-nowrap ${
+            selectedDirection === "outbound"
+              ? "text-primary"
+              : "text-slate-600"
+          }`}
+        >
+          {selectedDirection === "outbound" ? "Đi" : "Về"}
+        </span>
+      </label>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 flex overflow-hidden">
       {/* Mobile Sidebar Overlay */}
@@ -292,89 +335,68 @@ export const Layout: React.FC<LayoutProps> = ({
           isSidebarOpen ? "md:ml-64" : "ml-0"
         }`}
       >
-        {/* Header */}
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-8 sticky top-0 z-10 shadow-sm">
-          <div className="flex items-center gap-4 min-w-0 mr-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setSidebarOpen(!isSidebarOpen)}
-              className="text-slate-500 hover:text-slate-900 shrink-0"
-            >
-              <Menu size={20} />
-            </Button>
+        {/* Header - Updated for 2 rows on mobile */}
+        <header className="h-auto md:h-16 bg-white border-b border-slate-200 flex flex-col md:flex-row md:items-center justify-between sticky top-0 z-30 shadow-sm">
+          
+          {/* Row 1: Menu + Title + Direction (Mobile Center) + Right Actions */}
+          <div className="flex items-center justify-between h-16 px-4 md:px-8 w-full md:w-auto md:flex-1 min-w-0">
+            <div className="flex items-center gap-2 md:gap-4 min-w-0">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setSidebarOpen(!isSidebarOpen)}
+                className="text-slate-500 hover:text-slate-900 shrink-0"
+              >
+                <Menu size={20} />
+              </Button>
 
-            {/* Title and Description */}
-            <div className="flex flex-col justify-center min-w-0">
-              <h1 className="text-sm md:text-base font-bold text-slate-900 truncate">
-                {currentInfo.title}
-              </h1>
-              {currentInfo.description && (
-                <p className="text-xs text-slate-500 truncate hidden md:block">
-                  {currentInfo.description}
-                </p>
-              )}
+              <div className="flex flex-col justify-center min-w-0">
+                <h1 className="text-sm md:text-base font-bold text-slate-900 truncate">
+                  {currentInfo.title}
+                </h1>
+                {currentInfo.description && (
+                  <p className="text-xs text-slate-500 truncate hidden md:block">
+                    {currentInfo.description}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Mobile-only center: Direction Toggle */}
+            <div className="md:hidden flex-1 flex justify-center px-1">
+              {activeTab === 'sales' && <DirectionToggle />}
+            </div>
+
+            {/* Mobile-only right: headerRight */}
+            <div className="md:hidden">
+              {headerRight}
             </div>
           </div>
 
-          {/* Right Actions Wrapper */}
-          <div className="flex items-center gap-2 md:gap-3 shrink-0 ml-auto">
-            {/* Header Filters for Sales */}
+          {/* Row 2 (Mobile) / Middle (Desktop): Sales Filters */}
+          <div className={`
+            flex items-center gap-2 px-4 pb-3 md:pb-0 md:px-4 overflow-x-auto no-scrollbar justify-center md:justify-start
+            ${activeTab === 'sales' ? 'flex' : 'hidden md:flex'}
+          `}>
             {activeTab === "sales" && (
-              <div className="flex items-center gap-2 md:gap-3 animate-in fade-in slide-in-from-right-4 duration-300">
-                {/* 1. Direction Toggle */}
-                {onDirectionChange && (
-                  <label className="flex items-center gap-2 cursor-pointer select-none bg-white border border-slate-200 rounded-md px-2 md:px-3 h-9 hover:border-slate-300 transition-colors hidden sm:flex">
-                    <div
-                      className={`relative flex items-center justify-center w-4 h-4 border rounded bg-white transition-colors ${
-                        selectedDirection === "outbound"
-                          ? "border-primary"
-                          : "border-slate-300"
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        className="peer appearance-none absolute inset-0 w-full h-full cursor-pointer"
-                        checked={selectedDirection === "outbound"}
-                        onChange={(e) =>
-                          onDirectionChange(
-                            e.target.checked ? "outbound" : "inbound"
-                          )
-                        }
-                      />
-                      {selectedDirection === "outbound" && (
-                        <Check
-                          size={12}
-                          className="text-primary pointer-events-none"
-                          strokeWidth={3}
-                        />
-                      )}
-                    </div>
-                    <span
-                      className={`text-sm font-medium whitespace-nowrap ${
-                        selectedDirection === "outbound"
-                          ? "text-primary"
-                          : "text-slate-600"
-                      }`}
-                    >
-                      {selectedDirection === "outbound"
-                        ? "Chiều đi"
-                        : "Chiều về"}
-                    </span>
-                  </label>
-                )}
+              <div className="flex items-center gap-2 md:gap-3 animate-in fade-in slide-in-from-right-4 duration-300 shrink-0">
+                
+                {/* 1. Direction Toggle (Desktop Only here) */}
+                <div className="hidden md:block">
+                  <DirectionToggle />
+                </div>
 
                 {/* 2. Date Picker */}
                 <Popover
-                  align="right"
+                  align="left"
                   trigger={
-                    <div className="flex items-center gap-2 h-9 px-3 border border-slate-200 rounded-md bg-white hover:bg-slate-50 hover:border-slate-300 transition-colors select-none cursor-pointer">
+                    <div className="flex items-center gap-2 h-9 px-2 md:px-3 border border-slate-200 rounded-md bg-white hover:bg-slate-50 hover:border-slate-300 transition-colors select-none cursor-pointer">
                       <CalendarIcon size={16} className="text-slate-500" />
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-slate-700 capitalize whitespace-nowrap hidden sm:inline-block">
+                        <span className="text-xs md:text-sm font-medium text-slate-700 capitalize whitespace-nowrap">
                           {formatSolarHeader(selectedDate)}
                         </span>
-                        <span className="text-[11px] font-medium text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 whitespace-nowrap">
+                        <span className="text-[10px] md:text-[11px] font-medium text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 whitespace-nowrap hidden sm:inline-block">
                           {formatLunarDate(selectedDate)}
                         </span>
                       </div>
@@ -396,31 +418,23 @@ export const Layout: React.FC<LayoutProps> = ({
                   )}
                 />
 
-                {/* 3. New Smart Trip Selector */}
+                {/* 3. Smart Trip Selector */}
                 <Popover
                   align="right"
                   trigger={
-                    <div className="flex items-center justify-between gap-3 h-9 px-3 border border-slate-200 rounded-md bg-white hover:bg-slate-50 hover:border-slate-300 transition-colors select-none cursor-pointer min-w-[200px] max-w-[340px]">
+                    <div className="flex items-center justify-between gap-3 h-9 px-2 md:px-3 border border-slate-200 rounded-md bg-white hover:bg-slate-50 hover:border-slate-300 transition-colors select-none cursor-pointer min-w-[140px] md:min-w-[200px] max-w-[240px] md:max-w-[340px]">
                       <div className="flex items-center gap-2 overflow-hidden">
                         <MapPin size={16} className="text-slate-500 shrink-0" />
                         {selectedTripDisplay ? (
                           <div className="flex items-center gap-2 min-w-0">
-                            <span className="text-sm font-medium text-slate-900 truncate">
+                            <span className="text-xs md:text-sm font-medium text-slate-900 truncate">
                               {selectedTripDisplay.displayTime} -{" "}
                               {selectedTripDisplay.route}
                             </span>
-                            {selectedTripDisplay.isEnhanced && (
-                              <span className="shrink-0 inline-flex items-center text-[10px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200 whitespace-nowrap hidden lg:inline-flex">
-                                <Zap size={10} className="mr-0.5 fill-amber-700" />
-                                {selectedTripDisplay.enhancedIndex > 0
-                                  ? `TC #${selectedTripDisplay.enhancedIndex}`
-                                  : "Tăng cường"}
-                              </span>
-                            )}
                           </div>
                         ) : (
-                          <span className="text-sm font-medium text-slate-500 truncate">
-                            Chọn chuyến xe...
+                          <span className="text-xs md:text-sm font-medium text-slate-500 truncate">
+                            Chọn chuyến...
                           </span>
                         )}
                       </div>
@@ -428,7 +442,7 @@ export const Layout: React.FC<LayoutProps> = ({
                     </div>
                   }
                   content={(close) => (
-                    <div className="w-[360px] max-h-[400px] overflow-y-auto bg-white rounded-lg border border-slate-200 shadow-xl p-1.5">
+                    <div className="w-[300px] md:w-[360px] max-h-[400px] overflow-y-auto bg-white rounded-lg border border-slate-200 shadow-xl p-1.5">
                       {tripOptions.length === 0 ? (
                         <div className="p-8 text-center text-slate-500">
                           <BusFront size={24} className="mx-auto mb-2 opacity-20" />
@@ -476,25 +490,14 @@ export const Layout: React.FC<LayoutProps> = ({
                                     <span className="truncate">{trip.route}</span>
                                     {trip.isEnhanced && (
                                       <span className="shrink-0 inline-flex items-center text-[9px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200 shadow-sm ml-auto md:ml-0">
-                                        <Zap
-                                          size={9}
-                                          className="mr-0.5 fill-amber-700"
-                                        />
-                                        Tăng cường{" "}
-                                        {trip.enhancedIndex > 0
-                                          ? `#${trip.enhancedIndex}`
-                                          : ""}
+                                        <Zap size={9} className="mr-0.5 fill-amber-700" />
+                                        TC {trip.enhancedIndex > 0 ? `#${trip.enhancedIndex}` : ""}
                                       </span>
                                     )}
                                   </div>
                                   <div className="flex items-center gap-2 mt-0.5">
-                                    <span className="text-xs text-slate-500 bg-slate-100 px-1.5 rounded border border-slate-200/50">
+                                    <span className="text-[10px] text-slate-500 bg-slate-100 px-1.5 rounded border border-slate-200/50">
                                       {trip.licensePlate}
-                                    </span>
-                                    <span className="text-[10px] text-slate-400 pl-1 border-l border-slate-200">
-                                      {trip.type === BusType.CABIN
-                                        ? "Xe Phòng"
-                                        : "Giường đơn"}
                                     </span>
                                   </div>
                                 </div>
@@ -513,8 +516,10 @@ export const Layout: React.FC<LayoutProps> = ({
                 />
               </div>
             )}
-            
-            {/* INJECTED HEADER RIGHT CONTENT */}
+          </div>
+
+          {/* Row 3 (Desktop Only) / End: Right Actions (History) */}
+          <div className="hidden md:flex items-center gap-3 pr-8 shrink-0">
             {headerRight}
           </div>
         </header>
