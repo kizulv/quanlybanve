@@ -110,6 +110,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
     let displayPrice = seat.price;
     let displayPickup = booking?.passenger?.pickupPoint || "";
     let displayDropoff = booking?.passenger?.dropoffPoint || "";
+    let displayNote = booking?.passenger?.note || "";
 
     if (hasInfo && booking && bookingItem) {
       const rawPhone = booking.passenger.phone;
@@ -250,6 +251,14 @@ export const SeatMap: React.FC<SeatMapProps> = ({
                   Chưa có điểm đón
                 </div>
               )}
+              {displayNote && (
+                <div className="mt-auto flex items-center gap-1 text-slate-400 italic">
+                  <StickyNote size={10} className="text-amber-500" />
+                  <span className="w-full text-[10px] truncate">
+                    {displayNote}
+                  </span>
+                </div>
+              )}
             </>
           ) : seat.status === SeatStatus.SELECTED ? (
             <div className="flex flex-col items-center justify-center h-full text-white/90">
@@ -264,7 +273,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
               </div>
               {seat.note && (
                 <div className="w-full bg-purple-100/80 rounded px-1 py-0.5 mt-1 border border-purple-200">
-                  <span className="truncate italic text-[8px] block">
+                  <span className="truncate italic text-[10px] block">
                     {seat.note}
                   </span>
                 </div>
@@ -321,14 +330,14 @@ export const SeatMap: React.FC<SeatMapProps> = ({
                   {floor1Seat ? (
                     renderSeat(floor1Seat)
                   ) : (
-                    <div className="w-full h-[90px] border border-dashed border-slate-100 rounded-lg" />
+                    <div className="w-full border border-dashed border-slate-100 rounded-lg" />
                   )}
                 </div>
                 <div className="w-1/2">
                   {floor2Seat ? (
                     renderSeat(floor2Seat)
                   ) : (
-                    <div className="w-full h-[90px] border border-dashed border-slate-100 rounded-lg" />
+                    <div className="w-full border border-dashed border-slate-100 rounded-lg" />
                   )}
                 </div>
               </div>
@@ -421,7 +430,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
                 return (
                   <div
                     key={`ghost-${floorNumber}-${rowIndex}-${colIndex}`}
-                    className="w-full border border-slate-100 border-dashed rounded-lg bg-slate-50/20"
+                    className="w-full h-[90px] border border-slate-100 border-dashed rounded-lg bg-slate-50/20"
                   />
                 );
               });
