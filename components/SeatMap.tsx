@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Seat, SeatStatus, BusType, Booking } from "../types";
 import {
@@ -161,13 +162,13 @@ export const SeatMap: React.FC<SeatMapProps> = ({
           }
         }}
         className={`relative flex flex-col border transition-all duration-200 select-none overflow-hidden group ${statusClass} ${
-          isBench ? "w-1/5 h-[100px] rounded-lg" : "w-full h-[100px] rounded-lg"
+          isBench ? "w-1/5 min-h-[90px] md:h-[100px] rounded-lg" : "w-full min-h-[90px] md:h-[100px] rounded-lg"
         }
         `}
       >
         {/* Header: Seat Label */}
         <div
-          className={`px-2 py-1 text-xs font-bold border-b flex justify-between items-center ${
+          className={`px-2 py-1 text-xs font-bold border-b flex justify-between items-center whitespace-nowrap ${
             seat.status === SeatStatus.SELECTED
               ? "border-primary/50 bg-primary/10"
               : isGhost
@@ -187,7 +188,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
           {/* PRICE DISPLAY FOR SOLD SEATS ONLY */}
           {seat.status === SeatStatus.SOLD && displayPrice > 0 && (
             <div className="mt-auto flex justify-end">
-              <span className="text-[10px] font-bold px-1 rounded border shadow-sm text-green-700 bg-yellow-300 border-green-200/50">
+              <span className="text-[9px] md:text-[10px] font-bold px-1 rounded border shadow-sm text-green-700 bg-yellow-300 border-green-200/50">
                 {displayPrice.toLocaleString("vi-VN")}
               </span>
             </div>
@@ -209,7 +210,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
                 e.stopPropagation(); // Prevent opening booking details
                 onSeatSwap(seat);
               }}
-              className="absolute top-8 right-1 z-20 p-1.5 bg-white/80 hover:bg-indigo-600 hover:text-white text-indigo-600 rounded-full shadow-sm border border-indigo-100 opacity-0 group-hover:opacity-100 transition-all duration-200 transform scale-75 hover:scale-100"
+              className="absolute top-8 right-1 z-20 p-1.5 bg-white/80 hover:bg-indigo-600 hover:text-white text-indigo-600 rounded-full shadow-sm border border-indigo-100 md:opacity-0 group-hover:opacity-100 transition-all duration-200 transform scale-75 hover:scale-100"
               title="Đổi ghế này"
             >
               <ArrowRightLeft size={14} />
@@ -217,25 +218,25 @@ export const SeatMap: React.FC<SeatMapProps> = ({
           )}
 
         {/* Content Body */}
-        <div className="flex-1 p-2 flex flex-col text-[10px] leading-tight space-y-1.5">
+        <div className="flex-1 p-1.5 md:p-2 flex flex-col text-[10px] leading-none space-y-1 md:space-y-1.5">
           {hasInfo ? (
             <>
               {/* Passenger Phone */}
               <div
-                className={`flex items-center gap-1.5 font-bold ${
+                className={`flex items-center gap-1 font-bold whitespace-nowrap ${
                   isGhost
                     ? "text-slate-400"
                     : seat.status === SeatStatus.SOLD
                     ? "text-green-800"
                     : "text-yellow-900"
                 }`}
-                title={booking.passenger.name}
+                title={booking.passenger.phone}
               >
                 <Phone size={10} className="shrink-0 opacity-60" />
                 <div className="flex items-center gap-1 min-w-0">
                   <span className="truncate">{formattedPhone}</span>
                   {groupTotal > 1 && (
-                    <span className="shrink-0 bg-white/50 text-inherit px-1 rounded text-[8px] font-normal leading-tight border border-current opacity-70">
+                    <span className="shrink-0 bg-white/50 text-inherit px-0.5 rounded text-[8px] font-normal border border-current opacity-70">
                       {groupIndex}/{groupTotal}
                     </span>
                   )}
@@ -245,7 +246,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
               {/* Route Info */}
               {displayPickup || displayDropoff ? (
                 <div
-                  className={`flex gap-1.5 ${
+                  className={`flex gap-1 overflow-hidden whitespace-nowrap ${
                     isGhost
                       ? "text-slate-400"
                       : seat.status === SeatStatus.SOLD
@@ -254,9 +255,9 @@ export const SeatMap: React.FC<SeatMapProps> = ({
                   }`}
                 >
                   <MapPin size={10} className="shrink-0 opacity-60 mt-0.5" />
-                  <div className="text-wrap">
+                  <div className="truncate w-full">
                     <span
-                      className="truncate text-wrap"
+                      className="truncate"
                       title={`${displayPickup} - ${displayDropoff}`}
                     >
                       {displayPickup || "---"} - {displayDropoff || "---"}
@@ -264,19 +265,19 @@ export const SeatMap: React.FC<SeatMapProps> = ({
                   </div>
                 </div>
               ) : (
-                <div className="opacity-50 italic pl-4">Chưa có điểm đón</div>
+                <div className="opacity-50 italic pl-3 text-[9px]">Chưa có điểm đón</div>
               )}
 
               {/* Note */}
               {booking.passenger.note && (
                 <div
-                  className={`flex items-center gap-1.5 truncate ${
+                  className={`flex items-center gap-1 truncate ${
                     isGhost ? "text-slate-400" : "text-orange-600"
                   }`}
                   title={booking.passenger.note}
                 >
                   <MessageSquare size={10} className="shrink-0 opacity-60" />
-                  <span className="truncate italic">
+                  <span className="truncate italic text-[9px]">
                     {booking.passenger.note}
                   </span>
                 </div>
@@ -284,39 +285,26 @@ export const SeatMap: React.FC<SeatMapProps> = ({
             </>
           ) : seat.status === SeatStatus.SELECTED ? (
             <div className="flex flex-col items-center justify-center h-full text-white/90">
-              <Check size={24} className="mb-1" />
-              <span className="font-medium">Đang chọn</span>
+              <Check size={20} className="md:mb-1" />
+              <span className="font-medium text-[9px] md:text-[10px]">Đang chọn</span>
             </div>
           ) : seat.status === SeatStatus.HELD ? (
             <div className="flex flex-col h-full text-purple-800/80 items-center justify-center">
-              <div className="flex items-center justify-center mb-1">
-                <Lock size={14} className="opacity-60 mr-1" />
-                <span className="font-bold text-[10px]">ĐANG GIỮ</span>
+              <div className="flex items-center justify-center">
+                <Lock size={12} className="opacity-60 mr-1" />
+                <span className="font-bold text-[9px] md:text-[10px]">ĐANG GIỮ</span>
               </div>
-              {seat.note ? (
-                <div className="w-full bg-purple-100/80 rounded px-1 py-1 mt-1 border border-purple-200">
-                  <div className="flex items-start gap-1 text-[9px]">
-                    <StickyNote
-                      size={8}
-                      className="shrink-0 mt-0.5 opacity-70"
-                    />
-                    <span
-                      className="truncate-2-lines leading-tight italic"
-                      title={seat.note}
-                    >
-                      {seat.note}
-                    </span>
+              {seat.note && (
+                <div className="w-full bg-purple-100/80 rounded px-1 py-0.5 mt-1 border border-purple-200">
+                  <div className="flex items-start gap-1 text-[9px] truncate">
+                    <span className="truncate italic">{seat.note}</span>
                   </div>
                 </div>
-              ) : (
-                <span className="font-medium text-[9px] text-center opacity-50">
-                  (Không có ghi chú)
-                </span>
               )}
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-slate-300">
-              <span className="text-[10px]">Trống</span>
+              <span className="text-[9px] md:text-[10px]">Trống</span>
             </div>
           )}
         </div>
@@ -337,14 +325,14 @@ export const SeatMap: React.FC<SeatMapProps> = ({
     );
 
     return (
-      <div className="relative overflow-hidden flex flex-col w-full md:w-1/2 rounded-xl">
-        <div className="pt-3 text-center">
-          <span className="text-sm font-bold text-slate-500 uppercase tracking-wider">
+      <div className="relative overflow-hidden flex flex-col w-full md:w-1/2 bg-white rounded-xl border border-slate-100 md:border-none shadow-sm md:shadow-none">
+        <div className="pt-3 pb-1 text-center bg-slate-50 md:bg-transparent border-b md:border-none">
+          <span className="text-sm font-bold text-slate-600 md:text-slate-500 uppercase tracking-wider">
             {label}
           </span>
         </div>
 
-        <div className="px-4 flex flex-col items-center gap-3">
+        <div className="p-3 md:px-4 flex flex-col items-center gap-3">
           <div className="flex gap-4 md:gap-8 px-2 text-[10px] font-bold text-slate-400 uppercase w-full justify-center">
             <span className="w-full md:w-1/2 text-center">Tầng 1</span>
             <span className="w-full md:w-1/2 text-center">Tầng 2</span>
@@ -359,19 +347,19 @@ export const SeatMap: React.FC<SeatMapProps> = ({
             );
 
             return (
-              <div key={rowIndex} className="flex w-full gap-4">
+              <div key={rowIndex} className="flex w-full gap-3 md:gap-4">
                 <div className="w-full md:w-1/2">
                   {floor1Seat ? (
                     renderSeat(floor1Seat)
                   ) : (
-                    <div className="w-full border border-dashed border-slate-100 rounded-lg" />
+                    <div className="w-full min-h-[90px] md:h-[100px] border border-dashed border-slate-100 rounded-lg" />
                   )}
                 </div>
                 <div className="w-full md:w-1/2">
                   {floor2Seat ? (
                     renderSeat(floor2Seat)
                   ) : (
-                    <div className="w-full h-[100px] border border-dashed border-slate-100 rounded-lg" />
+                    <div className="w-full min-h-[90px] md:h-[100px] border border-dashed border-slate-100 rounded-lg" />
                   )}
                 </div>
               </div>
@@ -382,7 +370,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
     );
   };
 
-  // --- SLEEPER LOGIC (UPDATED) ---
+  // --- SLEEPER LOGIC ---
   const renderSleeperDeck = (floorNumber: number) => {
     const floorSeats = regularSeats.filter((s) => s.floor === floorNumber);
     const rows = floorSeats.reduce((acc, seat) => {
@@ -409,20 +397,19 @@ export const SeatMap: React.FC<SeatMapProps> = ({
     });
 
     return (
-      <div className="relative overflow-hidden flex flex-col w-full md:w-1/2">
-        <div className="text-center">
-          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+      <div className="relative overflow-hidden flex flex-col w-full md:w-1/2 bg-white rounded-xl border border-slate-100 md:border-none shadow-sm md:shadow-none mb-4 md:mb-0">
+        <div className="py-2 text-center bg-slate-50 md:bg-transparent border-b md:border-none">
+          <span className="text-xs font-bold text-slate-600 md:text-slate-500 uppercase tracking-wider">
             TẦNG {floorNumber}
           </span>
         </div>
 
-        <div className="p-4 flex flex-col items-center flex-1">
+        <div className="p-3 md:p-4 flex flex-col items-center flex-1">
           <div
-            className="grid gap-3 w-full"
+            className="grid gap-2 md:gap-3 w-full"
             style={{ gridTemplateColumns: `repeat(${standardCols}, 1fr)` }}
           >
             {gridRows.map((rowIndex) => {
-              // FORCE 3 COLUMNS: Iterate 0, 1, 2 to ensure alignment even if seat is missing
               return [0, 1, 2].map((colIndex) => {
                 const seat = rows[rowIndex].find(
                   (s) => (s.col ?? 0) === colIndex
@@ -436,19 +423,18 @@ export const SeatMap: React.FC<SeatMapProps> = ({
                   );
                 }
 
-                // Render GHOST/PLACEHOLDER SEAT for proper grid alignment
                 return (
                   <div
                     key={`ghost-${floorNumber}-${rowIndex}-${colIndex}`}
-                    className="w-full h-[100px] border border-slate-100 border-dashed rounded-lg bg-slate-50/20"
+                    className="w-full min-h-[90px] md:h-[100px] border border-slate-100 border-dashed rounded-lg bg-slate-50/20"
                   />
                 );
               });
             })}
           </div>
           {benchRowIndex !== null && (
-            <div className="mt-4 pt-3 border-t border-slate-100 border-dashed w-full">
-              <div className="flex justify-center gap-2">
+            <div className="mt-3 md:mt-4 pt-3 border-t border-slate-100 border-dashed w-full">
+              <div className="flex justify-center gap-1.5 md:gap-2">
                 {rows[benchRowIndex]
                   .sort((a, b) => (a.col ?? 0) - (b.col ?? 0))
                   .map((seat) => renderSeat(seat, true))}
@@ -463,14 +449,14 @@ export const SeatMap: React.FC<SeatMapProps> = ({
   const renderOverflowSection = () => {
     if (orphanSeats.length === 0) return null;
     return (
-      <div className="mt-6 mx-4 p-4 bg-amber-50 rounded-xl border border-amber-200 border-dashed animate-in fade-in slide-in-from-top-2">
+      <div className="mt-6 mx-2 md:mx-4 p-4 bg-amber-50 rounded-xl border border-amber-200 border-dashed animate-in fade-in slide-in-from-top-2">
         <div className="flex items-center gap-2 mb-3 text-amber-700">
           <AlertTriangle size={16} />
           <h4 className="text-sm font-bold uppercase">
-            Ghế lệch sơ đồ (Do đổi xe) - Cần xếp lại
+            Ghế lệch sơ đồ (Cần xếp lại)
           </h4>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
           {orphanSeats.map((seat) => (
             <div key={seat.id} className="w-full">
               {renderSeat(seat)}
@@ -483,8 +469,8 @@ export const SeatMap: React.FC<SeatMapProps> = ({
 
   if (busType === BusType.CABIN) {
     return (
-      <div className="flex flex-col py-2">
-        <div className="flex overflow-x-auto w-full gap-4 justify-center">
+      <div className="flex flex-col py-2 px-2 md:px-0">
+        <div className="flex flex-col md:flex-row w-full gap-4 md:gap-4 justify-center">
           {renderCabinColumn(0, "DÃY B")}
           {renderCabinColumn(1, "DÃY A")}
         </div>
@@ -494,8 +480,8 @@ export const SeatMap: React.FC<SeatMapProps> = ({
   }
 
   return (
-    <div className="flex flex-col py-4">
-      <div className="flex overflow-x-auto w-full gap-4">
+    <div className="flex flex-col py-2 px-2 md:px-0">
+      <div className="flex flex-col md:flex-row w-full gap-2 md:gap-4">
         {renderSleeperDeck(1)}
         {renderSleeperDeck(2)}
       </div>

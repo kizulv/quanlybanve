@@ -1392,10 +1392,10 @@ function AppContent() {
       }
     >
       {activeTab === "sales" && (
-        <div className="min-h-0 md:h-[calc(100vh-140px)] flex flex-col md:flex-row gap-4 animate-in fade-in duration-300">
+        <div className="flex flex-col md:flex-row gap-4 animate-in fade-in duration-300">
           {/* LEFT: SEAT MAP */}
           <div
-            className={`flex flex-col bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden transition-all shrink-0 md:flex-1 h-[500px] md:h-full ${
+            className={`flex flex-col bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden transition-all shrink-0 md:flex-1 md:h-[calc(100vh-140px)] ${
               swapSourceSeat ? "ring-2 ring-indigo-500 ring-offset-2" : ""
             }`}
           >
@@ -1499,7 +1499,7 @@ function AppContent() {
                   onSeatRightClick={handleSeatRightClick}
                 />
               ) : (
-                <div className="h-full flex flex-col items-center justify-center text-slate-300 p-8 text-center">
+                <div className="h-[400px] md:h-full flex flex-col items-center justify-center text-slate-300 p-8 text-center">
                   <BusFront size={48} className="mb-4 opacity-20" />
                   <p className="text-sm font-medium">Vui lòng chọn chuyến xe từ thanh công cụ phía trên</p>
                 </div>
@@ -1508,7 +1508,7 @@ function AppContent() {
           </div>
 
           {/* RIGHT: BOOKING FORM & MANIFEST */}
-          <div className="w-full md:w-[320px] xl:w-[360px] flex flex-col gap-4 shrink-0 md:h-full">
+          <div className="w-full md:w-[320px] xl:w-[360px] flex flex-col gap-4 shrink-0 md:h-[calc(100vh-140px)]">
             <div className="shrink-0">
               <BookingForm
                 bookingForm={bookingForm}
