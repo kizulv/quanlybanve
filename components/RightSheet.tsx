@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from "react";
 import {
   Sheet,
@@ -270,7 +269,7 @@ export const RightSheet: React.FC<RightSheetProps> = ({
                                     </div>
                                     <div className="flex flex-col">
                                       <div className="flex items-center gap-1">
-                                        <span className="text-sm font-black text-slate-900">
+                                        <span className="text-sm font-bold text-slate-900">
                                           {booking.passenger.phone}
                                         </span>
                                       </div>
@@ -318,7 +317,7 @@ export const RightSheet: React.FC<RightSheetProps> = ({
                                       className="grid grid-cols-2 gap-1 items-center p-2.5 rounded-md bg-slate-50/80 border border-slate-100 group-hover:bg-primary/5 group-hover:border-primary/10 transition-colors"
                                     >
                                       <div className="flex flex-col justify-between flex-1 w-full">
-                                        <div className="flex items-center gap-1.5 font-bold text-slate-700 text-[12px] whitespace-nowrap overflow-hidden text-ellipsis relative">
+                                        <div className="flex items-center gap-1.5  text-slate-700 text-[12px] whitespace-nowrap overflow-hidden text-ellipsis relative">
                                           {item.route}
                                           {item.isEnhanced && (
                                             <span className="absolute top-[2px] right-2 inline-flex items-center text-[8px] font-black bg-amber-100 text-amber-700 px-1 py-0.5 rounded border border-amber-200 leading-none">
