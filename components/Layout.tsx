@@ -258,7 +258,7 @@ export const Layout: React.FC<LayoutProps> = ({
               : "text-slate-600"
           }`}
         >
-          {selectedDirection === "outbound" ? "Đi" : "Về"}
+          {selectedDirection === "outbound" ? "Chiều đi" : "Chiều về"}
         </span>
       </label>
     );
