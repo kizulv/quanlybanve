@@ -321,14 +321,14 @@ export const SeatMap: React.FC<SeatMapProps> = ({
                   {floor1Seat ? (
                     renderSeat(floor1Seat)
                   ) : (
-                    <div className="w-full h-[90px] border border-dashed border-slate-100 rounded-lg" />
+                    <div className="w-full border border-dashed border-slate-100 rounded-lg" />
                   )}
                 </div>
                 <div className="w-1/2">
                   {floor2Seat ? (
                     renderSeat(floor2Seat)
                   ) : (
-                    <div className="w-full h-[90px] border border-dashed border-slate-100 rounded-lg" />
+                    <div className="w-full border border-dashed border-slate-100 rounded-lg" />
                   )}
                 </div>
               </div>
