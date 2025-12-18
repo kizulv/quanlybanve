@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from "react";
 import {
   Sheet,
@@ -22,6 +23,7 @@ import {
   User,
   ChevronRight,
   Hash,
+  Zap,
 } from "lucide-react";
 import { Badge } from "./ui/Badge";
 import { Booking, BusTrip, UndoAction } from "../types";
@@ -318,6 +320,12 @@ export const RightSheet: React.FC<RightSheetProps> = ({
                                       <div className="flex flex-col justify-between flex-1">
                                         <div className="flex items-center gap-1.5 font-bold text-slate-700 text-[12px]">
                                           {item.route}
+                                          {item.isEnhanced && (
+                                            <span className="inline-flex items-center text-[8px] font-black bg-amber-100 text-amber-700 px-1 py-0.5 rounded border border-amber-200 leading-none">
+                                              <Zap size={8} className="mr-0.5 fill-amber-700" />
+                                              TĂNG CƯỜNG
+                                            </span>
+                                          )}
                                         </div>
                                         <div className="flex items-center  gap-1.5 text-slate-500 text-[10px] font-medium">
                                           <Calendar
