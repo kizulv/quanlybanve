@@ -385,7 +385,7 @@ export const RightSheet: React.FC<RightSheetProps> = ({
                                           </span>
                                         </>
                                       ) : (
-                                        <span className="text-amber-600 italic">
+                                        <span className="text-amber-600">
                                           Đã đặt vé
                                         </span>
                                       )}
