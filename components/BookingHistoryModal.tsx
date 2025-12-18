@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Dialog } from "./ui/Dialog";
-/* Fix: Add missing import for Button component */
 import { Button } from "./ui/Button";
 import { api } from "../lib/api";
 import { Booking, BookingHistory } from "../types";
@@ -16,13 +15,11 @@ import {
   Calendar,
   AlertCircle,
   MapPin, 
-  Ticket,
   ArrowRight,
   User,
   Phone,
   Clock,
-  Hash,
-  ChevronRight
+  Info
 } from "lucide-react";
 import { Badge } from "./ui/Badge";
 
@@ -45,7 +42,11 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
       setLoading(true);
       try {
         const data = await api.bookings.getHistory(id);
-        setHistory(data);
+        // Sắp xếp theo thứ tự thời gian TĂNG DẦN (Cũ nhất lên đầu)
+        const sorted = [...data].sort((a, b) => 
+          new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+        );
+        setHistory(sorted);
       } catch (error) {
         console.error("Failed to load history", error);
       } finally {
@@ -70,167 +71,139 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
   };
 
   const formatDate = (dateStr: string) => {
-      try {
-          const date = new Date(dateStr);
-          return date.toLocaleDateString('vi-VN') + ' ' + date.toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'});
-      } catch (e) {
-          return dateStr;
-      }
+    try {
+      const date = new Date(dateStr);
+      return date.toLocaleDateString('vi-VN') + ' ' + date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+    } catch (e) {
+      return dateStr;
+    }
   };
 
   const renderDetails = (log: BookingHistory) => {
-      const details = log.details || {};
-      const theme = getActionTheme(log.action);
-
-      // 1. CREATE ACTION
-      if (log.action === 'CREATE' && details.trips) {
-          return (
-              <div className="space-y-2 mt-1">
-                  {details.trips.map((trip: any, idx: number) => (
-                      <div key={idx} className="bg-slate-50/80 p-3 rounded-xl border border-slate-200 text-xs hover:bg-white transition-colors">
-                          <div className="flex items-center gap-2 mb-2 pb-2 border-b border-slate-100">
-                              <MapPin size={12} className="text-primary"/>
-                              <span className="font-black text-slate-800 tracking-tight">{trip.route}</span>
-                          </div>
-                          <div className="flex justify-between items-center text-[10px] text-slate-500 font-bold mb-2 uppercase">
-                              <div className="flex items-center gap-1.5">
-                                  <Calendar size={11} className="text-slate-400"/> 
-                                  <span>{formatDate(trip.tripDate)}</span>
-                              </div>
-                              <span className="bg-white border px-1.5 rounded-lg text-slate-400 py-0.5 font-mono shadow-xs">{trip.licensePlate || 'N/A'}</span>
-                          </div>
-                          <div className="flex flex-wrap gap-2">
-                              {trip.seats.map((s: string) => (
-                                  <Badge key={s} className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-black px-2 py-0.5 rounded-lg">
-                                      {s}
-                                  </Badge>
-                              ))}
-                          </div>
-                      </div>
-                  ))}
+    const details = log.details || {};
+    
+    if (log.action === 'CREATE' && details.trips) {
+      return (
+        <div className="space-y-2 mt-2">
+          {details.trips.map((trip: any, idx: number) => (
+            <div key={idx} className="bg-slate-50/80 p-3 rounded-xl border border-slate-200 text-xs">
+              <div className="flex items-center gap-2 mb-2 pb-2 border-b border-slate-100">
+                <MapPin size={12} className="text-primary"/>
+                <span className="font-black text-slate-800 tracking-tight">{trip.route}</span>
               </div>
-          );
-      }
-
-      // 2. UPDATE ACTION
-      if (log.action === 'UPDATE' && details.changes) {
-          return (
-              <div className="space-y-2 mt-1">
-                  {details.changes.map((change: any, idx: number) => (
-                      <div key={idx} className="bg-blue-50/30 p-3 rounded-xl border border-blue-100 text-xs hover:bg-white transition-colors">
-                          <div className="flex items-center gap-2 mb-2 pb-2 border-b border-blue-50">
-                              <MapPin size={12} className="text-blue-500"/>
-                              <span className="font-black text-slate-800 tracking-tight">{change.route}</span>
-                          </div>
-                          <div className="text-[10px] text-slate-400 font-bold mb-3 flex items-center gap-1 uppercase">
-                              <Calendar size={10}/> {formatDate(change.date)}
-                          </div>
-                          
-                          <div className="space-y-2">
-                            {change.added && change.added.length > 0 && (
-                                <div className="flex items-start gap-3">
-                                    <span className="text-[10px] font-black uppercase text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded min-w-[45px] text-center">Thêm</span>
-                                    <div className="flex flex-wrap gap-1.5">
-                                        {change.added.map((s: string) => (
-                                            <span key={s} className="bg-white text-emerald-700 px-2 py-0.5 rounded-lg border border-emerald-200 font-black text-[11px] shadow-xs">{s}</span>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                            
-                            {change.removed && change.removed.length > 0 && (
-                                <div className="flex items-start gap-3">
-                                    <span className="text-[10px] font-black uppercase text-red-600 bg-red-50 px-1.5 py-0.5 rounded min-w-[45px] text-center">Bỏ</span>
-                                    <div className="flex flex-wrap gap-1.5">
-                                        {change.removed.map((s: string) => (
-                                            <span key={s} className="bg-white text-red-400 px-2 py-0.5 rounded-lg border border-red-200 line-through decoration-red-300 font-bold text-[11px] opacity-70 shadow-xs">{s}</span>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                          </div>
-                      </div>
-                  ))}
+              <div className="flex justify-between items-center text-[10px] text-slate-500 font-bold mb-2 uppercase">
+                <div className="flex items-center gap-1.5">
+                  <Calendar size={11} className="text-slate-400"/> 
+                  <span>{formatDate(trip.tripDate)}</span>
+                </div>
+                <span className="bg-white border px-1.5 rounded-lg text-slate-400 py-0.5 font-mono shadow-xs">{trip.licensePlate || 'N/A'}</span>
               </div>
-          );
-      }
+              <div className="flex flex-wrap gap-2">
+                {trip.seats.map((s: string) => (
+                  <Badge key={s} className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-black px-2 py-0.5 rounded-lg">
+                    {s}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    }
 
-      // 3. SWAP ACTION
-      if (log.action === 'SWAP' && details.from && details.to) {
-          return (
-              <div className="mt-1 bg-purple-50/50 p-4 rounded-xl border border-purple-100 text-xs">
-                  <div className="flex items-center gap-2 mb-3 pb-2 border-b border-purple-100/50">
-                      <MapPin size={12} className="text-purple-500"/>
-                      <span className="font-black text-purple-900 tracking-tight">{details.route}</span>
+    if (log.action === 'UPDATE' && details.changes) {
+      return (
+        <div className="space-y-2 mt-2">
+          {details.changes.map((change: any, idx: number) => (
+            <div key={idx} className="bg-blue-50/30 p-3 rounded-xl border border-blue-100 text-xs">
+              <div className="flex items-center gap-2 mb-2 pb-2 border-b border-blue-50">
+                <MapPin size={12} className="text-blue-500"/>
+                <span className="font-black text-slate-800 tracking-tight">{change.route}</span>
+              </div>
+              <div className="text-[10px] text-slate-400 font-bold mb-3 flex items-center gap-1 uppercase">
+                <Calendar size={10}/> {formatDate(change.date)}
+              </div>
+              
+              <div className="space-y-2">
+                {change.added && change.added.length > 0 && (
+                  <div className="flex items-start gap-3">
+                    <span className="text-[10px] font-black uppercase text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded min-w-[45px] text-center">Thêm</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {change.added.map((s: string) => (
+                        <span key={s} className="bg-white text-emerald-700 px-2 py-0.5 rounded-lg border border-emerald-200 font-black text-[11px] shadow-xs">{s}</span>
+                      ))}
+                    </div>
                   </div>
-                  <div className="flex items-center justify-center gap-4 py-1">
-                      <div className="flex flex-col items-center gap-1">
-                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Từ ghế</span>
-                        <span className="font-black text-slate-500 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-xs text-sm min-w-[45px] text-center">{details.from}</span>
-                      </div>
-                      <div className="p-2 bg-purple-100 rounded-full text-purple-600 shadow-sm mt-4">
-                        <ArrowRight size={14} className="animate-pulse"/>
-                      </div>
-                      <div className="flex flex-col items-center gap-1">
-                        <span className="text-[9px] font-black text-purple-400 uppercase tracking-tighter">Sang ghế</span>
-                        <span className="font-black text-purple-700 bg-white px-3 py-1.5 rounded-xl border border-purple-300 shadow-md text-sm min-w-[45px] text-center">{details.to}</span>
-                      </div>
+                )}
+                
+                {change.removed && change.removed.length > 0 && (
+                  <div className="flex items-start gap-3">
+                    <span className="text-[10px] font-black uppercase text-red-600 bg-red-50 px-1.5 py-0.5 rounded min-w-[45px] text-center">Bỏ</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {change.removed.map((s: string) => (
+                        <span key={s} className="bg-white text-red-400 px-2 py-0.5 rounded-lg border border-red-200 line-through decoration-red-300 font-bold text-[11px] opacity-70 shadow-xs">{s}</span>
+                      ))}
+                    </div>
                   </div>
-                  <div className="text-[10px] text-purple-400 font-bold mt-4 flex items-center justify-center gap-1">
-                      <Calendar size={10}/> {formatDate(details.date)}
-                  </div>
+                )}
               </div>
-          );
-      }
+            </div>
+          ))}
+        </div>
+      );
+    }
 
-      // 4. CANCEL/DELETE ACTION
-      if (log.action === 'DELETE' && details.cancelledTrips) {
-          return (
-              <div className="space-y-2 mt-1">
-                  {details.cancelledTrips.map((trip: any, idx: number) => (
-                      <div key={idx} className="bg-red-50/50 p-3 rounded-xl border border-red-100 text-xs opacity-80 group hover:opacity-100 transition-opacity">
-                          <div className="font-black text-red-900 mb-2 pb-2 border-b border-red-100/50 flex items-center gap-2">
-                            <MapPin size={12}/> {trip.route}
-                          </div>
-                          <div className="text-[10px] text-red-700 font-bold mb-2 flex items-center gap-1">
-                            <Calendar size={10}/> {formatDate(trip.date)}
-                          </div>
-                          <div className="flex flex-wrap gap-1.5">
-                              {trip.seats.map((s: string) => (
-                                  <span key={s} className="bg-white text-red-500 px-2 py-0.5 rounded-lg border border-red-200 font-black shadow-xs">{s}</span>
-                              ))}
-                          </div>
-                      </div>
-                  ))}
+    if (log.action === 'SWAP' && details.from && details.to) {
+      return (
+        <div className="mt-2 bg-purple-50/50 p-4 rounded-xl border border-purple-100 text-xs">
+          <div className="flex items-center gap-2 mb-3 pb-2 border-b border-purple-100/50">
+            <MapPin size={12} className="text-purple-500"/>
+            <span className="font-black text-purple-900 tracking-tight">{details.route}</span>
+          </div>
+          <div className="flex items-center justify-center gap-4 py-1">
+            <div className="flex flex-col items-center gap-1">
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Từ ghế</span>
+              <span className="font-black text-slate-500 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-xs text-sm min-w-[45px] text-center">{details.from}</span>
+            </div>
+            <div className="p-2 bg-purple-100 rounded-full text-purple-600 shadow-sm mt-4">
+              <ArrowRight size={14} className="animate-pulse"/>
+            </div>
+            <div className="flex flex-col items-center gap-1">
+              <span className="text-[9px] font-black text-purple-400 uppercase tracking-tighter">Sang ghế</span>
+              <span className="font-black text-purple-700 bg-white px-3 py-1.5 rounded-xl border border-purple-300 shadow-md text-sm min-w-[45px] text-center">{details.to}</span>
+            </div>
+          </div>
+          <div className="text-[10px] text-purple-400 font-bold mt-4 flex items-center justify-center gap-1">
+            <Calendar size={10}/> {formatDate(details.date)}
+          </div>
+        </div>
+      );
+    }
+
+    if (log.action === 'PASSENGER_UPDATE') {
+      return (
+        <div className="mt-2 text-xs bg-orange-50/50 p-4 rounded-xl border border-orange-100">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="bg-white p-2.5 rounded-lg border border-slate-100 shadow-xs opacity-60">
+              <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Thông tin cũ</div>
+              <div className="flex flex-col gap-1">
+                <div className="font-bold text-slate-600 flex items-center gap-1.5"><User size={10}/> {details.oldName || '---'}</div>
+                <div className="text-slate-500 font-mono text-[10px] flex items-center gap-1.5"><Phone size={10}/> {details.oldPhone || '---'}</div>
               </div>
-          )
-      }
-
-      // 5. PASSENGER UPDATE
-      if (log.action === 'PASSENGER_UPDATE') {
-          return (
-              <div className="mt-1 text-xs bg-orange-50/50 p-4 rounded-xl border border-orange-100">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="bg-white p-2.5 rounded-lg border border-slate-100 shadow-xs opacity-60">
-                          <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Thông tin cũ</div>
-                          <div className="flex flex-col gap-1">
-                            <div className="font-bold text-slate-600 flex items-center gap-1.5"><User size={10}/> {details.oldName || '---'}</div>
-                            <div className="text-slate-500 font-mono text-[10px] flex items-center gap-1.5"><Phone size={10}/> {details.oldPhone || '---'}</div>
-                          </div>
-                      </div>
-                      <div className="bg-white p-2.5 rounded-lg border border-orange-200 shadow-sm ring-2 ring-orange-500/5">
-                          <div className="text-[9px] font-black text-orange-400 uppercase tracking-widest mb-1.5">Thông tin mới</div>
-                          <div className="flex flex-col gap-1">
-                            <div className="font-black text-orange-900 flex items-center gap-1.5"><User size={10}/> {details.newName || '---'}</div>
-                            <div className="text-orange-700 font-mono text-[10px] font-black flex items-center gap-1.5"><Phone size={10}/> {details.newPhone || '---'}</div>
-                          </div>
-                      </div>
-                  </div>
+            </div>
+            <div className="bg-white p-2.5 rounded-lg border border-orange-200 shadow-sm ring-2 ring-orange-500/5">
+              <div className="text-[9px] font-black text-orange-400 uppercase tracking-widest mb-1.5">Thông tin mới</div>
+              <div className="flex flex-col gap-1">
+                <div className="font-black text-orange-900 flex items-center gap-1.5"><User size={10}/> {details.newName || '---'}</div>
+                <div className="text-orange-700 font-mono text-[10px] font-black flex items-center gap-1.5"><Phone size={10}/> {details.newPhone || '---'}</div>
               </div>
-          );
-      }
+            </div>
+          </div>
+        </div>
+      );
+    }
 
-      return null;
+    return null;
   };
 
   return (
@@ -242,27 +215,27 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
     >
       <div className="space-y-6 max-h-[75vh] overflow-y-auto px-4 py-2">
         {booking && (
-            <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 sticky top-0 z-20 shadow-sm">
-                <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary border border-primary/20 shadow-sm">
-                        <History size={24}/>
-                    </div>
-                    <div>
-                        <h3 className="font-black text-slate-900 text-lg leading-tight">{booking.passenger.name}</h3>
-                        <div className="flex items-center gap-3 text-xs text-slate-500 mt-1.5 font-bold">
-                            <span className="flex items-center gap-1.5 bg-white px-2 py-0.5 rounded-lg border border-slate-200"><Phone size={12} className="text-primary"/> {booking.passenger.phone}</span>
-                            <span className="text-slate-300">|</span>
-                            <span className="bg-white px-2 py-0.5 rounded-lg border border-slate-200">#{booking.id.slice(-6).toUpperCase()}</span>
-                        </div>
-                    </div>
+          <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 sticky top-0 z-20 shadow-sm">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary border border-primary/20 shadow-sm">
+                <History size={24}/>
+              </div>
+              <div>
+                <h3 className="font-black text-slate-900 text-lg leading-tight">{booking.passenger.name}</h3>
+                <div className="flex items-center gap-3 text-xs text-slate-500 mt-1.5 font-bold">
+                  <span className="flex items-center gap-1.5 bg-white px-2 py-0.5 rounded-lg border border-slate-200"><Phone size={12} className="text-primary"/> {booking.passenger.phone}</span>
+                  <span className="text-slate-300">|</span>
+                  <span className="bg-white px-2 py-0.5 rounded-lg border border-slate-200">#{booking.id.slice(-6).toUpperCase()}</span>
                 </div>
-                <div className="text-right bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm self-stretch md:self-auto flex flex-col justify-center min-w-[140px]">
-                    <div className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-0.5">Số lượng vé hiện tại</div>
-                    <div className="text-2xl font-black text-primary flex items-center justify-end gap-2">
-                        {booking.totalTickets} <span className="text-sm font-bold opacity-60">vé</span>
-                    </div>
-                </div>
+              </div>
             </div>
+            <div className="text-right bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm self-stretch md:self-auto flex flex-col justify-center min-w-[140px]">
+              <div className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-0.5">Số lượng vé</div>
+              <div className="text-2xl font-black text-primary flex items-center justify-end gap-2">
+                {booking.totalTickets} <span className="text-sm font-bold opacity-60">vé</span>
+              </div>
+            </div>
+          </div>
         )}
 
         {loading ? (
@@ -273,15 +246,15 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
         ) : history.length === 0 ? (
           <div className="text-center py-20 text-slate-400 animate-in fade-in duration-500">
             <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4 border border-dashed border-slate-200">
-                <FileClock size={32} className="opacity-20" />
+              <FileClock size={32} className="opacity-20" />
             </div>
             <p className="font-bold text-slate-500">Chưa có ghi nhận hoạt động</p>
-            <p className="text-xs mt-1">Các tác vụ thay đổi dữ liệu sẽ được hiển thị tại đây.</p>
           </div>
         ) : (
           <div className="relative border-l-2 border-slate-200 ml-6 space-y-10 py-4">
             {history.map((log, idx, arr) => {
               const theme = getActionTheme(log.action);
+              const isLatest = idx === arr.length - 1;
               const colorClasses = {
                 emerald: 'bg-emerald-500',
                 red: 'bg-red-500',
@@ -294,46 +267,41 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
               return (
                 <div key={log.id} className="relative pl-8 animate-in slide-in-from-left duration-300">
                   {/* Timeline Dot */}
-                  <div className={`absolute -left-[11px] top-1 w-5 h-5 rounded-full border-4 border-white shadow-md flex items-center justify-center ${colorClasses} ${idx === 0 ? 'ring-4 ring-primary/10' : ''}`}>
+                  <div className={`absolute -left-[11px] top-1 w-5 h-5 rounded-full border-4 border-white shadow-md flex items-center justify-center ${colorClasses} ${isLatest ? 'ring-4 ring-primary/10' : ''}`}>
                     <div className="w-1.5 h-1.5 rounded-full bg-white"></div>
                   </div>
 
                   <div className="flex flex-col gap-3">
                     <div className="flex items-center justify-between">
-                       <div className="flex items-center gap-2">
-                            <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border shadow-sm flex items-center gap-1.5 
-                                ${log.action === 'CREATE' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 
-                                  log.action === 'DELETE' ? 'bg-red-50 text-red-700 border-red-200' :
-                                  log.action === 'UPDATE' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                                  log.action === 'SWAP' ? 'bg-purple-50 text-purple-700 border-purple-200' :
-                                  'bg-orange-50 text-orange-700 border-orange-200'}`}
-                            >
-                                {theme.icon}
-                                {theme.label}
-                            </span>
-                            <span className="text-[11px] text-slate-400 font-bold flex items-center gap-1">
-                                <Clock size={11} />
-                                {new Date(log.timestamp).toLocaleString('vi-VN')}
-                            </span>
-                       </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border shadow-sm flex items-center gap-1.5 
+                          ${log.action === 'CREATE' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 
+                            log.action === 'DELETE' ? 'bg-red-50 text-red-700 border-red-200' :
+                            log.action === 'UPDATE' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                            log.action === 'SWAP' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                            'bg-orange-50 text-orange-700 border-orange-200'}`}
+                        >
+                          {theme.icon}
+                          {theme.label}
+                        </span>
+                        <span className="text-[11px] text-slate-400 font-bold flex items-center gap-1">
+                          <Clock size={11} />
+                          {new Date(log.timestamp).toLocaleString('vi-VN')}
+                        </span>
+                      </div>
                     </div>
                     
                     <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all group/card relative overflow-hidden">
-                        <div className="flex justify-between items-center mb-3 pb-2 border-b border-slate-100">
-                            <h4 className="font-black text-slate-800 text-sm tracking-tight">
-                                {log.description || getTitle(log.action)}
-                            </h4>
+                      <div className="flex items-start gap-2 mb-3 pb-2 border-b border-slate-100">
+                        <div className="mt-0.5 shrink-0 text-primary">
+                          <Info size={14} />
                         </div>
-                        
-                        {/* Detailed View */}
-                        {renderDetails(log)}
-
-                        {/* Fallback for legacy / simple logs */}
-                        {(!log.details || Object.keys(log.details).length === 0) && !renderDetails(log) && (
-                            <div className="text-[11px] text-slate-500 bg-slate-50 p-3 rounded-xl border border-slate-100 italic leading-relaxed">
-                               {log.description}
-                            </div>
-                        )}
+                        <h4 className="font-black text-slate-800 text-sm tracking-tight leading-snug">
+                          {log.description}
+                        </h4>
+                      </div>
+                      
+                      {renderDetails(log)}
                     </div>
                   </div>
                 </div>
@@ -344,24 +312,12 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
       </div>
       
       <div className="mt-4 px-6 py-4 bg-slate-50 border-t border-slate-100 rounded-b-2xl flex items-center justify-between">
-         <div className="text-[10px] text-slate-400 italic flex items-center gap-1.5 font-bold uppercase tracking-wide">
-            <AlertCircle size={14} className="text-slate-300"/>
-            Nhật ký hệ thống - Chỉ lưu dữ liệu vé
-         </div>
-         <Button variant="ghost" size="sm" onClick={onClose} className="h-8 text-xs font-black text-slate-400 hover:text-slate-600">Đóng</Button>
+        <div className="text-[10px] text-slate-400 italic flex items-center gap-1.5 font-bold uppercase tracking-wide">
+          <AlertCircle size={14} className="text-slate-300"/>
+          Dòng thời gian hiển thị theo thứ tự từ cũ đến mới
+        </div>
+        <Button variant="ghost" size="sm" onClick={onClose} className="h-8 text-xs font-black text-slate-400 hover:text-slate-600">Đóng</Button>
       </div>
     </Dialog>
   );
 };
-
-// Local helper to get standard titles for fallback
-function getTitle(action: string) {
-    switch (action) {
-      case 'CREATE': return 'Tạo mới đơn hàng';
-      case 'DELETE': return 'Hủy/Xóa đơn hàng';
-      case 'UPDATE': return 'Cập nhật vé/ghế';
-      case 'SWAP': return 'Đổi vị trí ghế';
-      case 'PASSENGER_UPDATE': return 'Cập nhật thông tin khách';
-      default: return 'Hoạt động hệ thống';
-    }
-}
