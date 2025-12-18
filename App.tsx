@@ -40,7 +40,8 @@ import {
   AlertCircle,
   FileEdit,
   ArrowRight as ArrowRightIcon,
-  Calendar
+  Calendar,
+  Calculator
 } from "lucide-react";
 import { api } from "./lib/api";
 import { isSameDay, formatLunarDate, formatTime } from "./utils/dateUtils";
@@ -280,6 +281,14 @@ function AppContent() {
       return phoneMatch || nameMatch || seatMatch;
     });
   }, [tripBookings, manifestSearch, selectedTrip]);
+
+  // NEW: Calculate Total Price of the Filtered Manifest for current trip
+  const totalManifestPrice = useMemo(() => {
+    return filteredManifest.reduce((sum, booking) => {
+      const tripItem = booking.items.find((i) => i.tripId === selectedTrip?.id);
+      return sum + (tripItem?.price || 0);
+    }, 0);
+  }, [filteredManifest, selectedTrip]);
 
   // Auto update payment when total changes - ONLY IN PAYMENT MODE
   // Update: We only set the modal input defaults when opening
@@ -1364,6 +1373,17 @@ function AppContent() {
                       <X size={14} />
                     </button>
                   )}
+                </div>
+              </div>
+
+              {/* NEW: Manifest Summary Row */}
+              <div className="px-3 py-2 bg-indigo-50/50 border-b border-indigo-100 flex justify-between items-center text-xs shadow-inner shrink-0">
+                <div className="flex items-center gap-1.5 text-slate-500 font-bold uppercase tracking-tight">
+                  <Calculator size={12} className="text-indigo-400" />
+                  <span>Tổng tiền chuyến:</span>
+                </div>
+                <div className="font-black text-indigo-700 text-sm tracking-tight">
+                  {totalManifestPrice.toLocaleString("vi-VN")} <span className="text-[10px] font-normal text-indigo-400">đ</span>
                 </div>
               </div>
 
