@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from "react";
 import {
   Sheet,
@@ -374,12 +375,20 @@ export const RightSheet: React.FC<RightSheetProps> = ({
                                 <div className="flex items-center gap-3">
                                   <div className="text-right">
                                     <div className="text-sm font-black text-slate-900">
-                                      {booking.totalPrice.toLocaleString(
-                                        "vi-VN"
-                                      )}{" "}
-                                      <span className="text-[10px] font-normal text-slate-500">
-                                        đ
-                                      </span>
+                                      {isFullyPaid ? (
+                                        <>
+                                          {booking.totalPrice.toLocaleString(
+                                            "vi-VN"
+                                          )}{" "}
+                                          <span className="text-[10px] font-normal text-slate-500">
+                                            đ
+                                          </span>
+                                        </>
+                                      ) : (
+                                        <span className="text-amber-600 italic">
+                                          Đã đặt vé
+                                        </span>
+                                      )}
                                     </div>
                                   </div>
                                 </div>
