@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from "react";
 import { Layout } from "./components/Layout";
 import { SeatMap } from "./components/SeatMap";
@@ -1391,10 +1392,10 @@ function AppContent() {
       }
     >
       {activeTab === "sales" && (
-        <div className="h-[calc(100vh-140px)] flex flex-col md:flex-row gap-4 animate-in fade-in duration-300">
+        <div className="min-h-0 md:h-[calc(100vh-140px)] flex flex-col md:flex-row gap-4 animate-in fade-in duration-300">
           {/* LEFT: SEAT MAP */}
           <div
-            className={`flex-1 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col overflow-hidden transition-all ${
+            className={`flex flex-col bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden transition-all shrink-0 md:flex-1 h-[500px] md:h-full ${
               swapSourceSeat ? "ring-2 ring-indigo-500 ring-offset-2" : ""
             }`}
           >
@@ -1420,37 +1421,36 @@ function AppContent() {
                   )}
                 </div>
                 {selectedTrip ? (
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-sm font-bold text-white leading-none">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                      <h2 className="text-xs sm:text-sm font-bold text-white leading-none truncate max-w-[120px] sm:max-w-none">
                         {swapSourceSeat
-                          ? `Đang đổi ghế: ${swapSourceSeat.label}`
+                          ? `Đang đổi: ${swapSourceSeat.label}`
                           : selectedTrip.name}
                       </h2>
                       {selectedTrip.seats.some(
                         (s) => s.status === SeatStatus.SELECTED
                       ) &&
                         !swapSourceSeat && (
-                          <Badge className="bg-primary border-transparent h-4 text-[9px] px-1">
+                          <Badge className="bg-primary border-transparent h-4 text-[9px] px-1 whitespace-nowrap">
                             Đang chọn
                           </Badge>
                         )}
                       {!swapSourceSeat && (
-                        <div className="flex items-center gap-2 text-xs">
-                          <span className="bg-yellow-400 px-2 py-1 rounded-md inline-flex items-center justify-center font-bold text-slate-900 border border-yellow-500">
-                            <Keyboard size={12} className="mr-1" />
+                        <div className="flex items-center gap-1 sm:gap-2 text-[10px] sm:text-xs">
+                          <span className="bg-yellow-400 px-1.5 py-0.5 rounded-md inline-flex items-center justify-center font-bold text-slate-900 border border-yellow-500 whitespace-nowrap">
                             {selectedTrip.licensePlate}
                           </span>
-                          <span className="bg-slate-400 px-2 py-1 rounded-md inline-flex items-center justify-center text-white border border-slate-500">
-                            Xuất bến: {selectedTrip.departureTime.split(" ")[1]}
+                          <span className="bg-slate-400 px-1.5 py-0.5 rounded-md inline-flex items-center justify-center text-white border border-slate-500 whitespace-nowrap hidden sm:inline-flex">
+                            {selectedTrip.departureTime.split(" ")[1]}
                           </span>
                         </div>
                       )}
                     </div>
                   </div>
                 ) : (
-                  <div className="text-white text-sm font-medium">
-                    Chọn chuyến để xem ghế
+                  <div className="text-white text-xs sm:text-sm font-medium">
+                    Chọn chuyến xe
                   </div>
                 )}
               </div>
@@ -1460,31 +1460,27 @@ function AppContent() {
                   onClick={() => setSwapSourceSeat(null)}
                   className="text-white text-xs bg-white/20 hover:bg-white/30 px-2 py-1 rounded"
                 >
-                  Hủy đổi
+                  Hủy
                 </button>
               )}
 
               {!swapSourceSeat && (
-                <div className="flex gap-4 text-[12px] text-white hidden lg:flex">
+                <div className="flex gap-2 sm:gap-4 text-[10px] sm:text-[12px] text-white hidden lg:flex">
                   <div className="flex items-center gap-1.5">
                     <div className="w-2.5 h-2.5 rounded border border-white/50 bg-white/10"></div>{" "}
                     Trống
                   </div>
                   <div className="flex items-center gap-1.5">
                     <div className="w-2.5 h-2.5 rounded bg-primary border border-white"></div>{" "}
-                    Đang chọn
+                    Chọn
                   </div>
                   <div className="flex items-center gap-1.5">
                     <div className="w-2.5 h-2.5 rounded bg-yellow-400 border border-yellow-500"></div>{" "}
-                    Đã đặt
+                    Đặt
                   </div>
                   <div className="flex items-center gap-1.5">
                     <div className="w-2.5 h-2.5 rounded bg-green-400 border border-slate-500"></div>{" "}
-                    Đã bán
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-2.5 h-2.5 rounded bg-purple-400 border border-purple-500"></div>{" "}
-                    Giữ
+                    Bán
                   </div>
                 </div>
               )}
@@ -1503,41 +1499,43 @@ function AppContent() {
                   onSeatRightClick={handleSeatRightClick}
                 />
               ) : (
-                <div className="h-full flex flex-col items-center justify-center text-slate-300">
+                <div className="h-full flex flex-col items-center justify-center text-slate-300 p-8 text-center">
                   <BusFront size={48} className="mb-4 opacity-20" />
-                  <p className="text-sm font-medium">Vui lòng chọn chuyến xe</p>
+                  <p className="text-sm font-medium">Vui lòng chọn chuyến xe từ thanh công cụ phía trên</p>
                 </div>
               )}
             </div>
           </div>
 
-          {/* RIGHT: BOOKING FORM */}
-          <div className="w-full md:w-[320px] xl:w-[360px] flex flex-col gap-2 shrink-0 h-full">
-            <BookingForm
-              bookingForm={bookingForm}
-              setBookingForm={setBookingForm}
-              bookingMode={bookingMode}
-              setBookingMode={setBookingMode}
-              selectionBasket={selectionBasket}
-              bookings={bookings}
-              routes={routes}
-              phoneError={phoneError}
-              setPhoneError={setPhoneError}
-              editingBooking={editingBooking}
-              onConfirm={handleConfirmAction}
-              onCancel={cancelAllSelections}
-              validatePhoneNumber={validatePhoneNumber}
-              onInitiateSwap={initiateSwap}
-              onNavigateToTrip={handleNavigateToTrip}
-              onOpenPayment={handleManualPaymentForEdit}
-            />
+          {/* RIGHT: BOOKING FORM & MANIFEST */}
+          <div className="w-full md:w-[320px] xl:w-[360px] flex flex-col gap-4 shrink-0 md:h-full">
+            <div className="shrink-0">
+              <BookingForm
+                bookingForm={bookingForm}
+                setBookingForm={setBookingForm}
+                bookingMode={bookingMode}
+                setBookingMode={setBookingMode}
+                selectionBasket={selectionBasket}
+                bookings={bookings}
+                routes={routes}
+                phoneError={phoneError}
+                setPhoneError={setPhoneError}
+                editingBooking={editingBooking}
+                onConfirm={handleConfirmAction}
+                onCancel={cancelAllSelections}
+                validatePhoneNumber={validatePhoneNumber}
+                onInitiateSwap={initiateSwap}
+                onNavigateToTrip={handleNavigateToTrip}
+                onOpenPayment={handleManualPaymentForEdit}
+              />
+            </div>
 
             {/* MANIFEST LIST */}
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col flex-1 min-h-0 overflow-hidden">
-              <div className="px-3 py-2 bg-white border-b border-slate-100 flex justify-between items-center shrink-0">
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col min-h-[300px] md:flex-1 overflow-hidden">
+              <div className="px-3 py-2.5 bg-white border-b border-slate-100 flex justify-between items-center shrink-0">
                 <div className="flex items-center gap-1.5 text-slate-800 font-bold text-xs">
                   <Users size={14} className="text-slate-400" />
-                  <span>Danh sách đặt vé ({tripBookings.length})</span>
+                  <span>Danh sách khách ({tripBookings.length})</span>
                 </div>
               </div>
 
@@ -1550,7 +1548,7 @@ function AppContent() {
                     type="text"
                     value={manifestSearch}
                     onChange={(e) => setManifestSearch(e.target.value)}
-                    placeholder="Tìm..."
+                    placeholder="Tìm theo SĐT, tên, ghế..."
                     className="w-full pl-8 pr-7 py-1.5 text-xs border border-slate-200 rounded-md focus:outline-none bg-white placeholder-slate-400"
                   />
                   {manifestSearch && (
@@ -1580,77 +1578,79 @@ function AppContent() {
               </div>
 
               <div className="flex-1 overflow-y-auto p-0 scrollbar-thin">
-                {filteredManifest.map((booking, idx) => {
-                  const totalPaid =
-                    (booking.payment?.paidCash || 0) +
-                    (booking.payment?.paidTransfer || 0);
-                  const isFullyPaid = totalPaid >= booking.totalPrice;
-                  const timeStr = new Date(
-                    booking.createdAt
-                  ).toLocaleTimeString("vi-VN", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  });
+                {filteredManifest.length === 0 ? (
+                  <div className="p-8 text-center text-slate-400 text-xs italic">
+                    Không có dữ liệu đặt vé
+                  </div>
+                ) : (
+                  filteredManifest.map((booking, idx) => {
+                    const totalPaid =
+                      (booking.payment?.paidCash || 0) +
+                      (booking.payment?.paidTransfer || 0);
+                    const isFullyPaid = totalPaid >= booking.totalPrice;
+                    const timeStr = new Date(
+                      booking.createdAt
+                    ).toLocaleTimeString("vi-VN", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    });
 
-                  // Extract seats for THIS selected trip
-                  const tripItem = booking.items.find(
-                    (i) => i.tripId === selectedTrip?.id
-                  );
-                  const seatsToShow = tripItem ? tripItem.seatIds : [];
-                  const isHighlighted = booking.id === highlightedBookingId;
+                    const tripItem = booking.items.find(
+                      (i) => i.tripId === selectedTrip?.id
+                    );
+                    const seatsToShow = tripItem ? tripItem.seatIds : [];
+                    const isHighlighted = booking.id === highlightedBookingId;
+                    const tripSubtotal = tripItem ? tripItem.price || 0 : 0;
 
-                  // NEW: Calculate subtotal for THIS selected trip only
-                  const tripSubtotal = tripItem ? tripItem.price || 0 : 0;
-
-                  return (
-                    <div
-                      key={idx}
-                      id={`booking-item-${booking.id}`}
-                      onClick={() => handleSelectBookingFromHistory(booking)}
-                      className={`p-2 border-b border-slate-100 cursor-pointer hover:bg-slate-50 transition-colors ${
-                        !isFullyPaid ? "bg-yellow-50/30" : ""
-                      } ${
-                        isHighlighted
-                          ? "bg-indigo-50 ring-2 ring-indigo-500 z-10"
-                          : ""
-                      }`}
-                    >
-                      <div className="flex justify-between items-center mb-1">
-                        <span
-                          className={`text-xs font-bold ${
-                            isHighlighted
-                              ? "text-indigo-600"
-                              : "text-indigo-800"
-                          }`}
-                        >
-                          {booking.passenger.phone}
-                        </span>
-                        <span className="text-[10px] text-slate-400">
-                          {timeStr}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-start">
-                        <div className="flex gap-1 text-[11px] text-slate-600 font-medium w-[70%] flex-wrap">
-                          {seatsToShow.map((s) => (
-                            <span key={s} className="bg-slate-100 px-1 rounded">
-                              {s}
-                            </span>
-                          ))}
+                    return (
+                      <div
+                        key={idx}
+                        id={`booking-item-${booking.id}`}
+                        onClick={() => handleSelectBookingFromHistory(booking)}
+                        className={`p-3 border-b border-slate-100 cursor-pointer hover:bg-slate-50 transition-colors ${
+                          !isFullyPaid ? "bg-yellow-50/30" : ""
+                        } ${
+                          isHighlighted
+                            ? "bg-indigo-50 ring-2 ring-indigo-500 z-10"
+                            : ""
+                        }`}
+                      >
+                        <div className="flex justify-between items-center mb-1.5">
+                          <span
+                            className={`text-xs font-bold ${
+                              isHighlighted
+                                ? "text-indigo-600"
+                                : "text-indigo-800"
+                            }`}
+                          >
+                            {booking.passenger.phone}
+                          </span>
+                          <span className="text-[10px] text-slate-400">
+                            {timeStr}
+                          </span>
                         </div>
-                        <div
-                          className={`text-xs font-bold ${
-                            isFullyPaid ? "text-indigo-600" : "text-amber-600"
-                          }`}
-                        >
-                          {/* UPDATED: If fully paid show price, else show text label */}
-                          {isFullyPaid
-                            ? tripSubtotal.toLocaleString("vi-VN")
-                            : "Đã đặt vé"}
+                        <div className="flex justify-between items-start gap-2">
+                          <div className="flex gap-1 text-[11px] text-slate-600 font-medium flex-wrap">
+                            {seatsToShow.map((s) => (
+                              <span key={s} className="bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                                {s}
+                              </span>
+                            ))}
+                          </div>
+                          <div
+                            className={`text-xs font-black whitespace-nowrap ${
+                              isFullyPaid ? "text-indigo-600" : "text-amber-600"
+                            }`}
+                          >
+                            {isFullyPaid
+                              ? `${tripSubtotal.toLocaleString("vi-VN")} đ`
+                              : "Đã đặt vé"}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })
+                )}
               </div>
             </div>
           </div>

@@ -264,7 +264,7 @@ export const RightSheet: React.FC<RightSheetProps> = ({
                               <div className="flex justify-between items-center mb-3 pb-3 border-b border-slate-200 border-dashed">
                                 <div className="flex flex-col gap-0.5 ">
                                   <div className="flex items-center gap-2 ">
-                                    <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                                    <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-500  transition-colors">
                                       <Phone size={15} />
                                     </div>
                                     <div className="flex flex-col">
