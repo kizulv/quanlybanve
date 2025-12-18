@@ -307,32 +307,38 @@ export const RightSheet: React.FC<RightSheetProps> = ({
                                   Đã hủy đặt vé
                                 </div>
                               )}
-                              <div className="mb-3 grid grid-cols-2 gap-2">
+                              <div className="mb-3 flex flex-col gap-1">
                                 {booking.items.map((item, idx) => {
                                   const tripDateObj = new Date(item.tripDate);
                                   return (
                                     <div
                                       key={idx}
-                                      className="w-full p-2.5 rounded-md bg-slate-50/80 border border-slate-100 group-hover:bg-primary/5 group-hover:border-primary/10 transition-colors"
+                                      className="w-full flex items-center p-2.5 rounded-md bg-slate-50/80 border border-slate-100 group-hover:bg-primary/5 group-hover:border-primary/10 transition-colors"
                                     >
-                                      <div className="flex items-center gap-1.5 font-bold text-slate-700 text-[12px]">
-                                        {item.route}
+                                      <div className="flex flex-col justify-between flex-1">
+                                        <div className="flex items-center gap-1.5 font-bold text-slate-700 text-[12px]">
+                                          {item.route}
+                                        </div>
+                                        <div className="flex items-center  gap-1.5 text-slate-500 text-[10px] font-medium">
+                                          <Calendar
+                                            size={10}
+                                            className="text-slate-400"
+                                          />
+                                          <span>
+                                            {tripDateObj.getDate()}/
+                                            {tripDateObj.getMonth() + 1}
+                                          </span>
+                                          <span className="text-slate-300">
+                                            •
+                                          </span>
+                                          <span className="text-slate-400">
+                                            {formatLunarDate(
+                                              tripDateObj
+                                            ).replace(" Âm Lịch", " Âm")}
+                                          </span>
+                                        </div>
                                       </div>
-                                      <div className="flex items-center gap-1.5 text-slate-500 text-[10px] mb-2 font-medium">
-                                        <Calendar size={10} className="text-slate-400" />
-                                        <span>
-                                          {tripDateObj.getDate()}/{tripDateObj.getMonth() + 1}
-                                        </span>
-                                        <span className="text-slate-300">•</span>
-                                        <span className="text-slate-400">
-                                          {formatLunarDate(tripDateObj).replace(" Âm Lịch", " Âm")}
-                                        </span>
-                                        <span className="text-slate-300">•</span>
-                                        <span className="text-slate-600 font-bold">
-                                          {formatTime(item.tripDate)}
-                                        </span>
-                                      </div>
-                                      <div className="flex flex-wrap items-center text-center gap-1.5">
+                                      <div className="flex flex-wrap items-center text-center gap-1.5 ml-5">
                                         {item.seatIds.map((s) => (
                                           <Badge
                                             key={s}
