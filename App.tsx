@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from "react";
 import { Layout } from "./components/Layout";
 import { SeatMap } from "./components/SeatMap";
@@ -1501,7 +1500,9 @@ function AppContent() {
               ) : (
                 <div className="h-[400px] md:h-full flex flex-col items-center justify-center text-slate-300 p-8 text-center">
                   <BusFront size={48} className="mb-4 opacity-20" />
-                  <p className="text-sm font-medium">Vui lòng chọn chuyến xe từ thanh công cụ phía trên</p>
+                  <p className="text-sm font-medium">
+                    Vui lòng chọn chuyến xe từ thanh công cụ phía trên
+                  </p>
                 </div>
               )}
             </div>
@@ -1566,14 +1567,11 @@ function AppContent() {
               {/* NEW: Manifest Summary Row */}
               <div className="px-3 py-2 bg-indigo-50/50 border-b border-indigo-100 flex justify-between items-center text-xs shadow-inner shrink-0">
                 <div className="flex items-center gap-1.5 text-slate-500 font-bold uppercase tracking-tight">
-                  <Calculator size={12} className="text-indigo-400" />
+                  <Calculator size={14} className="" />
                   <span>Tổng thực thu:</span>
                 </div>
-                <div className="font-black text-indigo-700 text-sm tracking-tight">
+                <div className="font-black text-red-700 text-sm tracking-tight">
                   {totalManifestPrice.toLocaleString("vi-VN")}{" "}
-                  <span className="text-[10px] font-normal text-indigo-400">
-                    đ
-                  </span>
                 </div>
               </div>
 
@@ -1607,7 +1605,7 @@ function AppContent() {
                         key={idx}
                         id={`booking-item-${booking.id}`}
                         onClick={() => handleSelectBookingFromHistory(booking)}
-                        className={`p-3 border-b border-slate-100 cursor-pointer hover:bg-slate-50 transition-colors ${
+                        className={`px-3 py-2 border-b border-slate-100 cursor-pointer hover:bg-slate-50 transition-colors ${
                           !isFullyPaid ? "bg-yellow-50/30" : ""
                         } ${
                           isHighlighted
@@ -1620,7 +1618,7 @@ function AppContent() {
                             className={`text-xs font-bold ${
                               isHighlighted
                                 ? "text-indigo-600"
-                                : "text-indigo-800"
+                                : "text-slate-800"
                             }`}
                           >
                             {booking.passenger.phone}
@@ -1632,18 +1630,21 @@ function AppContent() {
                         <div className="flex justify-between items-start gap-2">
                           <div className="flex gap-1 text-[11px] text-slate-600 font-medium flex-wrap">
                             {seatsToShow.map((s) => (
-                              <span key={s} className="bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                              <span
+                                key={s}
+                                className="bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200"
+                              >
                                 {s}
                               </span>
                             ))}
                           </div>
                           <div
                             className={`text-xs font-black whitespace-nowrap ${
-                              isFullyPaid ? "text-indigo-600" : "text-amber-600"
+                              isFullyPaid ? "text-green-600" : "text-amber-600"
                             }`}
                           >
                             {isFullyPaid
-                              ? `${tripSubtotal.toLocaleString("vi-VN")} đ`
+                              ? `${tripSubtotal.toLocaleString("vi-VN")}`
                               : "Đã đặt vé"}
                           </div>
                         </div>
