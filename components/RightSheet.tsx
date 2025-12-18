@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from "react";
 import {
   Sheet,
@@ -262,7 +261,7 @@ export const RightSheet: React.FC<RightSheetProps> = ({
                               className="relative bg-white rounded-xl border border-slate-200 p-4 shadow-sm hover:shadow-md hover:border-primary/30 transition-all cursor-pointer group active:scale-[0.98]"
                             >
                               {/* Card Top: Identity & Status */}
-                              <div className="flex justify-between items-start mb-3 pb-3 border-b border-slate-200 border-dashed">
+                              <div className="flex justify-between items-center mb-3 pb-3 border-b border-slate-200 border-dashed">
                                 <div className="flex flex-col gap-0.5 ">
                                   <div className="flex items-center gap-2 ">
                                     <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
@@ -291,8 +290,8 @@ export const RightSheet: React.FC<RightSheetProps> = ({
                                     </div>
                                   </div>
                                 </div>
-                                <div className="flex items-center gap-1.5">
-                                  <Badge className="text-slate-600 text-xs bg-slate-100 border-slate-200 px-1.5 h-5">
+                                <div className="flex justify-between items-end gap-1">
+                                  <Badge className="text-slate-600 text-xs bg-slate-100 border-slate-200 px-1.5 h-5 text-center">
                                     {booking.totalTickets}
                                     {" vé"}
                                   </Badge>
@@ -315,19 +314,21 @@ export const RightSheet: React.FC<RightSheetProps> = ({
                                   return (
                                     <div
                                       key={idx}
-                                      className="w-full flex items-center p-2.5 rounded-md bg-slate-50/80 border border-slate-100 group-hover:bg-primary/5 group-hover:border-primary/10 transition-colors"
+                                      className="grid grid-cols-2 gap-1 items-center p-2.5 rounded-md bg-slate-50/80 border border-slate-100 group-hover:bg-primary/5 group-hover:border-primary/10 transition-colors"
                                     >
-                                      <div className="flex flex-col justify-between flex-1">
-                                        <div className="flex items-center gap-1.5 font-bold text-slate-700 text-[12px]">
+                                      <div className="flex flex-col justify-between flex-1 w-full">
+                                        <div className="flex items-center gap-1.5 font-bold text-slate-700 text-[12px] whitespace-nowrap overflow-hidden text-ellipsis relative">
                                           {item.route}
                                           {item.isEnhanced && (
-                                            <span className="inline-flex items-center text-[8px] font-black bg-amber-100 text-amber-700 px-1 py-0.5 rounded border border-amber-200 leading-none">
-                                              <Zap size={8} className="mr-0.5 fill-amber-700" />
-                                              TĂNG CƯỜNG
+                                            <span className="absolute top-[2px] right-2 inline-flex items-center text-[8px] font-black bg-amber-100 text-amber-700 px-1 py-0.5 rounded border border-amber-200 leading-none">
+                                              <Zap
+                                                size={8}
+                                                className="mr-0.5 fill-amber-700"
+                                              />
                                             </span>
                                           )}
                                         </div>
-                                        <div className="flex items-center  gap-1.5 text-slate-500 text-[10px] font-medium">
+                                        <div className="flex items-center gap-1.5 text-slate-500 text-[10px] font-medium">
                                           <Calendar
                                             size={10}
                                             className="text-slate-400"
@@ -346,11 +347,11 @@ export const RightSheet: React.FC<RightSheetProps> = ({
                                           </span>
                                         </div>
                                       </div>
-                                      <div className="flex flex-wrap items-center text-center gap-1.5 ml-5">
+                                      <div className="flex flex-wrap justify-end gap-1 w-full">
                                         {item.seatIds.map((s) => (
                                           <Badge
                                             key={s}
-                                            className="bg-indigo-600 text-white border-transparent text-[10px] font-bold px-[6px] py-0 h-4 shadow-sm text-center "
+                                            className="bg-indigo-600 text-white border-transparent text-[9px] font-bold px-[6px] py-0 h-4 shadow-sm"
                                           >
                                             {s}
                                           </Badge>
