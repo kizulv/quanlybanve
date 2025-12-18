@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from "react";
 import { Layout } from "./components/Layout";
 import { SeatMap } from "./components/SeatMap";
@@ -293,8 +294,15 @@ function AppContent() {
   }, [tripBookings, manifestSearch, selectedTrip]);
 
   // NEW: Calculate Total Price of the Filtered Manifest for current trip
+  // UPDATED: ONLY count fully paid bookings in the total
   const totalManifestPrice = useMemo(() => {
     return filteredManifest.reduce((sum, booking) => {
+      const totalPaid = (booking.payment?.paidCash || 0) + (booking.payment?.paidTransfer || 0);
+      const isFullyPaid = totalPaid >= booking.totalPrice;
+      
+      // If not fully paid, we don't count it towards the revenue total in manifest
+      if (!isFullyPaid) return sum;
+
       const tripItem = booking.items.find((i) => i.tripId === selectedTrip?.id);
       return sum + (tripItem?.price || 0);
     }, 0);
@@ -1559,16 +1567,16 @@ function AppContent() {
 
               {/* NEW: Manifest Summary Row */}
               <div className="px-3 py-2 bg-indigo-50/50 border-b border-indigo-100 flex justify-between items-center text-xs shadow-inner shrink-0">
-                <div className="flex items-center gap-1.5 text-slate-500 font-bold tracking-tight">
-                  <Calculator size={14} className="" />
-                  <span>Tổng tiền</span>
+                <div className="flex items-center gap-1.5 text-slate-500 font-bold uppercase tracking-tight">
+                  <Calculator size={12} className="text-indigo-400" />
+                  <span>Tổng thực thu:</span>
                 </div>
-                <div className="font-bold text-red-900 text-sm tracking-tight">
-                  {totalManifestPrice.toLocaleString("vi-VN")}{" "}
+                <div className="font-black text-indigo-700 text-sm tracking-tight">
+                  {totalManifestPrice.toLocaleString("vi-VN")} <span className="text-[10px] font-normal text-indigo-400">đ</span>
                 </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto  scrollbar-thin">
+              <div className="flex-1 overflow-y-auto p-0 scrollbar-thin">
                 {filteredManifest.map((booking, idx) => {
                   const totalPaid =
                     (booking.payment?.paidCash || 0) +
@@ -1587,31 +1595,23 @@ function AppContent() {
                   );
                   const seatsToShow = tripItem ? tripItem.seatIds : [];
                   const isHighlighted = booking.id === highlightedBookingId;
-
+                  
                   // NEW: Calculate subtotal for THIS selected trip only
-                  const tripSubtotal = tripItem ? tripItem.price || 0 : 0;
+                  const tripSubtotal = tripItem ? (tripItem.price || 0) : 0;
 
                   return (
                     <div
                       key={idx}
                       id={`booking-item-${booking.id}`}
                       onClick={() => handleSelectBookingFromHistory(booking)}
-                      className={`px-3 py-2 border-b border-slate-100 cursor-pointer hover:bg-slate-50 transition-colors ${
+                      className={`p-2 border-b border-slate-100 cursor-pointer hover:bg-slate-50 transition-colors ${
                         !isFullyPaid ? "bg-yellow-50/30" : ""
                       } ${
-                        isHighlighted
-                          ? "bg-indigo-50 ring-2 ring-indigo-500 z-10"
-                          : ""
+                        isHighlighted ? "bg-indigo-50 ring-2 ring-indigo-500 z-10" : ""
                       }`}
                     >
                       <div className="flex justify-between items-center mb-1">
-                        <span
-                          className={`text-xs font-bold ${
-                            isHighlighted
-                              ? "text-indigo-600"
-                              : "text-indigo-800"
-                          }`}
-                        >
+                        <span className={`text-xs font-bold ${isHighlighted ? "text-indigo-600" : "text-indigo-800"}`}>
                           {booking.passenger.phone}
                         </span>
                         <span className="text-[10px] text-slate-400">
@@ -1628,11 +1628,11 @@ function AppContent() {
                         </div>
                         <div
                           className={`text-xs font-bold ${
-                            isFullyPaid ? "text-indigo-600" : "text-yellow-600"
+                            isFullyPaid ? "text-indigo-600" : "text-amber-600 italic"
                           }`}
                         >
-                          {/* UPDATED: Only show the price for the specific trip found in this booking */}
-                          {tripSubtotal.toLocaleString("vi-VN")}
+                          {/* UPDATED: If fully paid show price, else show text label */}
+                          {isFullyPaid ? tripSubtotal.toLocaleString("vi-VN") : "Đã đặt vé"}
                         </div>
                       </div>
                     </div>
