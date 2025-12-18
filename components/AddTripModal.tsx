@@ -144,15 +144,15 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
           for (let c = 0; c < config.cols; c++) {
             const key = `${f}-${r}-${c}`;
             if (config.activeSeats.includes(key)) {
-              let label = config.seatLabels?.[key] || (bus.type === BusType.CABIN ? `${c === 0 ? 'B' : 'A'}${r * 2 + f}` : `${newLayoutSeats.length + 1}`);
+              let label = config.seatLabels?.[key] || (bus.type === BusType.CABIN ? `${c === 0 ? 'B' : 'A'}${r + 1}` : `${newLayoutSeats.length + 1}`);
               newLayoutSeats.push({ id: label, label, floor: f as 1 | 2, status: SeatStatus.AVAILABLE, price: price, row: r, col: c });
             }
           }
         }
       }
-      // Floor seats
+      // Floor seats: Cabin 6, Sleeper 12
       if (config.hasFloorSeats) {
-          const fCount = bus.type === BusType.CABIN ? 6 : 5;
+          const fCount = bus.type === BusType.CABIN ? 6 : 12;
           for (let i = 0; i < fCount; i++) {
               const key = `1-floor-${i}`;
               if (config.activeSeats.includes(key)) {
@@ -168,7 +168,7 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
             for (let i = 0; i < 5; i++) {
               const key = `${f}-bench-${i}`;
               if (config.activeSeats.includes(key)) {
-                let label = config.seatLabels?.[key] || (bus.type === BusType.CABIN ? `${f === 1 ? 'A' : 'B'}-G${i + 1}` : `B${f}-${i + 1}`);
+                let label = config.seatLabels?.[key] || (bus.type === BusType.CABIN ? `G${i + 1}` : `B${f}-${i + 1}`);
                 newLayoutSeats.push({ id: label, label, floor: f as 1 | 2, status: SeatStatus.AVAILABLE, price: price, row: config.rows, col: i });
               }
             }
@@ -213,43 +213,38 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-5">
           <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-            <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-4 pb-2 border-b border-slate-200"><MapPin size={18} className="text-primary" /> Thông tin tuyến</h3>
+            <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-4 pb-2 border-b border-slate-200 text-sm"><MapPin size={18} className="text-primary" /> Thông tin tuyến</h3>
             <div className="mb-4"><label className="block text-sm font-medium text-slate-700 mb-1.5">Chọn tuyến đường <span className="text-red-500">*</span></label>
-              <select className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 bg-white" value={selectedRouteId} onChange={(e) => setSelectedRouteId(e.target.value)} disabled={!!preSelectedRouteId && !initialData}>
+              <select className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 bg-white text-sm" value={selectedRouteId} onChange={(e) => setSelectedRouteId(e.target.value)} disabled={!!preSelectedRouteId && !initialData}>
                 <option value="">-- Chọn tuyến --</option>
                 {routes.filter((r) => r.status !== "inactive").map((r) => (<option key={r.id} value={r.id}>{r.name} {r.isEnhanced ? "(Tăng cường)" : ""}</option>))}
               </select>
             </div>
             <div><label className="block text-sm font-medium text-slate-700 mb-2">Chiều chạy</label>
               <div className="flex gap-3">
-                <button type="button" onClick={() => setDirection("outbound")} className={`flex-1 p-3 rounded-lg border-2 transition-all ${direction === "outbound" ? "bg-blue-50 border-blue-500 text-blue-700 shadow-sm" : "bg-white border-slate-200"}`}><div className="flex items-center gap-2 font-bold text-sm"><span>Chiều đi</span><ArrowRight size={14} /></div><div className="text-[10px] mt-1">{selectedRoute?.origin || "Điểm đi"} ➝ {selectedRoute?.destination || "Điểm đến"}</div></button>
-                <button type="button" onClick={() => setDirection("inbound")} className={`flex-1 p-3 rounded-lg border-2 transition-all ${direction === "inbound" ? "bg-orange-50 border-orange-500 text-orange-700 shadow-sm" : "bg-white border-slate-200"}`}><div className="flex items-center gap-2 font-bold text-sm"><ArrowRight size={14} className="rotate-180" /><span>Chiều về</span></div><div className="text-[10px] mt-1">{selectedRoute?.destination || "Điểm đến"} ➝ {selectedRoute?.origin || "Điểm đi"}</div></button>
+                <button type="button" onClick={() => setDirection("outbound")} className={`flex-1 p-3 rounded-lg border-2 transition-all ${direction === "outbound" ? "bg-blue-50 border-blue-500 text-blue-700 shadow-sm" : "bg-white border-slate-200"}`}><div className="flex items-center gap-2 font-bold text-sm"><span>Chiều đi</span><ArrowRight size={14} /></div></button>
+                <button type="button" onClick={() => setDirection("inbound")} className={`flex-1 p-3 rounded-lg border-2 transition-all ${direction === "inbound" ? "bg-orange-50 border-orange-500 text-orange-700 shadow-sm" : "bg-white border-slate-200"}`}><div className="flex items-center gap-2 font-bold text-sm"><ArrowRight size={14} className="rotate-180" /><span>Chiều về</span></div></button>
               </div>
             </div>
           </div>
           <div><label className="block text-sm font-medium text-slate-700 mb-2">Chọn xe vận hành <span className="text-red-500">*</span></label>
             {!selectedRouteId ? <div className="bg-slate-100 border border-slate-200 border-dashed rounded-lg p-8 flex flex-col items-center justify-center text-slate-400"><BusFront size={24} className="mb-2 opacity-50" /><span className="text-sm">Vui lòng chọn tuyến đường trước</span></div>
             : filteredBuses.length === 0 ? <div className="text-sm text-red-600 bg-red-50 p-4 rounded-lg border border-red-100 flex flex-col items-center gap-2 text-center"><AlertTriangle size={24} /><p>Không tìm thấy xe phù hợp.</p></div>
-            : <div className="grid grid-cols-2 gap-3 max-h-[280px] overflow-y-auto pr-1">{filteredBuses.map((bus) => (<button key={bus.id} type="button" onClick={() => setSelectedBusId(bus.id)} className={`relative flex flex-col items-start p-3 rounded-lg border transition-all text-left group ${bus.id === selectedBusId ? "bg-primary/5 border-primary ring-1 ring-primary" : "bg-white border-slate-200"}`}><div className="flex items-start justify-between w-full mb-1"><span className={`font-bold text-sm ${bus.id === selectedBusId ? "text-primary" : "text-slate-800"}`}>{bus.plate}</span>{bus.status === "Xe thuê/Tăng cường" && <span><Zap size={14} className="text-amber-500 fill-amber-500" /></span>}</div><div className="flex items-center gap-1.5 text-xs text-slate-500 mt-1"><LayoutGrid size={12} /><span>{bus.type === BusType.CABIN ? "Phòng" : "Giường"}</span><span className="w-1 h-1 rounded-full bg-slate-300 mx-0.5"></span><span>{bus.seats} chỗ</span></div></button>))}</div>}
+            : <div className="grid grid-cols-2 gap-3 max-h-[250px] overflow-y-auto pr-1">{filteredBuses.map((bus) => (<button key={bus.id} type="button" onClick={() => setSelectedBusId(bus.id)} className={`relative flex flex-col items-start p-3 rounded-lg border transition-all text-left group ${bus.id === selectedBusId ? "bg-primary/5 border-primary ring-1 ring-primary" : "bg-white border-slate-200"}`}><div className="flex items-start justify-between w-full mb-1"><span className={`font-bold text-sm ${bus.id === selectedBusId ? "text-primary" : "text-slate-800"}`}>{bus.plate}</span>{bus.status === "Xe thuê/Tăng cường" && <span><Zap size={14} className="text-amber-500 fill-amber-500" /></span>}</div><div className="flex items-center gap-1.5 text-xs text-slate-500 mt-1"><LayoutGrid size={12} /><span>{bus.type === BusType.CABIN ? "Phòng" : "Giường"}</span></div></button>))}</div>}
           </div>
-          {conflictWarning && <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-start gap-3"><AlertTriangle className="text-yellow-600 shrink-0 mt-0.5" size={20} /><div><h4 className="text-sm font-bold text-yellow-800">{conflictWarning.title}</h4><p className="text-sm text-yellow-700 mt-1">{conflictWarning.message}</p></div></div>}
         </div>
         <div className="space-y-5">
-          <div className="bg-white p-4 rounded-xl border border-slate-200 h-full flex flex-col">
-            <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-4 pb-2 border-b border-slate-100"><Clock size={18} className="text-primary" /> Thời gian & Giá vé</h3>
+          <div className="bg-white p-4 rounded-xl border border-slate-200 h-full flex flex-col shadow-sm">
+            <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-4 pb-2 border-b border-slate-100 text-sm"><Clock size={18} className="text-primary" /> Thời gian & Giá vé</h3>
             <div className="space-y-5 flex-1">
               <div className="bg-blue-50 text-blue-800 px-4 py-3 rounded-lg flex items-center gap-3 border border-blue-100"><Calendar className="text-blue-600" size={24} /><div><div className="text-xs font-semibold uppercase tracking-wider text-blue-600/80">Ngày khởi hành</div><div className="font-bold text-lg leading-none">{targetDate.toLocaleDateString("vi-VN")}</div></div></div>
               <div><label className="block text-sm font-medium text-slate-700 mb-1.5">Giờ khởi hành</label>
-                <div className="relative"><div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400"><Clock size={16} /></div>
-                  <input type="time" required className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none" value={time} onChange={(e) => setTime(e.target.value)} />
-                </div>
+                <input type="time" required className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none" value={time} onChange={(e) => setTime(e.target.value)} />
               </div>
               <div><label className="block text-sm font-medium text-slate-700 mb-1.5">Giá vé (VNĐ)</label>
-                <div className="relative"><div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400"><Wallet size={16} /></div>
-                  <input type="text" required className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none" value={price.toLocaleString("vi-VN")} onChange={(e) => setPrice(parseInt(e.target.value.replace(/\D/g, "") || "0", 10))} />
-                </div>
+                <input type="text" required className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none font-bold" value={price.toLocaleString("vi-VN")} onChange={(e) => setPrice(parseInt(e.target.value.replace(/\D/g, "") || "0", 10))} />
               </div>
-              <div className="mt-auto pt-4 border-t border-slate-100"><div className="flex items-start gap-2 text-xs text-slate-500 bg-slate-50 p-2 rounded"><Info size={14} className="shrink-0 mt-0.5" /><p>Lịch chạy sẽ được tạo tự động với cấu hình ghế và "Sàn" (nếu có). Bạn có thể chỉnh sửa sau khi tạo.</p></div></div>
+              <div className="mt-auto pt-4 border-t border-slate-100"><div className="flex items-start gap-2 text-xs text-slate-500 bg-slate-50 p-2 rounded border border-slate-100"><Info size={14} className="shrink-0 mt-0.5 text-slate-400" /><p>Hệ thống tự động cấu hình 6 vé sàn (Phòng) hoặc 12 vé sàn (Giường).</p></div></div>
             </div>
           </div>
         </div>
