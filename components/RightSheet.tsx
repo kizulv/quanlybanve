@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from "react";
 import {
   Sheet,
@@ -72,10 +71,10 @@ export const RightSheet: React.FC<RightSheetProps> = ({
 
   const filteredList = useMemo(() => {
     // Lọc bỏ các đơn hàng trạng thái 'hold' theo yêu cầu
-    const baseList = sortedBookings.filter(b => b.status !== 'hold');
-    
+    const baseList = sortedBookings.filter((b) => b.status !== "hold");
+
     if (!searchTerm.trim()) return baseList;
-    
+
     const lowerTerm = searchTerm.toLowerCase();
     return baseList.filter((booking) => {
       const itemMatch = booking.items.some(
@@ -125,7 +124,7 @@ export const RightSheet: React.FC<RightSheetProps> = ({
     setViewHistoryBooking(booking);
   };
 
-  const renderStatusBadge = (status: string, isPaid: boolean) => {
+  const renderStatusBadge = (status: string) => {
     if (status === "cancelled") {
       return (
         <Badge className="bg-red-50 text-red-600 border-red-100 text-[10px] px-1.5 h-5">
@@ -134,18 +133,20 @@ export const RightSheet: React.FC<RightSheetProps> = ({
       );
     }
     // Logic hiển thị: payment (hoặc đã trả đủ tiền) -> Mua vé, booking -> Đặt vé
-    if (status === "payment" || isPaid) {
+    if (status === "payment") {
       return (
         <Badge className="bg-green-50 text-green-600 border-green-100 text-[10px] px-1.5 h-5">
           Mua vé
         </Badge>
       );
     }
-    return (
-      <Badge className="bg-amber-50 text-amber-600 border-amber-100 text-[10px] px-1.5 h-5">
-        Đặt vé
-      </Badge>
-    );
+    if (status === "booking") {
+      return (
+        <Badge className="bg-amber-50 text-amber-600 border-amber-100 text-[10px] px-1.5 h-5">
+          Đặt vé
+        </Badge>
+      );
+    }
   };
 
   return (
@@ -289,10 +290,7 @@ export const RightSheet: React.FC<RightSheetProps> = ({
                                     {booking.totalTickets}
                                     {" vé"}
                                   </Badge>
-                                  {renderStatusBadge(
-                                    booking.status,
-                                    isFullyPaid
-                                  )}
+                                  {renderStatusBadge(booking.status)}
                                 </div>
                               </div>
 
@@ -366,7 +364,8 @@ export const RightSheet: React.FC<RightSheetProps> = ({
                                 <div className="flex items-center gap-3">
                                   <div className="text-right">
                                     <div className="text-sm font-black text-slate-900">
-                                      {isFullyPaid || booking.status === 'payment' ? (
+                                      {isFullyPaid ||
+                                      booking.status === "payment" ? (
                                         <>
                                           {booking.totalPrice.toLocaleString(
                                             "vi-VN"
