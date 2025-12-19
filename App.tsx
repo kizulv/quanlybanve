@@ -1546,7 +1546,10 @@ function AppContent() {
                               isFullyPaid ? "text-green-600" : (booking.status === 'hold' ? "text-purple-600" : "text-amber-600")
                             }`}
                           >
-                            {tripSubtotal.toLocaleString("vi-VN")}
+                            {booking.status === 'booking' 
+                                ? "Đã đặt vé" 
+                                : tripSubtotal.toLocaleString("vi-VN")
+                            }
                           </div>
                         </div>
                       </div>
