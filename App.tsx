@@ -42,6 +42,8 @@ import {
   ArrowRight as ArrowRightIcon,
   Calendar,
   Calculator,
+  Printer,
+  FileText,
 } from "lucide-react";
 import { api } from "./lib/api";
 import { isSameDay, formatLunarDate, formatTime } from "./utils/dateUtils";
@@ -1292,6 +1294,127 @@ function AppContent() {
     }
   };
 
+  const handleExportManifest = () => {
+    if (!selectedTrip || filteredManifest.length === 0) {
+      toast({
+        type: "warning",
+        title: "Không có dữ liệu",
+        message: "Chưa chọn chuyến hoặc không có khách để xuất bảng kê.",
+      });
+      return;
+    }
+
+    const manifestWindow = window.open("", "_blank");
+    if (!manifestWindow) {
+      toast({
+        type: "error",
+        title: "Lỗi",
+        message: "Vui lòng cho phép trình duyệt mở tab mới để xuất bảng kê.",
+      });
+      return;
+    }
+
+    const tripDate = new Date(selectedTrip.departureTime);
+    const dateFormatted = `${tripDate.getDate()}/${tripDate.getMonth() + 1}/${tripDate.getFullYear()}`;
+    const lunarFormatted = formatLunarDate(tripDate);
+
+    let rowsHtml = "";
+    let grandTotal = 0;
+    let seatIndex = 1;
+
+    // Flatten bookings to show one row per seat
+    filteredManifest.forEach((booking) => {
+      const tripItem = booking.items.find((i) => i.tripId === selectedTrip.id);
+      if (!tripItem) return;
+
+      tripItem.seatIds.forEach((seatId) => {
+        const ticket = tripItem.tickets?.find((t) => t.seatId === seatId);
+        const seatObj = selectedTrip.seats.find((s) => s.id === seatId);
+        const seatLabel = seatObj ? seatObj.label : seatId;
+        const price = ticket ? ticket.price : 0;
+        grandTotal += price;
+
+        rowsHtml += `
+          <tr style="border-bottom: 1px solid #ddd;">
+            <td style="padding: 8px; text-align: center;">${seatIndex++}</td>
+            <td style="padding: 8px; text-align: center; font-weight: bold;">${seatLabel}</td>
+            <td style="padding: 8px;">${booking.passenger.phone}</td>
+            <td style="padding: 8px;">${ticket?.pickup || booking.passenger.pickupPoint || "---"}</td>
+            <td style="padding: 8px;">${ticket?.dropoff || booking.passenger.dropoffPoint || "---"}</td>
+            <td style="padding: 8px; text-align: right;">${price.toLocaleString("vi-VN")}</td>
+            <td style="padding: 8px; font-style: italic; font-size: 11px;">${booking.passenger.note || ""}</td>
+          </tr>
+        `;
+      });
+    });
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Bảng kê hành khách - ${selectedTrip.licensePlate}</title>
+        <meta charset="UTF-8">
+        <style>
+          body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; color: #333; }
+          .header { text-align: center; margin-bottom: 30px; }
+          .header h1 { margin: 0; color: #2563eb; text-transform: uppercase; }
+          .trip-info { display: flex; justify-content: space-between; margin-bottom: 20px; padding: 15px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; }
+          table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+          th { background: #f1f5f9; padding: 10px; border: 1px solid #cbd5e1; font-size: 13px; text-transform: uppercase; }
+          td { border: 1px solid #e2e8f0; font-size: 13px; }
+          .footer { margin-top: 30px; text-align: right; font-weight: bold; font-size: 18px; }
+          @media print {
+            button { display: none; }
+            body { padding: 0; }
+            .trip-info { border: none; background: none; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>Bảng kê hành khách</h1>
+          <p>Nhà xe VinaBus Manager</p>
+        </div>
+        <div class="trip-info">
+          <div>
+            <strong>Tuyến:</strong> ${selectedTrip.route}<br>
+            <strong>Chuyến:</strong> ${selectedTrip.name}
+          </div>
+          <div style="text-align: right;">
+            <strong>Ngày chạy:</strong> ${dateFormatted} (${lunarFormatted})<br>
+            <strong>Biển số:</strong> ${selectedTrip.licensePlate} | <strong>Tài xế:</strong> ${selectedTrip.driver || "---"}
+          </div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th width="40">STT</th>
+              <th width="60">Ghế</th>
+              <th width="120">SĐT</th>
+              <th>Điểm đón</th>
+              <th>Điểm trả</th>
+              <th width="100">Tiền vé</th>
+              <th width="200">Ghi chú</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+          </tbody>
+        </table>
+        <div class="footer">
+          Tổng cộng: ${grandTotal.toLocaleString("vi-VN")} đ
+        </div>
+        <div style="margin-top: 40px; text-align: center;">
+          <button onclick="window.print()" style="padding: 10px 20px; background: #2563eb; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">In bảng kê</button>
+        </div>
+      </body>
+      </html>
+    `;
+
+    manifestWindow.document.write(htmlContent);
+    manifestWindow.document.close();
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -1473,6 +1596,15 @@ function AppContent() {
                   <Users size={14} className="text-slate-400" />
                   <span>Danh sách khách ({tripBookings.length})</span>
                 </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleExportManifest}
+                  className="h-7 text-[10px] font-bold text-blue-600 hover:bg-blue-50 border border-blue-100"
+                  disabled={tripBookings.length === 0}
+                >
+                  <Printer size={12} className="mr-1" /> Xuất bảng kê
+                </Button>
               </div>
 
               <div className="p-2 border-b border-slate-100 bg-slate-50/50">
@@ -1816,7 +1948,7 @@ function AppContent() {
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="text-slate-600 pt-2 space-y-4">
-                <p>Bạn có chắc muốn lưu các thay đổi cho đơn hàng này?</p>
+                <p>Bạn có chắc muốn lưu các thay đổi for đơn hàng này?</p>
 
                 {updateSummary && (
                   <div className="space-y-4 py-2 text-sm bg-slate-50 rounded-lg p-4 border border-slate-100">
