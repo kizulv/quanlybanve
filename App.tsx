@@ -10,8 +10,8 @@ import { ToastProvider, useToast } from "./components/ui/Toast";
 import { RightSheet } from "./components/RightSheet";
 import { BookingForm } from "./components/BookingForm";
 import { SeatDetailModal } from "./components/SeatDetailModal";
-import { ManifestReport } from "./components/ManifestReport"; // New Component
-import { useReactToPrint } from "react-to-print"; // New Hook
+import { ManifestReport } from "./components/ManifestReport";
+import { useReactToPrint } from "react-to-print";
 import {
   BusTrip,
   Seat,
@@ -45,15 +45,6 @@ import { api } from "./lib/api";
 import { isSameDay, formatLunarDate, formatTime } from "./utils/dateUtils";
 import { PaymentModal } from "./components/PaymentModal";
 import { Button } from "./components/ui/Button";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "./components/ui/AlertDialog";
 
 interface SeatOverride {
   price?: number;
@@ -78,9 +69,6 @@ function AppContent() {
     contentRef: reportRef,
     documentTitle: `Bang_Ke_Hanh_Khach_${Date.now()}`,
   });
-
-  // -- UNDO STACK --
-  const [undoStack, setUndoStack] = useState<UndoAction[]>([]);
 
   // -- DATA FETCHING --
   const refreshData = async () => {
@@ -137,28 +125,11 @@ function AppContent() {
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
 
-  const [updateSummary, setUpdateSummary] = useState<{
-    diffCount: number;
-    diffPrice: number;
-    oldSeatCount: number;
-    newSeatCount: number;
-    oldPrice: number;
-    newPrice: number;
-    diffTrips: any[];
-  } | null>(null);
-
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
-  const [pendingPaymentContext, setPendingPaymentContext] = useState<{
-    type: "new" | "update";
-    bookingIds?: string[];
-    totalPrice: number;
-  } | null>(null);
-
   const [modalPaymentInput, setModalPaymentInput] = useState({
     paidCash: 0,
     paidTransfer: 0,
   });
-  const [modalInitialOverrides, setModalInitialOverrides] = useState<Record<string, SeatOverride>>({});
 
   // -- CALCULATED STATES --
   const selectionBasket = useMemo(() => {
@@ -177,24 +148,6 @@ function AppContent() {
     });
     return basket;
   }, [trips, routes]);
-
-  const totalBasketPrice = useMemo(() => {
-    if (!editingBooking && bookingMode === "booking") return 0;
-    return selectionBasket.reduce((sum, basketItem) => {
-      const itemTotal = basketItem.seats.reduce((seatSum, seat) => {
-        let effectivePrice = seat.price;
-        if (editingBooking) {
-          const originalItem = editingBooking.items.find((i) => i.tripId === basketItem.trip.id);
-          if (originalItem && originalItem.tickets) {
-            const ticket = originalItem.tickets.find((t) => t.seatId === seat.id);
-            if (ticket) effectivePrice = ticket.price;
-          }
-        }
-        return seatSum + effectivePrice;
-      }, 0);
-      return sum + itemTotal;
-    }, 0);
-  }, [selectionBasket, editingBooking, bookingMode]);
 
   const availableTripsForDate = useMemo(() => {
     return trips.filter((trip) => {
@@ -254,6 +207,104 @@ function AppContent() {
     }
   };
 
+  const cancelAllSelections = () => {
+    const updatedTrips = trips.map((t) => ({
+      ...t,
+      seats: t.seats.map((s) =>
+        s.status === SeatStatus.SELECTED ? { ...s, status: s.originalStatus || SeatStatus.AVAILABLE } : s
+      ),
+    }));
+    setTrips(updatedTrips);
+    setBookingForm({ phone: "", pickup: "", dropoff: "", note: "" });
+    setPhoneError(null);
+    setEditingBooking(null);
+  };
+
+  const processBooking = async (payment?: any, overrides: Record<string, SeatOverride> = {}, noteSuffix: string = "") => {
+    try {
+      const passengerData: Passenger = {
+        phone: bookingForm.phone,
+        pickupPoint: bookingForm.pickup,
+        dropoffPoint: bookingForm.dropoff,
+        note: noteSuffix ? `${bookingForm.note} ${noteSuffix}`.trim() : bookingForm.note,
+      };
+
+      const finalItems = selectionBasket.map((item) => ({
+        tripId: item.trip.id,
+        seats: item.seats.map((s) => {
+          const override = overrides[`${item.trip.id}_${s.id}`];
+          return {
+            ...s,
+            price: override?.price !== undefined ? override.price : s.price,
+          };
+        }),
+        tickets: item.seats.map((s) => {
+          const override = overrides[`${item.trip.id}_${s.id}`];
+          return {
+            seatId: s.id,
+            price: override?.price !== undefined ? override.price : s.price,
+            pickup: override?.pickup || bookingForm.pickup,
+            dropoff: override?.dropoff || bookingForm.dropoff,
+          };
+        }),
+      }));
+
+      let result;
+      if (editingBooking) {
+        result = await api.bookings.update(editingBooking.id, finalItems, passengerData, payment);
+      } else {
+        result = await api.bookings.create(finalItems, passengerData, payment, bookingMode === "hold" ? "hold" : undefined);
+      }
+
+      toast({
+        type: "success",
+        title: "Thành công",
+        message: editingBooking ? "Đã cập nhật đơn hàng." : "Đã đặt chỗ thành công.",
+      });
+
+      // Update state
+      await refreshData();
+      cancelAllSelections();
+      setIsPaymentModalOpen(false);
+    } catch (e: any) {
+      toast({
+        type: "error",
+        title: "Lỗi",
+        message: e.message || "Không thể thực hiện đặt vé.",
+      });
+    }
+  };
+
+  const validatePhoneNumber = (phone: string): string | null => {
+    const raw = phone.replace(/\D/g, "");
+    if (raw.length === 0) return "Vui lòng nhập số điện thoại";
+    if (!raw.startsWith("0")) return "SĐT phải bắt đầu bằng số 0";
+    if (raw.length !== 10) return "SĐT phải đủ 10 số";
+    return null;
+  };
+
+  const handleConfirmAction = () => {
+    if (selectionBasket.length === 0) {
+      toast({ type: "warning", title: "Thông báo", message: "Vui lòng chọn ghế trước." });
+      return;
+    }
+
+    if (bookingMode !== "hold") {
+      const error = validatePhoneNumber(bookingForm.phone);
+      if (error) {
+        setPhoneError(error);
+        toast({ type: "error", title: "Lỗi nhập liệu", message: error });
+        return;
+      }
+    }
+
+    if (bookingMode === "payment") {
+      setIsPaymentModalOpen(true);
+    } else {
+      processBooking();
+    }
+  };
+
   const handleSeatClick = async (clickedSeat: Seat) => {
     if (!selectedTrip) return;
     if (swapSourceSeat) {
@@ -302,20 +353,6 @@ function AppContent() {
     handlePrint();
   };
 
-  const validatePhoneNumber = (phone: string): string | null => {
-    const raw = phone.replace(/\D/g, "");
-    if (raw.length === 0) return "Vui lòng nhập số điện thoại";
-    if (!raw.startsWith("0")) return "SĐT phải bắt đầu bằng số 0";
-    if (raw.length !== 10) return "SĐT phải đủ 10 số";
-    return null;
-  };
-
-  // Logic processes and API interactions remain the same as previous stable version...
-  // (Assuming other handlers like processBooking, handleConfirmAction are preserved)
-  const processBooking = async (p?: any, o: any = {}, n: string = "", s?: any) => { /* logic */ };
-  const handleConfirmAction = () => { /* logic */ };
-  const cancelAllSelections = () => { /* logic */ };
-
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -340,8 +377,25 @@ function AppContent() {
         <RightSheet
           bookings={bookings}
           trips={trips}
-          onSelectBooking={(b) => { /* history load logic */ }}
-          onUndo={() => {}}
+          onSelectBooking={(b) => {
+            setEditingBooking(b);
+            setBookingForm({
+              phone: b.passenger.phone,
+              pickup: b.passenger.pickupPoint || "",
+              dropoff: b.passenger.dropoffPoint || "",
+              note: b.passenger.note || "",
+            });
+            // Mark seats as selected in trips
+            const updatedTrips = trips.map(t => {
+                const item = b.items.find(i => i.tripId === t.id);
+                if (!item) return t;
+                return {
+                    ...t,
+                    seats: t.seats.map(s => item.seatIds.includes(s.id) ? { ...s, status: SeatStatus.SELECTED, originalStatus: s.status } : s)
+                };
+            });
+            setTrips(updatedTrips);
+          }}
         />
       }
     >
@@ -383,6 +437,7 @@ function AppContent() {
               routes={routes}
               phoneError={phoneError}
               setPhoneError={setPhoneError}
+              editingBooking={editingBooking}
               onConfirm={handleConfirmAction}
               onCancel={cancelAllSelections}
               validatePhoneNumber={validatePhoneNumber}
@@ -441,7 +496,6 @@ function AppContent() {
         </div>
       )}
 
-      {/* Hidden print component */}
       <div className="hidden">
         {selectedTrip && (
           <ManifestReport
@@ -452,6 +506,22 @@ function AppContent() {
           />
         )}
       </div>
+
+      <PaymentModal
+        isOpen={isPaymentModalOpen}
+        onClose={() => setIsPaymentModalOpen(false)}
+        selectionBasket={selectionBasket}
+        editingBooking={editingBooking}
+        bookingForm={bookingForm}
+        paidCash={modalPaymentInput.paidCash}
+        paidTransfer={modalPaymentInput.paidTransfer}
+        onMoneyChange={(e) => {
+           const { name, value } = e.target;
+           const num = parseInt(value.replace(/\D/g, "") || "0", 10);
+           setModalPaymentInput(prev => ({ ...prev, [name]: num }));
+        }}
+        onConfirm={(total, overrides, note) => processBooking({ paidCash: modalPaymentInput.paidCash, paidTransfer: modalPaymentInput.paidTransfer }, overrides, note)}
+      />
 
       {activeTab === "finance" && <PaymentManager />}
       {activeTab === "schedule" && (
@@ -483,7 +553,13 @@ function AppContent() {
         booking={seatDetailModal?.booking || null}
         seat={seatDetailModal?.seat || null}
         bookings={bookings}
-        onSave={async (p) => { /* save logic */ setSeatDetailModal(null); }}
+        onSave={async (p) => { 
+            if (seatDetailModal?.booking) {
+                await api.bookings.updatePassenger(seatDetailModal.booking.id, p);
+                await refreshData();
+            }
+            setSeatDetailModal(null); 
+        }}
       />
     </Layout>
   );
