@@ -4,12 +4,13 @@ import { Layout } from "./components/Layout";
 import { SeatMap } from "./components/SeatMap";
 import { SettingsView } from "./components/SettingsView";
 import { ScheduleView } from "./components/ScheduleView";
-import { PaymentManager } from "./components/PaymentManager"; // New Component
+import { PaymentManager } from "./components/PaymentManager";
 import { Badge } from "./components/ui/Badge";
 import { ToastProvider, useToast } from "./components/ui/Toast";
 import { RightSheet } from "./components/RightSheet";
 import { BookingForm } from "./components/BookingForm";
 import { SeatDetailModal } from "./components/SeatDetailModal";
+import { ManifestPrint } from "./components/ManifestPrint";
 import {
   BusTrip,
   Seat,
@@ -134,7 +135,7 @@ function AppContent() {
     "outbound" | "inbound"
   >("outbound");
 
-  // Booking Form State - REMOVED PAYMENT FIELDS
+  // Booking Form State
   const [bookingForm, setBookingForm] = useState({
     phone: "",
     pickup: "",
@@ -170,7 +171,7 @@ function AppContent() {
     newSeatCount: number;
     oldPrice: number;
     newPrice: number;
-    diffTrips: TripDiffItem[]; // NEW: Combined diff
+    diffTrips: TripDiffItem[];
   } | null>(null);
 
   // Payment Modal State
@@ -181,7 +182,7 @@ function AppContent() {
     totalPrice: number;
   } | null>(null);
 
-  // Local state for Payment Modal inputs (since removed from BookingForm)
+  // Local state for Payment Modal inputs
   const [modalPaymentInput, setModalPaymentInput] = useState({
     paidCash: 0,
     paidTransfer: 0,
@@ -191,7 +192,6 @@ function AppContent() {
   >({});
 
   // -- CALCULATED STATES (BASKET) --
-  // Calculate all selected seats across ALL trips
   const selectionBasket = useMemo(() => {
     const basket: { trip: BusTrip; seats: Seat[] }[] = [];
     trips.forEach((trip) => {
@@ -199,7 +199,6 @@ function AppContent() {
         (s) => s.status === SeatStatus.SELECTED
       );
       if (selected.length > 0) {
-        // Fallback: If seat price is 0, use Route's default price
         const route = routes.find(
           (r) => r.id === trip.routeId || r.name === trip.route
         );
@@ -217,7 +216,6 @@ function AppContent() {
   }, [trips, routes]);
 
   const totalBasketPrice = useMemo(() => {
-    // If just booking (not payment), visually show 0 in summary
     if (!editingBooking && bookingMode === "booking") return 0;
 
     return selectionBasket.reduce((sum, basketItem) => {
@@ -251,7 +249,6 @@ function AppContent() {
     return null;
   };
 
-  // Logic: Find all trips matching Date & Direction
   const availableTripsForDate = useMemo(() => {
     return trips.filter((trip) => {
       const tripDate = new Date(trip.departureTime.split(" ")[0]);
@@ -263,7 +260,6 @@ function AppContent() {
 
   const selectedTrip = trips.find((t) => t.id === selectedTripId) || null;
 
-  // Filter bookings for the selected trip to pass to SeatMap
   const tripBookings = useMemo(() => {
     if (!selectedTrip) return [];
     return bookings.filter(
@@ -273,7 +269,6 @@ function AppContent() {
     );
   }, [bookings, selectedTrip]);
 
-  // --- FILTERED MANIFEST (SEARCH) ---
   const filteredManifest = useMemo(() => {
     if (!manifestSearch.trim()) return tripBookings;
 
@@ -290,7 +285,6 @@ function AppContent() {
     });
   }, [tripBookings, manifestSearch, selectedTrip]);
 
-  // NEW: Calculate Total Price of the Filtered Manifest for current trip
   const totalManifestPrice = useMemo(() => {
     return filteredManifest.reduce((sum, booking) => {
       const tripItem = booking.items.find((i) => i.tripId === selectedTrip?.id);
@@ -298,7 +292,6 @@ function AppContent() {
     }, 0);
   }, [filteredManifest, selectedTrip]);
 
-  // Auto update payment when total changes - ONLY IN PAYMENT MODE
   useEffect(() => {
     if (!isPaymentModalOpen) {
       setModalPaymentInput({ paidCash: 0, paidTransfer: 0 });
@@ -306,7 +299,6 @@ function AppContent() {
     }
   }, [isPaymentModalOpen]);
 
-  // Scroll to highlighted booking
   useEffect(() => {
     if (highlightedBookingId) {
       const el = document.getElementById(
@@ -375,7 +367,6 @@ function AppContent() {
           clickedSeat.id
         );
 
-        // Cập nhật state toàn cục để UI phản ánh thay đổi ngay lập tức
         setBookings(result.bookings);
 
         const updatedTripsMap = new Map<string, BusTrip>(
@@ -516,7 +507,6 @@ function AppContent() {
           message: "Đã lưu thông tin hành khách.",
         });
       } else if (seat && selectedTrip) {
-        // Find existing 'hold' booking if any for this seat
         const existingHold = tripBookings.find(
           (b) =>
             b.status === "hold" &&
@@ -529,7 +519,6 @@ function AppContent() {
           await api.bookings.updatePassenger(existingHold.id, updatedPassenger);
           await refreshData();
         } else {
-          // Just update seat note if no booking record
           const updatedSeats = selectedTrip.seats.map((s) => {
             if (s.id === seat.id) {
               return { ...s, note: updatedPassenger.note };
@@ -639,7 +628,6 @@ function AppContent() {
     setSelectedTripId(tripId);
   };
 
-  // Handle Create Booking (Single or Multi-Trip)
   const processBooking = async (
     paymentData?: { paidCash: number; paidTransfer: number },
     overrides: Record<string, SeatOverride> = {},
@@ -689,7 +677,6 @@ function AppContent() {
         let finalPrice =
           override?.price !== undefined ? override.price : s.price;
         
-        // QUAN TRỌNG: Nếu đang ở chế độ Đặt vé, ép giá vé về 0
         if (bookingMode === "booking") {
           finalPrice = 0;
         }
@@ -782,7 +769,6 @@ function AppContent() {
   };
 
   const processHoldSeats = () => {
-    // Hold mode now creates a booking with status 'hold'
     processBooking(undefined, {}, "", "hold");
   };
 
@@ -858,7 +844,6 @@ function AppContent() {
     setIsPaymentModalOpen(true);
   };
 
-  // Helper to execute update logic
   const executeBookingUpdate = async (
     targetBookingId: string,
     paymentData: { paidCash: number; paidTransfer: number },
@@ -886,7 +871,6 @@ function AppContent() {
           let finalPrice =
             override?.price !== undefined ? override.price : s.price;
 
-          // QUAN TRỌNG: Nếu đang ở chế độ Đặt vé, ép giá vé về 0
           if (bookingMode === 'booking') {
             finalPrice = 0;
           }
@@ -948,7 +932,6 @@ function AppContent() {
         ];
       }
 
-      // Nếu chuyển sang Đặt vé, ép paymentData về 0 để đồng bộ
       const finalPayment = bookingMode === 'booking' ? { paidCash: 0, paidTransfer: 0 } : paymentData;
 
       const result = await api.bookings.update(
@@ -995,7 +978,6 @@ function AppContent() {
     }
   };
 
-  // UNIFIED ACTION HANDLER
   const handleConfirmAction = () => {
     if (editingBooking) {
       const oldPrice = editingBooking.totalPrice;
@@ -1102,7 +1084,6 @@ function AppContent() {
 
     if (!editingBooking) return;
 
-    // Nếu đang chuyển sang Đặt vé, không cần qua bước Payment Modal phức tạp
     if (bookingMode === 'booking') {
         await executeBookingUpdate(editingBooking.id, { paidCash: 0, paidTransfer: 0 }, {}, "(Chuyển sang Đặt vé)");
         return;
@@ -1294,127 +1275,6 @@ function AppContent() {
     }
   };
 
-  const handleExportManifest = () => {
-    if (!selectedTrip || filteredManifest.length === 0) {
-      toast({
-        type: "warning",
-        title: "Không có dữ liệu",
-        message: "Chưa chọn chuyến hoặc không có khách để xuất bảng kê.",
-      });
-      return;
-    }
-
-    const manifestWindow = window.open("", "_blank");
-    if (!manifestWindow) {
-      toast({
-        type: "error",
-        title: "Lỗi",
-        message: "Vui lòng cho phép trình duyệt mở tab mới để xuất bảng kê.",
-      });
-      return;
-    }
-
-    const tripDate = new Date(selectedTrip.departureTime);
-    const dateFormatted = `${tripDate.getDate()}/${tripDate.getMonth() + 1}/${tripDate.getFullYear()}`;
-    const lunarFormatted = formatLunarDate(tripDate);
-
-    let rowsHtml = "";
-    let grandTotal = 0;
-    let seatIndex = 1;
-
-    // Flatten bookings to show one row per seat
-    filteredManifest.forEach((booking) => {
-      const tripItem = booking.items.find((i) => i.tripId === selectedTrip.id);
-      if (!tripItem) return;
-
-      tripItem.seatIds.forEach((seatId) => {
-        const ticket = tripItem.tickets?.find((t) => t.seatId === seatId);
-        const seatObj = selectedTrip.seats.find((s) => s.id === seatId);
-        const seatLabel = seatObj ? seatObj.label : seatId;
-        const price = ticket ? ticket.price : 0;
-        grandTotal += price;
-
-        rowsHtml += `
-          <tr style="border-bottom: 1px solid #ddd;">
-            <td style="padding: 8px; text-align: center;">${seatIndex++}</td>
-            <td style="padding: 8px; text-align: center; font-weight: bold;">${seatLabel}</td>
-            <td style="padding: 8px;">${booking.passenger.phone}</td>
-            <td style="padding: 8px;">${ticket?.pickup || booking.passenger.pickupPoint || "---"}</td>
-            <td style="padding: 8px;">${ticket?.dropoff || booking.passenger.dropoffPoint || "---"}</td>
-            <td style="padding: 8px; text-align: right;">${price.toLocaleString("vi-VN")}</td>
-            <td style="padding: 8px; font-style: italic; font-size: 11px;">${booking.passenger.note || ""}</td>
-          </tr>
-        `;
-      });
-    });
-
-    const htmlContent = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Bảng kê hành khách - ${selectedTrip.licensePlate}</title>
-        <meta charset="UTF-8">
-        <style>
-          body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; color: #333; }
-          .header { text-align: center; margin-bottom: 30px; }
-          .header h1 { margin: 0; color: #2563eb; text-transform: uppercase; }
-          .trip-info { display: flex; justify-content: space-between; margin-bottom: 20px; padding: 15px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; }
-          table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-          th { background: #f1f5f9; padding: 10px; border: 1px solid #cbd5e1; font-size: 13px; text-transform: uppercase; }
-          td { border: 1px solid #e2e8f0; font-size: 13px; }
-          .footer { margin-top: 30px; text-align: right; font-weight: bold; font-size: 18px; }
-          @media print {
-            button { display: none; }
-            body { padding: 0; }
-            .trip-info { border: none; background: none; }
-          }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <h1>Bảng kê hành khách</h1>
-          <p>Nhà xe VinaBus Manager</p>
-        </div>
-        <div class="trip-info">
-          <div>
-            <strong>Tuyến:</strong> ${selectedTrip.route}<br>
-            <strong>Chuyến:</strong> ${selectedTrip.name}
-          </div>
-          <div style="text-align: right;">
-            <strong>Ngày chạy:</strong> ${dateFormatted} (${lunarFormatted})<br>
-            <strong>Biển số:</strong> ${selectedTrip.licensePlate} | <strong>Tài xế:</strong> ${selectedTrip.driver || "---"}
-          </div>
-        </div>
-        <table>
-          <thead>
-            <tr>
-              <th width="40">STT</th>
-              <th width="60">Ghế</th>
-              <th width="120">SĐT</th>
-              <th>Điểm đón</th>
-              <th>Điểm trả</th>
-              <th width="100">Tiền vé</th>
-              <th width="200">Ghi chú</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rowsHtml}
-          </tbody>
-        </table>
-        <div class="footer">
-          Tổng cộng: ${grandTotal.toLocaleString("vi-VN")} đ
-        </div>
-        <div style="margin-top: 40px; text-align: center;">
-          <button onclick="window.print()" style="padding: 10px 20px; background: #2563eb; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">In bảng kê</button>
-        </div>
-      </body>
-      </html>
-    `;
-
-    manifestWindow.document.write(htmlContent);
-    manifestWindow.document.close();
-  };
-
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -1449,7 +1309,6 @@ function AppContent() {
     >
       {activeTab === "sales" && (
         <div className="flex flex-col md:flex-row gap-4 animate-in fade-in duration-300">
-          {/* LEFT: SEAT MAP */}
           <div
             className={`flex flex-col bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden transition-all shrink-0 md:flex-1 md:h-[calc(100vh-140px)] ${
               swapSourceSeat ? "ring-2 ring-indigo-500 ring-offset-2" : ""
@@ -1553,7 +1412,7 @@ function AppContent() {
                   onSeatSwap={swapSourceSeat ? undefined : initiateSwap}
                   editingBooking={editingBooking}
                   onSeatRightClick={handleSeatRightClick}
-                  swapSourceSeatId={swapSourceSeat?.id} // Truyền ID ghế đang đổi
+                  swapSourceSeatId={swapSourceSeat?.id}
                 />
               ) : (
                 <div className="h-[400px] md:h-full flex flex-col items-center justify-center text-slate-300 p-8 text-center">
@@ -1566,7 +1425,6 @@ function AppContent() {
             </div>
           </div>
 
-          {/* RIGHT: BOOKING FORM & MANIFEST */}
           <div className="w-full md:w-[320px] xl:w-[360px] flex flex-col gap-4 shrink-0 md:h-[calc(100vh-140px)]">
             <div className="shrink-0">
               <BookingForm
@@ -1589,22 +1447,16 @@ function AppContent() {
               />
             </div>
 
-            {/* MANIFEST LIST */}
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col min-h-[300px] md:flex-1 overflow-hidden">
               <div className="px-3 py-2.5 bg-white border-b border-slate-100 flex justify-between items-center shrink-0">
                 <div className="flex items-center gap-1.5 text-slate-800 font-bold text-xs">
                   <Users size={14} className="text-slate-400" />
                   <span>Danh sách khách ({tripBookings.length})</span>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleExportManifest}
-                  className="h-7 text-[10px] font-bold text-blue-600 hover:bg-blue-50 border border-blue-100"
-                  disabled={tripBookings.length === 0}
-                >
-                  <Printer size={12} className="mr-1" /> Xuất bảng kê
-                </Button>
+                <ManifestPrint 
+                  selectedTrip={selectedTrip} 
+                  manifest={filteredManifest}
+                />
               </div>
 
               <div className="p-2 border-b border-slate-100 bg-slate-50/50">
@@ -1631,7 +1483,6 @@ function AppContent() {
                 </div>
               </div>
 
-              {/* Manifest Summary Row */}
               <div className="px-3 py-2 bg-indigo-50/50 border-b border-indigo-100 flex justify-between items-center text-xs shadow-inner shrink-0">
                 <div className="flex items-center gap-1.5 text-slate-500 font-bold uppercase tracking-tight">
                   <Calculator size={14} className="" />
@@ -1726,10 +1577,8 @@ function AppContent() {
         </div>
       )}
 
-      {/* FINANCE TAB */}
       {activeTab === "finance" && <PaymentManager />}
 
-      {/* TICKET LIST TAB */}
       {activeTab === "tickets" && (
         <div className="space-y-6 animate-in fade-in duration-500">
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
@@ -1905,7 +1754,6 @@ function AppContent() {
         />
       )}
 
-      {/* Payment Modal */}
       <PaymentModal
         isOpen={isPaymentModalOpen}
         onClose={() => {
@@ -1925,7 +1773,6 @@ function AppContent() {
         initialOverrides={modalInitialOverrides}
       />
 
-      {/* SEAT DETAIL MODAL */}
       <SeatDetailModal
         isOpen={!!seatDetailModal}
         onClose={() => setSeatDetailModal(null)}
@@ -1935,7 +1782,6 @@ function AppContent() {
         onSave={handleSaveSeatDetail}
       />
 
-      {/* UPDATE CONFIRMATION DIALOG */}
       <AlertDialog
         open={!!updateSummary}
         onOpenChange={(open) => !open && setUpdateSummary(null)}
@@ -1952,7 +1798,6 @@ function AppContent() {
 
                 {updateSummary && (
                   <div className="space-y-4 py-2 text-sm bg-slate-50 rounded-lg p-4 border border-slate-100">
-                    {/* COMBINED DIFF LIST */}
                     {updateSummary.diffTrips.map((trip, idx) => (
                       <div key={idx} className="space-y-2">
                         <div className="text-xs font-bold text-slate-700 flex items-center gap-2 border-b border-slate-200 pb-1">
