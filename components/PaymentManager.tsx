@@ -113,14 +113,12 @@ export const PaymentManager: React.FC = () => {
       });
 
       // 2. Ticket Totals from current active Bookings (Snapshot state)
-      // Logic: Loop bookings -> Loop items (trips) -> Category by snapshot fields
       let cabinTickets = 0;
       let sleeperTickets = 0;
       let enhancedTickets = 0;
       let totalTickets = 0;
 
       bookings.forEach(booking => {
-          // Rule: Only count current confirmed or modified bookings with some payment
           const paid = (booking.payment?.paidCash || 0) + (booking.payment?.paidTransfer || 0);
           
           if (booking.status !== 'cancelled' && paid > 0) {
@@ -128,17 +126,13 @@ export const PaymentManager: React.FC = () => {
                   const count = (item.seatIds || []).length;
                   if (count === 0) return;
 
-                  // 1. Priority: Enhanced status from snapshot
                   if (item.isEnhanced === true) {
                       enhancedTickets += count;
                   } else {
-                      // 2. Not enhanced: Check Bus Type snapshot
-                      // Fallback logic for legacy data included
                       const isCabin = item.busType === BusType.CABIN || (item.route || '').toLowerCase().includes('cabin');
                       if (isCabin) {
                           cabinTickets += count;
                       } else {
-                          // Standard sleeper if not cabin and not enhanced
                           sleeperTickets += count;
                       }
                   }
@@ -234,11 +228,9 @@ export const PaymentManager: React.FC = () => {
               let price = 0;
               if (status !== 'removed' && currT) {
                   if (currT.tickets) { const t = currT.tickets.find((tic: any) => tic.seatId === s); if (t) price = t.price; }
-                  if (price === 0 && currT.pricePerTicket) price = currT.pricePerTicket;
               }
               if (status === 'removed' && prevT) {
                    if (prevT.tickets) { const t = prevT.tickets.find((tic: any) => tic.seatId === s); if (t) price = t.price; }
-                   if (price === 0 && prevT.pricePerTicket) price = prevT.pricePerTicket;
               }
               seatDiffs.push({ id: s, status, price });
           });
@@ -269,9 +261,7 @@ export const PaymentManager: React.FC = () => {
         <Button onClick={fetchData} variant="outline" size="sm" className="rounded-lg">Làm mới</Button>
       </div>
 
-      {/* STATS SUMMARY */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Revenue Box */}
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
              <div className="flex justify-between items-center mb-6">
                 <div className="flex items-center gap-3">
@@ -304,7 +294,6 @@ export const PaymentManager: React.FC = () => {
              </div>
           </div>
 
-          {/* Tickets Box */}
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
              <div className="flex justify-between items-center mb-6">
                 <div className="flex items-center gap-3">
@@ -338,7 +327,6 @@ export const PaymentManager: React.FC = () => {
           </div>
       </div>
 
-      {/* Filters */}
       <div className="flex gap-4 items-center bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
           <div className="relative flex-1 group">
              <Search size={18} className="absolute left-3.5 top-2.5 text-slate-400 group-focus-within:text-primary transition-colors"/>
@@ -351,7 +339,6 @@ export const PaymentManager: React.FC = () => {
           </div>
       </div>
 
-      {/* Grouped Table */}
       <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
          <table className="w-full text-sm text-left">
             <thead className="bg-slate-50 text-slate-500 font-bold text-xs uppercase tracking-widest border-b border-slate-200">
@@ -478,7 +465,6 @@ export const PaymentManager: React.FC = () => {
 
                             return (
                                 <div key={p.id} className="relative pl-8 animate-in slide-in-from-left duration-300">
-                                    {/* Timeline Dot with Pulse if latest */}
                                     <div className={`absolute -left-[11px] top-1 w-5 h-5 rounded-full border-4 border-white shadow-md flex items-center justify-center ${isPositive ? 'bg-emerald-500' : 'bg-red-500'} ${idx === arr.length - 1 ? 'ring-4 ring-primary/10' : ''}`}>
                                         <div className="w-1.5 h-1.5 rounded-full bg-white"></div>
                                     </div>
@@ -500,7 +486,6 @@ export const PaymentManager: React.FC = () => {
                                         </div>
 
                                         <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all group/card relative overflow-hidden">
-                                            {/* Top Info Bar */}
                                             <div className="flex justify-between items-center mb-4 pb-3 border-b border-slate-100">
                                                 <div className="flex items-center gap-3">
                                                     <div className={`w-9 h-9 rounded-xl flex items-center justify-center shadow-sm ${isCash ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'}`}>
@@ -515,7 +500,6 @@ export const PaymentManager: React.FC = () => {
                                                 </div>
                                             </div>
 
-                                            {/* Difference / Trips Info */}
                                             {diffResult.length > 0 ? (
                                                 <div className="space-y-3 mb-4">
                                                     {diffResult.map((t: any, tripIdx: number) => {
@@ -566,7 +550,6 @@ export const PaymentManager: React.FC = () => {
                                                 <div className="text-center py-4 bg-slate-50/50 rounded-xl border border-dashed border-slate-200 text-[11px] italic text-slate-400 mb-4">Snapshot giao dịch không có thông tin chi tiết.</div>
                                             )}
 
-                                            {/* Note Section */}
                                             <div className="bg-slate-50/80 p-3 rounded-xl border border-slate-100 text-xs text-slate-600 min-h-[40px] flex items-center relative group/note transition-all hover:bg-white hover:border-primary/20 hover:shadow-sm">
                                                 {editingPaymentId === p.id ? (
                                                     <div className="flex gap-2 w-full animate-in fade-in zoom-in-95 duration-200">

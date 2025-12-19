@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from "react";
 import { Layout } from "./components/Layout";
 import { SeatMap } from "./components/SeatMap";
@@ -230,10 +231,6 @@ function AppContent() {
               (t) => t.seatId === seat.id
             );
             if (ticket) effectivePrice = ticket.price;
-          } else if (originalItem && originalItem.seatIds.includes(seat.id)) {
-            // Legacy fallback
-            const count = originalItem.seatIds.length;
-            if (count > 0) effectivePrice = originalItem.price / count;
           }
         }
         return seatSum + effectivePrice;
@@ -264,7 +261,6 @@ function AppContent() {
   const selectedTrip = trips.find((t) => t.id === selectedTripId) || null;
 
   // Filter bookings for the selected trip to pass to SeatMap
-  // UPDATED: Must check inside nested `items` array
   const tripBookings = useMemo(() => {
     if (!selectedTrip) return [];
     return bookings.filter(
@@ -293,23 +289,21 @@ function AppContent() {
   }, [tripBookings, manifestSearch, selectedTrip]);
 
   // NEW: Calculate Total Price of the Filtered Manifest for current trip
-  // UPDATED: ONLY count fully paid bookings in the total
   const totalManifestPrice = useMemo(() => {
     return filteredManifest.reduce((sum, booking) => {
       const totalPaid =
         (booking.payment?.paidCash || 0) + (booking.payment?.paidTransfer || 0);
       const isFullyPaid = totalPaid >= booking.totalPrice;
 
-      // If not fully paid, we don't count it towards the revenue total in manifest
-      if (!isFullyPaid) return sum;
-
+      // If not fully paid, we still want to count the intended subtotal for this trip
+      // but only if it's considered an active sale. The user requested to remove
+      // average calculation, so we use the subtotal stored in the booking item.
       const tripItem = booking.items.find((i) => i.tripId === selectedTrip?.id);
       return sum + (tripItem?.price || 0);
     }, 0);
   }, [filteredManifest, selectedTrip]);
 
   // Auto update payment when total changes - ONLY IN PAYMENT MODE
-  // Update: We only set the modal input defaults when opening
   useEffect(() => {
     if (!isPaymentModalOpen) {
       // Reset when closed
@@ -514,7 +508,6 @@ function AppContent() {
     try {
       if (booking) {
         // CASE 1: Updating existing booking
-        // Validate phone if changed
         const phoneError = validatePhoneNumber(updatedPassenger.phone);
         if (phoneError) {
           toast({
@@ -643,7 +636,7 @@ function AppContent() {
       note: booking.passenger.note || "",
     });
 
-    // Populate Payment Modal Inputs with current payments (for reference when opening modal)
+    // Populate Payment Modal Inputs with current payments
     setModalPaymentInput({
       paidCash: booking.payment?.paidCash || 0,
       paidTransfer: booking.payment?.paidTransfer || 0,
@@ -657,7 +650,6 @@ function AppContent() {
   };
 
   // Handle Create Booking (Single or Multi-Trip)
-  // Payment info is passed in argument if it comes from PaymentModal
   const processBooking = async (
     paymentData?: { paidCash: number; paidTransfer: number },
     overrides: Record<string, SeatOverride> = {},
@@ -700,7 +692,7 @@ function AppContent() {
     const payment = paymentData || { paidCash: 0, paidTransfer: 0 };
     const isPaid = payment.paidCash + payment.paidTransfer > 0;
 
-    // Prepare items for single API call (NEW STRUCTURE)
+    // Prepare items for single API call
     const bookingItems = selectionBasket.map((item) => {
       // Build detailed ticket info per seat using overrides
       const tickets = item.seats.map((s) => {
@@ -722,12 +714,11 @@ function AppContent() {
 
       return {
         tripId: item.trip.id,
-        seats: item.seats, // Keeping raw seats for legacy check
-        tickets: tickets, // NEW DETAILED TICKETS
+        seats: item.seats, 
+        tickets: tickets,
       };
     });
 
-    // FORCE PENDING STATUS IF NOT PAID
     const explicitStatus = isPaid ? undefined : "pending";
 
     try {
@@ -879,7 +870,7 @@ function AppContent() {
       type: "new",
       totalPrice: totalBasketPrice,
     });
-    setModalInitialOverrides({}); // Reset overrides for new booking
+    setModalInitialOverrides({}); 
     setIsPaymentModalOpen(true);
   };
 
@@ -972,7 +963,7 @@ function AppContent() {
         const basketTripIds = new Set(currentBookingItems.map((i) => i.tripId));
         const loadedTripIds = new Set(trips.map((t) => t.id));
 
-        // Preserve items that are NOT currently being edited (on other trips/pages)
+        // Preserve items that are NOT currently being edited
         const preservedItems = oldBooking.items.filter((item) => {
           if (basketTripIds.has(item.tripId)) return false;
           if (loadedTripIds.has(item.tripId)) return false;
@@ -986,15 +977,13 @@ function AppContent() {
             ? trip.seats.filter((s) => item.seatIds.includes(s.id))
             : [];
 
-          // If the preserved item has tickets detail, keep it
-          // Otherwise reconstruct basics
           return {
             tripId: item.tripId,
             seats:
               seatsObj.length > 0
                 ? seatsObj
                 : item.seatIds.map((sid) => ({ id: sid, price: 0 } as Seat)),
-            tickets: item.tickets, // Important: Pass existing detailed tickets back
+            tickets: item.tickets, 
           };
         });
 
@@ -1064,10 +1053,8 @@ function AppContent() {
       const diffPrice = newPrice - oldPrice;
 
       // 2. Prepare Data for Maps
-      // Map TripID -> Seat Labels array
       const oldTripMap = new Map<string, string[]>();
       editingBooking.items.forEach((item) => {
-        // Attempt to resolve labels using live data if available, else use ID
         const liveTrip = trips.find((t) => t.id === item.tripId);
         const labels = item.seatIds.map((sid) => {
           if (liveTrip) {
@@ -1103,8 +1090,6 @@ function AppContent() {
         if (added.length === 0 && removed.length === 0 && kept.length === 0)
           return;
 
-        // Resolve trip metadata
-        // Try finding in Basket first, then Editing Booking (which has snapshots), then Live Trips
         let route = "";
         let dateStr = "";
 
@@ -1123,12 +1108,11 @@ function AppContent() {
         // Build Seat Diff List
         const seatDiffs: DiffSeat[] = [];
 
-        // Order: Kept, Removed, Added (or standard logical order)
         kept.forEach((s) => seatDiffs.push({ label: s, status: "kept" }));
         removed.forEach((s) => seatDiffs.push({ label: s, status: "removed" }));
         added.forEach((s) => seatDiffs.push({ label: s, status: "added" }));
 
-        // Sort seat diffs by label for nicer display
+        // Sort seat diffs by label
         seatDiffs.sort((a, b) =>
           a.label.localeCompare(b.label, undefined, { numeric: true })
         );
@@ -1168,7 +1152,6 @@ function AppContent() {
     if (!editingBooking) return;
 
     // Always show payment modal for reconciliation during edit
-    // Pre-fill modal with existing payment to start
     setModalPaymentInput({
       paidCash: editingBooking.payment?.paidCash || 0,
       paidTransfer: editingBooking.payment?.paidTransfer || 0,
@@ -1202,7 +1185,7 @@ function AppContent() {
     overrides: Record<string, SeatOverride> = {},
     noteSuffix: string = ""
   ) => {
-    // Collect payment from local state (which is bound to PaymentModal inputs)
+    // Collect payment from local state
     const paymentPayload = {
       paidCash: modalPaymentInput.paidCash,
       paidTransfer: modalPaymentInput.paidTransfer,
@@ -1302,7 +1285,7 @@ function AppContent() {
                 seatsObj.length > 0
                   ? seatsObj
                   : item.seatIds.map((sid) => ({ id: sid, price: 0 } as Seat)),
-              tickets: item.tickets, // Restore old tickets
+              tickets: item.tickets, 
             };
           });
 
@@ -1564,7 +1547,7 @@ function AppContent() {
                 </div>
               </div>
 
-              {/* NEW: Manifest Summary Row */}
+              {/* Manifest Summary Row */}
               <div className="px-3 py-2 bg-indigo-50/50 border-b border-indigo-100 flex justify-between items-center text-xs shadow-inner shrink-0">
                 <div className="flex items-center gap-1.5 text-slate-500 font-bold uppercase tracking-tight">
                   <Calculator size={14} className="" />
@@ -1643,9 +1626,7 @@ function AppContent() {
                               isFullyPaid ? "text-green-600" : "text-amber-600"
                             }`}
                           >
-                            {isFullyPaid
-                              ? `${tripSubtotal.toLocaleString("vi-VN")}`
-                              : "Đã đặt vé"}
+                            {tripSubtotal.toLocaleString("vi-VN")}
                           </div>
                         </div>
                       </div>
@@ -1777,11 +1758,7 @@ function AppContent() {
                               isFullyPaid ? "text-slate-900" : "text-yellow-600"
                             }`}
                           >
-                            {isFullyPaid
-                              ? `${booking.totalPrice.toLocaleString(
-                                  "vi-VN"
-                                )} đ`
-                              : "Vé đặt"}
+                            {booking.totalPrice.toLocaleString("vi-VN")} đ
                           </div>
                           {!isFullyPaid && (
                             <div className="text-xs text-slate-400 mt-1">

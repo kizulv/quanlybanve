@@ -149,7 +149,6 @@ const paymentSchema = new mongoose.Schema(
        tripDate: String,
        route: String,
        licensePlate: String,
-       pricePerTicket: Number,
        trips: [mongoose.Schema.Types.Mixed] 
     }
   },
@@ -255,7 +254,6 @@ const processPaymentUpdate = async (booking, newPaymentState) => {
 
     const tripDetails = booking.items[0] || {};
     const allSeats = booking.items.flatMap(i => i.seatIds);
-    const avgPrice = booking.totalTickets > 0 ? booking.totalPrice / booking.totalTickets : 0;
 
     // Collect detailed trips info with enhanced status
     const tripsSnapshot = [];
@@ -266,7 +264,7 @@ const processPaymentUpdate = async (booking, newPaymentState) => {
             licensePlate: item.licensePlate,
             seats: item.seatIds,
             tickets: item.tickets,
-            isEnhanced: item.isEnhanced // Use from booking item snapshot
+            isEnhanced: item.isEnhanced
         });
     }
 
@@ -284,7 +282,6 @@ const processPaymentUpdate = async (booking, newPaymentState) => {
             tripDate: tripDetails.tripDate,
             route: tripDetails.route,
             licensePlate: tripDetails.licensePlate,
-            pricePerTicket: avgPrice,
             trips: tripsSnapshot 
         }
     });
@@ -436,7 +433,7 @@ app.post("/api/bookings", async (req, res) => {
       items: bookingItems,
       status: finalStatus,
       createdAt: now,
-      updatedAt: now, // NEW
+      updatedAt: now,
       totalPrice: calculatedTotalPrice,
       totalTickets: calculatedTotalTickets,
     });
@@ -621,7 +618,7 @@ app.put("/api/bookings/:id", async (req, res) => {
       oldBooking.status = finalStatus;
       oldBooking.totalPrice = calculatedTotalPrice;
       oldBooking.totalTickets = calculatedTotalTickets;
-      oldBooking.updatedAt = new Date().toISOString(); // Explicit update
+      oldBooking.updatedAt = new Date().toISOString();
       
       await oldBooking.save();
 

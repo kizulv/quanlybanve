@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Seat, SeatStatus, BusType, Booking } from "../types";
 import {
@@ -107,7 +108,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
     let groupIndex = 0;
     let groupTotal = 0;
 
-    let displayPrice = seat.price;
+    let displayPrice = 0; // Default to 0
     let displayPickup = booking?.passenger?.pickupPoint || "";
     let displayDropoff = booking?.passenger?.dropoffPoint || "";
     let displayNote = booking?.passenger?.note || "";
@@ -126,8 +127,6 @@ export const SeatMap: React.FC<SeatMapProps> = ({
           displayPickup = ticket.pickup || displayPickup;
           displayDropoff = ticket.dropoff || displayDropoff;
         }
-      } else if (bookingItem.price > 0 && bookingItem.seatIds.length > 0) {
-        displayPrice = bookingItem.price / bookingItem.seatIds.length;
       }
     }
 
@@ -175,9 +174,11 @@ export const SeatMap: React.FC<SeatMapProps> = ({
           <span className={isGhost ? "line-through decoration-red-400" : ""}>
             {seat.label}
           </span>
-          {seat.status === SeatStatus.SOLD && displayPrice > 0 && (
+          {(seat.status === SeatStatus.SOLD || seat.status === SeatStatus.BOOKED) && displayPrice > 0 && (
             <div className="mt-auto flex justify-end">
-              <span className="text-[9px] md:text-[10px] font-bold px-1 rounded border shadow-sm text-green-700 bg-yellow-300 border-green-200/50">
+              <span className={`text-[9px] md:text-[10px] font-bold px-1 rounded border shadow-sm ${
+                seat.status === SeatStatus.SOLD ? 'text-green-700 bg-yellow-300 border-green-200/50' : 'text-yellow-800 bg-yellow-200 border-yellow-300/50'
+              }`}>
                 {displayPrice.toLocaleString("vi-VN")}
               </span>
             </div>
