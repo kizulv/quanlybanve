@@ -12,10 +12,11 @@
     "react": "^19.2.1",
     "react-dom": "^19.2.3",
     "lucide-react": "^0.560.0",
+    "react-to-print": "^3.0.2",
     "express": "^5.2.1",
-    "mongoose": "^9.0.1",
     "cors": "^2.8.5",
-    "body-parser": "^2.2.1"
+    "body-parser": "^2.2.1",
+    "mongoose": "^9.0.2"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
