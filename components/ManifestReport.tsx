@@ -13,167 +13,152 @@ export const ManifestReport = React.forwardRef<HTMLDivElement, ManifestReportPro
     const tripDate = new Date(trip.departureTime);
     const dateFormatted = `${tripDate.getDate()}/${tripDate.getMonth() + 1}/${tripDate.getFullYear()}`;
 
-    // Helper: Tìm booking theo Seat ID
-    const getBookingForSeat = (seatId: string) => {
-      return manifest.find((b) =>
+    // Cấu trúc nhóm ghế cho xe 41 chỗ theo mẫu
+    const groups = [
+      { label: "1.1", seats: ["1", "2", "3"] },
+      { label: "1.2", seats: ["4", "5", "6"] },
+      { label: "2.1", seats: ["7", "8", "9"] },
+      { label: "2.2", seats: ["10", "11", "12"] },
+      { label: "3.1", seats: ["13", "14", "15"] },
+      { label: "3.2", seats: ["16", "17", "18"] },
+      { label: "4.1", seats: ["19", "20", "21"] },
+      { label: "4.2", seats: ["22", "23", "24"] },
+      { label: "5.1", seats: ["25", "26", "27"] },
+      { label: "5.2", seats: ["28", "29", "30"] },
+      { label: "6.1", seats: ["31", "32", "33"] },
+      { label: "6.2", seats: ["34", "35", "36"] },
+      { label: "2",   seats: ["37", "38", "39", "40", "41"] },
+    ];
+
+    // Tìm thông tin đặt vé cho một số ghế cụ thể
+    const getBookingInfo = (seatId: string) => {
+      const booking = manifest.find((b) =>
         b.items.some((item) => item.tripId === trip.id && item.seatIds.includes(seatId))
       );
+      if (!booking) return null;
+
+      const item = booking.items.find(i => i.tripId === trip.id);
+      const ticket = item?.tickets?.find(t => t.seatId === seatId);
+
+      return {
+        phone: booking.passenger.phone,
+        pickup: ticket?.pickup || booking.passenger.pickupPoint || "",
+        dropoff: ticket?.dropoff || booking.passenger.dropoffPoint || "",
+        note: booking.passenger.note || "",
+      };
     };
-
-    // Render một ô ghế chuẩn theo mẫu PDF
-    const renderSeatBox = (label: string, isGray: boolean = false) => {
-      const booking = getBookingForSeat(label);
-      const isBooked = !!booking;
-      
-      const item = booking?.items.find(i => i.tripId === trip.id);
-      const ticket = item?.tickets?.find(t => t.seatId === label);
-      const phone = booking?.passenger.phone || "";
-      const price = ticket?.price || 0;
-
-      return (
-        <div className={`border-l border-b border-black relative h-[105px] flex flex-col p-1.5 ${isGray ? 'bg-[#cccccc]' : 'bg-white'}`}>
-          {/* Nhãn ghế góc trên trái */}
-          <div className="text-[11px] font-bold leading-none mb-1">{label}</div>
-          
-          {/* Nội dung dòng kẻ chấm hoặc thông tin khách */}
-          <div className="flex-1 flex flex-col justify-center gap-3.5 px-1">
-            {isBooked ? (
-              <div className="text-[12px] font-black leading-tight break-all">
-                {phone}
-                <div className="text-[9px] font-normal italic mt-1 truncate opacity-80">
-                  {ticket?.pickup || booking?.passenger.pickupPoint || ""}
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className="border-b border-dotted border-black/50 w-full h-0"></div>
-                <div className="border-b border-dotted border-black/50 w-full h-0"></div>
-                <div className="border-b border-dotted border-black/50 w-full h-0"></div>
-              </>
-            )}
-          </div>
-
-          {/* Ô vuông nhỏ ở góc dưới bên phải dành cho giá tiền */}
-          <div className="absolute bottom-0 right-0 w-14 h-7 border-l border-t border-black flex items-center justify-center bg-white">
-            {isBooked && price > 0 && (
-               <span className="text-[10px] font-black">{(price/1000)}k</span>
-            )}
-          </div>
-        </div>
-      );
-    };
-
-    // Render ô Sàn (Cột giữa)
-    const renderFloorBox = () => (
-      <div className="border-l border-b border-black h-[105px] flex flex-col justify-center px-1 gap-4 bg-white">
-        <div className="border-b border-dotted border-black/50 w-full h-0"></div>
-        <div className="border-b border-dotted border-black/50 w-full h-0"></div>
-        <div className="border-b border-dotted border-black/50 w-full h-0"></div>
-        <div className="border-b border-dotted border-black/50 w-full h-0"></div>
-      </div>
-    );
 
     return (
-      <div ref={ref} className="manifest-pdf-final bg-white text-black font-sans leading-none select-none">
-        {/* Header: Tên xe và Ngày */}
-        <div className="flex items-center border-t border-l border-r border-black">
-          <div className="flex-1 py-4 text-center text-xl font-black uppercase tracking-[0.1em] border-r border-black">
-            {trip.name || "XE CHUYÊN CƠ HÀ TĨNH - LAI CHÂU"}
+      <div ref={ref} className="manifest-print-table-view bg-white text-black font-sans select-none">
+        {/* Header Cao Nhất */}
+        <div className="flex border-t border-l border-r border-black items-stretch">
+          <div className="flex-1 py-3 text-center text-xl font-black uppercase tracking-wider border-r border-black flex items-center justify-center">
+            {trip.name || "XE THƯỜNG LAI CHÂU - NGHỆ AN"}
           </div>
-          <div className="w-[280px] px-4 font-bold text-sm flex items-center gap-2">
-            NGÀY: <span className="flex-1 border-b border-black border-dotted h-5 font-mono text-center">{dateFormatted}</span>
+          <div className="w-[200px] flex flex-col justify-center px-3 font-bold text-sm">
+            <div>NGÀY:</div>
+            <div className="mt-1 border-b border-black border-dotted h-4 font-mono">{dateFormatted}</div>
           </div>
         </div>
 
-        {/* Sub-Header: Tầng 1, Tầng 2, Sàn... */}
-        <div className="flex border-r border-black font-bold text-[11px] text-center uppercase">
-          <div className="flex-1 border-l border-black border-b py-2 bg-gray-50/50">Tầng 1</div>
-          <div className="flex-1 border-l border-black border-b py-2 bg-gray-50/50">Tầng 2</div>
-          <div className="w-[12%] border-l border-black border-b py-2 bg-gray-50/50">Sàn</div>
-          <div className="flex-1 border-l border-black border-b py-2 bg-gray-50/50">Tầng 1</div>
-          <div className="flex-1 border-l border-black border-b py-2 bg-gray-50/50">Tầng 2</div>
-        </div>
+        {/* Table Structure */}
+        <table className="w-full border-collapse border border-black text-[12px]">
+          <thead>
+            <tr className="bg-white">
+              <th className="border border-black w-[40px] py-1 text-center">1</th>
+              <th className="border border-black w-[40px] py-1 text-center">Số</th>
+              <th className="border border-black py-1 text-center">Số điện thoại</th>
+              <th className="border border-black w-[18%] py-1 text-center">Nơi đón</th>
+              <th className="border border-black w-[18%] py-1 text-center">Nơi trả</th>
+              <th className="border border-black w-[15%] py-1 text-center">Ghi chú</th>
+            </tr>
+          </thead>
+          <tbody>
+            {groups.map((group) => (
+              <React.Fragment key={group.label}>
+                {group.seats.map((seatNum, idx) => {
+                  const info = getBookingInfo(seatNum);
+                  return (
+                    <tr key={seatNum} className="h-[28px]">
+                      {/* Cột nhóm: Chỉ render ở hàng đầu tiên của nhóm */}
+                      {idx === 0 && (
+                        <td 
+                          rowSpan={group.seats.length} 
+                          className="border border-black text-center font-bold align-middle bg-white"
+                        >
+                          {group.label}
+                        </td>
+                      )}
+                      
+                      {/* Số ghế */}
+                      <td className="border border-black text-center font-bold bg-white">
+                        {seatNum}
+                      </td>
 
-        {/* Ma trận chính: 6 hàng */}
-        <div className="flex border-r border-black">
-          
-          {/* CỘT 1: Dãy B Tầng 1 (Lẻ) */}
-          <div className="flex-1 flex flex-col border-t border-black">
-            {[1, 3, 5, 7, 9].map(n => renderSeatBox(`B${n}`))}
-            {renderSeatBox(`B11`, true)}
-          </div>
-
-          {/* CỘT 2: Dãy B Tầng 2 (Chẵn) */}
-          <div className="flex-1 flex flex-col border-t border-black">
-            {[2, 4, 6, 8, 10, 12].map(n => renderSeatBox(`B${n}`))}
-          </div>
-
-          {/* CỘT 3: Sàn */}
-          <div className="w-[12%] flex flex-col border-t border-black">
-            {Array.from({ length: 6 }).map((_, i) => (
-               <React.Fragment key={i}>{renderFloorBox()}</React.Fragment>
+                      {/* Thông tin khách */}
+                      <td className="border border-black px-2 font-black text-[13px]">
+                        {info?.phone || ""}
+                      </td>
+                      <td className="border border-black px-2 truncate">
+                        {info?.pickup || ""}
+                      </td>
+                      <td className="border border-black px-2 truncate">
+                        {info?.dropoff || ""}
+                      </td>
+                      <td className="border border-black px-2 text-[10px] italic">
+                        {info?.note || ""}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </React.Fragment>
             ))}
-          </div>
+          </tbody>
+          <tfoot>
+             <tr className="h-[35px]">
+                <td colSpan={2} className="border border-black border-t-0"></td>
+                <td colSpan={3} className="border border-black border-t-0 text-right px-4 font-bold uppercase text-[11px]">
+                   Tổng tiền vé đặt trước
+                </td>
+                <td className="border border-black border-t-0 text-right px-4 font-black text-sm">
+                   {totalPrice > 0 ? totalPrice.toLocaleString('vi-VN') : "-"}
+                </td>
+             </tr>
+          </tfoot>
+        </table>
 
-          {/* CỘT 4: Dãy A Tầng 1 + Bảng Tổng Hợp */}
-          <div className="flex-1 flex flex-col border-t border-black">
-            {[1, 3, 5, 7, 9].map(n => renderSeatBox(`A${n}`))}
-            
-            {/* Label Tổng tiền (Hàng 6) */}
-            <div className="border-l border-b border-black h-[52px] flex items-center px-2 font-bold text-[11px]">
-              Tổng tiền đặt trước
-            </div>
-            <div className="border-l border-b border-black h-[53px] flex items-center px-2 font-bold text-[11px]">
-              Tổng vé đã bán
-            </div>
-          </div>
-
-          {/* CỘT 5: Dãy A Tầng 2 + Giá trị Tổng Hợp */}
-          <div className="flex-1 flex flex-col border-t border-black">
-            {[2, 4, 6, 8, 10].map(n => renderSeatBox(`A${n}`))}
-            
-            {/* Value Tổng tiền (Hàng 6) */}
-            <div className="border-l border-b border-black h-[52px] flex items-center justify-end px-3 font-black text-sm">
-              -
-            </div>
-            {/* Value Vé đã bán */}
-            <div className="border-l border-b border-black h-[53px] flex flex-col justify-center px-3 relative">
-               <div className="text-right font-black text-sm pr-1">{manifest.length} vé</div>
-               <div className="absolute bottom-0 right-0 w-14 h-7 border-l border-t border-black flex items-center justify-center bg-gray-50/50">
-                  <span className="text-[10px] font-black">{(totalPrice/1000)}k</span>
-               </div>
-            </div>
-          </div>
-
-        </div>
-
-        {/* Footer Area for signatures (Optional additions to match real usage) */}
-        <div className="flex justify-between items-end mt-4 px-12 text-[10px] font-bold italic opacity-60">
-           <span>Lái xe ký xác nhận: ........................................</span>
-           <span>Văn phòng bến: ........................................</span>
+        {/* Footer Signatures */}
+        <div className="flex justify-between mt-8 px-10 text-[11px] font-bold italic opacity-80">
+           <div className="flex flex-col items-center gap-16">
+              <span>Lái xe ký nhận</span>
+              <div className="w-32 border-b border-black border-dotted"></div>
+           </div>
+           <div className="flex flex-col items-center gap-16">
+              <span>Văn phòng bến</span>
+              <div className="w-32 border-b border-black border-dotted"></div>
+           </div>
         </div>
 
         <style>{`
           @page {
-            size: A4 landscape;
-            margin: 0;
+            size: A4 portrait;
+            margin: 5mm;
           }
-          .manifest-pdf-final {
-            width: 297mm;
-            height: 210mm;
-            padding: 8mm;
-            box-sizing: border-box;
-            background: white !important;
+          .manifest-print-table-view {
+            width: 100%;
+            max-width: 210mm;
+            margin: 0 auto;
+            color: black !important;
           }
-          /* Đảm bảo viền đen khi in */
-          .border-black { border-color: #000000 !important; }
-          .border-dotted {
-            border-bottom-style: dotted !important;
-            border-bottom-width: 1.5px !important;
-            border-color: #333 !important;
+          table {
+            border-spacing: 0;
+            border-width: 1px 0 0 1px;
+          }
+          th, td {
+            border-color: black !important;
           }
           @media print {
-            body { -webkit-print-color-adjust: exact; margin: 0; }
+            body { background: white; -webkit-print-color-adjust: exact; }
             .no-print { display: none; }
           }
         `}</style>
