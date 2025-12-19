@@ -71,9 +71,13 @@ export const RightSheet: React.FC<RightSheetProps> = ({
   }, [bookings]);
 
   const filteredList = useMemo(() => {
-    if (!searchTerm.trim()) return sortedBookings;
+    // Lọc bỏ các đơn hàng trạng thái 'hold' theo yêu cầu
+    const baseList = sortedBookings.filter(b => b.status !== 'hold');
+    
+    if (!searchTerm.trim()) return baseList;
+    
     const lowerTerm = searchTerm.toLowerCase();
-    return sortedBookings.filter((booking) => {
+    return baseList.filter((booking) => {
       const itemMatch = booking.items.some(
         (item) =>
           item.route.toLowerCase().includes(lowerTerm) ||
@@ -129,13 +133,7 @@ export const RightSheet: React.FC<RightSheetProps> = ({
         </Badge>
       );
     }
-    if (status === "hold") {
-      return (
-        <Badge className="bg-purple-50 text-purple-600 border-purple-100 text-[10px] px-1.5 h-5">
-          Giữ vé
-        </Badge>
-      );
-    }
+    // Logic hiển thị: payment (hoặc đã trả đủ tiền) -> Mua vé, booking -> Đặt vé
     if (status === "payment" || isPaid) {
       return (
         <Badge className="bg-green-50 text-green-600 border-green-100 text-[10px] px-1.5 h-5">
@@ -368,7 +366,7 @@ export const RightSheet: React.FC<RightSheetProps> = ({
                                 <div className="flex items-center gap-3">
                                   <div className="text-right">
                                     <div className="text-sm font-black text-slate-900">
-                                      {isFullyPaid ? (
+                                      {isFullyPaid || booking.status === 'payment' ? (
                                         <>
                                           {booking.totalPrice.toLocaleString(
                                             "vi-VN"
@@ -378,8 +376,8 @@ export const RightSheet: React.FC<RightSheetProps> = ({
                                           </span>
                                         </>
                                       ) : (
-                                        <span className={booking.status === 'hold' ? "text-purple-600" : "text-amber-600"}>
-                                          {booking.status === 'hold' ? 'Đang giữ vé' : 'Đang đặt vé'}
+                                        <span className="text-amber-600 font-bold">
+                                          Đã đặt vé
                                         </span>
                                       )}
                                     </div>
