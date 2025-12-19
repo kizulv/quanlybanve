@@ -42,6 +42,7 @@ import {
   ArrowRight as ArrowRightIcon,
   Calendar,
   Calculator,
+  Printer,
 } from "lucide-react";
 import { api } from "./lib/api";
 import { isSameDay, formatLunarDate, formatTime } from "./utils/dateUtils";
@@ -1292,6 +1293,122 @@ function AppContent() {
     }
   };
 
+  // --- NEW: HANDLE PRINT MANIFEST ---
+  const handlePrintManifest = () => {
+    if (!selectedTrip || filteredManifest.length === 0) {
+      toast({
+        type: "warning",
+        title: "Không có dữ liệu",
+        message: "Vui lòng chọn chuyến xe có khách để in bảng kê."
+      });
+      return;
+    }
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const tripDate = new Date(selectedTrip.departureTime);
+    const dateFormatted = `${tripDate.getDate()}/${tripDate.getMonth() + 1}/${tripDate.getFullYear()}`;
+    const timeFormatted = formatTime(selectedTrip.departureTime);
+    
+    // Sort manifest by seat label numerically/alphabetically
+    const sortedList = [...filteredManifest].sort((a, b) => {
+        const seatA = a.items.find(i => i.tripId === selectedTrip.id)?.seatIds[0] || "";
+        const seatB = b.items.find(i => i.tripId === selectedTrip.id)?.seatIds[0] || "";
+        return seatA.localeCompare(seatB, undefined, { numeric: true });
+    });
+
+    const rowsHtml = sortedList.map((booking, idx) => {
+      const item = booking.items.find(i => i.tripId === selectedTrip.id);
+      const seats = item?.seatIds.join(", ") || "";
+      const price = item?.price || 0;
+      const pickup = item?.tickets?.[0]?.pickup || booking.passenger.pickupPoint || "---";
+      const dropoff = item?.tickets?.[0]?.dropoff || booking.passenger.dropoffPoint || "---";
+
+      return `
+        <tr>
+          <td style="text-align: center;">${idx + 1}</td>
+          <td style="text-align: center; font-weight: bold;">${seats}</td>
+          <td>${booking.passenger.phone}</td>
+          <td>${pickup} - ${dropoff}</td>
+          <td style="text-align: right;">${price.toLocaleString('vi-VN')}</td>
+          <td style="font-size: 10px; font-style: italic;">${booking.passenger.note || ""}</td>
+        </tr>
+      `;
+    }).join('');
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Bảng kê hành khách - ${selectedTrip.licensePlate}</title>
+          <style>
+            body { font-family: 'Inter', sans-serif; padding: 20px; color: #333; }
+            .header { text-align: center; margin-bottom: 20px; }
+            .header h1 { margin: 0; font-size: 20px; text-transform: uppercase; }
+            .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; font-size: 13px; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+            th, td { border: 1px solid #ccc; padding: 8px; font-size: 12px; text-align: left; }
+            th { background-color: #f2f2f2; font-weight: bold; }
+            .footer { display: grid; grid-template-columns: 1fr 1fr; margin-top: 40px; text-align: center; font-size: 13px; }
+            .footer div { height: 100px; }
+            @media print {
+              .no-print { display: none; }
+              body { padding: 0; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>BẢNG KÊ DANH SÁCH HÀNH KHÁCH</h1>
+            <div style="font-weight: bold; margin-top: 5px;">${selectedTrip.name}</div>
+          </div>
+          <div class="info-grid">
+            <div><strong>Biển số:</strong> ${selectedTrip.licensePlate}</div>
+            <div><strong>Ngày chạy:</strong> ${dateFormatted}</div>
+            <div><strong>Giờ xuất bến:</strong> ${timeFormatted}</div>
+            <div><strong>Tài xế:</strong> ${selectedTrip.driver || "................"}</div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 30px;">STT</th>
+                <th style="width: 60px;">Ghế</th>
+                <th style="width: 100px;">SĐT</th>
+                <th>Lộ trình (Đón - Trả)</th>
+                <th style="width: 90px;">Thành tiền</th>
+                <th>Ghi chú</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colspan="4" style="text-align: right; font-weight: bold;">TỔNG THỰC THU:</td>
+                <td style="text-align: right; font-weight: bold; color: red;">${totalManifestPrice.toLocaleString('vi-VN')} đ</td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+          <div class="footer">
+            <div>
+              <strong>Lái xe ký xác nhận</strong><br/>
+              <span style="font-size: 10px; font-style: italic;">(Ký và ghi rõ họ tên)</span>
+            </div>
+            <div>
+              <strong>Quản lý bến/Văn phòng</strong><br/>
+              <span style="font-size: 10px; font-style: italic;">(Ký và đóng dấu)</span>
+            </div>
+          </div>
+          <script>
+            window.onload = function() { window.print(); window.close(); }
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -1588,6 +1705,18 @@ function AppContent() {
                     );
                   })
                 )}
+              </div>
+              
+              {/* Manifest Footer Action */}
+              <div className="p-2 border-t border-slate-100 bg-white">
+                 <Button 
+                   variant="default" 
+                   className="w-full h-9 text-xs font-bold gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+                   onClick={handlePrintManifest}
+                   disabled={!selectedTrip || filteredManifest.length === 0}
+                 >
+                    <Printer size={14} /> Xuất bảng kê (In PDF)
+                 </Button>
               </div>
             </div>
           </div>
