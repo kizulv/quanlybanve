@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from "react";
 import { Layout } from "./components/Layout";
 import { SeatMap } from "./components/SeatMap";
@@ -686,7 +685,7 @@ function AppContent() {
 
         let finalPrice =
           override?.price !== undefined ? override.price : s.price;
-        
+
         // QUAN TRỌNG: Nếu đang ở chế độ Đặt vé, ép giá vé về 0
         if (bookingMode === "booking") {
           finalPrice = 0;
@@ -885,7 +884,7 @@ function AppContent() {
             override?.price !== undefined ? override.price : s.price;
 
           // QUAN TRỌNG: Nếu đang ở chế độ Đặt vé, ép giá vé về 0
-          if (bookingMode === 'booking') {
+          if (bookingMode === "booking") {
             finalPrice = 0;
           }
 
@@ -947,7 +946,10 @@ function AppContent() {
       }
 
       // Nếu chuyển sang Đặt vé, ép paymentData về 0 để đồng bộ
-      const finalPayment = bookingMode === 'booking' ? { paidCash: 0, paidTransfer: 0 } : paymentData;
+      const finalPayment =
+        bookingMode === "booking"
+          ? { paidCash: 0, paidTransfer: 0 }
+          : paymentData;
 
       const result = await api.bookings.update(
         targetBookingId,
@@ -1101,9 +1103,14 @@ function AppContent() {
     if (!editingBooking) return;
 
     // Nếu đang chuyển sang Đặt vé, không cần qua bước Payment Modal phức tạp
-    if (bookingMode === 'booking') {
-        await executeBookingUpdate(editingBooking.id, { paidCash: 0, paidTransfer: 0 }, {}, "(Chuyển sang Đặt vé)");
-        return;
+    if (bookingMode === "booking") {
+      await executeBookingUpdate(
+        editingBooking.id,
+        { paidCash: 0, paidTransfer: 0 },
+        {},
+        "(Chuyển sang Đặt vé)"
+      );
+      return;
     }
 
     setModalPaymentInput({
@@ -1541,7 +1548,11 @@ function AppContent() {
                         id={`booking-item-${booking.id}`}
                         onClick={() => handleSelectBookingFromHistory(booking)}
                         className={`px-3 py-2 border-b border-slate-100 cursor-pointer hover:bg-slate-50 transition-colors ${
-                          !isFullyPaid && booking.status !== 'hold' ? "bg-yellow-50/30" : (booking.status === 'hold' ? "bg-purple-50/30" : "")
+                          !isFullyPaid && booking.status !== "hold"
+                            ? "bg-yellow-50/30"
+                            : booking.status === "hold"
+                            ? "bg-purple-50/30"
+                            : ""
                         } ${
                           isHighlighted
                             ? "bg-indigo-50 ring-2 ring-indigo-500 z-10"
@@ -1575,13 +1586,16 @@ function AppContent() {
                           </div>
                           <div
                             className={`text-xs font-black whitespace-nowrap ${
-                              isFullyPaid ? "text-green-600" : (booking.status === 'hold' ? "text-purple-600" : "text-amber-600")
+                              booking.status === "payment"
+                                ? "text-green-600"
+                                : booking.status === "hold"
+                                ? "text-purple-600"
+                                : "text-amber-600"
                             }`}
                           >
-                            {booking.status === 'booking' 
-                                ? "Đã đặt vé" 
-                                : tripSubtotal.toLocaleString("vi-VN")
-                            }
+                            {booking.status === "booking"
+                              ? "Đã đặt vé"
+                              : tripSubtotal.toLocaleString("vi-VN")}
                           </div>
                         </div>
                       </div>
@@ -1699,9 +1713,7 @@ function AppContent() {
                             </Badge>
                           )}
                           {booking.status === "hold" && (
-                            <Badge
-                              className="bg-purple-100 text-purple-700 border-purple-200"
-                            >
+                            <Badge className="bg-purple-100 text-purple-700 border-purple-200">
                               Giữ vé
                             </Badge>
                           )}
