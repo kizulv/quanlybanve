@@ -30,6 +30,7 @@ interface PaymentItem {
   seats: Seat[];
   pickup: string;
   dropoff: string;
+  basePrice: number; // ADDED: Suggested price
 }
 
 interface SeatOverride {
@@ -78,18 +79,26 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         route: item.trip.route,
         seats: item.seats,
         pickup: bookingForm.pickup || "",
-        dropoff: bookingForm.dropoff || ""
+        dropoff: bookingForm.dropoff || "",
+        basePrice: item.trip.basePrice || 0
       }));
     }
     return [];
   }, [selectionBasket, bookingForm]);
 
   // 2. Helper to get effective values
-  const getSeatValues = (tripId: string, seat: Seat, defaultPickup: string, defaultDropoff: string) => {
+  const getSeatValues = (tripId: string, seat: Seat, defaultPickup: string, defaultDropoff: string, tripBasePrice: number) => {
     const key = `${tripId}_${seat.id}`;
     const override = seatOverrides[key];
+    
+    // SỬA ĐỔI CHÍNH: Nếu ghế đang có giá = 0 (do được đặt trước), gợi ý giá niêm yết của chuyến
+    let displayPrice = override?.price !== undefined ? override.price : seat.price;
+    if (displayPrice === 0) {
+        displayPrice = tripBasePrice;
+    }
+
     return {
-      price: override?.price !== undefined ? override.price : seat.price,
+      price: displayPrice,
       pickup: override?.pickup !== undefined ? override.pickup : defaultPickup,
       dropoff: override?.dropoff !== undefined ? override.dropoff : defaultDropoff,
       isPriceChanged: override?.price !== undefined && override.price !== seat.price
@@ -130,7 +139,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     items.forEach(trip => {
       trip.seats.forEach(seat => {
         original += seat.price;
-        const { price } = getSeatValues(trip.tripId, seat, trip.pickup, trip.dropoff);
+        const { price } = getSeatValues(trip.tripId, seat, trip.pickup, trip.dropoff, trip.basePrice);
         final += price;
       });
     });
@@ -142,14 +151,9 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const previouslyPaid = editingBooking ? ((editingBooking.payment?.paidCash || 0) + (editingBooking.payment?.paidTransfer || 0)) : 0;
   
   // LOGIC:
-  // finalTotal: Giá trị mới của đơn hàng.
-  // previouslyPaid: Khách đã trả trước đó (trong DB).
-  // paidCash + paidTransfer: Số tiền nhập vào ô input (Có thể user nhập thêm, hoặc giữ nguyên).
-  
-  // Số tiền CẦN thanh toán thêm (hoặc hoàn) dựa trên giá trị đơn hàng
   const diffFromPrevious = finalTotal - previouslyPaid; 
 
-  // Số tiền còn thiếu dựa trên INPUT hiện tại (để hiện cảnh báo dư/thiếu)
+  // Số tiền còn thiếu dựa trên INPUT hiện tại
   const currentInputTotal = paidCash + paidTransfer;
   const remainingBalance = finalTotal - currentInputTotal;
 
@@ -189,9 +193,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       }
   };
 
-  // Helper to Auto-Fill Payment Inputs based on Difference
   const handleQuickSettle = (method: 'cash' | 'transfer') => {
-      // Logic: Add the *Missing Amount* to the selected method to make Balance = 0.
       const gap = remainingBalance; 
       
       const currentVal = method === 'cash' ? paidCash : paidTransfer;
@@ -209,14 +211,25 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
   const handleConfirmClick = () => {
       let noteSuffix = "";
-      // If there is a remaining balance (positive or negative), append to note
       if (remainingBalance > 0) {
           noteSuffix = `(Cần thu thêm: ${remainingBalance.toLocaleString('vi-VN')}đ)`;
       } else if (remainingBalance < 0) {
           noteSuffix = `(Cần hoàn lại: ${Math.abs(remainingBalance).toLocaleString('vi-VN')}đ)`;
       }
 
-      onConfirm(finalTotal, seatOverrides, noteSuffix);
+      // Khi nhấn xác nhận, chúng ta cần gửi bộ overrides đã bao gồm giá được "gợi ý"
+      // để Backend cập nhật đúng giá từ 0 sang giá thanh toán thật.
+      const finalOverrides: Record<string, SeatOverride> = { ...seatOverrides };
+      items.forEach(trip => {
+          trip.seats.forEach(seat => {
+              const key = `${trip.tripId}_${seat.id}`;
+              const { price } = getSeatValues(trip.tripId, seat, trip.pickup, trip.dropoff, trip.basePrice);
+              if (!finalOverrides[key]) finalOverrides[key] = {};
+              finalOverrides[key].price = price;
+          });
+      });
+
+      onConfirm(finalTotal, finalOverrides, noteSuffix);
   };
 
   // Reset or Load Initial
@@ -250,7 +263,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               const tripDate = new Date(trip.tripDate);
               return (
                 <div key={trip.tripId} className="bg-indigo-900/40 rounded-lg border border-indigo-800 overflow-hidden">
-                  {/* Trip Header */}
                   <div className="bg-indigo-900/60 px-3 py-2 border-b border-indigo-800 flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                       <Bus size={14} className="text-indigo-400" />
@@ -264,22 +276,18 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Seats List */}
                   <div className="p-2 space-y-2">
                     {trip.seats.map((seat) => {
-                      const { price, pickup, dropoff, isPriceChanged } = getSeatValues(trip.tripId, seat, trip.pickup, trip.dropoff);
+                      const { price, pickup, dropoff, isPriceChanged } = getSeatValues(trip.tripId, seat, trip.pickup, trip.dropoff, trip.basePrice);
                       return (
                         <div key={seat.id} className="flex flex-col sm:flex-row gap-2 items-start sm:items-center bg-indigo-950/50 p-2 rounded border border-indigo-900/50 hover:border-indigo-700 transition-colors">
-                            {/* Label */}
                             <div className="shrink-0">
                                 <span className="inline-flex items-center justify-center w-8 h-7 bg-indigo-800 text-white font-bold text-xs rounded border border-indigo-700 shadow-sm">
                                     {seat.label}
                                 </span>
                             </div>
 
-                            {/* Inputs Container */}
                             <div className="flex-1 grid grid-cols-2 gap-2 w-full">
-                                {/* Pickup Input */}
                                 <div className="relative group">
                                     <div className="absolute left-2 top-1.5 pointer-events-none">
                                         <MapPin size={10} className="text-indigo-400 group-focus-within:text-yellow-400 transition-colors" />
@@ -294,7 +302,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                                     />
                                 </div>
 
-                                {/* Dropoff Input */}
                                 <div className="relative group">
                                     <div className="absolute left-2 top-1.5 pointer-events-none">
                                         <Locate size={10} className="text-indigo-400 group-focus-within:text-yellow-400 transition-colors" />
@@ -310,18 +317,17 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                                 </div>
                             </div>
 
-                            {/* Price */}
                             <div className="w-full sm:w-28 relative shrink-0">
                                 <input 
                                     type="text"
                                     className={`w-full text-right font-bold text-xs bg-indigo-950 border rounded px-2 py-1 focus:outline-none transition-colors
-                                        ${isPriceChanged ? 'text-yellow-400 border-yellow-500/50 ring-1 ring-yellow-500/20' : 'text-white border-indigo-800'}
+                                        ${(isPriceChanged || seat.price === 0) ? 'text-yellow-400 border-yellow-500/50 ring-1 ring-yellow-500/20' : 'text-white border-indigo-800'}
                                     `}
                                     value={price.toLocaleString('vi-VN')}
                                     onChange={(e) => handleOverrideChange(trip.tripId, seat.id, 'price', e.target.value)}
                                 />
                                 <span className="absolute right-8 top-1.5 text-[10px] text-indigo-500 pointer-events-none hidden sm:block">đ</span>
-                                {isPriceChanged && <div className="absolute top-1 right-1 w-1.5 h-1.5 bg-yellow-400 rounded-full animate-pulse shadow-sm"></div>}
+                                {(isPriceChanged || seat.price === 0) && <div className="absolute top-1 right-1 w-1.5 h-1.5 bg-yellow-400 rounded-full animate-pulse shadow-sm"></div>}
                             </div>
                         </div>
                       );
@@ -336,13 +342,11 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         {/* --- RIGHT: PAYMENT & ACTIONS (35%) --- */}
         <div className="w-full md:w-[360px] bg-indigo-900/20 p-5 flex flex-col gap-4 shrink-0 border-t md:border-t-0 md:border-l border-indigo-900 shadow-xl overflow-y-auto">
            
-           {/* Summary Card */}
            <div className="bg-indigo-900/50 rounded-xl p-5 border border-indigo-800 shadow-inner space-y-3">
               <div className="flex items-center gap-2 mb-2 text-indigo-300 text-xs font-bold uppercase tracking-wider">
                   <Calculator size={14} /> Tổng thanh toán
               </div>
               
-              {/* OLD VS NEW COMPARISON (Edit Mode) */}
               {editingBooking && (
                   <div className="space-y-2 pb-3 border-b border-indigo-800/50">
                       <div className="flex justify-between items-center text-xs">
@@ -356,14 +360,12 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                   </div>
               )}
               
-              {/* MAIN TOTAL DISPLAY */}
               <div className="flex justify-between items-end">
                  <span className="text-xs text-indigo-400 font-medium">Cần thanh toán</span>
                  <span className="text-3xl font-bold text-yellow-400 tracking-tight">{finalTotal.toLocaleString('vi-VN')} <span className="text-sm font-normal text-yellow-400/70">đ</span></span>
               </div>
            </div>
 
-           {/* SETTLEMENT CARD (Shows difference from PREVIOUS payment) */}
            {editingBooking && diffFromPrevious !== 0 && (
                <div className={`p-4 rounded-xl border shadow-sm animate-in fade-in slide-in-from-top-2 flex flex-col gap-3
                    ${diffFromPrevious > 0 
@@ -388,7 +390,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                        </div>
                    </div>
                    
-                   {/* Auto-Fill Buttons if input doesn't match needed amount yet */}
                    {remainingBalance !== 0 && (
                        <div className="grid grid-cols-2 gap-2 mt-1">
                            <button 
@@ -416,7 +417,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                </div>
            )}
 
-           {/* Inputs */}
            <div className="space-y-3 pt-2">
                  <div className="text-xs font-bold text-indigo-400 uppercase tracking-wider mb-2">Tổng thực thu / đã trả</div>
                  <div className="relative group">
@@ -449,7 +449,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                  </div>
            </div>
 
-           {/* Remaining Status - VISUAL FEEDBACK */}
            {remainingBalance > 0 ? (
                   <div className="p-2 rounded bg-red-950/30 border border-red-900/50 text-right text-xs text-red-400 font-bold flex justify-between items-center">
                       <span>Đang thiếu:</span>
@@ -466,7 +465,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                   </div>
            )}
            
-           {/* NOTE ALERT */}
            {remainingBalance !== 0 && (
                 <div className="text-[10px] text-center text-indigo-300 italic">
                     * Hệ thống sẽ tự động thêm ghi chú: <br/>
