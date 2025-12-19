@@ -36,13 +36,13 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
     const dateFormatted = `${tripDate.getDate()}/${tripDate.getMonth() + 1}/${tripDate.getFullYear()}`;
     const lunarFormatted = formatLunarDate(tripDate);
 
-    // Xử lý dữ liệu khách hàng theo từng ghế để tra cứu nhanh
+    // 1. Thu thập thông tin khách hàng từ manifest gắn vào seatId
     const seatDataMap = new Map<string, { 
       phone: string; 
       pickup: string; 
       dropoff: string; 
       price: number; 
-      isPaid: boolean;
+      status: 'sold' | 'booked' | 'held';
       note?: string;
     }>();
 
@@ -52,6 +52,9 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
 
       const totalPaid = (booking.payment?.paidCash || 0) + (booking.payment?.paidTransfer || 0);
       const isPaid = totalPaid >= booking.totalPrice || booking.status === 'payment';
+      const isHold = booking.status === 'hold';
+
+      let status: 'sold' | 'booked' | 'held' = isPaid ? 'sold' : (isHold ? 'held' : 'booked');
 
       tripItem.seatIds.forEach((seatId) => {
         const ticket = tripItem.tickets?.find((t) => t.seatId === seatId);
@@ -60,185 +63,192 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
           pickup: ticket?.pickup || booking.passenger.pickupPoint || "",
           dropoff: ticket?.dropoff || booking.passenger.dropoffPoint || "",
           price: ticket?.price || 0,
-          isPaid: isPaid,
+          status: status,
           note: booking.passenger.note
         });
       });
     });
 
-    // Hàm render HTML cho từng ô ghế
-    const renderSeatHtml = (seatId: string, label: string) => {
-      const data = seatDataMap.get(seatId);
+    // 2. Kiểm tra các ghế 'held' thủ công (không qua booking manifest)
+    selectedTrip.seats.forEach(s => {
+      if (s.status === SeatStatus.HELD && !seatDataMap.has(s.id)) {
+        seatDataMap.set(s.id, {
+          phone: "---",
+          pickup: "---",
+          dropoff: "---",
+          price: 0,
+          status: 'held',
+          note: s.note
+        });
+      }
+    });
+
+    // Hàm render HTML cho ô ghế
+    const renderSeatHtml = (seat: Seat | undefined) => {
+      if (!seat) return `<div class="seat empty-spacer"></div>`;
+      
+      const data = seatDataMap.get(seat.id);
+      const label = seat.label;
+
       if (!data) {
         return `<div class="seat empty"><div class="seat-label">${label}</div><div class="empty-txt">TRỐNG</div></div>`;
       }
+
+      let statusLabel = "ĐẶT VÉ";
+      if (data.status === 'sold') statusLabel = "MUA VÉ";
+      if (data.status === 'held') statusLabel = "GIỮ CHỖ";
+
       return `
-        <div class="seat occupied ${data.isPaid ? 'paid' : 'booked'}">
+        <div class="seat occupied ${data.status}">
           <div class="seat-head">
             <span class="seat-label">${label}</span>
-            <span class="seat-price">${data.price > 0 ? data.price.toLocaleString('vi-VN') : ''}</span>
+            <span class="status-tag">${statusLabel}</span>
           </div>
           <div class="seat-info">
             <div class="info-phone">${data.phone}</div>
-            <div class="info-loc" title="${data.pickup}">${data.pickup || '---'}</div>
-            <div class="info-loc" title="${data.dropoff}">${data.dropoff || '---'}</div>
+            <div class="info-loc">${data.pickup || '---'}</div>
+            <div class="info-loc">${data.dropoff || '---'}</div>
+            <div class="info-price">${data.price > 0 ? data.price.toLocaleString('vi-VN') + ' đ' : ''}</div>
           </div>
         </div>
       `;
     };
 
-    // LOGIC XÂY DỰNG LAYOUT THEO LOẠI XE
+    // 3. Xây dựng Layout theo loại xe
     let layoutContent = "";
     const isCabin = selectedTrip.type === BusType.CABIN;
 
     if (isCabin) {
-      // BỐ TRÍ XE CABIN 22 PHÒNG (Dãy B - Sàn - Dãy A)
-      const rows = 11;
-      layoutContent = `<div class="cabin-layout">`;
+      // XE CABIN 22 PHÒNG + 6 SÀN
+      layoutContent = `<div class="cabin-container">`;
       
-      // Dãy B (Lẻ)
-      layoutContent += `<div class="side-col"><h3>DÃY B (PHÒNG LẺ)</h3>`;
-      for (let r = 0; r < rows; r++) {
-        layoutContent += `<div class="row-pair">
-          ${renderSeatHtml(`1-${r}-0`, `B${r*2+1}`)}
-          ${renderSeatHtml(`2-${r}-0`, `B${r*2+2}`)}
-        </div>`;
+      // Dãy B (11 phòng bên trái)
+      layoutContent += `<div class="side-col"><h3>DÃY B (11 PHÒNG)</h3>`;
+      for (let r = 0; r < 11; r++) {
+          const s = selectedTrip.seats.find(seat => seat.col === 0 && seat.row === r && !seat.isFloorSeat);
+          layoutContent += renderSeatHtml(s);
       }
       layoutContent += `</div>`;
 
-      // Dãy Sàn (Nếu có)
-      const floorSeats = selectedTrip.seats.filter(s => s.isFloorSeat);
-      if (floorSeats.length > 0) {
-        layoutContent += `<div class="floor-col"><h3>SÀN</h3>`;
-        floorSeats.forEach(s => {
-          layoutContent += renderSeatHtml(s.id, s.label);
-        });
-        layoutContent += `</div>`;
-      }
-
-      // Dãy A (Chẵn)
-      layoutContent += `<div class="side-col"><h3>DÃY A (PHÒNG CHẴN)</h3>`;
-      for (let r = 0; r < rows; r++) {
-        layoutContent += `<div class="row-pair">
-          ${renderSeatHtml(`1-${r}-1`, `A${r*2+1}`)}
-          ${renderSeatHtml(`2-${r}-1`, `A${r*2+2}`)}
-        </div>`;
+      // Dãy Sàn (6 chỗ ở giữa)
+      const floorSeats = selectedTrip.seats.filter(s => s.isFloorSeat).sort((a,b) => (a.row||0) - (b.row||0));
+      layoutContent += `<div class="floor-col"><h3>SÀN (6 CHỖ)</h3>`;
+      for (let i = 0; i < 6; i++) {
+          layoutContent += renderSeatHtml(floorSeats[i]);
       }
       layoutContent += `</div>`;
+
+      // Dãy A (11 phòng bên phải)
+      layoutContent += `<div class="side-col"><h3>DÃY A (11 PHÒNG)</h3>`;
+      for (let r = 0; r < 11; r++) {
+          const s = selectedTrip.seats.find(seat => seat.col === 1 && seat.row === r && !seat.isFloorSeat);
+          layoutContent += renderSeatHtml(s);
+      }
+      layoutContent += `</div>`;
+      
       layoutContent += `</div>`;
 
     } else {
-      // BỐ TRÍ XE GIƯỜNG ĐƠN 41 (Tầng 1 | Tầng 2)
-      layoutContent = `<div class="sleeper-layout">`;
+      // XE GIƯỜNG 41 CHỖ (Tầng 1 + Băng cuối & Tầng 2)
+      layoutContent = `<div class="sleeper-container">`;
       
       [1, 2].forEach(floor => {
         layoutContent += `<div class="deck">
           <h3>TẦNG ${floor}</h3>
           <div class="deck-grid">`;
         
-        // Render 6 hàng chính (3 cột)
+        // 6 hàng tiêu chuẩn (3 cột)
         for (let r = 0; r < 6; r++) {
           for (let c = 0; c < 3; c++) {
-            const seat = selectedTrip.seats.find(s => s.floor === floor && s.row === r && s.col === c && !s.isFloorSeat);
-            if (seat) layoutContent += renderSeatHtml(seat.id, seat.label);
-            else layoutContent += `<div class="seat spacer"></div>`;
+            const s = selectedTrip.seats.find(seat => seat.floor === floor && seat.row === r && seat.col === c && !seat.isFloorSeat);
+            layoutContent += renderSeatHtml(s);
           }
         }
-        
-        // Băng cuối (Tầng 1)
-        if (floor === 1) {
-          layoutContent += `<div class="rear-bench">`;
-          const benchSeats = selectedTrip.seats.filter(s => s.floor === 1 && s.row === 6);
-          benchSeats.sort((a,b) => (a.col||0) - (b.col||0)).forEach(s => {
-             layoutContent += renderSeatHtml(s.id, s.label);
-          });
-          layoutContent += `</div>`;
+
+        // Băng cuối 5 chỗ (Chỉ hiển thị dưới Tầng 1 cho gọn hoặc Tầng nào có dữ liệu)
+        const benchSeats = selectedTrip.seats.filter(s => s.floor === floor && s.row === 6);
+        if (benchSeats.length > 0) {
+            layoutContent += `<div class="rear-bench">`;
+            benchSeats.sort((a,b) => (a.col||0) - (b.col||0)).forEach(s => {
+                layoutContent += renderSeatHtml(s);
+            });
+            layoutContent += `</div>`;
         }
         
         layoutContent += `</div></div>`;
       });
       layoutContent += `</div>`;
-
-      // Phần vé sàn của xe giường
-      const floorSeats = selectedTrip.seats.filter(s => s.isFloorSeat);
-      if (floorSeats.length > 0) {
-        layoutContent += `
-          <div class="sleeper-floor-section">
-            <h3>DANH SÁCH VÉ SÀN</h3>
-            <div class="floor-grid">
-              ${floorSeats.map(s => renderSeatHtml(s.id, s.label)).join('')}
-            </div>
-          </div>
-        `;
-      }
     }
 
     const htmlContent = `
       <!DOCTYPE html>
       <html>
       <head>
-        <title>Bảng kê sơ đồ - ${selectedTrip.licensePlate}</title>
+        <title>Sơ đồ in - ${selectedTrip.licensePlate}</title>
         <meta charset="UTF-8">
         <style>
-          @page { size: A4; margin: 10mm; }
-          body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #1e293b; margin: 0; padding: 0; background: #fff; }
-          .container { width: 100%; max-width: 190mm; margin: 0 auto; }
+          @page { size: A4; margin: 8mm; }
+          body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #1e293b; margin: 0; padding: 0; background: #fff; font-size: 12px; }
+          .container { width: 100%; max-width: 195mm; margin: 0 auto; }
           
           /* Header */
-          .header { text-align: center; margin-bottom: 15px; border-bottom: 2px solid #2563eb; padding-bottom: 10px; }
-          .header h1 { margin: 0; font-size: 24px; color: #1e40af; text-transform: uppercase; }
-          .trip-summary { display: flex; justify-content: space-between; background: #f8fafc; padding: 10px; border-radius: 6px; margin-bottom: 20px; font-size: 13px; font-weight: bold; border: 1px solid #e2e8f0; }
+          .header { text-align: center; margin-bottom: 10px; border-bottom: 2px solid #000; padding-bottom: 5px; }
+          .header h1 { margin: 0; font-size: 20px; text-transform: uppercase; }
+          .trip-summary { display: flex; justify-content: space-between; background: #f1f5f9; padding: 8px; border-radius: 4px; margin-bottom: 15px; font-weight: bold; border: 1px solid #cbd5e1; }
           
           /* Seat Styles */
-          h3 { font-size: 11px; text-align: center; margin: 0 0 8px 0; background: #f1f5f9; padding: 4px; border-radius: 4px; color: #64748b; text-transform: uppercase; }
-          .seat { border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px; min-height: 60px; display: flex; flex-direction: column; font-size: 10px; background: #fff; }
-          .seat.empty { border-style: dashed; background: #f8fafc; color: #cbd5e1; justify-content: center; align-items: center; }
-          .seat.occupied.booked { border-color: #f59e0b; background: #fffbeb; }
-          .seat.occupied.paid { border-color: #10b981; background: #ecfdf5; }
-          .seat.spacer { border: none; background: transparent; visibility: hidden; }
+          h3 { font-size: 10px; text-align: center; margin: 0 0 5px 0; background: #334155; color: #fff; padding: 3px; border-radius: 2px; }
+          .seat { border: 1px solid #94a3b8; border-radius: 4px; padding: 3px; min-height: 52px; display: flex; flex-direction: column; background: #fff; margin-bottom: 4px; position: relative; }
+          .seat.empty { border-style: dashed; opacity: 0.5; justify-content: center; align-items: center; background: #f8fafc; }
+          .seat.empty-spacer { border: none; background: transparent; visibility: hidden; }
           
-          .seat-head { display: flex; justify-content: space-between; border-bottom: 1px solid rgba(0,0,0,0.05); margin-bottom: 2px; padding-bottom: 2px; }
-          .seat-label { font-weight: 900; font-size: 12px; color: #1e293b; }
-          .seat-price { font-weight: bold; color: #b91c1c; font-size: 9px; }
-          .empty-txt { font-size: 8px; font-weight: bold; }
+          /* Màu sắc trạng thái */
+          .seat.occupied.sold { border-color: #059669; border-width: 2px; background: #ecfdf5; }
+          .seat.occupied.booked { border-color: #d97706; border-width: 2px; background: #fffbeb; }
+          .seat.occupied.held { border-color: #7c3aed; border-width: 2px; background: #f5f3ff; }
           
-          .seat-info { display: flex; flex-direction: column; gap: 1px; }
-          .info-phone { font-weight: bold; color: #000; font-size: 11px; }
-          .info-loc { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #475569; font-size: 9px; }
+          .seat-head { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(0,0,0,0.1); margin-bottom: 2px; }
+          .seat-label { font-weight: 900; font-size: 11px; color: #000; }
+          .status-tag { font-size: 8px; font-weight: bold; padding: 0 3px; border-radius: 2px; }
+          .sold .status-tag { background: #059669; color: #fff; }
+          .booked .status-tag { background: #d97706; color: #fff; }
+          .held .status-tag { background: #7c3aed; color: #fff; }
           
-          /* Layout Cabin */
-          .cabin-layout { display: flex; gap: 10px; justify-content: center; align-items: flex-start; }
-          .side-col { width: 220px; display: flex; flex-direction: column; gap: 6px; }
-          .floor-col { width: 120px; display: flex; flex-direction: column; gap: 6px; }
-          .row-pair { display: flex; gap: 4px; }
-          .row-pair .seat { flex: 1; }
-
-          /* Layout Sleeper */
-          .sleeper-layout { display: flex; gap: 20px; justify-content: center; }
-          .deck { width: 330px; }
-          .deck-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
-          .rear-bench { grid-column: span 3; display: flex; gap: 4px; margin-top: 10px; border-top: 1px dashed #cbd5e1; padding-top: 10px; }
+          .seat-info { display: flex; flex-direction: column; gap: 0px; }
+          .info-phone { font-weight: bold; font-size: 10px; color: #000; }
+          .info-loc { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 9px; color: #475569; line-height: 1.1; }
+          .info-price { font-weight: bold; font-size: 9px; color: #b91c1c; text-align: right; margin-top: auto; }
+          
+          /* Layout Cabin (Dàn trang 11 hàng dọc) */
+          .cabin-container { display: flex; gap: 8px; justify-content: center; }
+          .side-col { width: 180px; }
+          .floor-col { width: 150px; }
+          
+          /* Layout Sleeper (Tầng 1 & Tầng 2) */
+          .sleeper-container { display: flex; gap: 20px; justify-content: center; }
+          .deck { width: 340px; }
+          .deck-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+          .rear-bench { grid-column: span 3; display: flex; gap: 5px; margin-top: 5px; padding-top: 5px; border-top: 1px dashed #94a3b8; }
           .rear-bench .seat { flex: 1; }
-          .sleeper-floor-section { margin-top: 20px; padding-top: 15px; border-top: 1px solid #e2e8f0; }
-          .floor-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
 
           /* Footer */
-          .footer { margin-top: 30px; border-top: 1px solid #e2e8f0; padding-top: 10px; font-size: 11px; color: #94a3b8; display: flex; justify-content: space-between; }
-          .print-btn-container { text-align: center; margin-top: 30px; }
-          .btn-print { padding: 10px 25px; background: #2563eb; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 15px; box-shadow: 0 4px 6px rgba(37,99,235,0.2); }
+          .footer { margin-top: 20px; border-top: 1px solid #cbd5e1; padding-top: 5px; font-size: 10px; color: #64748b; display: flex; justify-content: space-between; }
+          .print-btn-container { text-align: center; margin-top: 20px; }
+          .btn-print { padding: 8px 20px; background: #000; color: #fff; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
 
           @media print {
             .print-btn-container { display: none; }
             body { padding: 0; }
             .header h1 { color: #000; }
+            .trip-summary { border-color: #000; }
           }
         </style>
       </head>
       <body>
         <div class="container">
           <div class="header">
-            <h1>Bảng kê hành khách theo sơ đồ</h1>
-            <p style="margin: 5px 0 0 0; font-size: 12px; color: #64748b;">Hệ thống VinaBus Manager - Chúc thượng lộ bình an</p>
+            <h1>SƠ ĐỒ HÀNH KHÁCH</h1>
+            <p style="margin: 2px 0 0 0; font-size: 10px;">VinaBus Manager - Chúc Thượng Lộ Bình An</p>
           </div>
           
           <div class="trip-summary">
@@ -247,27 +257,26 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
               CHUYẾN: ${selectedTrip.name}
             </div>
             <div style="text-align: right;">
-              NGÀY CHẠY: ${dateFormatted} (${lunarFormatted})<br>
-              BIỂN SỐ: ${selectedTrip.licensePlate} | TÀI XẾ: ${selectedTrip.driver || '---'}
+              NGÀY: ${dateFormatted} (${lunarFormatted})<br>
+              XE: ${selectedTrip.licensePlate} | TÀI XẾ: ${selectedTrip.driver || '---'}
             </div>
           </div>
 
           ${layoutContent}
 
           <div class="footer">
-            <span>Ngày xuất bản: ${new Date().toLocaleString('vi-VN')}</span>
-            <span>Trang 1/1</span>
+            <span>Ngày in: ${new Date().toLocaleString('vi-VN')}</span>
+            <div style="display: flex; gap: 10px;">
+                <span style="color: #059669;">■ Mua vé</span>
+                <span style="color: #d97706;">■ Đặt vé</span>
+                <span style="color: #7c3aed;">■ Giữ chỗ</span>
+            </div>
           </div>
           
           <div class="print-btn-container">
-            <button class="btn-print" onclick="window.print()">BẮT ĐẦU IN (PHÍM P)</button>
+            <button class="btn-print" onclick="window.print()">TIẾN HÀNH IN (Ctrl + P)</button>
           </div>
         </div>
-        <script>
-          window.addEventListener('keydown', (e) => {
-            if(e.key.toLowerCase() === 'p') window.print();
-          });
-        </script>
       </body>
       </html>
     `;
