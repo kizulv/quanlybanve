@@ -3,25 +3,27 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { api } from '../lib/api';
 import { Badge } from './ui/Badge';
 import { Button } from './ui/Button';
+import { Popover } from './ui/Popover';
+import { Calendar } from './ui/Calendar';
 import { 
-  DollarSign, Calendar, Search, Edit2, 
+  DollarSign, Calendar as CalendarIcon, Search, Edit2, 
   ArrowRight, CreditCard, Banknote, 
   Eye, User, Phone, MapPin, Clock,
   Check, X, Zap, Ticket, Loader2,
   Filter, CalendarDays, RefreshCw, AlertCircle,
-  TrendingUp, ArrowDownRight, ArrowUpRight
+  TrendingUp, ArrowDownRight, ArrowUpRight,
+  ChevronDown
 } from 'lucide-react';
 import { useToast } from './ui/Toast';
 import { Dialog } from './ui/Dialog';
-import { formatLunarDate } from '../utils/dateUtils';
-import { Booking, BusTrip, BusType } from '../types';
+import { Booking } from '../types';
 
 interface PaymentGroup {
   bookingId: string;
   bookingDisplayId: string;
   passengerName: string;
   passengerPhone: string;
-  bookingStatus: string; // Thêm trạng thái để xử lý gạch ngang
+  bookingStatus: string;
   tripInfo: {
     route: string;
     date: string;
@@ -39,9 +41,9 @@ export const PaymentManager: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   
-  // Date filter state
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  // Date filter state using Date objects for the custom Calendar
+  const [startDate, setStartDate] = useState<Date | undefined>(undefined);
+  const [endDate, setEndDate] = useState<Date | undefined>(undefined);
   
   // Detail Modal State
   const [selectedGroup, setSelectedGroup] = useState<PaymentGroup | null>(null);
@@ -80,7 +82,6 @@ export const PaymentManager: React.FC = () => {
        const bKey = booking ? booking.id : 'orphaned'; 
        
        if (!groups[bKey]) {
-          // Tìm trạng thái đơn hàng thật từ danh sách bookings
           const originalBooking = bookings.find(b => b.id === bKey);
           
           groups[bKey] = {
@@ -144,13 +145,12 @@ export const PaymentManager: React.FC = () => {
       });
   }, [groupedPayments, searchTerm, startDate, endDate]);
 
-  // --- STATS ON FILTERED DATA ---
+  // --- STATS ---
   const stats = useMemo(() => {
       let cashTotal = 0;
       let transferTotal = 0;
       let totalTickets = 0;
 
-      // Tính toán dựa trên danh sách đã lọc để thống kê phản ứng theo bộ lọc ngày
       filteredGroups.forEach(group => {
           if (group.bookingStatus !== 'cancelled') {
               group.payments.forEach(p => {
@@ -169,28 +169,27 @@ export const PaymentManager: React.FC = () => {
       };
   }, [filteredGroups]);
 
-  // --- HANDLERS ---
   const resetFilters = () => {
       setSearchTerm('');
-      setStartDate('');
-      setEndDate('');
-  };
-
-  const startEditNote = (payment: any) => {
-      setEditingPaymentId(payment.id);
-      setEditNote(payment.note || '');
+      setStartDate(undefined);
+      setEndDate(undefined);
   };
 
   const saveEditNote = async () => {
       if (!editingPaymentId) return;
       try {
           await api.payments.update(editingPaymentId, { note: editNote });
-          fetchData(); // Reload to sync
+          fetchData();
           setEditingPaymentId(null);
           toast({ type: 'success', title: 'Đã cập nhật', message: 'Đã lưu ghi chú' });
       } catch (e) {
           toast({ type: 'error', title: 'Lỗi', message: 'Không thể cập nhật' });
       }
+  };
+
+  const formatDate = (date: Date | undefined) => {
+    if (!date) return "--/--/----";
+    return date.toLocaleDateString("vi-VN");
   };
 
   if (loading && payments.length === 0) {
@@ -216,7 +215,7 @@ export const PaymentManager: React.FC = () => {
            </h2>
            <p className="text-slate-500 mt-1.5 text-sm font-medium flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              Theo dõi dòng tiền thực tế và doanh thu bán vé
+              Theo dõi doanh thu bán vé theo thời gian thực
            </p>
         </div>
         <div className="flex items-center gap-2">
@@ -230,8 +229,8 @@ export const PaymentManager: React.FC = () => {
       {/* 2. STATS CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden group hover:border-emerald-500/30 transition-all">
-             <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:scale-110 transition-transform">
-                <TrendingUp size={80} className="text-emerald-600"/>
+             <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:scale-110 transition-transform text-emerald-600">
+                <TrendingUp size={80} />
              </div>
              <div className="flex items-center gap-3 mb-4">
                 <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center">
@@ -252,8 +251,8 @@ export const PaymentManager: React.FC = () => {
           </div>
 
           <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden group hover:border-blue-500/30 transition-all">
-             <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:scale-110 transition-transform">
-                <Ticket size={80} className="text-blue-600"/>
+             <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:scale-110 transition-transform text-blue-600">
+                <Ticket size={80} />
              </div>
              <div className="flex items-center gap-3 mb-4">
                 <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center">
@@ -267,30 +266,30 @@ export const PaymentManager: React.FC = () => {
              </div>
              <div className="mt-4 pt-4 border-t border-slate-50 flex items-center gap-2 text-xs font-bold text-blue-600">
                 <Check size={14}/>
-                Không tính đơn đã hủy
+                Chỉ tính các đơn có hiệu lực
              </div>
           </div>
 
-          <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between">
+          <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-center">
              <div className="space-y-4">
                 <div className="flex justify-between items-center text-xs font-bold uppercase tracking-widest text-slate-400">
                    <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-emerald-500"></div> Tiền mặt</span>
-                   <span className="text-slate-900">{stats.cashTotal.toLocaleString('vi-VN')} đ</span>
+                   <span className="text-slate-900 font-black">{stats.cashTotal.toLocaleString('vi-VN')} đ</span>
                 </div>
                 <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
                     <div 
-                        className="bg-emerald-500 h-full rounded-full transition-all duration-1000" 
+                        className="bg-emerald-500 h-full rounded-full transition-all duration-1000 shadow-[0_0_8px_rgba(16,185,129,0.4)]" 
                         style={{ width: `${stats.grandTotal > 0 ? (stats.cashTotal / stats.grandTotal) * 100 : 0}%` }}
                     />
                 </div>
                 
                 <div className="flex justify-between items-center text-xs font-bold uppercase tracking-widest text-slate-400">
                    <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-blue-500"></div> Chuyển khoản</span>
-                   <span className="text-slate-900">{stats.transferTotal.toLocaleString('vi-VN')} đ</span>
+                   <span className="text-slate-900 font-black">{stats.transferTotal.toLocaleString('vi-VN')} đ</span>
                 </div>
                 <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
                     <div 
-                        className="bg-blue-500 h-full rounded-full transition-all duration-1000" 
+                        className="bg-blue-500 h-full rounded-full transition-all duration-1000 shadow-[0_0_8px_rgba(59,130,246,0.4)]" 
                         style={{ width: `${stats.grandTotal > 0 ? (stats.transferTotal / stats.grandTotal) * 100 : 0}%` }}
                     />
                 </div>
@@ -300,13 +299,13 @@ export const PaymentManager: React.FC = () => {
 
       {/* 3. TOOLBAR SECTION */}
       <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-4">
-          <div className="flex flex-col lg:flex-row gap-4 items-end">
+          <div className="flex flex-col lg:flex-row gap-6 items-end">
               
               {/* Search */}
               <div className="flex-1 w-full space-y-1.5">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tìm kiếm thông tin</label>
                   <div className="relative group">
-                    <Search size={18} className="absolute left-4 top-3 text-slate-400 group-focus-within:text-primary transition-colors"/>
+                    <Search size={18} className="absolute left-4 top-3.5 text-slate-400 group-focus-within:text-primary transition-colors"/>
                     <input 
                         className="w-full pl-11 pr-4 h-12 border border-slate-200 rounded-2xl text-sm outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary placeholder-slate-400 transition-all bg-slate-50/50"
                         placeholder="SĐT, Tên khách, Mã ghế hoặc Mã đơn..."
@@ -316,29 +315,41 @@ export const PaymentManager: React.FC = () => {
                   </div>
               </div>
 
-              {/* Date Filter */}
+              {/* Date Filter - Using Popover + Calendar */}
               <div className="w-full lg:w-auto space-y-1.5">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Khoảng ngày bán</label>
-                  <div className="flex items-center gap-2 bg-slate-50/50 p-1 border border-slate-200 rounded-2xl h-12">
-                      <div className="relative flex items-center">
-                          <Calendar size={14} className="absolute left-3 text-slate-400 pointer-events-none"/>
-                          <input 
-                             type="date"
-                             value={startDate}
-                             onChange={e => setStartDate(e.target.value)}
-                             className="pl-9 pr-3 py-1.5 bg-transparent border-0 text-xs font-bold text-slate-700 focus:ring-0 outline-none w-[140px]"
+                  <div className="flex items-center gap-2 bg-slate-50/50 p-1.5 border border-slate-200 rounded-2xl h-12">
+                      <Popover
+                        trigger={
+                          <div className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-100 rounded-xl hover:border-primary/30 transition-all cursor-pointer shadow-sm min-w-[140px]">
+                            <CalendarIcon size={14} className="text-slate-400" />
+                            <span className="text-xs font-bold text-slate-700">{formatDate(startDate)}</span>
+                            <ChevronDown size={12} className="ml-auto text-slate-300" />
+                          </div>
+                        }
+                        content={(close) => (
+                          <Calendar 
+                            selected={startDate} 
+                            onSelect={(d) => { setStartDate(d); close(); }} 
                           />
-                      </div>
-                      <ArrowRight size={14} className="text-slate-300"/>
-                      <div className="relative flex items-center">
-                          <Calendar size={14} className="absolute left-3 text-slate-400 pointer-events-none"/>
-                          <input 
-                             type="date"
-                             value={endDate}
-                             onChange={e => setEndDate(e.target.value)}
-                             className="pl-9 pr-3 py-1.5 bg-transparent border-0 text-xs font-bold text-slate-700 focus:ring-0 outline-none w-[140px]"
+                        )}
+                      />
+                      <ArrowRight size={14} className="text-slate-300 mx-1"/>
+                      <Popover
+                        trigger={
+                          <div className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-100 rounded-xl hover:border-primary/30 transition-all cursor-pointer shadow-sm min-w-[140px]">
+                            <CalendarIcon size={14} className="text-slate-400" />
+                            <span className="text-xs font-bold text-slate-700">{formatDate(endDate)}</span>
+                            <ChevronDown size={12} className="ml-auto text-slate-300" />
+                          </div>
+                        }
+                        content={(close) => (
+                          <Calendar 
+                            selected={endDate} 
+                            onSelect={(d) => { setEndDate(d); close(); }} 
                           />
-                      </div>
+                        )}
+                      />
                   </div>
               </div>
 
@@ -371,8 +382,8 @@ export const PaymentManager: React.FC = () => {
                 {filteredGroups.length === 0 ? (
                     <tr>
                         <td colSpan={6} className="p-20 text-center">
-                            <div className="flex flex-col items-center gap-3">
-                                <div className="p-4 bg-slate-50 rounded-full text-slate-300">
+                            <div className="flex flex-col items-center gap-3 text-slate-300">
+                                <div className="p-4 bg-slate-50 rounded-full">
                                     <Search size={40} />
                                 </div>
                                 <p className="text-slate-400 font-bold italic">Không tìm thấy dữ liệu phù hợp trong khoảng này.</p>
@@ -382,14 +393,14 @@ export const PaymentManager: React.FC = () => {
                 ) : filteredGroups.map(group => {
                     const isCancelled = group.bookingStatus === 'cancelled';
                     return (
-                    <tr key={group.bookingId} className={`hover:bg-slate-50/80 transition-colors group ${isCancelled ? 'opacity-60 bg-slate-50/30' : ''}`}>
+                    <tr key={group.bookingId} className={`hover:bg-slate-50/80 transition-colors group ${isCancelled ? 'bg-red-50/20' : ''}`}>
                         <td className="px-6 py-5">
-                            <div className={`flex flex-col ${isCancelled ? 'line-through decoration-slate-400' : ''}`}>
+                            <div className={`flex flex-col ${isCancelled ? 'line-through decoration-red-400/50' : ''}`}>
                                 <span className={`font-black text-base ${isCancelled ? 'text-slate-400' : 'text-slate-900 group-hover:text-primary'} transition-colors`}>
                                     {group.passengerName}
                                 </span>
                                 <div className="flex items-center gap-2 text-[11px] text-slate-500 mt-1.5 font-bold">
-                                    <div className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
+                                    <div className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
                                         <Phone size={10}/>
                                     </div>
                                     {group.passengerPhone}
@@ -397,19 +408,19 @@ export const PaymentManager: React.FC = () => {
                             </div>
                         </td>
                         <td className="px-6 py-5">
-                            <div className={`flex flex-col gap-1.5 ${isCancelled ? 'line-through decoration-slate-400' : ''}`}>
-                                <div className="font-bold text-blue-700 flex items-center gap-2">
-                                    <MapPin size={13} className="text-blue-400"/>
+                            <div className={`flex flex-col gap-1.5 ${isCancelled ? 'line-through decoration-red-400/50' : ''}`}>
+                                <div className={`font-bold flex items-center gap-2 ${isCancelled ? 'text-slate-400' : 'text-blue-700'}`}>
+                                    <MapPin size={13} className={isCancelled ? 'text-slate-300' : 'text-blue-400'}/>
                                     {group.tripInfo.route}
                                 </div>
                                 <div className="flex items-center gap-3">
                                     <div className="text-[11px] text-slate-400 font-bold flex items-center gap-1.5">
-                                        <Calendar size={11}/>
+                                        <CalendarIcon size={11}/>
                                         {group.tripInfo.date ? new Date(group.tripInfo.date).toLocaleDateString('vi-VN') : 'N/A'}
                                     </div>
                                     <div className="flex flex-wrap gap-1">
                                         {group.tripInfo.seats.map((s, i) => (
-                                            <Badge key={i} className={`text-[9px] font-black px-1.5 h-4 bg-slate-100 text-slate-600 border-slate-200 ${isCancelled ? 'opacity-50' : ''}`}>
+                                            <Badge key={i} className={`text-[9px] font-black px-1.5 h-4 bg-slate-100 text-slate-600 border-slate-200 ${isCancelled ? 'opacity-50 grayscale' : ''}`}>
                                                 {s}
                                             </Badge>
                                         ))}
@@ -433,12 +444,12 @@ export const PaymentManager: React.FC = () => {
                             )}
                         </td>
                         <td className="px-6 py-5 text-right">
-                            <span className={`text-base font-black tracking-tight ${isCancelled ? 'text-slate-400' : (group.totalCollected >= 0 ? 'text-emerald-700' : 'text-red-700')}`}>
+                            <span className={`text-base font-black tracking-tight ${isCancelled ? 'text-slate-300 line-through' : (group.totalCollected >= 0 ? 'text-emerald-700' : 'text-red-700')}`}>
                                 {group.totalCollected.toLocaleString('vi-VN')} <span className="text-[10px] font-bold">đ</span>
                             </span>
                         </td>
                         <td className="px-6 py-5 text-right">
-                            <div className="text-[11px] font-black text-slate-600">
+                            <div className={`text-[11px] font-black ${isCancelled ? 'text-slate-400' : 'text-slate-600'}`}>
                                 {group.latestTransaction.toLocaleDateString('vi-VN')}
                             </div>
                             <div className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">
@@ -502,7 +513,6 @@ export const PaymentManager: React.FC = () => {
                             
                             return (
                                 <div key={p.id} className="relative pl-10 animate-in slide-in-from-left duration-300">
-                                    {/* Timeline Marker */}
                                     <div className={`absolute -left-[11px] top-1 w-5 h-5 rounded-full border-4 border-white shadow-md flex items-center justify-center ${isPositive ? 'bg-emerald-500' : 'bg-red-500'}`}>
                                         <div className="w-1.5 h-1.5 rounded-full bg-white"></div>
                                     </div>
@@ -536,7 +546,6 @@ export const PaymentManager: React.FC = () => {
                                                 </div>
                                             </div>
 
-                                            {/* Note editing field */}
                                             <div className="bg-slate-50/80 p-4 rounded-2xl border border-slate-100 text-xs text-slate-600 min-h-[48px] flex items-center relative group/note">
                                                 {editingPaymentId === p.id ? (
                                                     <div className="flex gap-2 w-full">
@@ -556,7 +565,7 @@ export const PaymentManager: React.FC = () => {
                                                             {p.note || "Không có ghi chú"}
                                                         </span>
                                                         <button 
-                                                            onClick={() => startEditNote(p)} 
+                                                            onClick={() => { setEditingPaymentId(p.id); setEditNote(p.note || ''); }} 
                                                             className="opacity-0 group-hover/note:opacity-100 p-2 text-primary hover:bg-white rounded-xl transition-all shadow-sm"
                                                         >
                                                             <Edit2 size={14} />
