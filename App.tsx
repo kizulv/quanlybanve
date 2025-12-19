@@ -372,7 +372,7 @@ function AppContent() {
           swapSourceSeat.id,
           clickedSeat.id
         );
-        
+
         // Cập nhật state toàn cục để UI phản ánh thay đổi ngay lập tức
         setBookings(result.bookings);
 
@@ -401,7 +401,11 @@ function AppContent() {
         });
       } catch (e) {
         console.error("Swap failed:", e);
-        toast({ type: "error", title: "Lỗi", message: "Không thể đổi chỗ. Vui lòng thử lại." });
+        toast({
+          type: "error",
+          title: "Lỗi",
+          message: "Không thể đổi chỗ. Vui lòng thử lại.",
+        });
       } finally {
         setSwapSourceSeat(null);
         if (editingBooking) {
@@ -511,29 +515,32 @@ function AppContent() {
         });
       } else if (seat && selectedTrip) {
         // Find existing 'hold' booking if any for this seat
-        const existingHold = tripBookings.find(b => 
-            b.status === "hold" && 
-            b.items.some(i => i.tripId === selectedTrip.id && i.seatIds.includes(seat.id))
+        const existingHold = tripBookings.find(
+          (b) =>
+            b.status === "hold" &&
+            b.items.some(
+              (i) => i.tripId === selectedTrip.id && i.seatIds.includes(seat.id)
+            )
         );
 
         if (existingHold) {
-            await api.bookings.updatePassenger(existingHold.id, updatedPassenger);
-            await refreshData();
+          await api.bookings.updatePassenger(existingHold.id, updatedPassenger);
+          await refreshData();
         } else {
-            // Just update seat note if no booking record
-            const updatedSeats = selectedTrip.seats.map((s) => {
-              if (s.id === seat.id) {
-                return { ...s, note: updatedPassenger.note };
-              }
-              return s;
-            });
+          // Just update seat note if no booking record
+          const updatedSeats = selectedTrip.seats.map((s) => {
+            if (s.id === seat.id) {
+              return { ...s, note: updatedPassenger.note };
+            }
+            return s;
+          });
 
-            await api.trips.updateSeats(selectedTrip.id, updatedSeats);
-            setTrips((prev) =>
-              prev.map((t) =>
-                t.id === selectedTrip.id ? { ...t, seats: updatedSeats } : t
-              )
-            );
+          await api.trips.updateSeats(selectedTrip.id, updatedSeats);
+          setTrips((prev) =>
+            prev.map((t) =>
+              t.id === selectedTrip.id ? { ...t, seats: updatedSeats } : t
+            )
+          );
         }
 
         toast({
@@ -608,7 +615,9 @@ function AppContent() {
       (booking.payment?.paidCash || 0) + (booking.payment?.paidTransfer || 0);
     const isFullyPaid = paid >= booking.totalPrice;
 
-    setBookingMode(isFullyPaid ? "payment" : (booking.status === 'hold' ? 'hold' : "booking"));
+    setBookingMode(
+      isFullyPaid ? "payment" : booking.status === "hold" ? "hold" : "booking"
+    );
 
     setBookingForm({
       phone: booking.passenger.phone,
@@ -645,7 +654,7 @@ function AppContent() {
     }
 
     const error = validatePhoneNumber(bookingForm.phone);
-    if (error && bookingMode !== 'hold') {
+    if (error && bookingMode !== "hold") {
       setPhoneError(error);
       toast({
         type: "error",
@@ -675,10 +684,12 @@ function AppContent() {
         const key = `${item.trip.id}_${s.id}`;
         const override = overrides[key];
 
-        let finalPrice = override?.price !== undefined ? override.price : s.price;
-        // If just booking and not paid, price = 0
-        if (bookingMode === "booking" && !isPaid) {
-            finalPrice = 0;
+        let finalPrice =
+          override?.price !== undefined ? override.price : s.price;
+        
+        // QUAN TRỌNG: Nếu đang ở chế độ Đặt vé, ép giá vé về 0
+        if (bookingMode === "booking") {
+          finalPrice = 0;
         }
 
         return {
@@ -697,12 +708,14 @@ function AppContent() {
 
       return {
         tripId: item.trip.id,
-        seats: item.seats, 
+        seats: item.seats,
         tickets: tickets,
       };
     });
 
-    const status = explicitStatus || (isPaid ? "payment" : (bookingMode === 'hold' ? 'hold' : "booking"));
+    const status =
+      explicitStatus ||
+      (isPaid ? "payment" : bookingMode === "hold" ? "hold" : "booking");
 
     try {
       const result = await api.bookings.create(
@@ -767,8 +780,8 @@ function AppContent() {
   };
 
   const processHoldSeats = () => {
-      // Hold mode now creates a booking with status 'hold'
-      processBooking(undefined, {}, "", "hold");
+    // Hold mode now creates a booking with status 'hold'
+    processBooking(undefined, {}, "", "hold");
   };
 
   const handleBookingOnly = () => processBooking(undefined, {}, "", "booking");
@@ -795,7 +808,7 @@ function AppContent() {
     }
 
     const realPriceTotal = selectionBasket.reduce((sum, item) => {
-        return sum + item.seats.reduce((sSum, s) => sSum + s.price, 0);
+      return sum + item.seats.reduce((sSum, s) => sSum + s.price, 0);
     }, 0);
 
     if (
@@ -809,7 +822,7 @@ function AppContent() {
       type: "new",
       totalPrice: realPriceTotal,
     });
-    setModalInitialOverrides({}); 
+    setModalInitialOverrides({});
     setIsPaymentModalOpen(true);
   };
 
@@ -868,8 +881,14 @@ function AppContent() {
           const key = `${item.trip.id}_${s.id}`;
           const override = overrides[key];
 
-          let finalPrice = override?.price !== undefined ? override.price : s.price;
-          
+          let finalPrice =
+            override?.price !== undefined ? override.price : s.price;
+
+          // QUAN TRỌNG: Nếu đang ở chế độ Đặt vé, ép giá vé về 0
+          if (bookingMode === 'booking') {
+            finalPrice = 0;
+          }
+
           return {
             seatId: s.id,
             price: finalPrice,
@@ -917,7 +936,7 @@ function AppContent() {
               seatsObj.length > 0
                 ? seatsObj
                 : item.seatIds.map((sid) => ({ id: sid, price: 0 } as Seat)),
-            tickets: item.tickets, 
+            tickets: item.tickets,
           };
         });
 
@@ -927,11 +946,14 @@ function AppContent() {
         ];
       }
 
+      // Nếu chuyển sang Đặt vé, ép paymentData về 0 để đồng bộ
+      const finalPayment = bookingMode === 'booking' ? { paidCash: 0, paidTransfer: 0 } : paymentData;
+
       const result = await api.bookings.update(
         targetBookingId,
         finalBookingItems,
         passenger,
-        paymentData
+        finalPayment
       );
 
       setBookings((prev) =>
@@ -1078,6 +1100,12 @@ function AppContent() {
 
     if (!editingBooking) return;
 
+    // Nếu đang chuyển sang Đặt vé, không cần qua bước Payment Modal phức tạp
+    if (bookingMode === 'booking') {
+        await executeBookingUpdate(editingBooking.id, { paidCash: 0, paidTransfer: 0 }, {}, "(Chuyển sang Đặt vé)");
+        return;
+    }
+
     setModalPaymentInput({
       paidCash: editingBooking.payment?.paidCash || 0,
       paidTransfer: editingBooking.payment?.paidTransfer || 0,
@@ -1208,7 +1236,7 @@ function AppContent() {
                 seatsObj.length > 0
                   ? seatsObj
                   : item.seatIds.map((sid) => ({ id: sid, price: 0 } as Seat)),
-              tickets: item.tickets, 
+              tickets: item.tickets,
             };
           });
 
