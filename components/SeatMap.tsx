@@ -12,6 +12,7 @@ import {
   AlertTriangle,
   ArrowRightLeft,
   XCircle,
+  RefreshCw,
 } from "lucide-react";
 
 interface SeatMapProps {
@@ -19,10 +20,11 @@ interface SeatMapProps {
   busType: BusType;
   onSeatClick: (seat: Seat) => void;
   bookings?: Booking[];
-  currentTripId?: string; // New prop to identify context
-  onSeatSwap?: (seat: Seat) => void; // New prop for direct swap trigger
-  onSeatRightClick?: (seat: Seat, booking: Booking | null) => void; // UPDATED: allow null booking
-  editingBooking?: Booking | null; // New prop to detect removed seats
+  currentTripId?: string; 
+  onSeatSwap?: (seat: Seat) => void; 
+  onSeatRightClick?: (seat: Seat, booking: Booking | null) => void;
+  editingBooking?: Booking | null;
+  swapSourceSeatId?: string; // Thêm prop để nhận biết ghế đang đổi
 }
 
 export const SeatMap: React.FC<SeatMapProps> = ({
@@ -34,9 +36,14 @@ export const SeatMap: React.FC<SeatMapProps> = ({
   onSeatSwap,
   onSeatRightClick,
   editingBooking,
+  swapSourceSeatId,
 }) => {
   // Helper to determine visuals based on status
-  const getSeatStatusClass = (status: SeatStatus) => {
+  const getSeatStatusClass = (status: SeatStatus, isSwapping: boolean) => {
+    if (isSwapping) {
+      return "ring-4 ring-indigo-500 ring-offset-1 z-30 bg-indigo-50 border-indigo-500 shadow-xl cursor-pointer animate-pulse";
+    }
+
     switch (status) {
       case SeatStatus.AVAILABLE:
         return "transition-colors bg-white border-slate-300 text-slate-400 hover:border-primary hover:text-primary hover:shadow-md cursor-pointer hover:bg-slate-50";
@@ -47,7 +54,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
       case SeatStatus.SOLD:
         return "transition-colors bg-green-50 border-green-300 text-green-900 cursor-pointer hover:bg-green-100";
       case SeatStatus.HELD:
-        return "transition-colors bg-purple-50 border-purple-300 text-purple-900 cursor-pointer hover:bg-purple-100 hover:shadow-md"; // Added hover effects
+        return "transition-colors bg-purple-50 border-purple-300 text-purple-900 cursor-pointer hover:bg-purple-100 hover:shadow-md"; 
       default:
         return "transition-colors bg-white border-slate-200";
     }
@@ -68,6 +75,8 @@ export const SeatMap: React.FC<SeatMapProps> = ({
     isBench: boolean = false,
     customWidth?: string
   ) => {
+    const isSwapping = swapSourceSeatId === seat.id;
+    
     // 1. Detect if this seat is a "Ghost" (Deselected during edit)
     const isGhost =
       seat.status === SeatStatus.AVAILABLE &&
@@ -76,14 +85,12 @@ export const SeatMap: React.FC<SeatMapProps> = ({
           item.tripId === currentTripId && item.seatIds.includes(seat.id)
       );
 
-    let statusClass = getSeatStatusClass(seat.status);
+    let statusClass = getSeatStatusClass(seat.status, isSwapping);
 
     if (isGhost) {
       statusClass =
         "transition-all bg-slate-50/50 border-red-300 border-dashed text-slate-400 opacity-60 cursor-pointer hover:opacity-100 hover:bg-white hover:border-red-400 grayscale";
     }
-
-    const isInteractive = true;
 
     const booking = bookings.find(
       (b) =>
@@ -100,6 +107,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
     const hasInfo =
       (seat.status === SeatStatus.BOOKED ||
         seat.status === SeatStatus.SOLD ||
+        seat.status === SeatStatus.HELD || // Hiển thị info cho cả ghế HELD nếu có booking
         isGhost) &&
       booking &&
       bookingItem;
@@ -108,7 +116,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
     let groupIndex = 0;
     let groupTotal = 0;
 
-    let displayPrice = 0; // Default to 0
+    let displayPrice = 0; 
     let displayPickup = booking?.passenger?.pickupPoint || "";
     let displayDropoff = booking?.passenger?.dropoffPoint || "";
     let displayNote = booking?.passenger?.note || "";
@@ -135,7 +143,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
     return (
       <div
         key={seat.id}
-        onClick={() => isInteractive && onSeatClick(seat)}
+        onClick={() => onSeatClick(seat)}
         onContextMenu={(e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -158,7 +166,9 @@ export const SeatMap: React.FC<SeatMapProps> = ({
       >
         <div
           className={`px-2 py-1 text-[10px] font-bold border-b flex justify-between items-center whitespace-nowrap ${
-            seat.status === SeatStatus.SELECTED
+            isSwapping 
+              ? "bg-indigo-600 text-white border-indigo-700" 
+              : seat.status === SeatStatus.SELECTED
               ? "border-primary/50 bg-primary/10"
               : isGhost
               ? "border-red-200 bg-red-50 text-red-400"
@@ -174,7 +184,8 @@ export const SeatMap: React.FC<SeatMapProps> = ({
           <span className={isGhost ? "line-through decoration-red-400" : ""}>
             {seat.label}
           </span>
-          {(seat.status === SeatStatus.SOLD || seat.status === SeatStatus.BOOKED) && displayPrice > 0 && (
+          {isSwapping && <RefreshCw size={10} className="animate-spin" />}
+          {!isSwapping && (seat.status === SeatStatus.SOLD || seat.status === SeatStatus.BOOKED) && displayPrice > 0 && (
             <div className="mt-auto flex justify-end">
               <span className={`text-[9px] md:text-[10px] font-bold px-1 rounded border shadow-sm ${
                 seat.status === SeatStatus.SOLD ? 'text-green-700 bg-yellow-300 border-green-200/50' : 'text-yellow-800 bg-yellow-200 border-yellow-300/50'
@@ -183,7 +194,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
               </span>
             </div>
           )}
-          {seat.status === SeatStatus.SELECTED && (
+          {!isSwapping && seat.status === SeatStatus.SELECTED && (
             <Check size={10} strokeWidth={4} />
           )}
           {isGhost && <XCircle size={10} className="text-red-400" />}
@@ -193,7 +204,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
           seat.status === SeatStatus.SOLD ||
           seat.status === SeatStatus.HELD) &&
           !isGhost &&
-          onSeatSwap && (
+          onSeatSwap && !isSwapping && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -207,7 +218,12 @@ export const SeatMap: React.FC<SeatMapProps> = ({
           )}
 
         <div className="flex-1 p-1 flex flex-col text-[9px] md:text-[10px] leading-tight space-y-1">
-          {hasInfo ? (
+          {isSwapping ? (
+            <div className="flex flex-col items-center justify-center h-full text-indigo-700 font-bold gap-1">
+               <ArrowRightLeft size={16} />
+               <span className="uppercase text-[8px] tracking-tighter">Đang đổi chỗ</span>
+            </div>
+          ) : hasInfo ? (
             <>
               <div
                 className={`flex items-center gap-1 font-bold whitespace-nowrap ${
@@ -215,6 +231,8 @@ export const SeatMap: React.FC<SeatMapProps> = ({
                     ? "text-slate-400"
                     : seat.status === SeatStatus.SOLD
                     ? "text-green-800"
+                    : seat.status === SeatStatus.HELD
+                    ? "text-purple-800"
                     : "text-yellow-900"
                 }`}
               >
@@ -236,6 +254,8 @@ export const SeatMap: React.FC<SeatMapProps> = ({
                       ? "text-slate-400"
                       : seat.status === SeatStatus.SOLD
                       ? "text-green-700"
+                      : seat.status === SeatStatus.HELD
+                      ? "text-purple-700"
                       : "text-yellow-800"
                   }`}
                 >
@@ -274,7 +294,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
               </div>
               {seat.note && (
                 <div className="w-full bg-purple-100/80 rounded px-1 py-0.5 mt-1 border border-purple-200">
-                  <span className="truncate italic text-[10px] block">
+                  <span className="truncate italic text-[10px] block text-center">
                     {seat.note}
                   </span>
                 </div>
@@ -487,7 +507,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
               a.label.localeCompare(b.label, undefined, { numeric: true })
             )
             .map((s) => (
-              <div key={s.id} className="w-full w-full">
+              <div key={s.id} className="w-full">
                 {renderSeat(s, false, "w-full h-[90px] rounded-lg shadow-sm")}
               </div>
             ))}

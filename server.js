@@ -835,39 +835,70 @@ app.post("/api/bookings/swap", async (req, res) => {
         const booking2 = await Booking.findOne({ status: { $ne: 'cancelled' }, "items": { $elemMatch: { tripId: tripId, seatIds: seatId2 } } });
 
         if (booking2) {
-             booking1.items = booking1.items.map(item => {
-                 if (item.tripId === tripId) {
-                     const newSeatIds = item.seatIds.map(s => s === seatId1 ? seatId2 : s);
-                     let newTickets = item.tickets;
-                     if (newTickets) newTickets = newTickets.map(t => t.seatId === seatId1 ? { ...t, seatId: seatId2 } : t);
-                     return { ...item, seatIds: newSeatIds, tickets: newTickets };
-                 }
-                 return item;
-             });
-             booking2.items = booking2.items.map(item => {
-                 if (item.tripId === tripId) {
-                     const newSeatIds = item.seatIds.map(s => s === seatId2 ? seatId1 : s);
-                     let newTickets = item.tickets;
-                     if (newTickets) newTickets = newTickets.map(t => t.seatId === seatId2 ? { ...t, seatId: seatId1 } : t);
-                     return { ...item, seatIds: newSeatIds, tickets: newTickets };
-                 }
-                 return item;
-             });
-             const status1 = seat1.status;
-             const status2 = seat2.status;
-             trip.seats = trip.seats.map(s => {
-                 if (s.id === seatId1) return { ...s, status: status2 };
-                 if (s.id === seatId2) return { ...s, status: status1 };
-                 return s;
-             });
+             // Trường hợp 2 ghế nằm trong CÙNG 1 ĐƠN HÀNG
+             if (booking1._id.equals(booking2._id)) {
+                 booking1.items = booking1.items.map(item => {
+                     if (item.tripId === tripId) {
+                         const newSeatIds = item.seatIds.map(s => {
+                             if (s === seatId1) return seatId2;
+                             if (s === seatId2) return seatId1;
+                             return s;
+                         });
+                         let newTickets = item.tickets;
+                         if (newTickets) {
+                             newTickets = newTickets.map(t => {
+                                 if (t.seatId === seatId1) return { ...t, seatId: seatId2 };
+                                 if (t.seatId === seatId2) return { ...t, seatId: seatId1 };
+                                 return t;
+                             });
+                         }
+                         return { ...item, seatIds: newSeatIds, tickets: newTickets };
+                     }
+                     return item;
+                 });
+                 
+                 // Không cần thay đổi trạng thái trong trip.seats vì cả 2 đều đang bị chiếm giữ
+                 // Tuy nhiên vẫn cần cập nhật label nếu cần (thường label gắn với seatId)
+                 
+                 booking1.updatedAt = new Date().toISOString();
+                 await booking1.save();
+             } else {
+                 // Trường hợp 2 ghế thuộc 2 đơn hàng khác nhau
+                 booking1.items = booking1.items.map(item => {
+                     if (item.tripId === tripId) {
+                         const newSeatIds = item.seatIds.map(s => s === seatId1 ? seatId2 : s);
+                         let newTickets = item.tickets;
+                         if (newTickets) newTickets = newTickets.map(t => t.seatId === seatId1 ? { ...t, seatId: seatId2 } : t);
+                         return { ...item, seatIds: newSeatIds, tickets: newTickets };
+                     }
+                     return item;
+                 });
+                 booking2.items = booking2.items.map(item => {
+                     if (item.tripId === tripId) {
+                         const newSeatIds = item.seatIds.map(s => s === seatId2 ? seatId1 : s);
+                         let newTickets = item.tickets;
+                         if (newTickets) newTickets = newTickets.map(t => t.seatId === seatId2 ? { ...t, seatId: seatId1 } : t);
+                         return { ...item, seatIds: newSeatIds, tickets: newTickets };
+                     }
+                     return item;
+                 });
+                 
+                 const status1 = seat1.status;
+                 const status2 = seat2.status;
+                 trip.seats = trip.seats.map(s => {
+                     if (s.id === seatId1) return { ...s, status: status2 };
+                     if (s.id === seatId2) return { ...s, status: status1 };
+                     return s;
+                 });
 
-             const updateNow = new Date().toISOString();
-             booking1.updatedAt = updateNow;
-             booking2.updatedAt = updateNow;
+                 const updateNow = new Date().toISOString();
+                 booking1.updatedAt = updateNow;
+                 booking2.updatedAt = updateNow;
 
-             await booking1.save();
-             await booking2.save();
-             await trip.save();
+                 await booking1.save();
+                 await booking2.save();
+                 await trip.save();
+             }
 
              await logBookingAction(
                 booking1._id,
@@ -875,13 +906,16 @@ app.post("/api/bookings/swap", async (req, res) => {
                 `Đổi ghế ${seat1.label} sang ${seat2.label}`,
                 { route: trip.route, date: trip.departureTime, from: seat1.label, to: seat2.label }
              );
-             await logBookingAction(
-                booking2._id,
-                'SWAP',
-                `Đổi ghế ${seat2.label} sang ${seat1.label} (Hoán đổi)`,
-                { route: trip.route, date: trip.departureTime, from: seat1.label, to: seat2.label }
-             );
+             if (!booking1._id.equals(booking2._id)) {
+                 await logBookingAction(
+                    booking2._id,
+                    'SWAP',
+                    `Đổi ghế ${seat2.label} sang ${seat1.label} (Hoán đổi)`,
+                    { route: trip.route, date: trip.departureTime, from: seat1.label, to: seat2.label }
+                 );
+             }
         } else {
+            // Trường hợp ghế đích trống
             booking1.items = booking1.items.map(item => {
                  if (item.tripId === tripId) {
                      const newSeatIds = item.seatIds.map(s => s === seatId1 ? seatId2 : s);

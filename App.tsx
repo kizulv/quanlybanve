@@ -372,6 +372,8 @@ function AppContent() {
           swapSourceSeat.id,
           clickedSeat.id
         );
+        
+        // Cập nhật state toàn cục để UI phản ánh thay đổi ngay lập tức
         setBookings(result.bookings);
 
         const updatedTripsMap = new Map<string, BusTrip>(
@@ -398,7 +400,8 @@ function AppContent() {
           message: `Đã đổi ${swapSourceSeat.label} sang ${clickedSeat.label}`,
         });
       } catch (e) {
-        toast({ type: "error", title: "Lỗi", message: "Không thể đổi chỗ" });
+        console.error("Swap failed:", e);
+        toast({ type: "error", title: "Lỗi", message: "Không thể đổi chỗ. Vui lòng thử lại." });
       } finally {
         setSwapSourceSeat(null);
         if (editingBooking) {
@@ -1399,6 +1402,7 @@ function AppContent() {
                   onSeatSwap={swapSourceSeat ? undefined : initiateSwap}
                   editingBooking={editingBooking}
                   onSeatRightClick={handleSeatRightClick}
+                  swapSourceSeatId={swapSourceSeat?.id} // Truyền ID ghế đang đổi
                 />
               ) : (
                 <div className="h-[400px] md:h-full flex flex-col items-center justify-center text-slate-300 p-8 text-center">
