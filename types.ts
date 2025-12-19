@@ -9,7 +9,7 @@ export enum SeatStatus {
   SELECTED = "selected",
   BOOKED = "booked",
   SOLD = "sold",
-  HELD = "held", // Trạng thái giữ vé mới
+  HELD = "held", // Trạng thái giữ vé
 }
 
 export interface Seat {
@@ -58,12 +58,12 @@ export interface BookingItem {
 export interface Booking {
   id: string;
   passenger: Passenger;
-  items: BookingItem[]; // CHANGED: Array of trips/seats
-  status: "pending" | "confirmed" | "cancelled" | "modified"; // Added 'modified'
+  items: BookingItem[]; 
+  status: "booking" | "payment" | "hold" | "cancelled"; // UPDATED STATUSES
   createdAt: string;
-  updatedAt: string; // NEW: Track last modification
+  updatedAt: string; 
   totalPrice: number;
-  totalTickets: number; // New field
+  totalTickets: number; 
   // Computed property from Payment Collection (Not stored in Booking DB)
   payment?: {
     paidCash: number;

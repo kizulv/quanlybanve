@@ -411,7 +411,8 @@ function AppContent() {
 
     if (
       clickedSeat.status === SeatStatus.BOOKED ||
-      clickedSeat.status === SeatStatus.SOLD
+      clickedSeat.status === SeatStatus.SOLD ||
+      clickedSeat.status === SeatStatus.HELD
     ) {
       const booking = tripBookings.find((b) =>
         b.items.some(
@@ -506,25 +507,36 @@ function AppContent() {
           message: "Đã lưu thông tin hành khách.",
         });
       } else if (seat && selectedTrip) {
-        const updatedSeats = selectedTrip.seats.map((s) => {
-          if (s.id === seat.id) {
-            return { ...s, note: updatedPassenger.note };
-          }
-          return s;
-        });
-
-        await api.trips.updateSeats(selectedTrip.id, updatedSeats);
-
-        setTrips((prev) =>
-          prev.map((t) =>
-            t.id === selectedTrip.id ? { ...t, seats: updatedSeats } : t
-          )
+        // Find existing 'hold' booking if any for this seat
+        const existingHold = tripBookings.find(b => 
+            b.status === "hold" && 
+            b.items.some(i => i.tripId === selectedTrip.id && i.seatIds.includes(seat.id))
         );
+
+        if (existingHold) {
+            await api.bookings.updatePassenger(existingHold.id, updatedPassenger);
+            await refreshData();
+        } else {
+            // Just update seat note if no booking record
+            const updatedSeats = selectedTrip.seats.map((s) => {
+              if (s.id === seat.id) {
+                return { ...s, note: updatedPassenger.note };
+              }
+              return s;
+            });
+
+            await api.trips.updateSeats(selectedTrip.id, updatedSeats);
+            setTrips((prev) =>
+              prev.map((t) =>
+                t.id === selectedTrip.id ? { ...t, seats: updatedSeats } : t
+              )
+            );
+        }
 
         toast({
           type: "success",
           title: "Cập nhật thành công",
-          message: "Đã lưu ghi chú cho ghế đang giữ.",
+          message: "Đã lưu ghi chú.",
         });
       }
 
@@ -593,7 +605,7 @@ function AppContent() {
       (booking.payment?.paidCash || 0) + (booking.payment?.paidTransfer || 0);
     const isFullyPaid = paid >= booking.totalPrice;
 
-    setBookingMode(isFullyPaid ? "payment" : "booking");
+    setBookingMode(isFullyPaid ? "payment" : (booking.status === 'hold' ? 'hold' : "booking"));
 
     setBookingForm({
       phone: booking.passenger.phone,
@@ -617,7 +629,8 @@ function AppContent() {
   const processBooking = async (
     paymentData?: { paidCash: number; paidTransfer: number },
     overrides: Record<string, SeatOverride> = {},
-    noteSuffix: string = ""
+    noteSuffix: string = "",
+    explicitStatus?: "booking" | "payment" | "hold"
   ) => {
     if (selectionBasket.length === 0) {
       toast({
@@ -629,7 +642,7 @@ function AppContent() {
     }
 
     const error = validatePhoneNumber(bookingForm.phone);
-    if (error) {
+    if (error && bookingMode !== 'hold') {
       setPhoneError(error);
       toast({
         type: "error",
@@ -645,7 +658,7 @@ function AppContent() {
 
     const passenger: Passenger = {
       name: "Khách lẻ",
-      phone: bookingForm.phone,
+      phone: bookingForm.phone || "0000000000",
       note: finalNote,
       pickupPoint: bookingForm.pickup,
       dropoffPoint: bookingForm.dropoff,
@@ -654,15 +667,13 @@ function AppContent() {
     const payment = paymentData || { paidCash: 0, paidTransfer: 0 };
     const isPaid = payment.paidCash + payment.paidTransfer > 0;
 
-    // Prepare items for single API call
     const bookingItems = selectionBasket.map((item) => {
       const tickets = item.seats.map((s) => {
         const key = `${item.trip.id}_${s.id}`;
         const override = overrides[key];
 
-        // SỬA ĐỔI CHÍNH: Nếu đang ở chế độ "Đặt vé" (booking) và không có thanh toán, 
-        // ép giá vé về 0 để lưu vào DB và hiển thị.
         let finalPrice = override?.price !== undefined ? override.price : s.price;
+        // If just booking and not paid, price = 0
         if (bookingMode === "booking" && !isPaid) {
             finalPrice = 0;
         }
@@ -688,14 +699,14 @@ function AppContent() {
       };
     });
 
-    const explicitStatus = isPaid ? undefined : "pending";
+    const status = explicitStatus || (isPaid ? "payment" : (bookingMode === 'hold' ? 'hold' : "booking"));
 
     try {
       const result = await api.bookings.create(
         bookingItems,
         passenger,
         payment,
-        explicitStatus
+        status
       );
 
       const updatedTripsMap = new Map<string, BusTrip>(
@@ -739,65 +750,25 @@ function AppContent() {
 
       toast({
         type: "success",
-        title: isPaid ? "Thanh toán thành công" : "Đặt vé thành công",
-        message: `Đã tạo 1 đơn hàng gồm ${selectionBasket.reduce(
-          (a, b) => a + b.seats.length,
-          0
-        )} vé.`,
+        title: "Thành công",
+        message: "Đã tạo đơn hàng thành công.",
       });
     } catch (error) {
       console.error(error);
       toast({
         type: "error",
         title: "Lỗi",
-        message: "Có lỗi xảy ra khi tạo vé.",
+        message: "Có lỗi xảy ra khi tạo đơn.",
       });
     }
   };
 
-  const processHoldSeats = async () => {
-    if (selectionBasket.length === 0) {
-      toast({
-        type: "warning",
-        title: "Chưa chọn ghế",
-        message: "Vui lòng chọn ghế để giữ.",
-      });
-      return;
-    }
-
-    try {
-      for (const item of selectionBasket) {
-        const updatedSeats = item.trip.seats.map((s) => {
-          if (s.status === SeatStatus.SELECTED) {
-            const { originalStatus, ...rest } = s;
-            return { ...rest, status: SeatStatus.HELD, note: bookingForm.note };
-          }
-          return s;
-        });
-
-        await api.trips.updateSeats(item.trip.id, updatedSeats);
-
-        setTrips((prev) =>
-          prev.map(
-            (t): BusTrip =>
-              t.id === item.trip.id ? { ...t, seats: updatedSeats } : t
-          )
-        );
-      }
-
-      toast({
-        type: "info",
-        title: "Đã giữ vé",
-        message: "Đã cập nhật trạng thái ghế sang Đang giữ.",
-      });
-      setBookingForm((prev) => ({ ...prev, note: "" }));
-    } catch (error) {
-      console.error(error);
-      toast({ type: "error", title: "Lỗi", message: "Không thể giữ vé." });
-    }
+  const processHoldSeats = () => {
+      // Hold mode now creates a booking with status 'hold'
+      processBooking(undefined, {}, "", "hold");
   };
 
-  const handleBookingOnly = () => processBooking(undefined);
+  const handleBookingOnly = () => processBooking(undefined, {}, "", "booking");
 
   const handleInitiatePayment = () => {
     if (selectionBasket.length === 0) {
@@ -820,8 +791,6 @@ function AppContent() {
       return;
     }
 
-    // Ở chế độ "Mua vé" (payment), chúng ta đề xuất tổng tiền thật.
-    // Lấy tổng thật bằng cách không ép về 0:
     const realPriceTotal = selectionBasket.reduce((sum, item) => {
         return sum + item.seats.reduce((sSum, s) => sSum + s.price, 0);
     }, 0);
@@ -896,9 +865,6 @@ function AppContent() {
           const key = `${item.trip.id}_${s.id}`;
           const override = overrides[key];
 
-          // SỬA ĐỔI CHÍNH: Nếu chỉnh sửa mà không có thanh toán và ở chế độ booking, ép về 0.
-          // Tuy nhiên, logic chỉnh sửa thường phức tạp hơn.
-          // Ở đây chúng ta ưu tiên override từ PaymentModal gửi về.
           let finalPrice = override?.price !== undefined ? override.price : s.price;
           
           return {
@@ -1543,7 +1509,7 @@ function AppContent() {
                         id={`booking-item-${booking.id}`}
                         onClick={() => handleSelectBookingFromHistory(booking)}
                         className={`px-3 py-2 border-b border-slate-100 cursor-pointer hover:bg-slate-50 transition-colors ${
-                          !isFullyPaid ? "bg-yellow-50/30" : ""
+                          !isFullyPaid && booking.status !== 'hold' ? "bg-yellow-50/30" : (booking.status === 'hold' ? "bg-purple-50/30" : "")
                         } ${
                           isHighlighted
                             ? "bg-indigo-50 ring-2 ring-indigo-500 z-10"
@@ -1577,7 +1543,7 @@ function AppContent() {
                           </div>
                           <div
                             className={`text-xs font-black whitespace-nowrap ${
-                              isFullyPaid ? "text-green-600" : "text-amber-600"
+                              isFullyPaid ? "text-green-600" : (booking.status === 'hold' ? "text-purple-600" : "text-amber-600")
                             }`}
                           >
                             {tripSubtotal.toLocaleString("vi-VN")}
@@ -1678,31 +1644,30 @@ function AppContent() {
                               variant="destructive"
                               className="bg-red-100 text-red-700 border-red-200"
                             >
-                              Đã hủy
+                              Hủy vé
                             </Badge>
                           )}
-                          {booking.status === "modified" && (
-                            <Badge
-                              variant="default"
-                              className="bg-blue-100 text-blue-700 border-blue-200"
-                            >
-                              Đã thay đổi
-                            </Badge>
-                          )}
-                          {booking.status === "confirmed" && (
+                          {booking.status === "payment" && (
                             <Badge
                               variant="success"
                               className="bg-green-100 text-green-700 border-green-200"
                             >
-                              Đã thanh toán
+                              Mua vé
                             </Badge>
                           )}
-                          {booking.status === "pending" && (
+                          {booking.status === "booking" && (
                             <Badge
                               variant="warning"
                               className="bg-yellow-100 text-yellow-700 border-yellow-200"
                             >
-                              Tạo mới
+                              Đặt vé
+                            </Badge>
+                          )}
+                          {booking.status === "hold" && (
+                            <Badge
+                              className="bg-purple-100 text-purple-700 border-purple-200"
+                            >
+                              Giữ vé
                             </Badge>
                           )}
                         </td>
@@ -1902,7 +1867,7 @@ function AppContent() {
                   <div className="p-2 bg-red-50 text-red-600 rounded text-xs border border-red-100 flex items-center gap-2 justify-center">
                     <AlertCircle size={14} />
                     <span>
-                      Đơn hàng sẽ chuyển sang trạng thái <strong>Đã hủy</strong>
+                      Đơn hàng sẽ chuyển sang trạng thái <strong>Hủy vé</strong>
                       .
                     </span>
                   </div>

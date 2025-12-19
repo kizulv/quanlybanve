@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from "react";
 import {
   Sheet,
@@ -61,7 +62,6 @@ export const RightSheet: React.FC<RightSheetProps> = ({
     null
   );
 
-  // Use updatedAt for sorting (fallback to createdAt for old records)
   const sortedBookings = useMemo(() => {
     return [...bookings].sort((a, b) => {
       const timeA = new Date(a.updatedAt || a.createdAt).getTime();
@@ -91,7 +91,6 @@ export const RightSheet: React.FC<RightSheetProps> = ({
   const listByDate = useMemo(() => {
     const groups: Record<string, Booking[]> = {};
     filteredList.forEach((item) => {
-      // Group by the date of last modification
       const date = new Date(item.updatedAt || item.createdAt);
       const dateStr = date.toLocaleDateString("vi-VN", {
         weekday: "short",
@@ -126,21 +125,21 @@ export const RightSheet: React.FC<RightSheetProps> = ({
     if (status === "cancelled") {
       return (
         <Badge className="bg-red-50 text-red-600 border-red-100 text-[10px] px-1.5 h-5">
-          Đã hủy
+          Hủy vé
         </Badge>
       );
     }
-    if (status === "modified") {
+    if (status === "hold") {
       return (
-        <Badge className="bg-blue-50 text-blue-600 border-blue-100 text-[10px] px-1.5 h-5">
-          Đã đổi
+        <Badge className="bg-purple-50 text-purple-600 border-purple-100 text-[10px] px-1.5 h-5">
+          Giữ vé
         </Badge>
       );
     }
-    if (status === "confirmed" || isPaid) {
+    if (status === "payment" || isPaid) {
       return (
         <Badge className="bg-green-50 text-green-600 border-green-100 text-[10px] px-1.5 h-5">
-          Đã thanh toán
+          Mua vé
         </Badge>
       );
     }
@@ -165,7 +164,7 @@ export const RightSheet: React.FC<RightSheetProps> = ({
         </SheetTrigger>
         <SheetContent
           side="right"
-          className="flex flex-col h-full w-full p-0 gap-0 border-l shadow-xl bg-white"
+          className="flex flex-col h-full w-full p-0 p-0 gap-0 border-l shadow-xl bg-white"
         >
           <SheetHeader className="px-6 py-5 border-b border-slate-100 shrink-0 bg-white">
             <div className="flex items-center justify-between">
@@ -190,7 +189,6 @@ export const RightSheet: React.FC<RightSheetProps> = ({
             </div>
           </SheetHeader>
 
-          {/* Improved Search Bar */}
           <div className="px-6 py-4 bg-slate-50/50 border-b border-slate-100 shrink-0">
             <div className="relative group">
               <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
@@ -218,7 +216,6 @@ export const RightSheet: React.FC<RightSheetProps> = ({
             </div>
           </div>
 
-          {/* Scrollable List with Card Layout */}
           <div className="flex-1 overflow-y-auto p-0 bg-slate-50/30">
             {Object.keys(listByDate).length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-slate-400 p-12 text-center">
@@ -260,7 +257,6 @@ export const RightSheet: React.FC<RightSheetProps> = ({
                               onClick={() => handleSelect(booking)}
                               className="relative bg-white rounded-xl border border-slate-200 p-4 shadow-sm hover:shadow-md hover:border-primary/30 transition-all cursor-pointer group active:scale-[0.98]"
                             >
-                              {/* Card Top: Identity & Status */}
                               <div className="flex justify-between items-center mb-3 pb-3 border-b border-slate-200 border-dashed">
                                 <div className="flex flex-col gap-0.5 ">
                                   <div className="flex items-center gap-2 ">
@@ -302,10 +298,9 @@ export const RightSheet: React.FC<RightSheetProps> = ({
                                 </div>
                               </div>
 
-                              {/* Card Body: Trips */}
                               {booking.items.length === 0 && (
                                 <div className="text-[11px] text-slate-400 text-center py-2 bg-red-50/30 rounded-md border border-dashed border-red-100">
-                                  Đã hủy đặt vé
+                                  Đã hủy đơn hàng
                                 </div>
                               )}
                               <div className="mb-3 flex flex-col gap-1">
@@ -362,7 +357,6 @@ export const RightSheet: React.FC<RightSheetProps> = ({
                                 })}
                               </div>
 
-                              {/* Card Bottom: Summary & Actions */}
                               <div className="flex justify-between items-center pt-3 border-t border-slate-200 border-dashed">
                                 <button
                                   onClick={(e) => handleViewHistory(e, booking)}
@@ -384,8 +378,8 @@ export const RightSheet: React.FC<RightSheetProps> = ({
                                           </span>
                                         </>
                                       ) : (
-                                        <span className="text-amber-600">
-                                          Đã đặt vé
+                                        <span className={booking.status === 'hold' ? "text-purple-600" : "text-amber-600"}>
+                                          {booking.status === 'hold' ? 'Đang giữ vé' : 'Đang đặt vé'}
                                         </span>
                                       )}
                                     </div>

@@ -124,9 +124,9 @@ const bookingSchema = new mongoose.Schema(
       dropoffPoint: String,
     },
     items: [bookingItemSchema],
-    status: String, 
+    status: String, // booking, payment, hold, cancelled
     createdAt: String,
-    updatedAt: String, // NEW: Track last modified
+    updatedAt: String,
     totalPrice: Number, 
     totalTickets: Number,
   },
@@ -255,7 +255,6 @@ const processPaymentUpdate = async (booking, newPaymentState) => {
     const tripDetails = booking.items[0] || {};
     const allSeats = booking.items.flatMap(i => i.seatIds);
 
-    // Collect detailed trips info with enhanced status
     const tripsSnapshot = [];
     for (const item of booking.items) {
         tripsSnapshot.push({
@@ -287,7 +286,6 @@ const processPaymentUpdate = async (booking, newPaymentState) => {
     });
 
     await paymentRecord.save();
-    // Payment is a modification
     await Booking.findByIdAndUpdate(booking._id, { updatedAt: new Date().toISOString() });
 };
 
@@ -343,7 +341,7 @@ app.get("/api/bookings/:id/history", async (req, res) => {
 
 app.post("/api/bookings", async (req, res) => {
   try {
-    const { items, passenger, payment, status } = req.body; 
+    const { items, passenger, payment, status: requestedStatus } = req.body; 
     
     if (!items || items.length === 0) {
         return res.status(400).json({ error: "No items to book" });
@@ -354,7 +352,6 @@ app.post("/api/bookings", async (req, res) => {
     let calculatedTotalTickets = 0;
     const bookingItems = [];
     const updatedTrips = [];
-
     const logTripDetails = [];
 
     for (const item of items) {
@@ -404,22 +401,30 @@ app.post("/api/bookings", async (req, res) => {
 
     const totalPaid = (payment?.paidCash || 0) + (payment?.paidTransfer || 0);
     const isFullyPaid = totalPaid >= calculatedTotalPrice;
-    const finalStatus = status ? status : (isFullyPaid ? "confirmed" : "pending");
-    const globalSeatStatus = finalStatus === "confirmed" ? "sold" : "booked";
+    
+    // Status Logic
+    let finalStatus = requestedStatus;
+    if (!finalStatus) {
+        finalStatus = isFullyPaid ? "payment" : "booking";
+    }
+
+    // Mapping to seat status
+    const getSeatStatusForBookingStatus = (bStatus) => {
+        if (bStatus === 'payment') return 'sold';
+        if (bStatus === 'hold') return 'held';
+        return 'booked'; // for 'booking' status
+    };
+
+    const targetSeatStatus = getSeatStatusForBookingStatus(finalStatus);
 
     for (const item of bookingItems) {
          const trip = await Trip.findById(item.tripId);
          if (!trip) continue;
          
          const seatIds = item.seatIds;
-         const ticketPriceMap = {};
-         item.tickets.forEach(t => { ticketPriceMap[t.seatId] = t.price; });
-
          trip.seats = trip.seats.map(s => {
              if (seatIds.includes(s.id)) {
-                 const specificPrice = ticketPriceMap[s.id];
-                 const finalSeatStatus = (specificPrice === 0) ? 'booked' : globalSeatStatus;
-                 return { ...s, status: finalSeatStatus };
+                 return { ...s, status: targetSeatStatus };
              }
              return s;
          });
@@ -443,7 +448,7 @@ app.post("/api/bookings", async (req, res) => {
     await logBookingAction(
         booking._id,
         'CREATE',
-        'Tạo mới đơn hàng',
+        `Tạo mới đơn hàng (${finalStatus === 'payment' ? 'Mua vé' : finalStatus === 'hold' ? 'Giữ vé' : 'Đặt vé'})`,
         { 
             trips: logTripDetails,
             totalTickets: calculatedTotalTickets 
@@ -582,22 +587,31 @@ app.put("/api/bookings/:id", async (req, res) => {
 
       const totalPaid = (payment?.paidCash || 0) + (payment?.paidTransfer || 0);
       const isFullyPaid = totalPaid >= calculatedTotalPrice;
-      let finalStatus = calculatedTotalTickets === 0 ? "cancelled" : (isFullyPaid ? "confirmed" : "modified");
-      const globalSeatStatus = isFullyPaid ? "sold" : "booked";
+      
+      // Update status mapping
+      let finalStatus = calculatedTotalTickets === 0 ? "cancelled" : (isFullyPaid ? "payment" : "booking");
+      
+      // Preserve "hold" if it was hold and not fully paid
+      if (oldBooking.status === "hold" && !isFullyPaid && calculatedTotalTickets > 0) {
+          finalStatus = "hold";
+      }
+
+      const getSeatStatusForBookingStatus = (bStatus) => {
+        if (bStatus === 'payment') return 'sold';
+        if (bStatus === 'hold') return 'held';
+        return 'booked';
+      };
+
+      const targetSeatStatus = getSeatStatusForBookingStatus(finalStatus);
 
       if (calculatedTotalTickets > 0) {
           for (const item of bookingItems) {
               const trip = await Trip.findById(item.tripId);
               if (!trip) continue;
               const seatIds = item.seatIds;
-              const ticketPriceMap = {};
-              item.tickets.forEach(t => { ticketPriceMap[t.seatId] = t.price; });
-
               trip.seats = trip.seats.map(s => {
                   if (seatIds.includes(s.id)) {
-                      const specificPrice = ticketPriceMap[s.id];
-                      const finalSeatStatus = (specificPrice === 0) ? 'booked' : globalSeatStatus;
-                      return { ...s, status: finalSeatStatus };
+                      return { ...s, status: targetSeatStatus };
                   }
                   return s;
               });
@@ -786,7 +800,7 @@ app.post("/api/maintenance/fix-seats", async (req, res) => {
     for (const trip of trips) {
       let isModified = false;
       trip.seats = trip.seats.map(s => {
-        if (s.status === 'booked' || s.status === 'sold') {
+        if (s.status === 'booked' || s.status === 'sold' || s.status === 'held') {
           const key = `${trip.id}_${s.id}`;
           if (!occupiedMap.has(key)) {
             isModified = true;
@@ -865,7 +879,7 @@ app.post("/api/bookings/swap", async (req, res) => {
                 booking2._id,
                 'SWAP',
                 `Đổi ghế ${seat2.label} sang ${seat1.label} (Hoán đổi)`,
-                { route: trip.route, date: trip.departureTime, from: seat2.label, to: seat1.label }
+                { route: trip.route, date: trip.departureTime, from: seat1.label, to: seat2.label }
              );
         } else {
             booking1.items = booking1.items.map(item => {
