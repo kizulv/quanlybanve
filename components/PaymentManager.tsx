@@ -12,9 +12,7 @@ import {
   Check, X, Zap, Ticket, Loader2,
   Filter, CalendarDays, RefreshCw, AlertCircle,
   TrendingUp, ArrowDownRight, ArrowUpRight,
-  ChevronDown,
-  Calculator,
-  Wallet
+  ChevronDown
 } from 'lucide-react';
 import { useToast } from './ui/Toast';
 import { Dialog } from './ui/Dialog';
@@ -43,10 +41,14 @@ export const PaymentManager: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   
+  // Date filter state using Date objects for the custom Calendar
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
   
+  // Detail Modal State
   const [selectedGroup, setSelectedGroup] = useState<PaymentGroup | null>(null);
+  
+  // Edit Note State
   const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
   const [editNote, setEditNote] = useState('');
 
@@ -71,6 +73,7 @@ export const PaymentManager: React.FC = () => {
     fetchData();
   }, []);
 
+  // --- GROUPING LOGIC ---
   const groupedPayments = useMemo(() => {
     const groups: Record<string, PaymentGroup> = {};
 
@@ -110,8 +113,10 @@ export const PaymentManager: React.FC = () => {
     return Object.values(groups).sort((a, b) => b.latestTransaction.getTime() - a.latestTransaction.getTime());
   }, [payments, bookings]);
 
+  // --- FILTER LOGIC (SEARCH + DATE) ---
   const filteredGroups = useMemo(() => {
       return groupedPayments.filter(g => {
+         // 1. Search filter
          const lower = searchTerm.toLowerCase();
          const matchesSearch = !searchTerm.trim() || (
             g.passengerPhone.includes(lower) || 
@@ -120,6 +125,7 @@ export const PaymentManager: React.FC = () => {
             g.tripInfo.seats.some(s => s.toLowerCase().includes(lower))
          );
 
+         // 2. Date range filter
          let matchesDate = true;
          const txDate = new Date(g.latestTransaction);
          txDate.setHours(0, 0, 0, 0);
@@ -139,6 +145,7 @@ export const PaymentManager: React.FC = () => {
       });
   }, [groupedPayments, searchTerm, startDate, endDate]);
 
+  // --- STATS ---
   const stats = useMemo(() => {
       let cashTotal = 0;
       let transferTotal = 0;
@@ -181,7 +188,7 @@ export const PaymentManager: React.FC = () => {
   };
 
   const formatDate = (date: Date | undefined) => {
-    if (!date) return "Chọn ngày...";
+    if (!date) return "--/--/----";
     return date.toLocaleDateString("vi-VN");
   };
 
@@ -195,215 +202,264 @@ export const PaymentManager: React.FC = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto space-y-4 animate-in fade-in duration-500">
+    <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
       
-      {/* 1. COMPACT HEADER & STATS */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-          <div className="bg-indigo-950 p-4 rounded-lg border border-indigo-900 shadow-sm flex flex-col justify-center text-white">
-             <div className="flex items-center gap-2 mb-2">
-                <div className="p-1.5 bg-yellow-500 rounded text-indigo-950">
-                    <Banknote size={18}/>
-                </div>
-                <h2 className="font-bold text-sm uppercase tracking-wider">Tài chính</h2>
+      {/* 1. HEADER SECTION */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+           <h2 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+              <div className="p-2 bg-emerald-500 rounded-xl text-white shadow-lg shadow-emerald-500/20">
+                <Banknote size={28}/>
+              </div>
+              Quản lý Tài chính
+           </h2>
+           <p className="text-slate-500 mt-1.5 text-sm font-medium flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              Theo dõi doanh thu bán vé theo thời gian thực
+           </p>
+        </div>
+        <div className="flex items-center gap-2">
+            <Button onClick={fetchData} variant="outline" className="bg-white border-slate-200 hover:bg-slate-50 shadow-sm h-11 px-5 rounded-xl font-bold text-slate-700">
+                <RefreshCw size={18} className={`mr-2 ${loading ? 'animate-spin' : ''}`} />
+                Làm mới
+            </Button>
+        </div>
+      </div>
+
+      {/* 2. STATS CARDS */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden group hover:border-emerald-500/30 transition-all">
+             <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:scale-110 transition-transform text-emerald-600">
+                <TrendingUp size={80} />
              </div>
-             <p className="text-indigo-300 text-[10px] italic">Dòng tiền thực tế toàn hệ thống</p>
-             <Button onClick={fetchData} variant="ghost" className="mt-4 h-8 text-[10px] font-bold text-indigo-300 hover:text-white hover:bg-indigo-900 border border-indigo-800 self-start">
-                <RefreshCw size={12} className={`mr-1.5 ${loading ? 'animate-spin' : ''}`} />
-                Cập nhật dữ liệu
-             </Button>
+             <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center">
+                    <DollarSign size={20}/>
+                </div>
+                <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Tổng thực thu</span>
+             </div>
+             <div className="flex items-baseline gap-1">
+                <span className="text-3xl font-black text-slate-900 tracking-tight">
+                    {stats.grandTotal.toLocaleString('vi-VN')}
+                </span>
+                <span className="text-sm font-bold text-slate-400">đ</span>
+             </div>
+             <div className="mt-4 pt-4 border-t border-slate-50 flex items-center gap-2 text-xs font-bold text-emerald-600">
+                <ArrowUpRight size={14}/>
+                Bao gồm TM & Chuyển khoản
+             </div>
           </div>
 
-          <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm flex items-center gap-4">
-             <div className="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100">
-                <TrendingUp size={20}/>
+          <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden group hover:border-blue-500/30 transition-all">
+             <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:scale-110 transition-transform text-blue-600">
+                <Ticket size={80} />
              </div>
-             <div>
-                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tổng thực thu</div>
-                <div className="flex items-baseline gap-1">
-                    <span className="text-xl font-black text-slate-900">
-                        {stats.grandTotal.toLocaleString('vi-VN')}
-                    </span>
-                    <span className="text-[10px] font-bold text-slate-400">đ</span>
+             <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center">
+                    <Ticket size={20}/>
                 </div>
+                <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Vé hoàn thành</span>
+             </div>
+             <div className="flex items-baseline gap-1">
+                <span className="text-3xl font-black text-slate-900 tracking-tight">{stats.totalTickets}</span>
+                <span className="text-sm font-bold text-slate-400">giường</span>
+             </div>
+             <div className="mt-4 pt-4 border-t border-slate-50 flex items-center gap-2 text-xs font-bold text-blue-600">
+                <Check size={14}/>
+                Chỉ tính các đơn có hiệu lực
              </div>
           </div>
 
-          <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm flex items-center gap-4">
-             <div className="w-10 h-10 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100">
-                <Ticket size={20}/>
-             </div>
-             <div>
-                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Vé hoàn thành</div>
-                <div className="flex items-baseline gap-1">
-                    <span className="text-xl font-black text-slate-900">{stats.totalTickets}</span>
-                    <span className="text-[10px] font-bold text-slate-400">giường</span>
-                </div>
-             </div>
-          </div>
-
-          <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm flex flex-col justify-center gap-2">
-                <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest">
-                   <span className="text-slate-400">Tiền mặt</span>
-                   <span className="text-emerald-600">{stats.cashTotal.toLocaleString('vi-VN')} đ</span>
+          <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-center">
+             <div className="space-y-4">
+                <div className="flex justify-between items-center text-xs font-bold uppercase tracking-widest text-slate-400">
+                   <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-emerald-500"></div> Tiền mặt</span>
+                   <span className="text-slate-900 font-black">{stats.cashTotal.toLocaleString('vi-VN')} đ</span>
                 </div>
                 <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
                     <div 
-                        className="bg-emerald-500 h-full rounded-full transition-all duration-1000" 
+                        className="bg-emerald-500 h-full rounded-full transition-all duration-1000 shadow-[0_0_8px_rgba(16,185,129,0.4)]" 
                         style={{ width: `${stats.grandTotal > 0 ? (stats.cashTotal / stats.grandTotal) * 100 : 0}%` }}
                     />
                 </div>
-                <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest">
-                   <span className="text-slate-400">Chuyển khoản</span>
-                   <span className="text-blue-600">{stats.transferTotal.toLocaleString('vi-VN')} đ</span>
+                
+                <div className="flex justify-between items-center text-xs font-bold uppercase tracking-widest text-slate-400">
+                   <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-blue-500"></div> Chuyển khoản</span>
+                   <span className="text-slate-900 font-black">{stats.transferTotal.toLocaleString('vi-VN')} đ</span>
                 </div>
                 <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
                     <div 
-                        className="bg-blue-500 h-full rounded-full transition-all duration-1000" 
+                        className="bg-blue-500 h-full rounded-full transition-all duration-1000 shadow-[0_0_8px_rgba(59,130,246,0.4)]" 
                         style={{ width: `${stats.grandTotal > 0 ? (stats.transferTotal / stats.grandTotal) * 100 : 0}%` }}
                     />
                 </div>
+             </div>
           </div>
       </div>
 
-      {/* 2. COMPACT TOOLBAR */}
-      <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm flex flex-col md:flex-row gap-3 items-center">
-          <div className="relative flex-1 w-full group">
-            <Search size={14} className="absolute left-3 top-2.5 text-slate-400 group-focus-within:text-primary transition-colors"/>
-            <input 
-                className="w-full pl-9 pr-4 h-9 border border-slate-200 rounded text-xs outline-none focus:ring-2 focus:ring-primary/5 focus:border-primary placeholder-slate-400 transition-all bg-slate-50/50"
-                placeholder="Tìm SĐT, Tên khách, Mã ghế..."
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-            />
-          </div>
-
-          <div className="flex items-center gap-2 bg-slate-100/50 p-1 rounded border border-slate-200">
-              <Popover
-                trigger={
-                  <div className="flex items-center gap-2 px-2.5 h-7 bg-white border border-slate-200 rounded hover:border-primary/30 transition-all cursor-pointer min-w-[120px]">
-                    <CalendarIcon size={12} className="text-slate-400" />
-                    <span className="text-[11px] font-bold text-slate-700">{formatDate(startDate)}</span>
+      {/* 3. TOOLBAR SECTION */}
+      <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+          <div className="flex flex-col lg:flex-row gap-6 items-end">
+              
+              {/* Search */}
+              <div className="flex-1 w-full space-y-1.5">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tìm kiếm thông tin</label>
+                  <div className="relative group">
+                    <Search size={18} className="absolute left-4 top-3.5 text-slate-400 group-focus-within:text-primary transition-colors"/>
+                    <input 
+                        className="w-full pl-11 pr-4 h-12 border border-slate-200 rounded-2xl text-sm outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary placeholder-slate-400 transition-all bg-slate-50/50"
+                        placeholder="SĐT, Tên khách, Mã ghế hoặc Mã đơn..."
+                        value={searchTerm}
+                        onChange={e => setSearchTerm(e.target.value)}
+                    />
                   </div>
-                }
-                content={(close) => (
-                  <Calendar 
-                    selected={startDate} 
-                    onSelect={(d) => { setStartDate(d); close(); }} 
-                  />
-                )}
-              />
-              <ArrowRight size={12} className="text-slate-300"/>
-              <Popover
-                trigger={
-                  <div className="flex items-center gap-2 px-2.5 h-7 bg-white border border-slate-200 rounded hover:border-primary/30 transition-all cursor-pointer min-w-[120px]">
-                    <CalendarIcon size={12} className="text-slate-400" />
-                    <span className="text-[11px] font-bold text-slate-700">{formatDate(endDate)}</span>
-                  </div>
-                }
-                content={(close) => (
-                  <Calendar 
-                    selected={endDate} 
-                    onSelect={(d) => { setEndDate(d); close(); }} 
-                  />
-                )}
-              />
-          </div>
+              </div>
 
-          <Button 
-            variant="ghost" 
-            onClick={resetFilters}
-            className="h-9 px-3 text-slate-500 hover:text-red-600 hover:bg-red-50 font-bold text-[11px]"
-          >
-            <X size={14} className="mr-1.5"/> Xóa lọc
-          </Button>
+              {/* Date Filter - Using Popover + Calendar */}
+              <div className="w-full lg:w-auto space-y-1.5">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Khoảng ngày bán</label>
+                  <div className="flex items-center gap-2 bg-slate-50/50 p-1.5 border border-slate-200 rounded-2xl h-12">
+                      <Popover
+                        trigger={
+                          <div className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-100 rounded-xl hover:border-primary/30 transition-all cursor-pointer shadow-sm min-w-[140px]">
+                            <CalendarIcon size={14} className="text-slate-400" />
+                            <span className="text-xs font-bold text-slate-700">{formatDate(startDate)}</span>
+                            <ChevronDown size={12} className="ml-auto text-slate-300" />
+                          </div>
+                        }
+                        content={(close) => (
+                          <Calendar 
+                            selected={startDate} 
+                            onSelect={(d) => { setStartDate(d); close(); }} 
+                          />
+                        )}
+                      />
+                      <ArrowRight size={14} className="text-slate-300 mx-1"/>
+                      <Popover
+                        trigger={
+                          <div className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-100 rounded-xl hover:border-primary/30 transition-all cursor-pointer shadow-sm min-w-[140px]">
+                            <CalendarIcon size={14} className="text-slate-400" />
+                            <span className="text-xs font-bold text-slate-700">{formatDate(endDate)}</span>
+                            <ChevronDown size={12} className="ml-auto text-slate-300" />
+                          </div>
+                        }
+                        content={(close) => (
+                          <Calendar 
+                            selected={endDate} 
+                            onSelect={(d) => { setEndDate(d); close(); }} 
+                          />
+                        )}
+                      />
+                  </div>
+              </div>
+
+              {/* Reset Button */}
+              <Button 
+                variant="ghost" 
+                onClick={resetFilters}
+                className="h-12 px-5 rounded-2xl text-slate-500 hover:text-red-600 hover:bg-red-50 font-bold text-xs"
+              >
+                <X size={16} className="mr-2"/> Xóa lọc
+              </Button>
+          </div>
       </div>
 
-      {/* 3. COMPACT DATA TABLE */}
-      <div className="bg-white rounded-lg border border-slate-200 overflow-hidden shadow-sm">
+      {/* 4. DATA TABLE */}
+      <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
          <div className="overflow-x-auto">
-            <table className="w-full text-xs text-left border-collapse">
-                <thead className="bg-slate-50 text-slate-500 font-bold text-[10px] uppercase tracking-wider border-b border-slate-200">
+            <table className="w-full text-sm text-left border-collapse">
+                <thead className="bg-slate-50/80 text-slate-500 font-bold text-[10px] uppercase tracking-[0.15em] border-b border-slate-200">
                 <tr>
-                    <th className="px-4 py-3">Khách hàng</th>
-                    <th className="px-4 py-3">Lịch trình & Ghế</th>
-                    <th className="px-4 py-3 text-center">Trạng thái</th>
-                    <th className="px-4 py-3 text-right">Tổng thực thu</th>
-                    <th className="px-4 py-3 text-right">Ngày GD</th>
-                    <th className="px-4 py-3 text-center w-16">Xem</th>
+                    <th className="px-6 py-5">Khách hàng</th>
+                    <th className="px-6 py-5">Lịch trình & Ghế</th>
+                    <th className="px-6 py-5 text-center">Trạng thái</th>
+                    <th className="px-6 py-5 text-right">Tổng thực thu</th>
+                    <th className="px-6 py-5 text-right">Ngày GD</th>
+                    <th className="px-6 py-5 text-center w-24">Chi tiết</th>
                 </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                 {filteredGroups.length === 0 ? (
                     <tr>
-                        <td colSpan={6} className="p-12 text-center">
-                            <div className="flex flex-col items-center gap-2 text-slate-300">
-                                <Search size={32} />
-                                <p className="text-[11px] font-bold italic">Không có dữ liệu phù hợp.</p>
+                        <td colSpan={6} className="p-20 text-center">
+                            <div className="flex flex-col items-center gap-3 text-slate-300">
+                                <div className="p-4 bg-slate-50 rounded-full">
+                                    <Search size={40} />
+                                </div>
+                                <p className="text-slate-400 font-bold italic">Không tìm thấy dữ liệu phù hợp trong khoảng này.</p>
                             </div>
                         </td>
                     </tr>
                 ) : filteredGroups.map(group => {
                     const isCancelled = group.bookingStatus === 'cancelled';
                     return (
-                    <tr key={group.bookingId} className={`hover:bg-slate-50 transition-colors group ${isCancelled ? 'bg-red-50/30' : ''}`}>
-                        <td className="px-4 py-2.5">
+                    <tr key={group.bookingId} className={`hover:bg-slate-50/80 transition-colors group ${isCancelled ? 'bg-red-50/20' : ''}`}>
+                        <td className="px-6 py-5">
                             <div className={`flex flex-col ${isCancelled ? 'line-through decoration-red-400/50' : ''}`}>
-                                <span className={`font-bold text-sm ${isCancelled ? 'text-slate-400' : 'text-slate-900'} transition-colors`}>
+                                <span className={`font-black text-base ${isCancelled ? 'text-slate-400' : 'text-slate-900 group-hover:text-primary'} transition-colors`}>
                                     {group.passengerName}
                                 </span>
-                                <div className="flex items-center gap-1.5 text-[10px] text-slate-500 font-medium">
-                                    <Phone size={10} className="text-slate-300"/>
+                                <div className="flex items-center gap-2 text-[11px] text-slate-500 mt-1.5 font-bold">
+                                    <div className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                                        <Phone size={10}/>
+                                    </div>
                                     {group.passengerPhone}
                                 </div>
                             </div>
                         </td>
-                        <td className="px-4 py-2.5">
-                            <div className={`flex flex-col gap-0.5 ${isCancelled ? 'line-through decoration-red-400/50' : ''}`}>
-                                <div className={`font-bold text-[11px] ${isCancelled ? 'text-slate-400' : 'text-indigo-700'}`}>
+                        <td className="px-6 py-5">
+                            <div className={`flex flex-col gap-1.5 ${isCancelled ? 'line-through decoration-red-400/50' : ''}`}>
+                                <div className={`font-bold flex items-center gap-2 ${isCancelled ? 'text-slate-400' : 'text-blue-700'}`}>
+                                    <MapPin size={13} className={isCancelled ? 'text-slate-300' : 'text-blue-400'}/>
                                     {group.tripInfo.route}
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    <span className="text-[9px] text-slate-400 font-medium flex items-center gap-1">
-                                        <CalendarIcon size={9}/>
+                                <div className="flex items-center gap-3">
+                                    <div className="text-[11px] text-slate-400 font-bold flex items-center gap-1.5">
+                                        <CalendarIcon size={11}/>
                                         {group.tripInfo.date ? new Date(group.tripInfo.date).toLocaleDateString('vi-VN') : 'N/A'}
-                                    </span>
+                                    </div>
                                     <div className="flex flex-wrap gap-1">
                                         {group.tripInfo.seats.map((s, i) => (
-                                            <span key={i} className={`text-[8px] font-bold px-1 py-0.5 bg-slate-100 text-slate-600 rounded border border-slate-200 ${isCancelled ? 'opacity-50' : ''}`}>
+                                            <Badge key={i} className={`text-[9px] font-black px-1.5 h-4 bg-slate-100 text-slate-600 border-slate-200 ${isCancelled ? 'opacity-50 grayscale' : ''}`}>
                                                 {s}
-                                            </span>
+                                            </Badge>
                                         ))}
                                     </div>
                                 </div>
                             </div>
                         </td>
-                        <td className="px-4 py-2.5 text-center">
+                        <td className="px-6 py-5 text-center">
                             {isCancelled ? (
-                                <Badge className="bg-red-100 text-red-700 border-red-200 text-[8px] font-black px-1.5 h-4">HỦY</Badge>
+                                <Badge variant="destructive" className="bg-red-50 text-red-600 border-red-200 text-[9px] font-black uppercase tracking-wider px-2">
+                                    Đã hủy vé
+                                </Badge>
                             ) : group.bookingStatus === 'payment' ? (
-                                <Badge className="bg-green-100 text-green-700 border-green-200 text-[8px] font-black px-1.5 h-4">MUA</Badge>
+                                <Badge variant="success" className="bg-emerald-50 text-emerald-600 border-emerald-200 text-[9px] font-black uppercase tracking-wider px-2">
+                                    Đã thanh toán
+                                </Badge>
                             ) : (
-                                <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-[8px] font-black px-1.5 h-4">ĐẶT</Badge>
+                                <Badge variant="warning" className="bg-amber-50 text-amber-600 border-amber-200 text-[9px] font-black uppercase tracking-wider px-2">
+                                    Đang đặt chỗ
+                                </Badge>
                             )}
                         </td>
-                        <td className="px-4 py-2.5 text-right">
-                            <span className={`text-sm font-black ${isCancelled ? 'text-slate-300 line-through' : (group.totalCollected >= 0 ? 'text-emerald-700' : 'text-red-700')}`}>
-                                {group.totalCollected.toLocaleString('vi-VN')} <span className="text-[9px] font-bold">đ</span>
+                        <td className="px-6 py-5 text-right">
+                            <span className={`text-base font-black tracking-tight ${isCancelled ? 'text-slate-300 line-through' : (group.totalCollected >= 0 ? 'text-emerald-700' : 'text-red-700')}`}>
+                                {group.totalCollected.toLocaleString('vi-VN')} <span className="text-[10px] font-bold">đ</span>
                             </span>
                         </td>
-                        <td className="px-4 py-2.5 text-right">
-                            <div className={`text-[10px] font-bold ${isCancelled ? 'text-slate-400' : 'text-slate-600'}`}>
+                        <td className="px-6 py-5 text-right">
+                            <div className={`text-[11px] font-black ${isCancelled ? 'text-slate-400' : 'text-slate-600'}`}>
                                 {group.latestTransaction.toLocaleDateString('vi-VN')}
                             </div>
-                            <div className="text-[8px] text-slate-400 font-medium mt-0.5">
+                            <div className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">
                                 {group.latestTransaction.toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})}
                             </div>
                         </td>
-                        <td className="px-4 py-2.5 text-center">
+                        <td className="px-6 py-5 text-center">
                             <Button 
                                 onClick={() => setSelectedGroup(group)}
-                                variant="ghost"
-                                className="h-7 w-7 p-0 rounded text-primary hover:bg-primary/10"
+                                className="bg-primary/5 text-primary hover:bg-primary hover:text-white border-primary/20 h-9 px-4 rounded-xl text-xs font-black transition-all shadow-sm active:scale-95"
                             >
                                 <Eye size={14}/>
                             </Button>
@@ -416,102 +472,107 @@ export const PaymentManager: React.FC = () => {
          </div>
       </div>
 
-      {/* 4. DETAIL MODAL REDESIGN (Indigo Theme) */}
+      {/* 5. DETAIL MODAL */}
       <Dialog 
         isOpen={!!selectedGroup} 
         onClose={() => { setSelectedGroup(null); setEditingPaymentId(null); }} 
-        title="Lịch sử giao dịch"
-        className="max-w-2xl bg-white border-slate-200 rounded-lg"
+        title="Chi tiết lịch sử thanh toán"
+        className="max-w-2xl rounded-3xl"
       >
           {selectedGroup && (
-             <div className="space-y-4 max-h-[75vh] overflow-y-auto px-4 py-4 custom-scrollbar">
-                 <div className="bg-indigo-950 p-4 rounded-lg text-white flex flex-col md:flex-row justify-between items-start md:items-center gap-4 sticky top-0 z-20 shadow-md">
-                     <div className="flex items-center gap-3">
-                         <div className="w-10 h-10 bg-white/10 rounded flex items-center justify-center text-white border border-white/20">
-                             <User size={20}/>
+             <div className="space-y-6 max-h-[75vh] overflow-y-auto px-4 py-2 custom-scrollbar">
+                 <div className="bg-slate-900 p-6 rounded-3xl text-white flex flex-col md:flex-row justify-between items-start md:items-center gap-6 sticky top-0 z-20 shadow-xl shadow-slate-200">
+                     <div className="flex items-center gap-4">
+                         <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center text-white border border-white/20">
+                             <User size={28}/>
                          </div>
-                         <div>
-                             <h3 className="font-bold text-base leading-none">{selectedGroup.passengerName}</h3>
-                             <div className="flex items-center gap-2 text-[10px] text-white/60 font-bold mt-1">
-                                 <span>{selectedGroup.passengerPhone}</span>
+                         <div className="space-y-1">
+                             <h3 className="font-black text-xl leading-none">{selectedGroup.passengerName}</h3>
+                             <div className="flex items-center gap-3 text-xs text-white/60 font-bold">
+                                 <span className="flex items-center gap-1.5"><Phone size={12}/> {selectedGroup.passengerPhone}</span>
                                  <span className="opacity-30">•</span>
                                  <span>Mã đơn: #{selectedGroup.bookingId.slice(-6).toUpperCase()}</span>
                              </div>
                          </div>
                      </div>
-                     <div className="text-right">
-                         <div className="text-[8px] text-white/40 uppercase font-bold tracking-widest mb-0.5">Tổng thực thu</div>
-                         <div className={`text-lg font-black ${selectedGroup.totalCollected >= 0 ? 'text-yellow-400' : 'text-red-400'}`}>
+                     <div className="bg-white/10 p-3 rounded-2xl border border-white/10 self-stretch md:self-auto flex flex-col justify-center min-w-[150px] text-right">
+                         <div className="text-[10px] text-white/40 uppercase font-black tracking-widest mb-1">Thực thu nhóm</div>
+                         <div className={`text-2xl font-black ${selectedGroup.totalCollected >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                              {selectedGroup.totalCollected.toLocaleString('vi-VN')} đ
                          </div>
                      </div>
                  </div>
 
-                 <div className="relative border-l-2 border-slate-100 ml-4 space-y-6 py-2">
+                 <div className="relative border-l-2 border-slate-100 ml-6 space-y-10 py-4">
                     {selectedGroup.payments.length === 0 ? (
-                        <div className="text-center py-8 text-slate-400 italic text-xs">Không có dữ liệu giao dịch.</div>
+                        <div className="text-center py-12 text-slate-400 italic">Không có dữ liệu lịch sử giao dịch.</div>
                     ) : (
-                        [...selectedGroup.payments].sort((a,b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()).map((p) => {
+                        [...selectedGroup.payments].sort((a,b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()).map((p, idx, arr) => {
                             const isPositive = p.amount >= 0;
                             const isCash = p.method === 'cash';
                             
                             return (
-                                <div key={p.id} className="relative pl-6 animate-in slide-in-from-left duration-200">
-                                    <div className={`absolute -left-[9px] top-1 w-4 h-4 rounded-full border-2 border-white shadow flex items-center justify-center ${isPositive ? 'bg-emerald-500' : 'bg-red-500'}`}>
-                                        <div className="w-1 h-1 rounded-full bg-white"></div>
+                                <div key={p.id} className="relative pl-10 animate-in slide-in-from-left duration-300">
+                                    <div className={`absolute -left-[11px] top-1 w-5 h-5 rounded-full border-4 border-white shadow-md flex items-center justify-center ${isPositive ? 'bg-emerald-500' : 'bg-red-500'}`}>
+                                        <div className="w-1.5 h-1.5 rounded-full bg-white"></div>
                                     </div>
 
-                                    <div className="bg-slate-50 p-3 rounded border border-slate-200 hover:border-indigo-200 transition-colors">
-                                        <div className="flex items-center justify-between mb-2">
+                                    <div className="flex flex-col gap-4">
+                                        <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-2">
-                                                <Badge className={`text-[8px] font-black px-1.5 h-4 border ${isPositive ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-red-50 text-red-700 border-red-100'}`}>
-                                                    {isPositive ? 'THU' : 'CHI'}
+                                                <Badge className={`text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full shadow-sm border ${isPositive ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
+                                                    {isPositive ? 'Thu tiền' : 'Hoàn tiền'}
                                                 </Badge>
-                                                <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
-                                                    <Clock size={10} />
+                                                <span className="text-[10px] text-slate-400 font-bold flex items-center gap-1.5">
+                                                    <Clock size={11} />
                                                     {new Date(p.timestamp).toLocaleString('vi-VN')}
                                                 </span>
                                             </div>
-                                            <div className={`text-sm font-black ${isPositive ? 'text-emerald-700' : 'text-red-700'}`}>
+                                            <div className={`text-xl font-black ${isPositive ? 'text-emerald-600' : 'text-red-600'} tracking-tight`}>
                                                 {isPositive ? '+' : ''}{p.amount.toLocaleString('vi-VN')} đ
                                             </div>
                                         </div>
 
-                                        <div className="flex items-center gap-2 mb-3">
-                                            <div className={`p-1.5 rounded ${isCash ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>
-                                                {isCash ? <DollarSign size={12} /> : <CreditCard size={12} />}
+                                        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden">
+                                            <div className="flex items-center gap-4 mb-5 pb-4 border-b border-slate-50">
+                                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-sm ${isCash ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'}`}>
+                                                    {isCash ? <DollarSign size={20} /> : <CreditCard size={20} />}
+                                                </div>
+                                                <div>
+                                                    <div className="text-[10px] text-slate-400 font-black uppercase tracking-wider mb-0.5">Phương thức GD</div>
+                                                    <div className="text-sm font-black text-slate-800">
+                                                        {isCash ? 'Tiền mặt' : p.method === 'transfer' ? 'Chuyển khoản' : 'Hỗn hợp'}
+                                                    </div>
+                                                </div>
                                             </div>
-                                            <div className="text-[11px] font-bold text-slate-700">
-                                                {isCash ? 'Tiền mặt' : p.method === 'transfer' ? 'Chuyển khoản' : 'Hỗn hợp'}
-                                            </div>
-                                        </div>
 
-                                        <div className="bg-white p-2 rounded border border-slate-200 text-[11px] text-slate-600 relative group/note">
-                                            {editingPaymentId === p.id ? (
-                                                <div className="flex gap-2 w-full">
-                                                    <input 
-                                                        className="flex-1 bg-white border border-primary/40 rounded px-2 py-1 outline-none text-[11px]"
-                                                        value={editNote}
-                                                        onChange={(e) => setEditNote(e.target.value)}
-                                                        onKeyDown={(e) => e.key === 'Enter' && saveEditNote()}
-                                                        autoFocus
-                                                    />
-                                                    <Button onClick={saveEditNote} size="sm" className="h-7 px-2 bg-emerald-600"><Check size={14}/></Button>
-                                                    <Button onClick={() => setEditingPaymentId(null)} variant="outline" size="sm" className="h-7 px-2"><X size={14}/></Button>
-                                                </div>
-                                            ) : (
-                                                <div className="w-full flex justify-between items-center gap-4">
-                                                    <span className={`${!p.note ? "italic text-slate-400" : "font-medium text-slate-700"}`}>
-                                                        {p.note || "Không có ghi chú"}
-                                                    </span>
-                                                    <button 
-                                                        onClick={() => { setEditingPaymentId(p.id); setEditNote(p.note || ''); }} 
-                                                        className="opacity-0 group-hover/note:opacity-100 p-1 text-primary hover:bg-slate-100 rounded transition-all"
-                                                    >
-                                                        <Edit2 size={12} />
-                                                    </button>
-                                                </div>
-                                            )}
+                                            <div className="bg-slate-50/80 p-4 rounded-2xl border border-slate-100 text-xs text-slate-600 min-h-[48px] flex items-center relative group/note">
+                                                {editingPaymentId === p.id ? (
+                                                    <div className="flex gap-2 w-full">
+                                                        <input 
+                                                            className="flex-1 bg-white border border-primary/50 rounded-xl px-4 py-2 outline-none focus:ring-4 focus:ring-primary/5 text-xs font-bold"
+                                                            value={editNote}
+                                                            onChange={(e) => setEditNote(e.target.value)}
+                                                            onKeyDown={(e) => e.key === 'Enter' && saveEditNote()}
+                                                            autoFocus
+                                                        />
+                                                        <button onClick={saveEditNote} className="bg-emerald-500 text-white p-2 rounded-xl hover:bg-emerald-600 transition-all"><Check size={16}/></button>
+                                                        <button onClick={() => setEditingPaymentId(null)} className="bg-slate-200 text-slate-600 p-2 rounded-xl hover:bg-slate-300 transition-all"><X size={16}/></button>
+                                                    </div>
+                                                ) : (
+                                                    <div className="w-full flex justify-between items-center gap-4">
+                                                        <span className={`flex-1 font-bold ${!p.note ? "italic text-slate-400" : "text-slate-700"}`}>
+                                                            {p.note || "Không có ghi chú"}
+                                                        </span>
+                                                        <button 
+                                                            onClick={() => { setEditingPaymentId(p.id); setEditNote(p.note || ''); }} 
+                                                            className="opacity-0 group-hover/note:opacity-100 p-2 text-primary hover:bg-white rounded-xl transition-all shadow-sm"
+                                                        >
+                                                            <Edit2 size={14} />
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
