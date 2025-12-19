@@ -7,28 +7,26 @@ import {
   DollarSign, Calendar, Search, Edit2, 
   ArrowRight, CreditCard, Banknote, 
   Eye, User, Phone, MapPin, Clock,
-  Check, X, Zap, Ticket, Loader2,
-  Filter, CalendarDays, RefreshCw, AlertCircle,
-  TrendingUp, ArrowDownRight, ArrowUpRight
+  Check, X, Zap, Ticket, Loader2
 } from 'lucide-react';
 import { useToast } from './ui/Toast';
 import { Dialog } from './ui/Dialog';
 import { formatLunarDate } from '../utils/dateUtils';
 import { Booking, BusTrip, BusType } from '../types';
 
+// Define Interface for Payment Group
 interface PaymentGroup {
   bookingId: string;
   bookingDisplayId: string;
   passengerName: string;
   passengerPhone: string;
-  bookingStatus: string; // Thêm trạng thái để xử lý gạch ngang
   tripInfo: {
     route: string;
     date: string;
     seats: string[];
   };
   payments: any[];
-  totalCollected: number;
+  totalCollected: number; // Sum of amounts (positive and negative)
   latestTransaction: Date;
 }
 
@@ -39,14 +37,10 @@ export const PaymentManager: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   
-  // Date filter state
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  
   // Detail Modal State
   const [selectedGroup, setSelectedGroup] = useState<PaymentGroup | null>(null);
   
-  // Edit Note State
+  // Edit Note State (Inside Detail Modal)
   const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
   const [editNote, setEditNote] = useState('');
 
@@ -80,15 +74,11 @@ export const PaymentManager: React.FC = () => {
        const bKey = booking ? booking.id : 'orphaned'; 
        
        if (!groups[bKey]) {
-          // Tìm trạng thái đơn hàng thật từ danh sách bookings
-          const originalBooking = bookings.find(b => b.id === bKey);
-          
           groups[bKey] = {
              bookingId: bKey,
              bookingDisplayId: bKey === 'orphaned' ? 'N/A' : bKey.slice(-6).toUpperCase(),
              passengerName: booking?.passenger?.name || 'Khách lẻ / Đã xóa',
              passengerPhone: booking?.passenger?.phone || 'N/A',
-             bookingStatus: originalBooking?.status || (booking?.status) || 'active',
              tripInfo: {
                 route: payment.details?.route || 'N/A',
                 date: payment.details?.tripDate || '',
@@ -96,7 +86,7 @@ export const PaymentManager: React.FC = () => {
              },
              payments: [],
              totalCollected: 0,
-             latestTransaction: new Date(0)
+             latestTransaction: new Date(0) // Epoch
           };
        }
 
@@ -110,54 +100,45 @@ export const PaymentManager: React.FC = () => {
     });
 
     return Object.values(groups).sort((a, b) => b.latestTransaction.getTime() - a.latestTransaction.getTime());
-  }, [payments, bookings]);
+  }, [payments]);
 
-  // --- FILTER LOGIC (SEARCH + DATE) ---
-  const filteredGroups = useMemo(() => {
-      return groupedPayments.filter(g => {
-         // 1. Search filter
-         const lower = searchTerm.toLowerCase();
-         const matchesSearch = !searchTerm.trim() || (
-            g.passengerPhone.includes(lower) || 
-            g.passengerName.toLowerCase().includes(lower) ||
-            g.bookingDisplayId.toLowerCase().includes(lower) ||
-            g.tripInfo.seats.some(s => s.toLowerCase().includes(lower))
-         );
-
-         // 2. Date range filter
-         let matchesDate = true;
-         const txDate = new Date(g.latestTransaction);
-         txDate.setHours(0, 0, 0, 0);
-
-         if (startDate) {
-            const start = new Date(startDate);
-            start.setHours(0, 0, 0, 0);
-            if (txDate < start) matchesDate = false;
-         }
-         if (endDate) {
-            const end = new Date(endDate);
-            end.setHours(0, 0, 0, 0);
-            if (txDate > end) matchesDate = false;
-         }
-
-         return matchesSearch && matchesDate;
-      });
-  }, [groupedPayments, searchTerm, startDate, endDate]);
-
-  // --- STATS ON FILTERED DATA ---
+  // --- ACCURATE STATS CALCULATION ---
   const stats = useMemo(() => {
+      // 1. Financial Totals directly from Payments (Cash flow history)
       let cashTotal = 0;
       let transferTotal = 0;
+      payments.forEach(p => {
+          cashTotal += (p.cashAmount || 0);
+          transferTotal += (p.transferAmount || 0);
+      });
+
+      // 2. Ticket Totals from current active Bookings (Snapshot state)
+      let cabinTickets = 0;
+      let sleeperTickets = 0;
+      let enhancedTickets = 0;
       let totalTickets = 0;
 
-      // Tính toán dựa trên danh sách đã lọc để thống kê phản ứng theo bộ lọc ngày
-      filteredGroups.forEach(group => {
-          if (group.bookingStatus !== 'cancelled') {
-              group.payments.forEach(p => {
-                  cashTotal += (p.cashAmount || 0);
-                  transferTotal += (p.transferAmount || 0);
+      bookings.forEach(booking => {
+          const paid = (booking.payment?.paidCash || 0) + (booking.payment?.paidTransfer || 0);
+          
+          if (booking.status !== 'cancelled' && paid > 0) {
+              booking.items.forEach(item => {
+                  const count = (item.seatIds || []).length;
+                  if (count === 0) return;
+
+                  if (item.isEnhanced === true) {
+                      enhancedTickets += count;
+                  } else {
+                      const isCabin = item.busType === BusType.CABIN || (item.route || '').toLowerCase().includes('cabin');
+                      if (isCabin) {
+                          cabinTickets += count;
+                      } else {
+                          sleeperTickets += count;
+                      }
+                  }
+                  
+                  totalTickets += count;
               });
-              totalTickets += group.tripInfo.seats.length;
           }
       });
 
@@ -165,17 +146,28 @@ export const PaymentManager: React.FC = () => {
           cashTotal,
           transferTotal,
           grandTotal: cashTotal + transferTotal,
+          cabinTickets,
+          sleeperTickets,
+          enhancedTickets,
           totalTickets
       };
-  }, [filteredGroups]);
+  }, [payments, bookings]);
+
+  // --- FILTER LOGIC ---
+  const filteredGroups = useMemo(() => {
+      if (!searchTerm.trim()) return groupedPayments;
+      const lower = searchTerm.toLowerCase();
+      
+      return groupedPayments.filter(g => 
+         g.passengerPhone.includes(lower) || 
+         g.passengerName.toLowerCase().includes(lower) ||
+         g.bookingDisplayId.toLowerCase().includes(lower) ||
+         g.tripInfo.seats.some(s => s.toLowerCase().includes(lower)) ||
+         g.payments.some(p => (p.note || '').toLowerCase().includes(lower))
+      );
+  }, [groupedPayments, searchTerm]);
 
   // --- HANDLERS ---
-  const resetFilters = () => {
-      setSearchTerm('');
-      setStartDate('');
-      setEndDate('');
-  };
-
   const startEditNote = (payment: any) => {
       setEditingPaymentId(payment.id);
       setEditNote(payment.note || '');
@@ -185,7 +177,12 @@ export const PaymentManager: React.FC = () => {
       if (!editingPaymentId) return;
       try {
           await api.payments.update(editingPaymentId, { note: editNote });
-          fetchData(); // Reload to sync
+          const updatedPayments = payments.map(p => p.id === editingPaymentId ? { ...p, note: editNote } : p);
+          setPayments(updatedPayments);
+          if (selectedGroup) {
+              const updatedGroupPayments = selectedGroup.payments.map(p => p.id === editingPaymentId ? { ...p, note: editNote } : p);
+              setSelectedGroup({ ...selectedGroup, payments: updatedGroupPayments });
+          }
           setEditingPaymentId(null);
           toast({ type: 'success', title: 'Đã cập nhật', message: 'Đã lưu ghi chú' });
       } catch (e) {
@@ -193,327 +190,292 @@ export const PaymentManager: React.FC = () => {
       }
   };
 
-  if (loading && payments.length === 0) {
+  function normalizeTrips(details: any) {
+      if (details.trips && Array.isArray(details.trips)) return details.trips;
+      if (details.route || (details.seats && details.seats.length > 0)) {
+          return [{
+              route: details.route || 'Unknown',
+              tripDate: details.tripDate,
+              licensePlate: details.licensePlate,
+              seats: details.seats || [],
+          }];
+      }
+      return [];
+  };
+
+  function calculateDiff(prevTrips: any[], currTrips: any[]) {
+      const getTripKey = (t: any) => `${t.route}-${t.tripDate}`;
+      const prevMap = new Map();
+      prevTrips.forEach(t => prevMap.set(getTripKey(t), t));
+      const currMap = new Map();
+      currTrips.forEach(t => currMap.set(getTripKey(t), t));
+      const allKeys = new Set([...prevMap.keys(), ...currMap.keys()]);
+      const results: any[] = [];
+      allKeys.forEach(key => {
+          const prevT = prevMap.get(key);
+          const currT = currMap.get(key);
+          const pSeats = new Set(prevT ? (prevT.seats || []) : []);
+          const cSeats = new Set(currT ? (currT.seats || []) : []);
+          const meta = currT || prevT || {};
+          const seatDiffs: any[] = [];
+          const allSeats = new Set([...pSeats, ...cSeats]);
+          allSeats.forEach(s => {
+              const inPrev = pSeats.has(s);
+              const inCurr = cSeats.has(s);
+              let status = 'kept';
+              if (inCurr && !inPrev) status = 'added';
+              if (!inCurr && inPrev) status = 'removed';
+              let price = 0;
+              if (status !== 'removed' && currT) {
+                  if (currT.tickets) { const t = currT.tickets.find((tic: any) => tic.seatId === s); if (t) price = t.price; }
+              }
+              if (status === 'removed' && prevT) {
+                   if (prevT.tickets) { const t = prevT.tickets.find((tic: any) => tic.seatId === s); if (t) price = t.price; }
+              }
+              seatDiffs.push({ id: s, status, price });
+          });
+          seatDiffs.sort((a,b) => a.id.localeCompare(b.id, undefined, {numeric: true}));
+          results.push({ ...meta, diffSeats: seatDiffs });
+      });
+      return results;
+  };
+
+  if (loading) {
       return (
-          <div className="flex flex-col items-center justify-center h-[400px] text-slate-400">
+          <div className="flex flex-col items-center justify-center h-64 text-slate-400">
               <Loader2 className="animate-spin mb-4" size={48} />
-              <p className="font-medium">Đang tải dữ liệu tài chính...</p>
+              <p>Đang tải dữ liệu tài chính...</p>
           </div>
       );
   }
 
   return (
-    <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
-      
-      {/* 1. HEADER SECTION */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div className="p-6 max-w-7xl mx-auto space-y-6 animate-in fade-in duration-500">
+      <div className="flex justify-between items-center border-b border-slate-200 pb-5">
         <div>
-           <h2 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
-              <div className="p-2 bg-emerald-500 rounded-xl text-white shadow-lg shadow-emerald-500/20">
-                <Banknote size={28}/>
-              </div>
-              Quản lý Tài chính
+           <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+              <Banknote size={28} className="text-green-600"/> Quản lý Tài chính
            </h2>
-           <p className="text-slate-500 mt-1.5 text-sm font-medium flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              Theo dõi dòng tiền thực tế và doanh thu bán vé
-           </p>
+           <p className="text-slate-500 mt-1 text-sm font-medium">Thống kê doanh thu và số lượng vé thực tế đã thu tiền.</p>
         </div>
-        <div className="flex items-center gap-2">
-            <Button onClick={fetchData} variant="outline" className="bg-white border-slate-200 hover:bg-slate-50 shadow-sm h-11 px-5 rounded-xl font-bold text-slate-700">
-                <RefreshCw size={18} className={`mr-2 ${loading ? 'animate-spin' : ''}`} />
-                Làm mới
-            </Button>
-        </div>
+        <Button onClick={fetchData} variant="outline" size="sm" className="rounded-lg">Làm mới</Button>
       </div>
 
-      {/* 2. STATS CARDS */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden group hover:border-emerald-500/30 transition-all">
-             <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:scale-110 transition-transform">
-                <TrendingUp size={80} className="text-emerald-600"/>
-             </div>
-             <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center">
-                    <DollarSign size={20}/>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+             <div className="flex justify-between items-center mb-6">
+                <div className="flex items-center gap-3">
+                   <div className="w-12 h-12 rounded-xl bg-green-50 text-green-600 flex items-center justify-center shadow-sm">
+                      <DollarSign size={24}/>
+                   </div>
+                   <div>
+                      <h3 className="font-bold text-slate-800">Tổng thu thanh toán</h3>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Thực thu dòng tiền</p>
+                   </div>
                 </div>
-                <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Tổng thực thu</span>
+                <div className="text-right">
+                   <p className="text-3xl font-black text-green-700 tracking-tight">{stats.grandTotal.toLocaleString('vi-VN')} đ</p>
+                </div>
              </div>
-             <div className="flex items-baseline gap-1">
-                <span className="text-3xl font-black text-slate-900 tracking-tight">
-                    {stats.grandTotal.toLocaleString('vi-VN')}
-                </span>
-                <span className="text-sm font-bold text-slate-400">đ</span>
-             </div>
-             <div className="mt-4 pt-4 border-t border-slate-50 flex items-center gap-2 text-xs font-bold text-emerald-600">
-                <ArrowUpRight size={14}/>
-                Bao gồm TM & Chuyển khoản
+             
+             <div className="grid grid-cols-2 gap-4">
+                <div className="bg-slate-50/80 p-4 rounded-xl border border-slate-100">
+                   <p className="text-[10px] font-bold text-slate-400 uppercase mb-1.5 flex items-center gap-1.5">
+                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div> Tiền mặt
+                   </p>
+                   <p className="text-lg font-black text-slate-800 tracking-tight">{stats.cashTotal.toLocaleString('vi-VN')} đ</p>
+                </div>
+                <div className="bg-slate-50/80 p-4 rounded-xl border border-slate-100">
+                   <p className="text-[10px] font-bold text-slate-400 uppercase mb-1.5 flex items-center gap-1.5">
+                      <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div> Chuyển khoản
+                   </p>
+                   <p className="text-lg font-black text-slate-800 tracking-tight">{stats.transferTotal.toLocaleString('vi-VN')} đ</p>
+                </div>
              </div>
           </div>
 
-          <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden group hover:border-blue-500/30 transition-all">
-             <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:scale-110 transition-transform">
-                <Ticket size={80} className="text-blue-600"/>
-             </div>
-             <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center">
-                    <Ticket size={20}/>
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+             <div className="flex justify-between items-center mb-6">
+                <div className="flex items-center gap-3">
+                   <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shadow-sm">
+                      <Ticket size={24}/>
+                   </div>
+                   <div>
+                      <h3 className="font-bold text-slate-800">Vé đã thanh toán</h3>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Trạng thái hiện tại</p>
+                   </div>
                 </div>
-                <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Vé hoàn thành</span>
+                <div className="text-right">
+                   <p className="text-3xl font-black text-blue-700 tracking-tight">{stats.totalTickets} <span className="text-base font-bold">vé</span></p>
+                </div>
              </div>
-             <div className="flex items-baseline gap-1">
-                <span className="text-3xl font-black text-slate-900 tracking-tight">{stats.totalTickets}</span>
-                <span className="text-sm font-bold text-slate-400">giường</span>
-             </div>
-             <div className="mt-4 pt-4 border-t border-slate-50 flex items-center gap-2 text-xs font-bold text-blue-600">
-                <Check size={14}/>
-                Không tính đơn đã hủy
-             </div>
-          </div>
 
-          <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between">
-             <div className="space-y-4">
-                <div className="flex justify-between items-center text-xs font-bold uppercase tracking-widest text-slate-400">
-                   <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-emerald-500"></div> Tiền mặt</span>
-                   <span className="text-slate-900">{stats.cashTotal.toLocaleString('vi-VN')} đ</span>
+             <div className="grid grid-cols-3 gap-3">
+                <div className="bg-indigo-50/40 p-3 rounded-xl border border-indigo-100 flex flex-col items-center shadow-sm">
+                   <p className="text-[10px] font-bold text-indigo-400 uppercase mb-1.5">Xe Phòng</p>
+                   <p className="text-2xl font-black text-indigo-700">{stats.cabinTickets}</p>
                 </div>
-                <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-                    <div 
-                        className="bg-emerald-500 h-full rounded-full transition-all duration-1000" 
-                        style={{ width: `${stats.grandTotal > 0 ? (stats.cashTotal / stats.grandTotal) * 100 : 0}%` }}
-                    />
+                <div className="bg-sky-50/40 p-3 rounded-xl border border-sky-100 flex flex-col items-center shadow-sm">
+                   <p className="text-[10px] font-bold text-sky-500 uppercase mb-1.5">Xe Thường</p>
+                   <p className="text-2xl font-black text-sky-700">{stats.sleeperTickets}</p>
                 </div>
-                
-                <div className="flex justify-between items-center text-xs font-bold uppercase tracking-widest text-slate-400">
-                   <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-blue-500"></div> Chuyển khoản</span>
-                   <span className="text-slate-900">{stats.transferTotal.toLocaleString('vi-VN')} đ</span>
-                </div>
-                <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-                    <div 
-                        className="bg-blue-500 h-full rounded-full transition-all duration-1000" 
-                        style={{ width: `${stats.grandTotal > 0 ? (stats.transferTotal / stats.grandTotal) * 100 : 0}%` }}
-                    />
+                <div className="bg-amber-50/40 p-3 rounded-xl border border-amber-100 flex flex-col items-center shadow-sm">
+                   <p className="text-[10px] font-bold text-amber-500 uppercase mb-1.5">Tăng cường</p>
+                   <p className="text-2xl font-black text-amber-700">{stats.enhancedTickets}</p>
                 </div>
              </div>
           </div>
       </div>
 
-      {/* 3. TOOLBAR SECTION */}
-      <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-4">
-          <div className="flex flex-col lg:flex-row gap-4 items-end">
-              
-              {/* Search */}
-              <div className="flex-1 w-full space-y-1.5">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tìm kiếm thông tin</label>
-                  <div className="relative group">
-                    <Search size={18} className="absolute left-4 top-3 text-slate-400 group-focus-within:text-primary transition-colors"/>
-                    <input 
-                        className="w-full pl-11 pr-4 h-12 border border-slate-200 rounded-2xl text-sm outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary placeholder-slate-400 transition-all bg-slate-50/50"
-                        placeholder="SĐT, Tên khách, Mã ghế hoặc Mã đơn..."
-                        value={searchTerm}
-                        onChange={e => setSearchTerm(e.target.value)}
-                    />
-                  </div>
-              </div>
-
-              {/* Date Filter */}
-              <div className="w-full lg:w-auto space-y-1.5">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Khoảng ngày bán</label>
-                  <div className="flex items-center gap-2 bg-slate-50/50 p-1 border border-slate-200 rounded-2xl h-12">
-                      <div className="relative flex items-center">
-                          <Calendar size={14} className="absolute left-3 text-slate-400 pointer-events-none"/>
-                          <input 
-                             type="date"
-                             value={startDate}
-                             onChange={e => setStartDate(e.target.value)}
-                             className="pl-9 pr-3 py-1.5 bg-transparent border-0 text-xs font-bold text-slate-700 focus:ring-0 outline-none w-[140px]"
-                          />
-                      </div>
-                      <ArrowRight size={14} className="text-slate-300"/>
-                      <div className="relative flex items-center">
-                          <Calendar size={14} className="absolute left-3 text-slate-400 pointer-events-none"/>
-                          <input 
-                             type="date"
-                             value={endDate}
-                             onChange={e => setEndDate(e.target.value)}
-                             className="pl-9 pr-3 py-1.5 bg-transparent border-0 text-xs font-bold text-slate-700 focus:ring-0 outline-none w-[140px]"
-                          />
-                      </div>
-                  </div>
-              </div>
-
-              {/* Reset Button */}
-              <Button 
-                variant="ghost" 
-                onClick={resetFilters}
-                className="h-12 px-5 rounded-2xl text-slate-500 hover:text-red-600 hover:bg-red-50 font-bold text-xs"
-              >
-                <X size={16} className="mr-2"/> Xóa lọc
-              </Button>
+      <div className="flex gap-4 items-center bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+          <div className="relative flex-1 group">
+             <Search size={18} className="absolute left-3.5 top-2.5 text-slate-400 group-focus-within:text-primary transition-colors"/>
+             <input 
+                className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary placeholder-slate-400 transition-all"
+                placeholder="Tìm kiếm theo SĐT, Tên khách, Mã ghế hoặc nội dung ghi chú..."
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+             />
           </div>
       </div>
 
-      {/* 4. DATA TABLE */}
-      <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
-         <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left border-collapse">
-                <thead className="bg-slate-50/80 text-slate-500 font-bold text-[10px] uppercase tracking-[0.15em] border-b border-slate-200">
-                <tr>
-                    <th className="px-6 py-5">Khách hàng</th>
-                    <th className="px-6 py-5">Lịch trình & Ghế</th>
-                    <th className="px-6 py-5 text-center">Trạng thái</th>
-                    <th className="px-6 py-5 text-right">Tổng thực thu</th>
-                    <th className="px-6 py-5 text-right">Ngày GD</th>
-                    <th className="px-6 py-5 text-center w-24">Chi tiết</th>
-                </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                {filteredGroups.length === 0 ? (
-                    <tr>
-                        <td colSpan={6} className="p-20 text-center">
-                            <div className="flex flex-col items-center gap-3">
-                                <div className="p-4 bg-slate-50 rounded-full text-slate-300">
-                                    <Search size={40} />
-                                </div>
-                                <p className="text-slate-400 font-bold italic">Không tìm thấy dữ liệu phù hợp trong khoảng này.</p>
+      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+         <table className="w-full text-sm text-left">
+            <thead className="bg-slate-50 text-slate-500 font-bold text-xs uppercase tracking-widest border-b border-slate-200">
+               <tr>
+                  <th className="px-6 py-4">Khách hàng</th>
+                  <th className="px-6 py-4">Lịch trình chuyến</th>
+                  <th className="px-6 py-4 text-center">Giao dịch</th>
+                  <th className="px-6 py-4 text-right">Tổng thực thu</th>
+                  <th className="px-6 py-4 text-right">Cập nhật</th>
+                  <th className="px-6 py-4 text-center">Chi tiết</th>
+               </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+               {filteredGroups.length === 0 ? (
+                   <tr><td colSpan={6} className="p-16 text-center text-slate-400 font-medium italic">Không có dữ liệu thanh toán phù hợp.</td></tr>
+               ) : filteredGroups.map(group => (
+                   <tr key={group.bookingId} className="hover:bg-slate-50/80 transition-colors group">
+                      <td className="px-6 py-4">
+                         <div className="flex flex-col">
+                            <span className="font-black text-slate-900 group-hover:text-primary transition-colors">{group.passengerName}</span>
+                            <div className="flex items-center gap-1 text-[11px] text-slate-500 mt-1 font-bold">
+                                <Phone size={10} className="text-slate-400"/> {group.passengerPhone}
                             </div>
-                        </td>
-                    </tr>
-                ) : filteredGroups.map(group => {
-                    const isCancelled = group.bookingStatus === 'cancelled';
-                    return (
-                    <tr key={group.bookingId} className={`hover:bg-slate-50/80 transition-colors group ${isCancelled ? 'opacity-60 bg-slate-50/30' : ''}`}>
-                        <td className="px-6 py-5">
-                            <div className={`flex flex-col ${isCancelled ? 'line-through decoration-slate-400' : ''}`}>
-                                <span className={`font-black text-base ${isCancelled ? 'text-slate-400' : 'text-slate-900 group-hover:text-primary'} transition-colors`}>
-                                    {group.passengerName}
-                                </span>
-                                <div className="flex items-center gap-2 text-[11px] text-slate-500 mt-1.5 font-bold">
-                                    <div className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
-                                        <Phone size={10}/>
-                                    </div>
-                                    {group.passengerPhone}
-                                </div>
-                            </div>
-                        </td>
-                        <td className="px-6 py-5">
-                            <div className={`flex flex-col gap-1.5 ${isCancelled ? 'line-through decoration-slate-400' : ''}`}>
-                                <div className="font-bold text-blue-700 flex items-center gap-2">
-                                    <MapPin size={13} className="text-blue-400"/>
-                                    {group.tripInfo.route}
-                                </div>
-                                <div className="flex items-center gap-3">
-                                    <div className="text-[11px] text-slate-400 font-bold flex items-center gap-1.5">
-                                        <Calendar size={11}/>
-                                        {group.tripInfo.date ? new Date(group.tripInfo.date).toLocaleDateString('vi-VN') : 'N/A'}
-                                    </div>
-                                    <div className="flex flex-wrap gap-1">
-                                        {group.tripInfo.seats.map((s, i) => (
-                                            <Badge key={i} className={`text-[9px] font-black px-1.5 h-4 bg-slate-100 text-slate-600 border-slate-200 ${isCancelled ? 'opacity-50' : ''}`}>
-                                                {s}
-                                            </Badge>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-                        </td>
-                        <td className="px-6 py-5 text-center">
-                            {isCancelled ? (
-                                <Badge variant="destructive" className="bg-red-50 text-red-600 border-red-200 text-[9px] font-black uppercase tracking-wider px-2">
-                                    Đã hủy vé
-                                </Badge>
-                            ) : group.bookingStatus === 'payment' ? (
-                                <Badge variant="success" className="bg-emerald-50 text-emerald-600 border-emerald-200 text-[9px] font-black uppercase tracking-wider px-2">
-                                    Đã thanh toán
-                                </Badge>
-                            ) : (
-                                <Badge variant="warning" className="bg-amber-50 text-amber-600 border-amber-200 text-[9px] font-black uppercase tracking-wider px-2">
-                                    Đang đặt chỗ
-                                </Badge>
+                            {group.bookingId === 'orphaned' && (
+                                <span className="text-[10px] text-red-500 font-bold italic mt-1 bg-red-50 px-1.5 rounded self-start">Đơn hàng đã xóa</span>
                             )}
-                        </td>
-                        <td className="px-6 py-5 text-right">
-                            <span className={`text-base font-black tracking-tight ${isCancelled ? 'text-slate-400' : (group.totalCollected >= 0 ? 'text-emerald-700' : 'text-red-700')}`}>
-                                {group.totalCollected.toLocaleString('vi-VN')} <span className="text-[10px] font-bold">đ</span>
-                            </span>
-                        </td>
-                        <td className="px-6 py-5 text-right">
-                            <div className="text-[11px] font-black text-slate-600">
-                                {group.latestTransaction.toLocaleDateString('vi-VN')}
-                            </div>
-                            <div className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">
-                                {group.latestTransaction.toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})}
-                            </div>
-                        </td>
-                        <td className="px-6 py-5 text-center">
-                            <Button 
-                                onClick={() => setSelectedGroup(group)}
-                                className="bg-primary/5 text-primary hover:bg-primary hover:text-white border-primary/20 h-9 px-4 rounded-xl text-xs font-black transition-all shadow-sm active:scale-95"
-                            >
-                                <Eye size={14}/>
-                            </Button>
-                        </td>
-                    </tr>
-                    );
-                })}
-                </tbody>
-            </table>
-         </div>
+                         </div>
+                      </td>
+                      <td className="px-6 py-4">
+                         <div className="flex flex-col gap-1">
+                             <div className="font-bold text-blue-700 flex items-center gap-1.5">
+                                {group.tripInfo.route}
+                                {(group.tripInfo.route || '').toLowerCase().includes('tăng cường') && (
+                                    <Zap size={12} className="text-yellow-600 fill-yellow-600 animate-pulse" />
+                                )}
+                             </div>
+                             <div className="text-[11px] text-slate-500 flex items-center gap-1.5 font-medium">
+                                <Calendar size={11} className="text-slate-400" />
+                                {group.tripInfo.date ? new Date(group.tripInfo.date).toLocaleDateString('vi-VN') : 'N/A'}
+                             </div>
+                             <div className="flex flex-wrap gap-1 mt-1.5">
+                                 {group.tripInfo.seats.map((s, i) => (
+                                     <Badge key={i} className="text-[10px] font-black px-1.5 h-5 bg-slate-100 text-slate-600 border-slate-200">
+                                         {s}
+                                     </Badge>
+                                 ))}
+                             </div>
+                         </div>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                         <Badge className="bg-slate-100 text-slate-600 border-slate-200 text-[10px] px-2 font-black">
+                             {group.payments.length} GD
+                         </Badge>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                          <span className={`text-base font-black tracking-tight ${group.totalCollected >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+                              {group.totalCollected.toLocaleString('vi-VN')} đ
+                          </span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                          <div className="text-[11px] font-bold text-slate-600">
+                             {group.latestTransaction.toLocaleDateString('vi-VN')}
+                          </div>
+                          <div className="text-[10px] text-slate-400 font-medium">
+                             {group.latestTransaction.toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})}
+                          </div>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                          <Button 
+                             onClick={() => setSelectedGroup(group)}
+                             className="bg-primary/5 text-primary hover:bg-primary hover:text-white border-primary/20 h-8 px-3 rounded-lg text-xs font-bold transition-all shadow-sm"
+                          >
+                              <Eye size={14} className="mr-1.5"/> Xem
+                          </Button>
+                      </td>
+                   </tr>
+               ))}
+            </tbody>
+         </table>
       </div>
 
-      {/* 5. DETAIL MODAL */}
+      {/* DETAIL MODAL (TIMELINE) */}
       <Dialog 
         isOpen={!!selectedGroup} 
         onClose={() => { setSelectedGroup(null); setEditingPaymentId(null); }} 
-        title="Chi tiết lịch sử thanh toán"
-        className="max-w-2xl rounded-3xl"
+        title="Lịch sử giao dịch chi tiết"
+        className="max-w-2xl rounded-2xl"
       >
           {selectedGroup && (
-             <div className="space-y-6 max-h-[75vh] overflow-y-auto px-4 py-2 custom-scrollbar">
-                 <div className="bg-slate-900 p-6 rounded-3xl text-white flex flex-col md:flex-row justify-between items-start md:items-center gap-6 sticky top-0 z-20 shadow-xl shadow-slate-200">
+             <div className="space-y-6 max-h-[75vh] overflow-y-auto px-4 py-2">
+                 <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 sticky top-0 z-20 shadow-sm">
                      <div className="flex items-center gap-4">
-                         <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center text-white border border-white/20">
-                             <User size={28}/>
+                         <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary border border-primary/20 shadow-sm">
+                             <User size={24}/>
                          </div>
-                         <div className="space-y-1">
-                             <h3 className="font-black text-xl leading-none">{selectedGroup.passengerName}</h3>
-                             <div className="flex items-center gap-3 text-xs text-white/60 font-bold">
-                                 <span className="flex items-center gap-1.5"><Phone size={12}/> {selectedGroup.passengerPhone}</span>
-                                 <span className="opacity-30">•</span>
-                                 <span>Mã đơn: #{selectedGroup.bookingId.slice(-6).toUpperCase()}</span>
+                         <div>
+                             <h3 className="font-black text-slate-900 text-lg leading-tight">{selectedGroup.passengerName}</h3>
+                             <div className="flex items-center gap-3 text-xs text-slate-500 mt-1.5 font-bold">
+                                 <span className="flex items-center gap-1.5 bg-white px-2 py-0.5 rounded-lg border border-slate-200"><Phone size={12} className="text-primary"/> {selectedGroup.passengerPhone}</span>
+                                 <span className="text-slate-300">|</span>
+                                 <span className="bg-white px-2 py-0.5 rounded-lg border border-slate-200">#{selectedGroup.bookingId.slice(-6).toUpperCase()}</span>
                              </div>
                          </div>
                      </div>
-                     <div className="bg-white/10 p-3 rounded-2xl border border-white/10 self-stretch md:self-auto flex flex-col justify-center min-w-[150px] text-right">
-                         <div className="text-[10px] text-white/40 uppercase font-black tracking-widest mb-1">Thực thu nhóm</div>
-                         <div className={`text-2xl font-black ${selectedGroup.totalCollected >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                     <div className="text-right bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm self-stretch md:self-auto flex flex-col justify-center min-w-[140px]">
+                         <div className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-0.5">Tổng thực thu</div>
+                         <div className={`text-xl font-black ${selectedGroup.totalCollected >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                              {selectedGroup.totalCollected.toLocaleString('vi-VN')} đ
                          </div>
                      </div>
                  </div>
 
-                 <div className="relative border-l-2 border-slate-100 ml-6 space-y-10 py-4">
+                 <div className="relative border-l-2 border-slate-200 ml-6 space-y-10 py-4">
                     {selectedGroup.payments.length === 0 ? (
                         <div className="text-center py-12 text-slate-400 italic">Không có dữ liệu lịch sử giao dịch.</div>
                     ) : (
                         [...selectedGroup.payments].sort((a,b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()).map((p, idx, arr) => {
                             const isPositive = p.amount >= 0;
                             const isCash = p.method === 'cash';
-                            
+                            const prevP = idx > 0 ? arr[idx-1] : null;
+                            const currTrips = normalizeTrips(p.details);
+                            const prevTrips = prevP ? normalizeTrips(prevP.details) : [];
+                            const diffResult = calculateDiff(prevTrips, currTrips);
+
                             return (
-                                <div key={p.id} className="relative pl-10 animate-in slide-in-from-left duration-300">
-                                    {/* Timeline Marker */}
-                                    <div className={`absolute -left-[11px] top-1 w-5 h-5 rounded-full border-4 border-white shadow-md flex items-center justify-center ${isPositive ? 'bg-emerald-500' : 'bg-red-500'}`}>
+                                <div key={p.id} className="relative pl-8 animate-in slide-in-from-left duration-300">
+                                    <div className={`absolute -left-[11px] top-1 w-5 h-5 rounded-full border-4 border-white shadow-md flex items-center justify-center ${isPositive ? 'bg-emerald-500' : 'bg-red-500'} ${idx === arr.length - 1 ? 'ring-4 ring-primary/10' : ''}`}>
                                         <div className="w-1.5 h-1.5 rounded-full bg-white"></div>
                                     </div>
 
-                                    <div className="flex flex-col gap-4">
+                                    <div className="flex flex-col gap-3">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-2">
-                                                <Badge className={`text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full shadow-sm border ${isPositive ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
-                                                    {isPositive ? 'Thu tiền' : 'Hoàn tiền'}
-                                                </Badge>
-                                                <span className="text-[10px] text-slate-400 font-bold flex items-center gap-1.5">
+                                                <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border shadow-sm ${isPositive ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
+                                                    {isPositive ? 'Thanh toán' : 'Hoàn tiền'}
+                                                </span>
+                                                <span className="text-[11px] text-slate-400 font-bold flex items-center gap-1">
                                                     <Clock size={11} />
                                                     {new Date(p.timestamp).toLocaleString('vi-VN')}
                                                 </span>
@@ -523,43 +485,96 @@ export const PaymentManager: React.FC = () => {
                                             </div>
                                         </div>
 
-                                        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden">
-                                            <div className="flex items-center gap-4 mb-5 pb-4 border-b border-slate-50">
-                                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-sm ${isCash ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'}`}>
-                                                    {isCash ? <DollarSign size={20} /> : <CreditCard size={20} />}
-                                                </div>
-                                                <div>
-                                                    <div className="text-[10px] text-slate-400 font-black uppercase tracking-wider mb-0.5">Phương thức GD</div>
-                                                    <div className="text-sm font-black text-slate-800">
-                                                        {isCash ? 'Tiền mặt' : p.method === 'transfer' ? 'Chuyển khoản' : 'Hỗn hợp'}
+                                        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all group/card relative overflow-hidden">
+                                            <div className="flex justify-between items-center mb-4 pb-3 border-b border-slate-100">
+                                                <div className="flex items-center gap-3">
+                                                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shadow-sm ${isCash ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'}`}>
+                                                        {isCash ? <DollarSign size={18} /> : <CreditCard size={18} />}
+                                                    </div>
+                                                    <div>
+                                                        <div className="text-[10px] text-slate-400 font-black uppercase tracking-wider leading-none mb-1">Phương thức</div>
+                                                        <div className="text-xs font-black text-slate-700">
+                                                            {isCash ? 'Tiền mặt' : p.method === 'transfer' ? 'Chuyển khoản' : 'Hỗn hợp'}
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
 
-                                            {/* Note editing field */}
-                                            <div className="bg-slate-50/80 p-4 rounded-2xl border border-slate-100 text-xs text-slate-600 min-h-[48px] flex items-center relative group/note">
+                                            {diffResult.length > 0 ? (
+                                                <div className="space-y-3 mb-4">
+                                                    {diffResult.map((t: any, tripIdx: number) => {
+                                                        const isEnhanced = t.isEnhanced === true || (t.route || '').toLowerCase().includes('tăng cường');
+                                                        return (
+                                                        <div key={tripIdx} className="bg-slate-50/50 p-3 rounded-xl border border-slate-100 text-xs transition-colors hover:bg-slate-50">
+                                                            <div className="flex items-center gap-2 mb-2 pb-2 border-b border-slate-100/50">
+                                                                <MapPin size={13} className="text-primary"/>
+                                                                <span className="font-black text-slate-800 tracking-tight">{t.route || '---'}</span>
+                                                                {isEnhanced && (
+                                                                    <Badge className="ml-auto bg-amber-50 text-amber-700 border-amber-200 text-[9px] font-black uppercase px-1.5 h-4">
+                                                                        <Zap size={9} className="mr-0.5 fill-amber-700" /> Tăng cường
+                                                                    </Badge>
+                                                                )}
+                                                            </div>
+                                                            <div className="flex justify-between items-center text-[10px] text-slate-500 font-bold mb-2 uppercase tracking-wide">
+                                                                <div className="flex items-center gap-1.5">
+                                                                    <Calendar size={12} className="text-slate-400"/> 
+                                                                    <span>{t.tripDate ? new Date(t.tripDate).toLocaleDateString('vi-VN') : '---'}</span>
+                                                                    {t.tripDate && (
+                                                                        <span className="text-slate-400 font-medium">({formatLunarDate(new Date(t.tripDate)).replace(' Âm Lịch', '')})</span>
+                                                                    )}
+                                                                </div>
+                                                                {t.licensePlate && (
+                                                                    <span className="bg-white border px-1.5 rounded-lg text-slate-400 shadow-sm py-0.5 font-mono">{t.licensePlate}</span>
+                                                                )}
+                                                            </div>
+                                                            <div className="flex flex-wrap gap-2">
+                                                                {t.diffSeats && t.diffSeats.map((s: any, i: number) => {
+                                                                    let badgeClass = "bg-white text-slate-600 border-slate-200";
+                                                                    if (s.status === 'added') badgeClass = "bg-emerald-50 text-emerald-700 border-emerald-300 ring-2 ring-emerald-500/10 font-black";
+                                                                    if (s.status === 'removed') badgeClass = "bg-red-50 text-red-400 border-red-200 line-through decoration-red-300 opacity-60";
+                                                                    return (
+                                                                    <Badge key={i} variant="outline" className={`${badgeClass} px-2 py-0.5 text-[10px] flex items-center gap-1.5 rounded-lg shadow-xs`}>
+                                                                        {s.id}
+                                                                        {s.price > 0 && (
+                                                                            <span className={`font-bold border-l pl-1.5 ml-0.5 ${s.status === 'removed' ? 'border-red-200 text-red-300' : 'border-slate-100 text-slate-400'}`}>
+                                                                                {s.price.toLocaleString('vi-VN')}
+                                                                            </span>
+                                                                        )}
+                                                                    </Badge>
+                                                                )})}
+                                                            </div>
+                                                        </div>
+                                                    )})}
+                                                </div>
+                                            ) : (
+                                                <div className="text-center py-4 bg-slate-50/50 rounded-xl border border-dashed border-slate-200 text-[11px] italic text-slate-400 mb-4">Snapshot giao dịch không có thông tin chi tiết.</div>
+                                            )}
+
+                                            <div className="bg-slate-50/80 p-3 rounded-xl border border-slate-100 text-xs text-slate-600 min-h-[40px] flex items-center relative group/note transition-all hover:bg-white hover:border-primary/20 hover:shadow-sm">
                                                 {editingPaymentId === p.id ? (
-                                                    <div className="flex gap-2 w-full">
+                                                    <div className="flex gap-2 w-full animate-in fade-in zoom-in-95 duration-200">
                                                         <input 
-                                                            className="flex-1 bg-white border border-primary/50 rounded-xl px-4 py-2 outline-none focus:ring-4 focus:ring-primary/5 text-xs font-bold"
+                                                            className="flex-1 bg-white border border-primary/50 rounded-xl px-3 py-1.5 focus:outline-none focus:ring-4 focus:ring-primary/10 text-xs font-medium"
                                                             value={editNote}
                                                             onChange={(e) => setEditNote(e.target.value)}
                                                             onKeyDown={(e) => e.key === 'Enter' && saveEditNote()}
                                                             autoFocus
+                                                            placeholder="Nhập nội dung ghi chú..."
                                                         />
-                                                        <button onClick={saveEditNote} className="bg-emerald-500 text-white p-2 rounded-xl hover:bg-emerald-600 transition-all"><Check size={16}/></button>
-                                                        <button onClick={() => setEditingPaymentId(null)} className="bg-slate-200 text-slate-600 p-2 rounded-xl hover:bg-slate-300 transition-all"><X size={16}/></button>
+                                                        <button onClick={saveEditNote} className="bg-emerald-600 text-white p-2 rounded-xl hover:bg-emerald-700 shadow-md shadow-emerald-500/20 transition-all active:scale-90"><Check size={14}/></button>
+                                                        <button onClick={() => setEditingPaymentId(null)} className="bg-slate-200 text-slate-600 p-2 rounded-xl hover:bg-slate-300 transition-all active:scale-90"><X size={14}/></button>
                                                     </div>
                                                 ) : (
-                                                    <div className="w-full flex justify-between items-center gap-4">
-                                                        <span className={`flex-1 font-bold ${!p.note ? "italic text-slate-400" : "text-slate-700"}`}>
-                                                            {p.note || "Không có ghi chú"}
+                                                    <div className="w-full flex justify-between items-start gap-4">
+                                                        <span className={`flex-1 ${!p.note ? "italic text-slate-400 font-medium" : "font-semibold text-slate-700"}`}>
+                                                            {p.note || "(Không có ghi chú cho giao dịch này)"}
                                                         </span>
                                                         <button 
                                                             onClick={() => startEditNote(p)} 
-                                                            className="opacity-0 group-hover/note:opacity-100 p-2 text-primary hover:bg-white rounded-xl transition-all shadow-sm"
+                                                            className="opacity-0 group-hover/note:opacity-100 p-1.5 text-primary hover:bg-primary/10 rounded-lg transition-all duration-200 shadow-sm bg-white border border-primary/10"
+                                                            title="Chỉnh sửa ghi chú"
                                                         >
-                                                            <Edit2 size={14} />
+                                                            <Edit2 size={12} />
                                                         </button>
                                                     </div>
                                                 )}
