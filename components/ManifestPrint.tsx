@@ -87,20 +87,20 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
       ? "size: A4 landscape; margin: 6mm;"
       : "size: A4 portrait; margin: 6mm 0;";
     const A4_margin = isCabin ? "ml-[20mm]" : "mt-0";
-    const Manifist_RecordHight = isCabin ? "h-[90px]" : "h-[90px]";
-    const Manifist_SeatFontSize = isCabin ? "text-[12px]" : "text-[10px]";
+    const Manifest_RecordHight = isCabin ? "h-[90px]" : "h-[90px]";
+    const Manifest_SeatFontSize = isCabin ? "text-[12px]" : "text-[10px]";
     let layoutHtml = "";
 
     const renderSeatHtml = (seat: Seat | undefined) => {
       if (!seat)
-        return `<div class="border-transparent bg-transparent ${Manifist_RecordHight}"></div>`;
+        return `<div class="border-transparent bg-transparent ${Manifest_RecordHight}"></div>`;
 
       const data = seatDataMap.get(seat.id);
       const label = seat.label;
 
       if (!data) {
         return `
-          <div class="border border-dashed border-slate-300 rounded flex flex-col items-center justify-center bg-slate-50 opacity-40 ${Manifist_RecordHight}">
+          <div class="border border-dashed border-slate-300 rounded flex flex-col items-center justify-center bg-slate-50 opacity-40 ${Manifest_RecordHight}">
             <span class="font-black text-slate-400 text-xs">${label}</span>
           </div>
         `;
@@ -115,7 +115,7 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
       return `
         <div class="border-2 flex flex-col p-1 relative overflow-hidden ${
           statusColors[data.status]
-        } ${Manifist_RecordHight}">
+        } ${Manifest_RecordHight}">
           <div class="flex justify-between items-center border-b border-black/5 pb-0.5 mb-1">
             <span class="font-black text-xs text-black leading-none">${label}</span>
           </div>
@@ -123,7 +123,7 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
             <div class="font-black text-sm leading-tight text-black">${
               data.phone
             }</div>
-            <div class="${Manifist_SeatFontSize} truncate leading-tight opacity-90 mt-0.5">${
+            <div class="${Manifest_SeatFontSize} truncate leading-tight opacity-90 mt-0.5">${
         data.pickup || "---"
       } - ${data.dropoff || "---"}</div>
             <div class="text-[12px] truncate leading-tight opacity-90 mt-1 italic">${
