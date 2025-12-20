@@ -95,6 +95,12 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
       }
     });
 
+    // TÍNH TỔNG TIỀN VÉ
+    const totalAmount = Array.from(seatDataMap.values()).reduce(
+      (sum, data) => sum + data.price,
+      0
+    );
+
     const isCabin = selectedTrip.type === BusType.CABIN;
     const A4_landscape = isCabin
       ? "size: A4 landscape; margin: 3mm;"
@@ -131,12 +137,6 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
         booked: "border-slate-600",
         held: "border-slate-600",
       };
-
-      // Định dạng số điện thoại kèm (index/total)
-      const displayPhone =
-        data.groupTotal && data.groupTotal > 1
-          ? `${data.phone} (${data.groupIndex}/${data.groupTotal})`
-          : data.phone;
 
       return `
         <div class="border-2 flex flex-col p-1 relative overflow-hidden ${
@@ -233,14 +233,12 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
         </div>
       `;
     } else {
-      // LOGIC XE GIƯỜNG ĐƠN (41 CHỖ)
       const floorSeats = selectedTrip.seats
         .filter((s) => s.isFloorSeat)
         .sort((a, b) =>
           a.label.localeCompare(b.label, undefined, { numeric: true })
         );
 
-      // Tách riêng ghế băng cuối của từng tầng
       const benchSeatsF1 = selectedTrip.seats
         .filter(
           (s) =>
@@ -292,11 +290,8 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
       });
       layoutHtml += `</div>`;
 
-      // PHẦN HIỂN THỊ BĂNG CUỐI
-      // Nếu có cả 2 tầng thì in 2 hàng, nếu chỉ có 1 thì in 1 hàng
       if (benchSeatsF1.length > 0 || benchSeatsF2.length > 0) {
         layoutHtml += `<div class="pt-2 space-y-3">`;
-
         if (benchSeatsF1.length > 0) {
           layoutHtml += `
               <div>
@@ -308,7 +303,6 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
               </div>
             `;
         }
-
         if (benchSeatsF2.length > 0) {
           layoutHtml += `
               <div class="">
@@ -320,11 +314,9 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
               </div>
             `;
         }
-
         layoutHtml += `</div>`;
       }
 
-      // PHẦN HIỂN THỊ VÉ SÀN (GIỮA LỐI ĐI)
       if (floorSeats.length > 0) {
         layoutHtml += `
           <div class="pt-2">
@@ -368,7 +360,14 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
                 selectedTrip.departureTime.split(" ")[1]
               }</span>
             </div>
+            
             <div class="text-right flex items-center gap-4">
+              <div class="flex flex-col items-end px-4 border-r border-slate-300">
+                <span class="text-[10px] font-black text-slate-500 uppercase tracking-tighter">Đã thanh toán:</span>
+                <span class="text-lg font-black text-red-600 leading-none">${totalAmount.toLocaleString(
+                  "vi-VN"
+                )} đ</span>
+              </div>
               <span class="bg-white border-2 border-slate-900 text-slate-900 px-3 py-1 rounded text-lg font-black">${
                 selectedTrip.licensePlate
               }</span>
