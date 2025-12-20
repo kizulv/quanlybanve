@@ -482,7 +482,7 @@ app.post("/api/bookings", async (req, res) => {
 
 app.put("/api/bookings/:id", async (req, res) => {
   try {
-      const { items, passenger, payment } = req.body;
+      const { items, passenger, payment, status: requestedStatus } = req.body;
       const bookingId = req.params.id;
 
       const oldBooking = await Booking.findById(bookingId);
@@ -588,12 +588,16 @@ app.put("/api/bookings/:id", async (req, res) => {
       const totalPaid = (payment?.paidCash || 0) + (payment?.paidTransfer || 0);
       const isFullyPaid = totalPaid >= calculatedTotalPrice;
       
-      // Update status mapping
-      let finalStatus = calculatedTotalTickets === 0 ? "cancelled" : (isFullyPaid ? "payment" : "booking");
+      // Update status mapping - Prioritize requestedStatus from frontend
+      let finalStatus = requestedStatus;
       
-      // Preserve "hold" if it was hold and not fully paid
-      if (oldBooking.status === "hold" && !isFullyPaid && calculatedTotalTickets > 0) {
-          finalStatus = "hold";
+      if (!finalStatus) {
+          finalStatus = calculatedTotalTickets === 0 ? "cancelled" : (isFullyPaid ? "payment" : "booking");
+          
+          // Preserve "hold" if it was hold and not fully paid
+          if (oldBooking.status === "hold" && !isFullyPaid && calculatedTotalTickets > 0) {
+              finalStatus = "hold";
+          }
       }
 
       const getSeatStatusForBookingStatus = (bStatus) => {

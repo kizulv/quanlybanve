@@ -97,7 +97,7 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
 
     const isCabin = selectedTrip.type === BusType.CABIN;
     const A4_landscape = isCabin
-      ? "size: A4 landscape; margin: 6mm;"
+      ? "size: A4 landscape; margin: 3mm;"
       : "size: A4 portrait; margin: 0;";
     const A4_margin = isCabin ? "ml-[20mm]" : "mt-0";
     const Manifest_RecordHight = "h-[90px]";
@@ -357,8 +357,8 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
           .container-page { width: 100%; margin: 0 auto; display: flex; flex-direction: column; }
         </style>
       </head>
-      <body class="p-0 ${A4_margin}">
-        <div class="container-page px-4">
+      <body class="p-0 ${A4_margin} flex flex-col h-full">
+        <div class="container-page px-4 max-w-[297mm]">
           <div class="flex justify-between items-center border-b-2 border-black py-2 mb-1">
             <div class="flex flex-col">
               <h1 class="text-md font-black uppercase leading-tight">BẢNG KÊ TUYẾN: ${

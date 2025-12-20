@@ -602,12 +602,9 @@ function AppContent() {
 
     setTrips(newTripsState);
 
-    const paid =
-      (booking.payment?.paidCash || 0) + (booking.payment?.paidTransfer || 0);
-    const isFullyPaid = paid >= booking.totalPrice;
-
+    // FIX: Sử dụng trực tiếp trạng thái status của đơn hàng thay vì logic tính toán qua giá tiền
     setBookingMode(
-      isFullyPaid ? "payment" : booking.status === "hold" ? "hold" : "booking"
+      booking.status === "payment" ? "payment" : booking.status === "hold" ? "hold" : "booking"
     );
 
     setBookingForm({
@@ -932,13 +929,14 @@ function AppContent() {
         ];
       }
 
-      const finalPayment = bookingMode === 'booking' ? { paidCash: 0, paidTransfer: 0 } : paymentData;
+      const finalPayment = (bookingMode === 'booking' || bookingMode === 'hold') ? { paidCash: 0, paidTransfer: 0 } : paymentData;
 
       const result = await api.bookings.update(
         targetBookingId,
         finalBookingItems,
         passenger,
-        finalPayment
+        finalPayment,
+        bookingMode // Gửi trạng thái hiện tại lên server
       );
 
       setBookings((prev) =>
@@ -1084,8 +1082,9 @@ function AppContent() {
 
     if (!editingBooking) return;
 
-    if (bookingMode === 'booking') {
-        await executeBookingUpdate(editingBooking.id, { paidCash: 0, paidTransfer: 0 }, {}, "(Chuyển sang Đặt vé)");
+    // FIX: Nếu chế độ hiện tại là 'booking' hoặc 'hold', thực hiện lưu trực tiếp không mở PaymentModal
+    if (bookingMode === 'booking' || bookingMode === 'hold') {
+        await executeBookingUpdate(editingBooking.id, { paidCash: 0, paidTransfer: 0 }, {}, `(Chuyển sang ${bookingMode === 'hold' ? 'Giữ vé' : 'Đặt vé'})`);
         return;
     }
 
