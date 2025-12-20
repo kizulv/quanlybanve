@@ -603,15 +603,22 @@ function AppContent() {
     setTrips(newTripsState);
 
     // FIX: Sử dụng trực tiếp trạng thái status của đơn hàng thay vì logic tính toán qua giá tiền
-    setBookingMode(
-      booking.status === "payment" ? "payment" : booking.status === "hold" ? "hold" : "booking"
-    );
+    const currentMode = booking.status === "payment" ? "payment" : booking.status === "hold" ? "hold" : "booking";
+    setBookingMode(currentMode);
+
+    // FIX: Làm sạch ghi chú cũ để tránh lặp lại các hậu tố tự động
+    const rawNote = booking.passenger.note || "";
+    const cleanNote = rawNote
+        .replace(/\s*\(Chuyển sang [^\)]+\)/g, "")
+        .replace(/\s*\(Cần thu thêm: [^\)]+\)/g, "")
+        .replace(/\s*\(Cần hoàn lại: [^\)]+\)/g, "")
+        .trim();
 
     setBookingForm({
       phone: booking.passenger.phone,
       pickup: booking.passenger.pickupPoint || "",
       dropoff: booking.passenger.dropoffPoint || "",
-      note: booking.passenger.note || "",
+      note: cleanNote,
     });
 
     setModalPaymentInput({
@@ -1082,9 +1089,14 @@ function AppContent() {
 
     if (!editingBooking) return;
 
-    // FIX: Nếu chế độ hiện tại là 'booking' hoặc 'hold', thực hiện lưu trực tiếp không mở PaymentModal
+    // FIX: Chỉ thêm hậu tố nếu trạng thái thực sự thay đổi so với đơn hàng cũ
+    let noteSuffix = "";
+    if (bookingMode !== editingBooking.status) {
+        noteSuffix = `(Chuyển sang ${bookingMode === 'hold' ? 'Giữ vé' : bookingMode === 'booking' ? 'Đặt vé' : 'Mua vé'})`;
+    }
+
     if (bookingMode === 'booking' || bookingMode === 'hold') {
-        await executeBookingUpdate(editingBooking.id, { paidCash: 0, paidTransfer: 0 }, {}, `(Chuyển sang ${bookingMode === 'hold' ? 'Giữ vé' : 'Đặt vé'})`);
+        await executeBookingUpdate(editingBooking.id, { paidCash: 0, paidTransfer: 0 }, {}, noteSuffix);
         return;
     }
 
