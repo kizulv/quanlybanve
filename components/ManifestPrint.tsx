@@ -53,10 +53,6 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
       const tripItem = booking.items.find((i) => i.tripId === selectedTrip.id);
       if (!tripItem) return;
 
-      const totalPaid =
-        (booking.payment?.paidCash || 0) + (booking.payment?.paidTransfer || 0);
-      const isPaid =
-        totalPaid >= booking.totalPrice || booking.status === "payment";
       const isHold = booking.status === "hold";
       const status =
         booking.status === "payment" ? "sold" : isHold ? "held" : "booked";
@@ -81,13 +77,12 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
           pickup: "---",
           dropoff: "---",
           price: 0,
-          note: "",
+          note: s.note || "",
           status: "held",
         });
       }
     });
 
-    // Render từng ô ghế - Đã tăng chiều cao lên h-[60px] để vừa tờ A4 ngang
     const renderSeatHtml = (
       seat: Seat | undefined,
       isSmall: boolean = false
@@ -156,7 +151,6 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
 
       layoutHtml = `
         <div class="flex gap-6 w-full h-[165mm] overflow-hidden">
-          <!-- DÃY B -->
           <div class="flex-1 flex flex-col">
             <div class="text-sm font-bold py-1 px-2 mb-1.5 text-center uppercase tracking-wider">Dãy B</div>
             <div class="flex flex-col justify-around h-full">
@@ -176,8 +170,6 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
                 .join("")}
             </div>
           </div>
-
-          <!-- DÃY SÀN -->
           <div class="w-[180px] flex flex-col">
             <div class="text-sm font-bold py-1 px-2 rounded mb-1.5 text-center uppercase">SÀN</div>
             <div class="flex flex-col justify-around h-full">
@@ -186,8 +178,6 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
                 .join("")}
             </div>
           </div>
-
-          <!-- DÃY A -->
           <div class="flex-1 flex flex-col">
             <div class="text-sm font-bold py-1 px-2 rounded mb-1.5 text-center uppercase tracking-wider">Dãy A</div>
             <div class="flex flex-col justify-around h-full">
@@ -265,9 +255,8 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
           .container-page { width: 100%; margin: 0 auto; display: flex; flex-direction: column; }
         </style>
       </head>
-      <body class="ml-[50px] p-0">
+      <body class="p-0">
         <div class="container-page px-4">
-          <!-- HEADER -->
           <div class="flex justify-between items-center border-b-2 border-black py-2 mb-3">
             <div class="flex flex-col">
               <h1 class="text-md font-black uppercase leading-tight">BẢNG KÊ TUYẾN: ${
@@ -287,15 +276,14 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
               </div>
             </div>
           </div>
-
-          <!-- MAIN MAP -->
           <div class="flex-1 min-h-0 overflow-hidden">
             ${layoutHtml}
           </div>
-
-          <!-- FOOTER -->
-          <div class="flex justify-between items-center text-[10px] font-bold text-slate-500 shrink-0">
+          <div class="flex justify-between items-center text-[10px] font-bold text-slate-500 shrink-0 mt-2">
             <div>Thời gian in: ${new Date().toLocaleString("vi-VN")} </div>
+            <div class="no-print">
+               <button onclick="window.print()" class="bg-blue-600 text-white px-4 py-1 rounded font-bold">In trang này</button>
+            </div>
           </div>
         </div>
       </body>
@@ -318,26 +306,3 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
     </Button>
   );
 };
-<div class="no-print mt-6 flex justify-center pb-6">
-  <button
-    onclick="window.print()"
-    class="bg-blue-700 hover:bg-blue-800 text-white font-black py-3 px-12 rounded-full shadow-2xl transition-all transform hover:scale-105 flex items-center gap-3"
-  >
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      stroke-width="3"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-    >
-      <polyline points="6 9 6 2 18 2 18 9"></polyline>
-      <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
-      <rect x="6" y="14" width="12" height="8"></rect>
-    </svg>
-    BẮT ĐẦU IN (CTRL + P)
-  </button>
-</div>;
