@@ -82,12 +82,13 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
         });
       }
     });
+
     const isCabin = selectedTrip.type === BusType.CABIN;
     const A4_landscape = isCabin
       ? "size: A4 landscape; margin: 6mm;"
       : "size: A4 portrait; margin: 6mm 0;";
     const A4_margin = isCabin ? "ml-[20mm]" : "mt-0";
-    const Manifest_RecordHight = isCabin ? "h-[90px]" : "h-[90px]";
+    const Manifest_RecordHight = isCabin ? "h-[90px]" : "h-[75px]";
     const Manifest_SeatFontSize = isCabin ? "text-[12px]" : "text-[10px]";
     let layoutHtml = "";
 
@@ -117,16 +118,16 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
           statusColors[data.status]
         } ${Manifest_RecordHight}">
           <div class="flex justify-between items-center border-b border-black/5 pb-0.5 mb-1">
-            <span class="font-black text-xs text-black leading-none">${label}</span>
+            <span class="font-black text-[11px] text-black leading-none">${label}</span>
           </div>
           <div class="flex-1 flex flex-col overflow-hidden text-center">
-            <div class="font-black text-sm leading-tight text-black">${
+            <div class="font-black text-[13px] leading-tight text-black">${
               data.phone
             }</div>
             <div class="${Manifest_SeatFontSize} truncate leading-tight opacity-90 mt-0.5">${
         data.pickup || "---"
       } - ${data.dropoff || "---"}</div>
-            <div class="text-[12px] truncate leading-tight opacity-90 mt-1 italic">${
+            <div class="text-[11px] truncate leading-tight opacity-90 mt-0.5 italic">${
               data.note || ""
             }</div>
           </div>
@@ -148,7 +149,7 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
         .sort((a, b) => (a.row || 0) - (b.row || 0));
       const colB = regularSeats.filter((s) => s.col === 0);
       const colA = regularSeats.filter((s) => s.col === 1);
-      const rows = [0, 1, 2, 3, 4, 5];
+      const rows = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]; // 22 phòng
 
       layoutHtml = `
         <div class="flex gap-6 w-full h-[165mm] overflow-hidden">
@@ -201,12 +202,17 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
         </div>
       `;
     } else {
-      layoutHtml = `<div class="grid grid-cols-2 gap-4 max-h-[210mm] overflow-hidden">`;
+      // Logic xe giường đơn
+      const floorSeats = selectedTrip.seats
+        .filter((s) => s.isFloorSeat)
+        .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
+
+      layoutHtml = `<div class="grid grid-cols-2 gap-4 max-h-[175mm] overflow-hidden">`;
       [1, 2].forEach((floor) => {
         layoutHtml += `
           <div class="bg-white">
-            <div class="flex flex-col items-center text-sm font-bold py-1 px-3 rounded mb-2 uppercase">Tầng ${floor}</div>
-            <div class="grid grid-cols-3 gap-2">
+            <div class="flex flex-col items-center text-sm font-bold py-1 px-3 rounded mb-2 uppercase border-b border-black">Tầng ${floor}</div>
+            <div class="grid grid-cols-3 gap-1.5">
               ${[0, 1, 2, 3, 4, 5]
                 .map((r) =>
                   [0, 1, 2]
@@ -224,11 +230,11 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
                     .join("")
                 )
                 .join("")}
-              <div class="col-span-3 grid grid-cols-5 gap-1 mt-2 pt-2 border-t border-dashed border-slate-200">
+              <div class="col-span-3 grid grid-cols-5 gap-1 mt-1 pt-1 border-t border-dashed border-slate-200">
                 ${selectedTrip.seats
-                  .filter((s) => s.floor === floor && s.row === 6)
+                  .filter((s) => s.floor === floor && (s.row === 6 || (s.id && s.id.startsWith('B'))))
                   .sort((a, b) => (a.col || 0) - (b.col || 0))
-                  .map((s) => renderSeatHtml(s, true))
+                  .map((s) => renderSeatHtml(s))
                   .join("")}
               </div>
             </div>
@@ -236,6 +242,18 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
         `;
       });
       layoutHtml += `</div>`;
+
+      // PHẦN HIỂN THỊ 12 VÉ SÀN (GIỮA LỐI ĐI)
+      if (floorSeats.length > 0) {
+        layoutHtml += `
+          <div class="mt-4 border-t-2 border-black pt-2">
+            <div class="text-center font-bold text-xs uppercase mb-2 tracking-widest">Danh sách vé nằm sàn (Giữa lối đi)</div>
+            <div class="grid grid-cols-6 gap-2">
+              ${floorSeats.map(s => renderSeatHtml(s)).join("")}
+            </div>
+          </div>
+        `;
+      }
     }
 
     const htmlContent = `
@@ -283,7 +301,7 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
           <div class="flex justify-between items-center text-slate-500 text-[10px] shrink-0 mt-2">
             <div>Thời gian in: ${new Date().toLocaleString("vi-VN")} </div>
             <div class="no-print">
-               <button onclick="window.print()" class="bg-slate-900 text-white hover:bg-slate-700 px-8 py-2 rounded text-sm">In bảng kê</button>
+               <button onclick="window.print()" class="bg-slate-900 text-white hover:bg-slate-700 px-8 py-2 rounded text-sm font-bold uppercase tracking-wider">In bảng kê ngay</button>
             </div>
           </div>
         </div>
