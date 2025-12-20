@@ -46,6 +46,8 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
         price: number;
         note: string;
         status: "sold" | "booked" | "held";
+        groupIndex?: number;
+        groupTotal?: number;
       }
     >();
 
@@ -57,8 +59,16 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
       const status =
         booking.status === "payment" ? "sold" : isHold ? "held" : "booked";
 
+      // Lấy danh sách seatIds và sắp xếp để đánh số thứ tự ổn định
+      const seatIds = [...tripItem.seatIds].sort((a, b) =>
+        a.localeCompare(b, undefined, { numeric: true })
+      );
+      const groupTotal = seatIds.length;
+
       tripItem.seatIds.forEach((seatId) => {
         const ticket = tripItem.tickets?.find((t) => t.seatId === seatId);
+        const groupIndex = seatIds.indexOf(seatId) + 1;
+
         seatDataMap.set(seatId, {
           phone: booking.passenger.phone,
           pickup: ticket?.pickup || booking.passenger.pickupPoint || "",
@@ -66,6 +76,8 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
           price: ticket?.price || 0,
           note: booking.passenger.note || "",
           status: status,
+          groupIndex,
+          groupTotal,
         });
       });
     });
@@ -86,9 +98,9 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
     const isCabin = selectedTrip.type === BusType.CABIN;
     const A4_landscape = isCabin
       ? "size: A4 landscape; margin: 6mm;"
-      : "size: A4 portrait; margin: 6mm 0;";
+      : "size: A4 portrait; margin: 0;";
     const A4_margin = isCabin ? "ml-[20mm]" : "mt-0";
-    const Manifest_RecordHight = isCabin ? "h-[90px]" : "h-[90px]";
+    const Manifest_RecordHight = "h-[90px]";
     const Manifest_SeatFontSize = isCabin ? "text-[12px]" : "text-[10px]";
     let layoutHtml = "";
 
@@ -101,9 +113,16 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
 
       if (!data) {
         return `
-          <div class="border border-dashed border-slate-300 rounded flex flex-col items-center justify-center bg-slate-50 opacity-40 ${Manifest_RecordHight}">
-            <span class="font-black text-slate-400 text-xs">${label}</span>
+        <div class="border-2 border-slate-900 flex flex-col p-1 relative overflow-hidden ${Manifest_RecordHight}">
+          <div class="flex justify-between items-center border-b border-black/5 pb-0.5">
+            <span class="font-black text-[11px] text-black leading-none">${label}</span>
           </div>
+          <div class="flex-1 flex flex-col justify-between overflow-hidden">
+            <div class="flex-1 border-b border-gray-200 opacity-50"></div>
+            <div class="flex-1 border-b border-gray-200 opacity-50"></div>
+            <div class="flex-1 border-b border-gray-200 opacity-50"></div>
+          </div>
+        </div>
         `;
       }
 
@@ -113,6 +132,12 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
         held: "border-slate-600",
       };
 
+      // Định dạng số điện thoại kèm (index/total)
+      const displayPhone =
+        data.groupTotal && data.groupTotal > 1
+          ? `${data.phone} (${data.groupIndex}/${data.groupTotal})`
+          : data.phone;
+
       return `
         <div class="border-2 flex flex-col p-1 relative overflow-hidden ${
           statusColors[data.status]
@@ -121,13 +146,19 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
             <span class="font-black text-[11px] text-black leading-none">${label}</span>
           </div>
           <div class="flex-1 flex flex-col overflow-hidden text-center">
-            <div class="font-black text-[13px] leading-tight text-black">${
+            <div class="flex justify-center">
+            <span class="font-black text-[12px] leading-tight mr-1">${
               data.phone
+            }</span>
+            ${
+              data.groupTotal && data.groupTotal > 1
+                ? ` <span class="text-[10px] font-normal">(${data.groupIndex}/${data.groupTotal})</span>`
+                : ""
             }</div>
             <div class="${Manifest_SeatFontSize} leading-tight opacity-90 mt-0.5">${
         data.pickup || "---"
       } - ${data.dropoff || "---"}</div>
-            <div class="text-[11px] truncate leading-tight opacity-90 mt-0.5 italic">${
+            <div class="text-[10px] truncate leading-tight opacity-90 mt-0.5 italic">${
               data.note || ""
             }</div>
           </div>
@@ -149,7 +180,7 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
         .sort((a, b) => (a.row || 0) - (b.row || 0));
       const colB = regularSeats.filter((s) => s.col === 0);
       const colA = regularSeats.filter((s) => s.col === 1);
-      const rows = [0, 1, 2, 3, 4, 5]; // 22 phòng
+      const rows = [0, 1, 2, 3, 4, 5];
 
       layoutHtml = `
         <div class="flex gap-6 w-full h-[165mm] overflow-hidden">
@@ -202,18 +233,41 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
         </div>
       `;
     } else {
-      // Logic xe giường đơn
+      // LOGIC XE GIƯỜNG ĐƠN (41 CHỖ)
       const floorSeats = selectedTrip.seats
         .filter((s) => s.isFloorSeat)
         .sort((a, b) =>
           a.label.localeCompare(b.label, undefined, { numeric: true })
         );
 
-      layoutHtml = `<div class="grid grid-cols-2 gap-4 max-h-[200mm] overflow-hidden">`;
+      // Tách riêng ghế băng cuối của từng tầng
+      const benchSeatsF1 = selectedTrip.seats
+        .filter(
+          (s) =>
+            s.floor === 1 &&
+            !s.isFloorSeat &&
+            (s.row === 6 ||
+              (s.id && s.id.startsWith("B1-")) ||
+              (s.label && s.label.startsWith("B1-")))
+        )
+        .sort((a, b) => (a.col || 0) - (b.col || 0));
+
+      const benchSeatsF2 = selectedTrip.seats
+        .filter(
+          (s) =>
+            s.floor === 2 &&
+            !s.isFloorSeat &&
+            (s.row === 6 ||
+              (s.id && s.id.startsWith("B2-")) ||
+              (s.label && s.label.startsWith("B2-")))
+        )
+        .sort((a, b) => (a.col || 0) - (b.col || 0));
+
+      layoutHtml = `<div class="grid grid-cols-2 gap-4 max-h-[170mm] overflow-hidden">`;
       [1, 2].forEach((floor) => {
         layoutHtml += `
           <div class="bg-white">
-            <div class="flex flex-col items-center text-sm font-bold py-1 px-3 rounded mb-2 uppercase">Tầng ${floor}</div>
+            <div class="flex flex-col items-center text-sm font-bold py-1 px-3 rounded mb-1 uppercase">Tầng ${floor}</div>
             <div class="grid grid-cols-3 gap-1.5">
               ${[0, 1, 2, 3, 4, 5]
                 .map((r) =>
@@ -225,37 +279,57 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
                             s.floor === floor &&
                             s.row === r &&
                             s.col === c &&
-                            !s.isFloorSeat // Đảm bảo không lấy nhầm vé sàn
+                            !s.isFloorSeat
                         )
                       )
                     )
                     .join("")
                 )
                 .join("")}
-              <div class="col-span-3 grid grid-cols-5 gap-1 mt-1 pt-1 border-t border-dashed border-slate-200">
-                ${selectedTrip.seats
-                  .filter(
-                    (s) =>
-                      s.floor === floor &&
-                      !s.isFloorSeat && // LOẠI BỎ VÉ SÀN KHỎI BĂNG CUỐI
-                      (s.row === 6 || (s.id && s.id.startsWith("B")))
-                  )
-                  .sort((a, b) => (a.col || 0) - (b.col || 0))
-                  .map((s) => renderSeatHtml(s))
-                  .join("")}
-              </div>
             </div>
           </div>
         `;
       });
       layoutHtml += `</div>`;
 
-      // PHẦN HIỂN THỊ 12 VÉ SÀN (GIỮA LỐI ĐI)
+      // PHẦN HIỂN THỊ BĂNG CUỐI
+      // Nếu có cả 2 tầng thì in 2 hàng, nếu chỉ có 1 thì in 1 hàng
+      if (benchSeatsF1.length > 0 || benchSeatsF2.length > 0) {
+        layoutHtml += `<div class="pt-2 space-y-3">`;
+
+        if (benchSeatsF1.length > 0) {
+          layoutHtml += `
+              <div>
+                <div class="grid gap-1.5" style="grid-template-columns: repeat(${
+                  benchSeatsF1.length
+                }, 1fr)">
+                  ${benchSeatsF1.map((s) => renderSeatHtml(s)).join("")}
+                </div>
+              </div>
+            `;
+        }
+
+        if (benchSeatsF2.length > 0) {
+          layoutHtml += `
+              <div class="">
+                <div class="grid gap-1.5" style="grid-template-columns: repeat(${
+                  benchSeatsF2.length
+                }, 1fr)">
+                  ${benchSeatsF2.map((s) => renderSeatHtml(s)).join("")}
+                </div>
+              </div>
+            `;
+        }
+
+        layoutHtml += `</div>`;
+      }
+
+      // PHẦN HIỂN THỊ VÉ SÀN (GIỮA LỐI ĐI)
       if (floorSeats.length > 0) {
         layoutHtml += `
-          <div class="mt-4 border-t-2 border-black pt-2">
-            <div class="text-center font-bold text-xs uppercase mb-2 tracking-widest">SÀN</div>
-            <div class="grid grid-cols-6 gap-2">
+          <div class="pt-2">
+            <div class="text-center font-black text-[10px] uppercase mb-1.5 tracking-widest text-slate-500">SÀN</div>
+            <div class="grid grid-cols-6 gap-1.5">
               ${floorSeats.map((s) => renderSeatHtml(s)).join("")}
             </div>
           </div>
@@ -285,7 +359,7 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
       </head>
       <body class="p-0 ${A4_margin}">
         <div class="container-page px-4">
-          <div class="flex justify-between items-center border-b-2 border-black py-2 mb-3">
+          <div class="flex justify-between items-center border-b-2 border-black py-2 mb-1">
             <div class="flex flex-col">
               <h1 class="text-md font-black uppercase leading-tight">BẢNG KÊ TUYẾN: ${
                 selectedTrip.route
