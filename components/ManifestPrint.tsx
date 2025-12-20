@@ -82,21 +82,25 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
         });
       }
     });
+    const isCabin = selectedTrip.type === BusType.CABIN;
+    const A4_landscape = isCabin
+      ? "size: A4 landscape; margin: 6mm;"
+      : "size: A4 portrait; margin: 6mm 0;";
+    const A4_margin = isCabin ? "ml-[20mm]" : "mt-0";
+    const Manifist_RecordHight = isCabin ? "h-[90px]" : "h-[90px]";
+    const Manifist_SeatFontSize = isCabin ? "text-[12px]" : "text-[10px]";
+    let layoutHtml = "";
 
-    const renderSeatHtml = (
-      seat: Seat | undefined,
-      isSmall: boolean = false
-    ) => {
-      const cellHeight = isSmall ? "h-[50px]" : "h-[90px]";
+    const renderSeatHtml = (seat: Seat | undefined) => {
       if (!seat)
-        return `<div class="border-transparent bg-transparent ${cellHeight}"></div>`;
+        return `<div class="border-transparent bg-transparent ${Manifist_RecordHight}"></div>`;
 
       const data = seatDataMap.get(seat.id);
       const label = seat.label;
 
       if (!data) {
         return `
-          <div class="border border-dashed border-slate-300 rounded flex flex-col items-center justify-center bg-slate-50 opacity-40 ${cellHeight}">
+          <div class="border border-dashed border-slate-300 rounded flex flex-col items-center justify-center bg-slate-50 opacity-40 ${Manifist_RecordHight}">
             <span class="font-black text-slate-400 text-xs">${label}</span>
           </div>
         `;
@@ -111,7 +115,7 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
       return `
         <div class="border-2 flex flex-col p-1 relative overflow-hidden ${
           statusColors[data.status]
-        } ${cellHeight}">
+        } ${Manifist_RecordHight}">
           <div class="flex justify-between items-center border-b border-black/5 pb-0.5 mb-1">
             <span class="font-black text-xs text-black leading-none">${label}</span>
           </div>
@@ -119,9 +123,9 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
             <div class="font-black text-sm leading-tight text-black">${
               data.phone
             }</div>
-            <div class="text-[12px] truncate leading-tight opacity-90 mt-0.5">${
-              data.pickup || "---"
-            } - ${data.dropoff || "---"}</div>
+            <div class="${Manifist_SeatFontSize} truncate leading-tight opacity-90 mt-0.5">${
+        data.pickup || "---"
+      } - ${data.dropoff || "---"}</div>
             <div class="text-[12px] truncate leading-tight opacity-90 mt-1 italic">${
               data.note || ""
             }</div>
@@ -136,9 +140,6 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
         </div>
       `;
     };
-
-    const isCabin = selectedTrip.type === BusType.CABIN;
-    let layoutHtml = "";
 
     if (isCabin) {
       const regularSeats = selectedTrip.seats.filter((s) => !s.isFloorSeat);
@@ -203,8 +204,8 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
       layoutHtml = `<div class="grid grid-cols-2 gap-4 max-h-[210mm] overflow-hidden">`;
       [1, 2].forEach((floor) => {
         layoutHtml += `
-          <div class="border border-slate-200 rounded-xl p-2 bg-white shadow-sm">
-            <div class="bg-slate-800 text-white text-[10px] font-bold py-1 px-3 rounded mb-2 inline-block uppercase">Tầng ${floor}</div>
+          <div class="bg-white">
+            <div class="flex flex-col items-center text-sm font-bold py-1 px-3 rounded mb-2 uppercase">Tầng ${floor}</div>
             <div class="grid grid-cols-3 gap-2">
               ${[0, 1, 2, 3, 4, 5]
                 .map((r) =>
@@ -245,7 +246,7 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
         <meta charset="UTF-8">
         <script src="https://cdn.tailwindcss.com"></script>
         <style>
-          @page { size: A4 ${isCabin ? "landscape" : "portrait"}; margin: 6mm; }
+          @page { ${A4_landscape};}
           @media print {
             .no-print { display: none; }
             body { padding: 0; margin: 0; }
@@ -255,7 +256,7 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
           .container-page { width: 100%; margin: 0 auto; display: flex; flex-direction: column; }
         </style>
       </head>
-      <body class="p-0">
+      <body class="p-0 ${A4_margin}">
         <div class="container-page px-4">
           <div class="flex justify-between items-center border-b-2 border-black py-2 mb-3">
             <div class="flex flex-col">
@@ -267,7 +268,7 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
               }</span>
             </div>
             <div class="text-right flex items-center gap-4">
-              <span class="bg-black text-white px-3 py-1 rounded text-lg font-black">${
+              <span class="bg-white border-2 border-slate-900 text-slate-900 px-3 py-1 rounded text-lg font-black">${
                 selectedTrip.licensePlate
               }</span>
               <div class="flex flex-col text-right">
@@ -279,10 +280,10 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
           <div class="flex-1 min-h-0 overflow-hidden">
             ${layoutHtml}
           </div>
-          <div class="flex justify-between items-center text-[10px] font-bold text-slate-500 shrink-0 mt-2">
+          <div class="flex justify-between items-center text-slate-500 text-[10px] shrink-0 mt-2">
             <div>Thời gian in: ${new Date().toLocaleString("vi-VN")} </div>
             <div class="no-print">
-               <button onclick="window.print()" class="bg-blue-600 text-white px-4 py-1 rounded font-bold">In trang này</button>
+               <button onclick="window.print()" class="bg-slate-900 text-white hover:bg-slate-700 px-8 py-2 rounded text-sm">In bảng kê</button>
             </div>
           </div>
         </div>
@@ -302,7 +303,7 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
       className="h-7 text-[10px] font-bold text-blue-600 hover:bg-blue-50 border border-blue-100"
       disabled={disabled || !selectedTrip}
     >
-      <Printer size={12} className="mr-1" /> Xuất sơ đồ in
+      <Printer size={12} className="mr-1" /> In bảng kê
     </Button>
   );
 };
