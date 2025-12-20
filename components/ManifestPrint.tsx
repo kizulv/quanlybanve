@@ -36,7 +36,6 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
     const dateFormatted = `${tripDate.getDate()}/${tripDate.getMonth() + 1}/${tripDate.getFullYear()}`;
     const lunarFormatted = formatLunarDate(tripDate);
 
-    // 1. Thu thập dữ liệu từ Manifest gắn vào SeatID
     const seatDataMap = new Map<string, { 
       phone: string; 
       pickup: string; 
@@ -66,25 +65,23 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
       });
     });
 
-    // Bổ sung các ghế HELD thủ công không qua booking
     selectedTrip.seats.forEach(s => {
       if (s.status === SeatStatus.HELD && !seatDataMap.has(s.id)) {
         seatDataMap.set(s.id, { phone: "---", pickup: "---", dropoff: "---", price: 0, status: 'held' });
       }
     });
 
-    // Hàm render HTML cho từng ô ghế sử dụng Tailwind
+    // Render từng ô ghế - Thu nhỏ chiều cao để vừa 11 hàng dọc trong khổ ngang
     const renderSeatHtml = (seat: Seat | undefined, isSmall: boolean = false) => {
-      if (!seat) return `<div class="border-transparent bg-transparent ${isSmall ? 'h-12' : 'h-16'}"></div>`;
+      if (!seat) return `<div class="border-transparent bg-transparent h-[48px] md:h-[52px]"></div>`;
       
       const data = seatDataMap.get(seat.id);
       const label = seat.label;
 
       if (!data) {
         return `
-          <div class="border border-dashed border-slate-300 rounded-lg flex flex-col items-center justify-center bg-slate-50 opacity-40 ${isSmall ? 'h-12' : 'h-16'}">
-            <span class="font-black text-slate-400 text-sm">${label}</span>
-            <span class="text-[8px] font-bold text-slate-300 uppercase">TRỐNG</span>
+          <div class="border border-dashed border-slate-300 rounded flex flex-col items-center justify-center bg-slate-50 opacity-40 h-[48px] md:h-[52px]">
+            <span class="font-black text-slate-400 text-xs">${label}</span>
           </div>
         `;
       }
@@ -104,17 +101,16 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
       const statusLabel = data.status === 'sold' ? "MUA" : (data.status === 'held' ? "GIỮ" : "ĐẶT");
 
       return `
-        <div class="border-2 rounded-lg flex flex-col p-1 shadow-sm relative overflow-hidden ${statusColors[data.status]} ${isSmall ? 'h-12' : 'h-16'}">
+        <div class="border-2 rounded flex flex-col p-0.5 shadow-sm relative overflow-hidden ${statusColors[data.status]} h-[48px] md:h-[52px]">
           <div class="flex justify-between items-center border-b border-black/5 pb-0.5 mb-0.5">
-            <span class="font-black text-sm text-black leading-none">${label}</span>
-            <span class="text-[8px] font-bold text-white px-1 rounded ${tagColors[data.status]}">${statusLabel}</span>
+            <span class="font-black text-xs text-black leading-none">${label}</span>
+            <span class="text-[7px] font-bold text-white px-0.5 rounded ${tagColors[data.status]}">${statusLabel}</span>
           </div>
-          <div class="flex-1 flex flex-col justify-between overflow-hidden">
-            <div class="font-black text-[11px] leading-none text-black">${data.phone}</div>
-            <div class="text-[9px] truncate leading-tight opacity-80">Đ: ${data.pickup || '---'}</div>
-            <div class="text-[9px] truncate leading-tight opacity-80">T: ${data.dropoff || '---'}</div>
+          <div class="flex-1 flex flex-col justify-center overflow-hidden">
+            <div class="font-black text-[10px] leading-tight text-black">${data.phone}</div>
+            <div class="text-[8px] truncate leading-none opacity-80 mt-0.5">${data.pickup || '---'} - ${data.dropoff || '---'}</div>
           </div>
-          ${data.price > 0 ? `<div class="absolute bottom-0.5 right-1 font-black text-[9px] text-red-700">${data.price.toLocaleString('vi-VN')}</div>` : ''}
+          ${data.price > 0 ? `<div class="absolute bottom-0.5 right-1 font-black text-[8px] text-red-700">${(data.price/1000)}k</div>` : ''}
         </div>
       `;
     };
@@ -123,7 +119,6 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
     let layoutHtml = "";
 
     if (isCabin) {
-      // --- LAYOUT CABIN 22 PHÒNG + 6 SÀN (Dàn trang khổ ngang) ---
       const regularSeats = selectedTrip.seats.filter(s => !s.isFloorSeat);
       const floorSeats = selectedTrip.seats.filter(s => s.isFloorSeat).sort((a,b) => (a.row||0) - (b.row||0));
       const colB = regularSeats.filter(s => s.col === 0);
@@ -131,14 +126,13 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
       const rows = [0,1,2,3,4,5,6,7,8,9,10];
 
       layoutHtml = `
-        <div class="grid grid-cols-12 gap-4 w-full">
-          <!-- DÃY B (PHÒNG LẺ) -->
-          <div class="col-span-5 flex flex-col border border-slate-200 rounded-xl p-2 bg-slate-50/50">
-            <div class="bg-slate-800 text-white text-[10px] font-bold py-1 px-2 rounded mb-2 text-center uppercase tracking-widest">Dãy B (Phòng 1 - 2)</div>
-            <div class="flex justify-between px-4 text-[9px] font-black text-slate-400 mb-1"><span>TẦNG 1</span><span>TẦNG 2</span></div>
-            <div class="flex flex-col gap-1.5">
+        <div class="flex gap-2 w-full max-h-[160mm] overflow-hidden">
+          <!-- DÃY B -->
+          <div class="flex-1 flex flex-col border border-slate-200 rounded-lg p-1 bg-slate-50/50">
+            <div class="bg-slate-800 text-white text-[9px] font-bold py-0.5 px-2 rounded mb-1 text-center uppercase">Dãy B (Phòng Lẻ)</div>
+            <div class="flex flex-col gap-1">
               ${rows.map(r => `
-                <div class="grid grid-cols-2 gap-2">
+                <div class="grid grid-cols-2 gap-1">
                   ${renderSeatHtml(colB.find(s => s.row === r && s.floor === 1))}
                   ${renderSeatHtml(colB.find(s => s.row === r && s.floor === 2))}
                 </div>
@@ -146,22 +140,20 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
             </div>
           </div>
 
-          <!-- DÃY SÀN (GIỮA) -->
-          <div class="col-span-2 flex flex-col border border-slate-200 rounded-xl p-2 bg-slate-50/50">
-            <div class="bg-slate-500 text-white text-[10px] font-bold py-1 px-2 rounded mb-2 text-center uppercase tracking-widest">SÀN</div>
-            <div class="flex flex-col gap-1.5 justify-center h-full">
+          <!-- DÃY SÀN -->
+          <div class="w-[70px] flex flex-col border border-slate-200 rounded-lg p-1 bg-slate-50/50 shrink-0">
+            <div class="bg-slate-500 text-white text-[9px] font-bold py-0.5 px-2 rounded mb-1 text-center uppercase">SÀN</div>
+            <div class="flex flex-col gap-1 justify-around h-full">
               ${[0,1,2,3,4,5].map(i => renderSeatHtml(floorSeats[i])).join('')}
-              <div class="flex-1"></div> <!-- Spacer to push seats up if needed -->
             </div>
           </div>
 
-          <!-- DÃY A (PHÒNG CHẴN) -->
-          <div class="col-span-5 flex flex-col border border-slate-200 rounded-xl p-2 bg-slate-50/50">
-            <div class="bg-slate-800 text-white text-[10px] font-bold py-1 px-2 rounded mb-2 text-center uppercase tracking-widest">Dãy A (Phòng 1 - 2)</div>
-            <div class="flex justify-between px-4 text-[9px] font-black text-slate-400 mb-1"><span>TẦNG 1</span><span>TẦNG 2</span></div>
-            <div class="flex flex-col gap-1.5">
+          <!-- DÃY A -->
+          <div class="flex-1 flex flex-col border border-slate-200 rounded-lg p-1 bg-slate-50/50">
+            <div class="bg-slate-800 text-white text-[9px] font-bold py-0.5 px-2 rounded mb-1 text-center uppercase">Dãy A (Phòng Chẵn)</div>
+            <div class="flex flex-col gap-1">
               ${rows.map(r => `
-                <div class="grid grid-cols-2 gap-2">
+                <div class="grid grid-cols-2 gap-1">
                   ${renderSeatHtml(colA.find(s => s.row === r && s.floor === 1))}
                   ${renderSeatHtml(colA.find(s => s.row === r && s.floor === 2))}
                 </div>
@@ -171,17 +163,16 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
         </div>
       `;
     } else {
-      // --- LAYOUT GIƯỜNG 41 (Khổ đứng mặc định) ---
-      layoutHtml = `<div class="flex flex-col gap-6">`;
+      layoutHtml = `<div class="grid grid-cols-2 gap-4 max-h-[220mm] overflow-hidden">`;
       [1, 2].forEach(floor => {
         layoutHtml += `
-          <div class="border border-slate-200 rounded-2xl p-4 bg-white shadow-sm">
-            <div class="bg-slate-800 text-white text-xs font-bold py-1.5 px-4 rounded-lg mb-4 inline-block uppercase tracking-widest">Tầng ${floor}</div>
-            <div class="grid grid-cols-3 gap-3">
+          <div class="border border-slate-200 rounded-xl p-2 bg-white shadow-sm">
+            <div class="bg-slate-800 text-white text-[10px] font-bold py-1 px-3 rounded mb-2 inline-block uppercase">Tầng ${floor}</div>
+            <div class="grid grid-cols-3 gap-2">
               ${[0,1,2,3,4,5].map(r => 
                 [0,1,2].map(c => renderSeatHtml(selectedTrip.seats.find(s => s.floor === floor && s.row === r && s.col === c && !s.isFloorSeat))).join('')
               ).join('')}
-              <div class="col-span-3 grid grid-cols-5 gap-2 mt-4 pt-4 border-t border-dashed border-slate-200">
+              <div class="col-span-3 grid grid-cols-5 gap-1 mt-2 pt-2 border-t border-dashed border-slate-200">
                 ${selectedTrip.seats.filter(s => s.floor === floor && s.row === 6).sort((a,b)=>(a.col||0)-(b.col||0)).map(s => renderSeatHtml(s, true)).join('')}
               </div>
             </div>
@@ -195,7 +186,7 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
       <!DOCTYPE html>
       <html>
       <head>
-        <title>Bảng kê hành khách - ${selectedTrip.licensePlate}</title>
+        <title>Bảng kê - ${selectedTrip.licensePlate}</title>
         <meta charset="UTF-8">
         <script src="https://cdn.tailwindcss.com"></script>
         <style>
@@ -203,66 +194,66 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
           @media print {
             .no-print { display: none; }
             body { padding: 0; margin: 0; }
+            .container-page { height: 100vh; max-height: 100vh; overflow: hidden; }
           }
-          body { font-family: 'Inter', sans-serif; -webkit-print-color-adjust: exact; }
-          .container-page { width: 100%; margin: 0 auto; padding: 5px; }
+          body { font-family: 'Inter', sans-serif; -webkit-print-color-adjust: exact; background: white; }
+          .container-page { width: 100%; margin: 0 auto; display: flex; flex-direction: column; }
         </style>
       </head>
-      <body class="bg-white text-slate-900">
-        <div class="container-page">
-          <!-- HEADER -->
-          <div class="flex justify-between items-end border-b-4 border-black pb-2 mb-4">
+      <body class="p-0">
+        <div class="container-page px-2">
+          <!-- HEADER: Gọn nhẹ -->
+          <div class="flex justify-between items-center border-b-2 border-black py-1 mb-2">
             <div class="flex flex-col">
-              <h1 class="text-2xl font-black uppercase tracking-tighter leading-none">Sơ đồ bảng kê hành khách</h1>
-              <span class="text-[10px] font-bold text-slate-500 mt-1 uppercase">Hệ thống quản lý vận tải VinaBus Manager</span>
+              <h1 class="text-xl font-black uppercase leading-tight">SƠ ĐỒ BẢNG KÊ HÀNH KHÁCH</h1>
+              <span class="text-[8px] font-bold text-slate-500 uppercase">Hệ thống VinaBus Manager</span>
             </div>
-            <div class="text-right flex flex-col gap-1">
-              <div class="flex items-center justify-end gap-4">
-                <span class="bg-black text-white px-3 py-1 rounded text-lg font-black">${selectedTrip.licensePlate}</span>
-                <span class="text-xl font-bold">${dateFormatted}</span>
+            <div class="text-right flex items-center gap-3">
+              <span class="bg-black text-white px-2 py-0.5 rounded text-sm font-black">${selectedTrip.licensePlate}</span>
+              <div class="flex flex-col text-right">
+                <span class="text-sm font-bold">${dateFormatted}</span>
+                <span class="text-[9px] font-bold text-slate-500">ÂL: ${lunarFormatted}</span>
               </div>
-              <span class="text-xs font-bold text-slate-600">Âm lịch: ${lunarFormatted}</span>
             </div>
           </div>
 
-          <!-- TRIP INFO BAR -->
-          <div class="bg-slate-100 border border-slate-300 rounded-lg p-3 mb-4 flex justify-between items-center shadow-inner">
+          <!-- TRIP INFO BAR: Chiều cao tối thiểu -->
+          <div class="bg-slate-50 border border-slate-300 rounded p-1.5 mb-2 flex justify-between items-center shadow-inner shrink-0">
             <div class="flex flex-col">
-              <span class="text-[10px] font-bold text-slate-400 uppercase">Tuyến đường</span>
-              <span class="text-lg font-black text-blue-800">${selectedTrip.route}</span>
+              <span class="text-[8px] font-bold text-slate-400 uppercase">Tuyến đường</span>
+              <span class="text-sm font-black text-blue-800">${selectedTrip.route}</span>
             </div>
-            <div class="flex gap-8">
+            <div class="flex gap-6">
               <div class="flex flex-col items-center">
-                <span class="text-[10px] font-bold text-slate-400 uppercase">Giờ chạy</span>
-                <span class="text-lg font-black">${selectedTrip.departureTime.split(' ')[1]}</span>
+                <span class="text-[8px] font-bold text-slate-400 uppercase">Giờ chạy</span>
+                <span class="text-sm font-black">${selectedTrip.departureTime.split(' ')[1]}</span>
               </div>
               <div class="flex flex-col items-end">
-                <span class="text-[10px] font-bold text-slate-400 uppercase">Tài xế</span>
-                <span class="text-lg font-black">${selectedTrip.driver || '---'}</span>
+                <span class="text-[8px] font-bold text-slate-400 uppercase">Tài xế</span>
+                <span class="text-sm font-black">${selectedTrip.driver || '---'}</span>
               </div>
             </div>
           </div>
 
-          <!-- MAIN CONTENT (SEAT MAP) -->
-          <div class="flex-1">
+          <!-- MAIN MAP: Tự động co giãn để khớp 1 trang -->
+          <div class="flex-1 min-h-0 overflow-hidden">
             ${layoutHtml}
           </div>
 
-          <!-- FOOTER -->
-          <div class="mt-4 pt-4 border-t-2 border-slate-200 flex justify-between items-center text-[10px] font-bold text-slate-500">
-            <div>Ngày in: ${new Date().toLocaleString('vi-VN')} | Người lập: .............................</div>
-            <div class="flex gap-4">
-              <div class="flex items-center gap-1"><div class="w-3 h-3 bg-green-500 rounded-sm border border-green-700"></div> ĐÃ THANH TOÁN</div>
-              <div class="flex items-center gap-1"><div class="w-3 h-3 bg-amber-500 rounded-sm border border-amber-700"></div> ĐẶT VÉ (CHƯA THU)</div>
-              <div class="flex items-center gap-1"><div class="w-3 h-3 bg-purple-500 rounded-sm border border-purple-700"></div> GIỮ CHỖ (QUẢN LÝ)</div>
+          <!-- FOOTER: Sát đáy -->
+          <div class="mt-2 py-1 border-t-2 border-slate-200 flex justify-between items-center text-[9px] font-bold text-slate-500 shrink-0">
+            <div>Ngày in: ${new Date().toLocaleString('vi-VN')}</div>
+            <div class="flex gap-3">
+              <div class="flex items-center gap-1"><div class="w-2 h-2 bg-green-500 rounded-sm"></div> MUA</div>
+              <div class="flex items-center gap-1"><div class="w-2 h-2 bg-amber-500 rounded-sm"></div> ĐẶT</div>
+              <div class="flex items-center gap-1"><div class="w-2 h-2 bg-purple-500 rounded-sm"></div> GIỮ</div>
             </div>
           </div>
 
-          <!-- PRINT BUTTON (NO-PRINT) -->
-          <div class="no-print mt-10 flex justify-center pb-10">
-            <button onclick="window.print()" class="bg-blue-600 hover:bg-blue-700 text-white font-black py-4 px-12 rounded-full shadow-2xl transition-all transform hover:scale-105 flex items-center gap-3">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
-              IN BẢNG KÊ (CTRL + P)
+          <div class="no-print mt-4 flex justify-center pb-4">
+            <button onclick="window.print()" class="bg-blue-600 text-white font-black py-2 px-8 rounded-full shadow-lg flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+              IN NGAY
             </button>
           </div>
         </div>
