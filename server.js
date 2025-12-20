@@ -98,7 +98,8 @@ const ticketDetailSchema = new mongoose.Schema({
     seatId: String,
     price: Number,
     pickup: String,
-    dropoff: String
+    dropoff: String,
+    note: String // NEW: Ghi chú riêng cho ghế
 }, { _id: false });
 
 const bookingItemSchema = new mongoose.Schema({
@@ -365,7 +366,8 @@ app.post("/api/bookings", async (req, res) => {
             seatId: s.id, 
             price: s.price, 
             pickup: passenger.pickupPoint || '', 
-            dropoff: passenger.dropoffPoint || '' 
+            dropoff: passenger.dropoffPoint || '',
+            note: ''
         }));
 
         const seatIds = tickets.map(t => t.seatId);
@@ -527,7 +529,7 @@ app.put("/api/bookings/:id", async (req, res) => {
           const isEnhanced = route?.isEnhanced || trip.name?.toLowerCase().includes('tăng cường') || trip.route?.toLowerCase().includes('tăng cường');
           
           const tickets = item.tickets || item.seats.map(s => ({ 
-            seatId: s.id, price: s.price, pickup: passenger.pickupPoint || '', dropoff: passenger.dropoffPoint || '' 
+            seatId: s.id, price: s.price, pickup: passenger.pickupPoint || '', dropoff: passenger.dropoffPoint || '', note: ''
           }));
           const seatIds = tickets.map(t => t.seatId);
           const itemPrice = tickets.reduce((sum, t) => sum + t.price, 0);
@@ -673,6 +675,61 @@ app.put("/api/bookings/:id", async (req, res) => {
       console.error(e);
       res.status(500).json({ error: e.message });
   }
+});
+
+app.patch("/api/bookings/:id/tickets/:seatId", async (req, res) => {
+    try {
+        const { id, seatId } = req.params;
+        const { pickup, dropoff, note, phone, name } = req.body;
+
+        const booking = await Booking.findById(id);
+        if (!booking) return res.status(404).json({ error: "Booking not found" });
+
+        // Tìm vé cần cập nhật
+        let updated = false;
+        let targetLabel = seatId;
+
+        booking.items.forEach(item => {
+            if (item.tickets) {
+                const ticket = item.tickets.find(t => t.seatId === seatId);
+                if (ticket) {
+                    if (pickup !== undefined) ticket.pickup = pickup;
+                    if (dropoff !== undefined) ticket.dropoff = dropoff;
+                    if (note !== undefined) ticket.note = note;
+                    updated = true;
+                    targetLabel = seatId;
+                }
+            }
+        });
+
+        if (!updated) return res.status(404).json({ error: "Ticket not found in this booking" });
+
+        // Cập nhật thông tin hành khách chung (vì modal SeatDetail cũng cho phép sửa phone/name)
+        if (phone) booking.passenger.phone = phone;
+        if (name) booking.passenger.name = name;
+
+        booking.updatedAt = new Date().toISOString();
+        await booking.save();
+
+        await logBookingAction(
+            id,
+            'UPDATE',
+            `Cập nhật thông tin chi tiết ghế ${targetLabel}`,
+            { seatId, pickup, dropoff, note, phone }
+        );
+
+        const aggregatedBooking = await Booking.aggregate([
+            { $match: { _id: new mongoose.Types.ObjectId(id) } },
+            { $lookup: { from: "payments", localField: "_id", foreignField: "bookingId", as: "paymentRecords" } },
+            { $addFields: { id: "$_id", payment: { paidCash: { $sum: "$paymentRecords.cashAmount" }, paidTransfer: { $sum: "$paymentRecords.transferAmount" } } } },
+            { $project: { paymentRecords: 0, _id: 0, __v: 0 } }
+        ]);
+
+        res.json({ booking: aggregatedBooking[0] });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: e.message });
+    }
 });
 
 app.patch("/api/bookings/:id/passenger", async (req, res) => {

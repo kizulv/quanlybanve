@@ -40,6 +40,7 @@ export interface TicketDetail {
   price: number;
   pickup: string;
   dropoff: string;
+  note?: string; // NEW: Ghi chú riêng cho từng vé
 }
 
 // New Interface for Line Items

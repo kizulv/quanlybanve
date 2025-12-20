@@ -135,6 +135,12 @@ export const api = {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ passenger }),
       }),
+    updateTicket: (id: string, seatId: string, details: { pickup?: string, dropoff?: string, note?: string, phone?: string, name?: string }) =>
+      fetchJson(`${API_URL}/bookings/${id}/tickets/${seatId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(details),
+      }),
     delete: (id: string) => 
         fetchJson(`${API_URL}/bookings/${id}`, {
             method: "DELETE"

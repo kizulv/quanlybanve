@@ -492,9 +492,17 @@ function AppContent() {
           return;
         }
 
-        const result = await api.bookings.updatePassenger(
+        // FIX: Cập nhật thông tin chi tiết riêng cho từng ghế thay vì cập nhật chung cho toàn bộ đơn hàng
+        const result = await api.bookings.updateTicket(
           booking.id,
-          updatedPassenger
+          seat.id,
+          {
+            pickup: updatedPassenger.pickupPoint,
+            dropoff: updatedPassenger.dropoffPoint,
+            note: updatedPassenger.note,
+            phone: updatedPassenger.phone,
+            name: updatedPassenger.name
+          }
         );
 
         setBookings((prev) =>
@@ -504,9 +512,10 @@ function AppContent() {
         toast({
           type: "success",
           title: "Cập nhật thành công",
-          message: "Đã lưu thông tin hành khách.",
+          message: `Đã lưu thông tin riêng cho ghế ${seat.label}.`,
         });
       } else if (seat && selectedTrip) {
+        // Xử lý ghi chú cho ghế đang được GIỮ (HOLD)
         const existingHold = tripBookings.find(
           (b) =>
             b.status === "hold" &&
@@ -516,7 +525,7 @@ function AppContent() {
         );
 
         if (existingHold) {
-          await api.bookings.updatePassenger(existingHold.id, updatedPassenger);
+          await api.bookings.updateTicket(existingHold.id, seat.id, { note: updatedPassenger.note });
           await refreshData();
         } else {
           const updatedSeats = selectedTrip.seats.map((s) => {
@@ -537,7 +546,7 @@ function AppContent() {
         toast({
           type: "success",
           title: "Cập nhật thành công",
-          message: "Đã lưu ghi chú.",
+          message: "Đã lưu ghi chú ghế giữ.",
         });
       }
 
