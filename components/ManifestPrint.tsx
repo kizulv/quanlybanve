@@ -167,7 +167,7 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
         </div>
       `;
     } else {
-      // GIƯỜNG 41 - Giữ nguyên logic khổ dọc
+      // GIƯỜNG 41
       layoutHtml = `<div class="grid grid-cols-2 gap-4">`;
       [1, 2].forEach(floor => {
         layoutHtml += `
@@ -197,7 +197,7 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
         <style>
           @page { size: A4 portrait; margin: 8mm 5mm; }
           @media print {
-            .no-print { display: none; }
+            .no-print { display: none !important; }
             body { padding: 0; margin: 0; }
             .container-page { height: 280mm; overflow: hidden; }
           }
