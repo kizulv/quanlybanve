@@ -118,9 +118,9 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
             <span class="font-black text-[11px] text-black leading-none">${label}</span>
           </div>
           <div class="flex-1 flex flex-col justify-between overflow-hidden">
-            <div class="flex-1 border-b border-gray-200 opacity-50"></div>
-            <div class="flex-1 border-b border-gray-200 opacity-50"></div>
-            <div class="flex-1 border-b border-gray-200 opacity-50"></div>
+            <div class="flex-1 border-b border-gray-300 opacity-50"></div>
+            <div class="flex-1 border-b border-gray-300 opacity-50"></div>
+            <div class="flex-1 border-b border-gray-300 opacity-50"></div>
           </div>
         </div>
         `;
