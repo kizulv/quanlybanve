@@ -94,15 +94,15 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
     ) => {
       const cellHeight = isSmall ? "h-[50px]" : "h-[90px]";
       if (!seat)
-        return `<div className="border-transparent bg-transparent ${cellHeight}"></div>`;
+        return `<div class="border-transparent bg-transparent ${cellHeight}"></div>`;
 
       const data = seatDataMap.get(seat.id);
       const label = seat.label;
 
       if (!data) {
         return `
-          <div className="border border-dashed border-slate-300 rounded flex flex-col items-center justify-center bg-slate-50 opacity-40 ${cellHeight}">
-            <span className="font-black text-slate-400 text-xs">${label}</span>
+          <div class="border border-dashed border-slate-300 rounded flex flex-col items-center justify-center bg-slate-50 opacity-40 ${cellHeight}">
+            <span class="font-black text-slate-400 text-xs">${label}</span>
           </div>
         `;
       }
@@ -114,26 +114,26 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
       };
 
       return `
-        <div className="border-2 flex flex-col p-1 relative overflow-hidden ${
+        <div class="border-2 flex flex-col p-1 relative overflow-hidden ${
           statusColors[data.status]
         } ${cellHeight}">
-          <div className="flex justify-between items-center border-b border-black/5 pb-0.5 mb-1">
-            <span className="font-black text-xs text-black leading-none">${label}</span>
+          <div class="flex justify-between items-center border-b border-black/5 pb-0.5 mb-1">
+            <span class="font-black text-xs text-black leading-none">${label}</span>
           </div>
-          <div className="flex-1 flex flex-col overflow-hidden text-center">
-            <div className="font-black text-sm leading-tight text-black">${
+          <div class="flex-1 flex flex-col overflow-hidden text-center">
+            <div class="font-black text-sm leading-tight text-black">${
               data.phone
             }</div>
-            <div className="text-[12px] truncate leading-tight opacity-90 mt-0.5">${
+            <div class="text-[12px] truncate leading-tight opacity-90 mt-0.5">${
               data.pickup || "---"
             } - ${data.dropoff || "---"}</div>
-            <div className="text-[12px] truncate leading-tight opacity-90 mt-1 italic">${
+            <div class="text-[12px] truncate leading-tight opacity-90 mt-1 italic">${
               data.note || ""
             }</div>
           </div>
           ${
             data.price > 0
-              ? `<div className="absolute bottom-0.5 right-1 font-black text-[8px] bg-white/60 px-0.5 rounded">${
+              ? `<div class="absolute bottom-0.5 right-1 font-black text-[8px] bg-white/60 px-0.5 rounded">${
                   data.price / 1000
                 }</div>`
               : ""
@@ -155,15 +155,15 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
       const rows = [0, 1, 2, 3, 4, 5];
 
       layoutHtml = `
-        <div className="flex gap-6 w-full h-[165mm] overflow-hidden">
+        <div class="flex gap-6 w-full h-[165mm] overflow-hidden">
           <!-- DÃY B -->
-          <div className="flex-1 flex flex-col">
-            <div className="text-sm font-bold py-1 px-2 mb-1.5 text-center uppercase tracking-wider">Dãy B</div>
-            <div className="flex flex-col justify-around h-full">
+          <div class="flex-1 flex flex-col">
+            <div class="text-sm font-bold py-1 px-2 mb-1.5 text-center uppercase tracking-wider">Dãy B</div>
+            <div class="flex flex-col justify-around h-full">
               ${rows
                 .map(
                   (r) => `
-                <div className="grid grid-cols-2 gap-1.5">
+                <div class="grid grid-cols-2 gap-1.5">
                   ${renderSeatHtml(
                     colB.find((s) => s.row === r && s.floor === 1)
                   )}
@@ -178,9 +178,9 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
           </div>
 
           <!-- DÃY SÀN -->
-          <div className="w-[180px] flex flex-col">
-            <div className="text-sm font-bold py-1 px-2 rounded mb-1.5 text-center uppercase">SÀN</div>
-            <div className="flex flex-col justify-around h-full">
+          <div class="w-[180px] flex flex-col">
+            <div class="text-sm font-bold py-1 px-2 rounded mb-1.5 text-center uppercase">SÀN</div>
+            <div class="flex flex-col justify-around h-full">
               ${[0, 1, 2, 3, 4, 5]
                 .map((i) => renderSeatHtml(floorSeats[i]))
                 .join("")}
@@ -188,13 +188,13 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
           </div>
 
           <!-- DÃY A -->
-          <div className="flex-1 flex flex-col">
-            <div className="text-sm font-bold py-1 px-2 rounded mb-1.5 text-center uppercase tracking-wider">Dãy A</div>
-            <div className="flex flex-col justify-around h-full">
+          <div class="flex-1 flex flex-col">
+            <div class="text-sm font-bold py-1 px-2 rounded mb-1.5 text-center uppercase tracking-wider">Dãy A</div>
+            <div class="flex flex-col justify-around h-full">
               ${rows
                 .map(
                   (r) => `
-                <div className="grid grid-cols-2 gap-1.5">
+                <div class="grid grid-cols-2 gap-1.5">
                   ${renderSeatHtml(
                     colA.find((s) => s.row === r && s.floor === 1)
                   )}
@@ -210,12 +210,12 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
         </div>
       `;
     } else {
-      layoutHtml = `<div className="grid grid-cols-2 gap-4 max-h-[210mm] overflow-hidden">`;
+      layoutHtml = `<div class="grid grid-cols-2 gap-4 max-h-[210mm] overflow-hidden">`;
       [1, 2].forEach((floor) => {
         layoutHtml += `
-          <div className="border border-slate-200 rounded-xl p-2 bg-white shadow-sm">
-            <div className="bg-slate-800 text-white text-[10px] font-bold py-1 px-3 rounded mb-2 inline-block uppercase">Tầng ${floor}</div>
-            <div className="grid grid-cols-3 gap-2">
+          <div class="border border-slate-200 rounded-xl p-2 bg-white shadow-sm">
+            <div class="bg-slate-800 text-white text-[10px] font-bold py-1 px-3 rounded mb-2 inline-block uppercase">Tầng ${floor}</div>
+            <div class="grid grid-cols-3 gap-2">
               ${[0, 1, 2, 3, 4, 5]
                 .map((r) =>
                   [0, 1, 2]
@@ -233,7 +233,7 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
                     .join("")
                 )
                 .join("")}
-              <div className="col-span-3 grid grid-cols-5 gap-1 mt-2 pt-2 border-t border-dashed border-slate-200">
+              <div class="col-span-3 grid grid-cols-5 gap-1 mt-2 pt-2 border-t border-dashed border-slate-200">
                 ${selectedTrip.seats
                   .filter((s) => s.floor === floor && s.row === 6)
                   .sort((a, b) => (a.col || 0) - (b.col || 0))
@@ -265,36 +265,36 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
           .container-page { width: 100%; margin: 0 auto; display: flex; flex-direction: column; }
         </style>
       </head>
-      <body className="ml-[50px] p-0">
-        <div className="container-page px-4">
+      <body class="ml-[50px] p-0">
+        <div class="container-page px-4">
           <!-- HEADER -->
-          <div className="flex justify-between items-center border-b-2 border-black py-2 mb-3">
-            <div className="flex flex-col">
-              <h1 className="text-md font-black uppercase leading-tight">BẢNG KÊ TUYẾN: ${
+          <div class="flex justify-between items-center border-b-2 border-black py-2 mb-3">
+            <div class="flex flex-col">
+              <h1 class="text-md font-black uppercase leading-tight">BẢNG KÊ TUYẾN: ${
                 selectedTrip.route
               }</h1>
-              <span className="text-sm font-bold text-slate-500 uppercase tracking-widest">XUẤT BẾN:  ${
+              <span class="text-sm font-bold text-slate-500 uppercase tracking-widest">XUẤT BẾN:  ${
                 selectedTrip.departureTime.split(" ")[1]
               }</span>
             </div>
-            <div className="text-right flex items-center gap-4">
-              <span className="bg-black text-white px-3 py-1 rounded text-lg font-black">${
+            <div class="text-right flex items-center gap-4">
+              <span class="bg-black text-white px-3 py-1 rounded text-lg font-black">${
                 selectedTrip.licensePlate
               }</span>
-              <div className="flex flex-col text-right">
-                <span className="text-md font-bold">${dateFormatted}</span>
-                <span className="text-xs font-bold text-slate-500 uppercase">${lunarFormatted}</span>
+              <div class="flex flex-col text-right">
+                <span class="text-md font-bold">${dateFormatted}</span>
+                <span class="text-xs font-bold text-slate-500 uppercase">${lunarFormatted}</span>
               </div>
             </div>
           </div>
 
           <!-- MAIN MAP -->
-          <div className="flex-1 min-h-0 overflow-hidden">
+          <div class="flex-1 min-h-0 overflow-hidden">
             ${layoutHtml}
           </div>
 
           <!-- FOOTER -->
-          <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 shrink-0">
+          <div class="flex justify-between items-center text-[10px] font-bold text-slate-500 shrink-0">
             <div>Thời gian in: ${new Date().toLocaleString("vi-VN")} </div>
           </div>
         </div>
@@ -318,10 +318,10 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
     </Button>
   );
 };
-<div className="no-print mt-6 flex justify-center pb-6">
+<div class="no-print mt-6 flex justify-center pb-6">
   <button
     onclick="window.print()"
-    className="bg-blue-700 hover:bg-blue-800 text-white font-black py-3 px-12 rounded-full shadow-2xl transition-all transform hover:scale-105 flex items-center gap-3"
+    class="bg-blue-700 hover:bg-blue-800 text-white font-black py-3 px-12 rounded-full shadow-2xl transition-all transform hover:scale-105 flex items-center gap-3"
   >
     <svg
       xmlns="http://www.w3.org/2000/svg"
