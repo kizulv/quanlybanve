@@ -161,12 +161,12 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title={`Thông tin ghế ${seat.label}`}
-      className="max-w-3xl bg-indigo-950 text-white border-indigo-900 rounded-xl overflow-hidden"
+      className={`${isSold ? 'max-w-md' : 'max-w-3xl'} bg-indigo-950 text-white border-indigo-900 rounded-xl overflow-hidden transition-all duration-300`}
       headerClassName="h-[40px] bg-gradient-to-r from-indigo-950 via-indigo-900 to-indigo-950 border-indigo-900 text-white"
     >
       <div className="flex flex-col md:flex-row h-full md:h-[480px]">
         {/* LEFT: Customer Info */}
-        <div className="flex-1 overflow-y-auto p-4 border-r border-indigo-900/50 bg-indigo-950 space-y-4">
+        <div className={`flex-1 overflow-y-auto p-4 ${!isSold ? 'border-r border-indigo-900/50' : ''} bg-indigo-950 space-y-4`}>
             <div className="flex items-center gap-3 mb-1">
                 <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-black text-base border shadow-sm
                     ${isSold ? 'bg-green-600 border-green-500' : isBooked ? 'bg-yellow-500 text-indigo-950 border-yellow-400' : 'bg-indigo-800 border-indigo-700 text-indigo-100'}
@@ -282,85 +282,75 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
             <Button onClick={handleSaveOnly} disabled={isSaving} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold h-9 text-xs border border-indigo-700 shadow-sm">
                 <Save size={14} className="mr-2"/> Cập nhật thông tin
             </Button>
-        </div>
-
-        {/* RIGHT: Financial Actions */}
-        <div className="w-full md:w-[280px] bg-indigo-900/20 p-4 flex flex-col gap-4 border-t md:border-t-0 md:border-l border-indigo-900/50 shadow-xl overflow-y-auto">
-            <div className="bg-indigo-900/50 rounded-lg p-3 border border-indigo-800 space-y-2 shadow-inner">
-                <div className="flex items-center gap-2 text-indigo-400 text-[10px] font-black uppercase tracking-widest">
-                    <Calculator size={12} /> Giá vé thu thực tế
-                </div>
-                <div className="text-2xl font-black text-yellow-400 tracking-tight">
-                    {seatPrice.toLocaleString('vi-VN')} <span className="text-[10px] font-normal opacity-60">VNĐ</span>
-                </div>
-            </div>
-
-            {isBooked && (
-                <div className="space-y-3 animate-in fade-in slide-in-from-right-2 duration-300">
-                    <div className="text-[10px] font-black text-indigo-400 uppercase tracking-widest px-1 flex items-center gap-2">
-                        <CreditCard size={12} className="text-emerald-400"/> Thu tiền lẻ ghế này
-                    </div>
-                    
-                    <div className="space-y-2">
-                        <div className="relative group">
-                            <div className="absolute left-2.5 top-2 text-indigo-500 group-focus-within:text-green-500 transition-colors">
-                                <DollarSign size={14} />
-                            </div>
-                            <input 
-                                name="paidCash"
-                                className="w-full pl-8 pr-10 py-1.5 bg-indigo-950 border border-indigo-800 rounded text-right font-bold text-xs text-white focus:border-green-500 outline-none transition-all"
-                                value={paymentInput.paidCash.toLocaleString('vi-VN')}
-                                onChange={handleMoneyChange}
-                            />
-                            <span className="absolute right-2.5 top-2 text-[9px] font-black text-indigo-700">TM</span>
-                        </div>
-                        <div className="relative group">
-                            <div className="absolute left-2.5 top-2 text-indigo-500 group-focus-within:text-blue-500 transition-colors">
-                                <CreditCard size={14} />
-                            </div>
-                            <input 
-                                name="paidTransfer"
-                                className="w-full pl-8 pr-10 py-1.5 bg-indigo-950 border border-indigo-800 rounded text-right font-bold text-xs text-white focus:border-blue-500 outline-none transition-all"
-                                value={paymentInput.paidTransfer.toLocaleString('vi-VN')}
-                                onChange={handleMoneyChange}
-                            />
-                            <span className="absolute right-2.5 top-2 text-[9px] font-black text-indigo-700">CK</span>
-                        </div>
-                    </div>
-
-                    <Button onClick={handlePaySeat} disabled={isSaving || (paymentInput.paidCash + paymentInput.paidTransfer) === 0} className="w-full bg-green-600 hover:bg-green-500 text-white font-black uppercase text-[10px] h-9 shadow-lg shadow-green-900/20 border border-green-700">
-                        {isSaving ? <Loader2 className="animate-spin mr-2" size={14}/> : <CheckCircle2 size={14} className="mr-2"/>}
-                        Xác nhận thu tiền
-                    </Button>
-                </div>
-            )}
-
+            
             {isSold && (
-                <div className="bg-red-950/20 border border-red-900/40 rounded-lg p-3 space-y-3 animate-in fade-in zoom-in-95 duration-300">
-                    <div className="flex items-start gap-2">
-                        <div className="p-1.5 bg-red-500/20 rounded text-red-400">
-                            <AlertTriangle size={14}/>
-                        </div>
-                        <div>
-                            <h4 className="font-bold text-[11px] text-red-200">Đã thanh toán</h4>
-                            <p className="text-[9px] text-red-400/80 leading-snug mt-0.5">
-                                Hoàn vé sẽ trả tiền và giải phóng ghế.
-                            </p>
-                        </div>
-                    </div>
-                    
-                    <Button onClick={handleRefundSeat} disabled={isSaving} className="w-full bg-red-600 hover:bg-red-500 text-white font-black uppercase text-[10px] h-8 border border-red-700 transition-all">
-                        <RotateCcw size={14} className="mr-2"/> Hoàn vé & Hủy lẻ
-                    </Button>
+                <div className="mt-4 pt-3 border-t border-indigo-900/50">
+                    <button onClick={onClose} className="w-full text-indigo-500 hover:text-white text-[10px] font-black uppercase tracking-widest py-2 transition-colors">
+                        Đóng cửa sổ
+                    </button>
                 </div>
             )}
-
-            <div className="mt-auto pt-3 border-t border-indigo-900/50">
-                <button onClick={onClose} className="w-full text-indigo-500 hover:text-white text-[10px] font-black uppercase tracking-widest py-2 transition-colors">
-                    Đóng cửa sổ
-                </button>
-            </div>
         </div>
+
+        {/* RIGHT: Financial Actions (Hidden if Sold) */}
+        {!isSold && (
+            <div className="w-full md:w-[280px] bg-indigo-900/20 p-4 flex flex-col gap-4 border-t md:border-t-0 md:border-l border-indigo-900/50 shadow-xl overflow-y-auto animate-in fade-in duration-300">
+                <div className="bg-indigo-900/50 rounded-lg p-3 border border-indigo-800 space-y-2 shadow-inner">
+                    <div className="flex items-center gap-2 text-indigo-400 text-[10px] font-black uppercase tracking-widest">
+                        <Calculator size={12} /> Giá vé thu thực tế
+                    </div>
+                    <div className="text-2xl font-black text-yellow-400 tracking-tight">
+                        {seatPrice.toLocaleString('vi-VN')} <span className="text-[10px] font-normal opacity-60">VNĐ</span>
+                    </div>
+                </div>
+
+                {isBooked && (
+                    <div className="space-y-3 animate-in fade-in slide-in-from-right-2 duration-300">
+                        <div className="text-[10px] font-black text-indigo-400 uppercase tracking-widest px-1 flex items-center gap-2">
+                            <CreditCard size={12} className="text-emerald-400"/> Thu tiền lẻ ghế này
+                        </div>
+                        
+                        <div className="space-y-2">
+                            <div className="relative group">
+                                <div className="absolute left-2.5 top-2 text-indigo-500 group-focus-within:text-green-500 transition-colors">
+                                    <DollarSign size={14} />
+                                </div>
+                                <input 
+                                    name="paidCash"
+                                    className="w-full pl-8 pr-10 py-1.5 bg-indigo-950 border border-indigo-800 rounded text-right font-bold text-xs text-white focus:border-green-500 outline-none transition-all"
+                                    value={paymentInput.paidCash.toLocaleString('vi-VN')}
+                                    onChange={handleMoneyChange}
+                                />
+                                <span className="absolute right-2.5 top-2 text-[9px] font-black text-indigo-700">TM</span>
+                            </div>
+                            <div className="relative group">
+                                <div className="absolute left-2.5 top-2 text-indigo-500 group-focus-within:text-blue-500 transition-colors">
+                                    <CreditCard size={14} />
+                                </div>
+                                <input 
+                                    name="paidTransfer"
+                                    className="w-full pl-8 pr-10 py-1.5 bg-indigo-950 border border-indigo-800 rounded text-right font-bold text-xs text-white focus:border-blue-500 outline-none transition-all"
+                                    value={paymentInput.paidTransfer.toLocaleString('vi-VN')}
+                                    onChange={handleMoneyChange}
+                                />
+                                <span className="absolute right-2.5 top-2 text-[9px] font-black text-indigo-700">CK</span>
+                            </div>
+                        </div>
+
+                        <Button onClick={handlePaySeat} disabled={isSaving || (paymentInput.paidCash + paymentInput.paidTransfer) === 0} className="w-full bg-green-600 hover:bg-green-500 text-white font-black uppercase text-[10px] h-9 shadow-lg shadow-green-900/20 border border-green-700">
+                            {isSaving ? <Loader2 className="animate-spin mr-2" size={14}/> : <CheckCircle2 size={14} className="mr-2"/>}
+                            Xác nhận thu tiền
+                        </Button>
+                    </div>
+                )}
+
+                <div className="mt-auto pt-3 border-t border-indigo-900/50">
+                    <button onClick={onClose} className="w-full text-indigo-500 hover:text-white text-[10px] font-black uppercase tracking-widest py-2 transition-colors">
+                        Đóng cửa sổ
+                    </button>
+                </div>
+            </div>
+        )}
       </div>
     </Dialog>
   );
