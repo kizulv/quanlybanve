@@ -10,10 +10,11 @@ import {
   AlertCircle, 
   CheckCircle2,
   Loader2,
-  ArrowLeftRight
+  ArrowLeftRight,
+  Info,
+  ShieldAlert
 } from 'lucide-react';
 import { Button } from './ui/Button';
-// Fix: Added missing Badge import
 import { Badge } from './ui/Badge';
 import { useToast } from './ui/Toast';
 import { api } from '../lib/api';
@@ -29,11 +30,10 @@ export const SeatTransfer: React.FC<SeatTransferProps> = ({ trips, bookings, sel
   const { toast } = useToast();
   const [sourceTripId, setSourceTripId] = useState<string>('');
   const [targetTripId, setTargetTripId] = useState<string>('');
-  const [selectedSourceSeat, setSelectedSourceSeat] = useState<Seat | null>(null);
-  const [selectedTargetSeat, setSelectedTargetSeat] = useState<Seat | null>(null);
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Filter regular trips on the same day
+  // Lọc các chuyến xe giường đơn (thường) trong cùng ngày
   const availableTrips = useMemo(() => {
     return trips.filter(t => {
       const tripDate = new Date(t.departureTime.split(' ')[0]);
@@ -44,52 +44,87 @@ export const SeatTransfer: React.FC<SeatTransferProps> = ({ trips, bookings, sel
   const sourceTrip = availableTrips.find(t => t.id === sourceTripId);
   const targetTrip = availableTrips.find(t => t.id === targetTripId);
 
-  const sourceTripBookings = useMemo(() => {
-    if (!sourceTrip) return [];
-    return bookings.filter(b => 
-      b.items.some(item => item.tripId === sourceTrip.id) && b.status !== 'cancelled'
-    );
-  }, [bookings, sourceTrip]);
+  // Danh sách các ghế của đơn hàng được chọn trên chuyến nguồn
+  const sourceSeatsToTransfer = useMemo(() => {
+    if (!selectedBooking || !sourceTripId) return [];
+    const item = selectedBooking.items.find(i => i.tripId === sourceTripId);
+    return item ? item.seatIds : [];
+  }, [selectedBooking, sourceTripId]);
+
+  // Kiểm tra tính khả dụng trên xe đích
+  const transferValidation = useMemo(() => {
+    if (!selectedBooking || !targetTrip || sourceSeatsToTransfer.length === 0) return null;
+
+    const results = sourceSeatsToTransfer.map(seatId => {
+      // Tìm label của ghế nguồn để đối chiếu
+      const sourceSeat = sourceTrip?.seats.find(s => s.id === seatId);
+      const targetSeatByLabel = targetTrip.seats.find(s => s.label === sourceSeat?.label);
+      
+      const isAvailable = targetSeatByLabel?.status === SeatStatus.AVAILABLE;
+      
+      return {
+        sourceSeatId: seatId,
+        sourceLabel: sourceSeat?.label || seatId,
+        targetSeatId: targetSeatByLabel?.id || '',
+        isAvailable
+      };
+    });
+
+    const isAllAvailable = results.every(r => r.isAvailable);
+    const isPaid = selectedBooking.status === 'payment';
+
+    return {
+      results,
+      isAllAvailable,
+      isPaid
+    };
+  }, [selectedBooking, targetTrip, sourceSeatsToTransfer, sourceTrip]);
 
   const handleSourceSeatClick = (seat: Seat) => {
     if (seat.status === SeatStatus.BOOKED || seat.status === SeatStatus.SOLD || seat.status === SeatStatus.HELD) {
-      setSelectedSourceSeat(seat);
-      toast({ type: 'info', title: 'Ghế nguồn', message: `Đã chọn ghế ${seat.label}` });
+      // Tìm booking chứa ghế này
+      const booking = bookings.find(b => 
+        b.status !== 'cancelled' && 
+        b.items.some(item => item.tripId === sourceTripId && item.seatIds.includes(seat.id))
+      );
+
+      if (booking) {
+        setSelectedBooking(booking);
+        toast({ 
+          type: 'info', 
+          title: 'Đã chọn nhóm khách', 
+          message: `Số điện thoại ${booking.passenger.phone} có ${booking.totalTickets} vé sẽ được chuyển.` 
+        });
+      }
     } else {
       toast({ type: 'warning', title: 'Thao tác không hợp lệ', message: 'Vui lòng chọn ghế đã có khách.' });
     }
   };
 
-  const handleTargetSeatClick = (seat: Seat) => {
-    if (seat.status === SeatStatus.AVAILABLE) {
-      setSelectedTargetSeat(seat);
-      toast({ type: 'info', title: 'Ghế đích', message: `Đã chọn ghế ${seat.label}` });
-    } else {
-      toast({ type: 'warning', title: 'Thao tác không hợp lệ', message: 'Vui lòng chọn ghế trống.' });
-    }
-  };
-
   const handleTransfer = async () => {
-    if (!sourceTripId || !targetTripId || !selectedSourceSeat || !selectedTargetSeat) return;
+    if (!selectedBooking || !targetTrip || !transferValidation) return;
 
-    // Tìm booking của ghế nguồn
-    const booking = sourceTripBookings.find(b => 
-      b.items.some(item => item.tripId === sourceTripId && item.seatIds.includes(selectedSourceSeat.id))
-    );
-
-    if (!booking) {
-      toast({ type: 'error', title: 'Lỗi', message: 'Không tìm thấy đơn hàng của ghế nguồn.' });
+    if (!transferValidation.isAllAvailable) {
+      toast({ 
+        type: 'error', 
+        title: 'Vị trí đã bị chiếm', 
+        message: 'Một số vị trí tương ứng trên xe đích đã có khách. Không thể thực hiện chuyển nhóm.' 
+      });
       return;
     }
 
     setIsProcessing(true);
     try {
+      const seatTransfers = transferValidation.results.map(r => ({
+        sourceSeatId: r.sourceSeatId,
+        targetSeatId: r.targetSeatId
+      }));
+
       await api.bookings.transferSeat(
-        booking.id,
+        selectedBooking.id,
         sourceTripId,
         targetTripId,
-        selectedSourceSeat.id,
-        selectedTargetSeat.id
+        seatTransfers
       );
 
       await onRefresh();
@@ -97,12 +132,10 @@ export const SeatTransfer: React.FC<SeatTransferProps> = ({ trips, bookings, sel
       toast({ 
         type: 'success', 
         title: 'Đổi chuyến thành công', 
-        message: `Đã chuyển khách từ ${sourceTrip?.licensePlate} (${selectedSourceSeat.label}) sang ${targetTrip?.licensePlate} (${selectedTargetSeat.label})` 
+        message: `Đã chuyển ${seatTransfers.length} ghế từ ${sourceTrip?.licensePlate} sang ${targetTrip?.licensePlate}` 
       });
 
-      // Reset selection
-      setSelectedSourceSeat(null);
-      setSelectedTargetSeat(null);
+      setSelectedBooking(null);
     } catch (e) {
       console.error(e);
       toast({ type: 'error', title: 'Lỗi', message: 'Không thể thực hiện đổi chuyến.' });
@@ -117,10 +150,10 @@ export const SeatTransfer: React.FC<SeatTransferProps> = ({ trips, bookings, sel
       <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
         <div className="flex flex-col md:flex-row items-center gap-6">
           <div className="flex-1 w-full">
-            <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Xe nguồn (Đang có khách)</label>
+            <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Xe nguồn (Chọn 1 ghế trong đơn hàng)</label>
             <select 
               value={sourceTripId} 
-              onChange={e => { setSourceTripId(e.target.value); setSelectedSourceSeat(null); }}
+              onChange={e => { setSourceTripId(e.target.value); setSelectedBooking(null); }}
               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-primary/10 transition-all"
             >
               <option value="">-- Chọn xe đi --</option>
@@ -135,10 +168,10 @@ export const SeatTransfer: React.FC<SeatTransferProps> = ({ trips, bookings, sel
           </div>
 
           <div className="flex-1 w-full">
-            <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Xe đích (Ghế trống)</label>
+            <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Xe đích (Hệ thống tự đối chiếu vị trí)</label>
             <select 
               value={targetTripId} 
-              onChange={e => { setTargetTripId(e.target.value); setSelectedTargetSeat(null); }}
+              onChange={e => { setTargetTripId(e.target.value); }}
               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-primary/10 transition-all"
             >
               <option value="">-- Chọn xe đến --</option>
@@ -150,18 +183,40 @@ export const SeatTransfer: React.FC<SeatTransferProps> = ({ trips, bookings, sel
         </div>
       </div>
 
+      {/* Group Info Warning */}
+      {selectedBooking && (
+        <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 flex items-start gap-4 animate-in slide-in-from-top-2">
+            <div className="p-2 bg-white rounded-lg text-indigo-600 shadow-sm">
+                <Info size={20} />
+            </div>
+            <div>
+                <h4 className="font-black text-indigo-900 text-sm">Chế độ chuyển nhóm tự động</h4>
+                <p className="text-xs text-indigo-700 mt-1 leading-relaxed">
+                    Hệ thống đã nhận diện đơn hàng của khách <strong>{selectedBooking.passenger.phone}</strong> gồm 
+                    <strong> {sourceSeatsToTransfer.length} ghế</strong>. Toàn bộ các ghế này sẽ được chuyển sang xe đích 
+                    tại các vị trí tương ứng để đảm bảo đoàn không bị tách rời.
+                </p>
+                {selectedBooking.status === 'payment' && (
+                  <div className="mt-2 flex items-center gap-1.5 text-[10px] font-black uppercase text-red-600">
+                      <ShieldAlert size={14}/> Ràng buộc: Vé đã thanh toán chỉ được đổi đúng vị trí.
+                  </div>
+                )}
+            </div>
+        </div>
+      )}
+
       {/* Comparison Area */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         {/* Source Trip Column */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-[calc(100vh-320px)]">
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-[calc(100vh-380px)]">
           <div className="px-5 py-3.5 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
              <div className="flex items-center gap-2">
                 <BusFront size={18} className="text-slate-400"/>
-                <span className="font-black text-slate-700 uppercase text-xs tracking-tighter">Bản đồ nguồn</span>
+                <span className="font-black text-slate-700 uppercase text-xs tracking-tighter">Bản đồ nguồn (Chọn ghế)</span>
              </div>
-             {selectedSourceSeat && (
-                <Badge className="bg-primary text-white border-transparent">
-                   Đã chọn: {selectedSourceSeat.label}
+             {selectedBooking && (
+                <Badge className="bg-primary text-white border-transparent px-3 py-1 font-black">
+                   ĐANG CHỌN: {sourceSeatsToTransfer.join(', ')}
                 </Badge>
              )}
           </div>
@@ -171,9 +226,10 @@ export const SeatTransfer: React.FC<SeatTransferProps> = ({ trips, bookings, sel
                  seats={sourceTrip.seats} 
                  busType={sourceTrip.type} 
                  onSeatClick={handleSourceSeatClick} 
-                 bookings={sourceTripBookings}
+                 bookings={bookings.filter(b => b.items.some(i => i.tripId === sourceTripId))}
                  currentTripId={sourceTrip.id}
-                 swapSourceSeatId={selectedSourceSeat?.id}
+                 // Highlight all seats in the booking
+                 swapSourceSeatId={sourceSeatsToTransfer[0]} // Chỉ dùng id đầu tiên để marker chính, nhưng SeatMap cần hỗ trợ highlight nhiều
                />
             ) : (
                <div className="h-full flex flex-col items-center justify-center text-slate-300 p-8 text-center opacity-40">
@@ -185,15 +241,15 @@ export const SeatTransfer: React.FC<SeatTransferProps> = ({ trips, bookings, sel
         </div>
 
         {/* Target Trip Column */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-[calc(100vh-320px)]">
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-[calc(100vh-380px)]">
            <div className="px-5 py-3.5 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
               <div className="flex items-center gap-2">
                  <BusFront size={18} className="text-slate-400"/>
-                 <span className="font-black text-slate-700 uppercase text-xs tracking-tighter">Bản đồ đích</span>
+                 <span className="font-black text-slate-700 uppercase text-xs tracking-tighter">Bản đồ đích (Đối chiếu)</span>
               </div>
-              {selectedTargetSeat && (
-                <Badge className="bg-green-600 text-white border-transparent">
-                   Sắp xếp vào: {selectedTargetSeat.label}
+              {transferValidation && (
+                <Badge className={`${transferValidation.isAllAvailable ? 'bg-green-600' : 'bg-red-600'} text-white border-transparent px-3 py-1 font-black uppercase`}>
+                   {transferValidation.isAllAvailable ? 'KHẢ DỤNG' : 'BỊ TRÙNG VỊ TRÍ'}
                 </Badge>
               )}
            </div>
@@ -202,15 +258,14 @@ export const SeatTransfer: React.FC<SeatTransferProps> = ({ trips, bookings, sel
                 <SeatMap 
                   seats={targetTrip.seats} 
                   busType={targetTrip.type} 
-                  onSeatClick={handleTargetSeatClick} 
+                  onSeatClick={() => {}} // Không cho click chọn ở bên đích, tự động map theo label
                   bookings={bookings.filter(b => b.items.some(i => i.tripId === targetTrip.id))}
                   currentTripId={targetTrip.id}
-                  swapSourceSeatId={selectedTargetSeat?.id}
                 />
              ) : (
                 <div className="h-full flex flex-col items-center justify-center text-slate-300 p-8 text-center opacity-40">
                    <AlertCircle size={48} className="mb-4" />
-                   <p className="text-sm font-medium">Vui lòng chọn xe đích để xem sơ đồ</p>
+                   <p className="text-sm font-medium">Vui lòng chọn xe đích để xem đối chiếu</p>
                 </div>
              )}
            </div>
@@ -219,29 +274,47 @@ export const SeatTransfer: React.FC<SeatTransferProps> = ({ trips, bookings, sel
 
       {/* Action Footer */}
       <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-lg flex items-center justify-between">
-         <div className="flex items-center gap-4 text-sm">
+         <div className="flex items-center gap-6 text-sm">
             <div className="flex flex-col">
-               <span className="text-[10px] font-bold text-slate-400 uppercase">Khách được chuyển</span>
-               <span className="font-black text-slate-800">{selectedSourceSeat ? `Ghế ${selectedSourceSeat.label}` : '---'}</span>
+               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Ghế nguồn ({sourceSeatsToTransfer.length})</span>
+               <div className="flex gap-1.5">
+                  {sourceSeatsToTransfer.length > 0 ? sourceSeatsToTransfer.map(s => (
+                    <Badge key={s} className="bg-slate-100 text-slate-700 border-slate-200 font-black">{s}</Badge>
+                  )) : <span className="text-slate-300 font-bold italic">Chưa chọn</span>}
+               </div>
             </div>
             <ChevronRight className="text-slate-300" />
             <div className="flex flex-col">
-               <span className="text-[10px] font-bold text-slate-400 uppercase">Vị trí mới</span>
-               <span className="font-black text-green-600">{selectedTargetSeat ? `Ghế ${selectedTargetSeat.label}` : '---'}</span>
+               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Vị trí xe đích</span>
+               <div className="flex gap-1.5">
+                  {transferValidation ? transferValidation.results.map((r, i) => (
+                    <Badge key={i} className={`${r.isAvailable ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'} font-black`}>
+                       {r.sourceLabel}
+                    </Badge>
+                  )) : <span className="text-slate-300 font-bold italic">Chờ đối chiếu</span>}
+               </div>
             </div>
          </div>
 
-         <Button 
-           onClick={handleTransfer}
-           disabled={!selectedSourceSeat || !selectedTargetSeat || isProcessing}
-           className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 h-12 rounded-xl font-black text-base shadow-xl shadow-indigo-200"
-         >
-            {isProcessing ? (
-               <><Loader2 className="animate-spin mr-2" size={20}/> Đang thực hiện...</>
-            ) : (
-               <><CheckCircle2 className="mr-2" size={20}/> Xác nhận đổi xe</>
-            )}
-         </Button>
+         <div className="flex items-center gap-4">
+             {transferValidation && !transferValidation.isAllAvailable && (
+                 <div className="flex items-center gap-2 text-red-600 font-bold text-xs bg-red-50 px-4 py-2 rounded-xl border border-red-100">
+                    <ShieldAlert size={16}/>
+                    Không thể chuyển vì trùng ghế
+                 </div>
+             )}
+             <Button 
+               onClick={handleTransfer}
+               disabled={!selectedBooking || !targetTripId || !transferValidation?.isAllAvailable || isProcessing}
+               className={`${transferValidation?.isAllAvailable ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-slate-400'} text-white px-8 h-12 rounded-xl font-black text-base shadow-xl shadow-indigo-200 transition-all active:scale-95`}
+             >
+                {isProcessing ? (
+                   <><Loader2 className="animate-spin mr-2" size={20}/> Đang thực hiện...</>
+                ) : (
+                   <><CheckCircle2 className="mr-2" size={20}/> Xác nhận chuyển {sourceSeatsToTransfer.length} ghế</>
+                )}
+             </Button>
+         </div>
       </div>
     </div>
   );

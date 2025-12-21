@@ -160,11 +160,11 @@ export const api = {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ tripId, seatId1, seatId2 }),
         }),
-    transferSeat: (bookingId: string, sourceTripId: string, targetTripId: string, sourceSeatId: string, targetSeatId: string) =>
+    transferSeat: (bookingId: string, sourceTripId: string, targetTripId: string, seatTransfers: { sourceSeatId: string, targetSeatId: string }[]) =>
         fetchJson(`${API_URL}/bookings/transfer`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ bookingId, sourceTripId, targetTripId, sourceSeatId, targetSeatId }),
+            body: JSON.stringify({ bookingId, sourceTripId, targetTripId, seatTransfers }),
         }),
     getHistory: (id: string) => fetchJson(`${API_URL}/bookings/${id}/history`),
   },
