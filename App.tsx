@@ -493,7 +493,6 @@ function AppContent() {
           return;
         }
 
-        // FIX: Cập nhật thông tin chi tiết riêng cho từng ghế thay vì cập nhật chung cho toàn bộ đơn hàng
         const result = await api.bookings.updateTicket(
           booking.id,
           seat.id,
@@ -516,7 +515,6 @@ function AppContent() {
           message: `Đã lưu thông tin riêng cho ghế ${seat.label}.`,
         });
       } else if (seat && selectedTrip) {
-        // Xử lý ghi chú cho ghế đang được GIỮ (HOLD)
         const existingHold = tripBookings.find(
           (b) =>
             b.status === "hold" &&
@@ -612,11 +610,9 @@ function AppContent() {
 
     setTrips(newTripsState);
 
-    // FIX: Sử dụng trực tiếp trạng thái status của đơn hàng thay vì logic tính toán qua giá tiền
     const currentMode = booking.status === "payment" ? "payment" : booking.status === "hold" ? "hold" : "booking";
     setBookingMode(currentMode);
 
-    // FIX: Làm sạch ghi chú cũ để tránh lặp lại các hậu tố tự động
     const rawNote = booking.passenger.note || "";
     const cleanNote = rawNote
         .replace(/\s*\(Chuyển sang [^\)]+\)/g, "")
@@ -733,7 +729,10 @@ function AppContent() {
       );
       setTrips((prev) => prev.map((t) => updatedTripsMap.get(t.id) || t));
 
-      setBookings((prev) => [...prev, ...result.bookings]);
+      setBookings(prev => {
+          const otherBookings = prev.filter(b => !result.bookings.some(nb => nb.id === b.id));
+          return [...otherBookings, ...result.bookings];
+      });
 
       if (result.bookings.length > 0) {
         const b = result.bookings[0];
@@ -831,7 +830,6 @@ function AppContent() {
   const handleManualPaymentForEdit = () => {
     if (!editingBooking) return;
 
-    // FIX: Khi mở modal thanh toán cho đơn đang sửa, chuyển mode sang payment để logic tính tiền khớp
     setBookingMode("payment");
 
     const overrides: Record<string, SeatOverride> = {};
@@ -952,7 +950,6 @@ function AppContent() {
         ];
       }
 
-      // FIX: Use provided paymentData unless explicitly forcing a zero payment state
       const finalPayment = (targetStatus === 'booking' || targetStatus === 'hold') ? { paidCash: 0, paidTransfer: 0 } : paymentData;
 
       const result = await api.bookings.update(
@@ -1109,7 +1106,6 @@ function AppContent() {
 
     if (!editingBooking) return;
 
-    // FIX: Chỉ thêm hậu tố nếu trạng thái thực sự thay đổi so với đơn hàng cũ
     let noteSuffix = "";
     if (bookingMode !== editingBooking.status) {
         noteSuffix = `(Chuyển sang ${bookingMode === 'hold' ? 'Giữ vé' : bookingMode === 'booking' ? 'Đặt vé' : 'Mua vé'})`;
@@ -1120,7 +1116,6 @@ function AppContent() {
         return;
     }
 
-    // Logic for transition to 'payment' (Mua vé)
     setModalPaymentInput({
       paidCash: editingBooking.payment?.paidCash || 0,
       paidTransfer: editingBooking.payment?.paidTransfer || 0,
@@ -1160,7 +1155,6 @@ function AppContent() {
 
     if (pendingPaymentContext?.type === "update") {
       if (!pendingPaymentContext.bookingIds) return;
-      // FIX: Force status to 'payment' when confirmed via modal
       await executeBookingUpdate(
         pendingPaymentContext.bookingIds[0],
         paymentPayload,
@@ -1261,7 +1255,8 @@ function AppContent() {
             oldB.id,
             bookingItemsPayload,
             oldB.passenger,
-            oldB.payment
+            oldB.payment,
+            oldB.status
           );
 
           setBookings((prev) =>
@@ -1280,20 +1275,23 @@ function AppContent() {
           break;
 
         case "SWAPPED_SEATS":
+          // Thực hiện hoán đổi ngược lại: Chuyển ghế ở vị trí MỚI về vị trí CŨ
           const swapRes = await api.bookings.swapSeats(
             action.tripId,
-            action.seat1,
-            action.seat2
+            action.seat1, // NEW position
+            action.seat2  // OLD position
           );
+          
           setBookings(swapRes.bookings);
           const updatedTripsMap3 = new Map<string, BusTrip>(
             swapRes.trips.map((t: BusTrip) => [t.id, t])
           );
           setTrips((prev) => prev.map((t) => updatedTripsMap3.get(t.id) || t));
+          
           toast({
             type: "info",
             title: "Đã hoàn tác",
-            message: "Đã đổi lại vị trí ghế.",
+            message: `Đã khôi phục ${action.label1} về lại ${action.label2}.`,
           });
           break;
       }
@@ -1550,7 +1548,8 @@ function AppContent() {
                     );
                     const seatsToShow = tripItem ? tripItem.seatIds : [];
                     const isHighlighted = booking.id === highlightedBookingId;
-                    const tripSubtotal = tripItem ? tripItem.price || 0 : 0;
+                    // FIX: Variable tripSubtotal was used before its declaration. Now correctly using tripItem.price.
+                    const tripSubtotal = tripItem ? tripItem.price : 0;
 
                     return (
                       <div
@@ -1858,10 +1857,10 @@ function AppContent() {
                               "bg-slate-100 text-slate-600 border border-slate-200";
                             if (s.status === "added")
                               style =
-                                "bg-green-100 text-green-700 border border-green-200 ring-1 ring-green-400 font-bold";
+                                "bg-green-100 text-green-700 border-green-200 ring-1 ring-green-400 font-bold";
                             if (s.status === "removed")
                               style =
-                                "bg-red-50 text-red-400 border border-red-100 line-through decoration-red-400 decoration-2";
+                                "bg-red-50 text-red-400 border-red-100 line-through decoration-red-400 decoration-2";
 
                             return (
                               <span
