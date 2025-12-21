@@ -20,8 +20,7 @@ import {
   Repeat,
   ChevronRight,
   ChevronLeft,
-  PanelRightClose,
-  PanelRightOpen
+  LayoutGrid
 } from 'lucide-react';
 import { Button } from './ui/Button';
 import { Badge } from './ui/Badge';
@@ -65,10 +64,11 @@ export const SeatTransfer: React.FC<SeatTransferProps> = ({ trips, bookings, sel
   const [isProcessing, setIsProcessing] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  // Filter trips for the selected date - support both Cabin and Sleeper for comparison
   const availableTrips = useMemo(() => {
     return trips.filter(t => {
       const tripDate = new Date(t.departureTime.split(' ')[0]);
-      return tripDate.toDateString() === selectedDate.toDateString() && t.type === BusType.SLEEPER;
+      return tripDate.toDateString() === selectedDate.toDateString();
     });
   }, [trips, selectedDate]);
 
@@ -88,7 +88,7 @@ export const SeatTransfer: React.FC<SeatTransferProps> = ({ trips, bookings, sel
   const getPositionDesc = (s: Seat | undefined) => {
     if (!s) return 'N/A';
     if (s.isFloorSeat) return `Sàn-${(s.row ?? 0) + 1}`;
-    const isBench = (s.row ?? 0) >= 6;
+    const isBench = (s.row ?? 0) >= 6 && !s.isFloorSeat;
     const rowDesc = isBench ? 'Băng5' : `H${(s.row ?? 0) + 1}`;
     return `T${s.floor}-${rowDesc}-C${(s.col ?? 0) + 1}`;
   };
@@ -100,13 +100,15 @@ export const SeatTransfer: React.FC<SeatTransferProps> = ({ trips, bookings, sel
       const sourceSeat = sourceTrip.seats.find(s => s.id === seatId);
       if (!sourceSeat) return { sourceSeatId: seatId, isValid: false, sourceLabel: '?', targetSeatId: '', posDesc: '?' };
 
-      const isSourceBench = (sourceSeat.row ?? 0) >= 6;
-
+      // Try to find matching position in target bus
       const targetSeatByPos = targetTrip.seats.find(s => {
         if (s.floor !== sourceSeat.floor) return false;
         if (!!s.isFloorSeat !== !!sourceSeat.isFloorSeat) return false;
+        
+        // Special logic for bench or standard seats
+        const isSourceBench = (sourceSeat.row ?? 0) >= 6 && !sourceSeat.isFloorSeat;
         if (isSourceBench) {
-            const isTargetBench = (s.row ?? 0) >= 6;
+            const isTargetBench = (s.row ?? 0) >= 6 && !s.isFloorSeat;
             return isTargetBench && s.col === sourceSeat.col;
         }
         return s.row === sourceSeat.row && s.col === sourceSeat.col;
@@ -171,6 +173,8 @@ export const SeatTransfer: React.FC<SeatTransferProps> = ({ trips, bookings, sel
         }
       }
     } else {
+        // If clicking empty seat and we have a selection from OTHER trip, this is a target select
+        // This is handled by addToQueue UI button, but could be auto-added if we wanted.
         if (selectedFromTripId === tripId) {
             setSelectedBooking(null);
             setSelectedFromTripId(null);
@@ -201,7 +205,6 @@ export const SeatTransfer: React.FC<SeatTransferProps> = ({ trips, bookings, sel
     setSelectedBooking(null);
     setSelectedSeatIds([]);
     setSelectedFromTripId(null);
-    if (!isSidebarVisible) setIsSidebarVisible(true);
     toast({ type: 'success', title: 'Đã thêm vào hàng chờ', message: `Đã thêm ${newItems.length} lệnh điều phối.` });
   };
 
@@ -244,124 +247,140 @@ export const SeatTransfer: React.FC<SeatTransferProps> = ({ trips, bookings, sel
   };
 
   return (
-    <div className="flex flex-col gap-4 animate-in fade-in duration-300">
-      {/* Header Controls */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-        <div className="flex flex-col md:flex-row items-center gap-4">
-          <div className="flex-1 w-full">
-            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Xe đối chiếu số 1</label>
+    <div className="flex flex-col h-[calc(100vh-100px)] animate-in fade-in duration-300">
+      {/* 1. Header Area: Selects Moved here for maximum space */}
+      <div className="bg-white border-b border-slate-200 shrink-0 z-30 shadow-sm rounded-none">
+        <div className="flex flex-col md:flex-row items-center gap-4 px-4 py-2">
+          <div className="flex-1 w-full flex items-center gap-3">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Xe 1:</span>
             <select 
               value={trip1Id} 
               onChange={e => { setTrip1Id(e.target.value); setSelectedBooking(null); setSelectedSeatIds([]); }}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-primary/10 transition-all"
+              className="flex-1 bg-slate-50 border border-slate-200 rounded-none px-3 py-1.5 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 transition-all"
             >
-              <option value="">-- Chọn xe 1 --</option>
+              <option value="">-- Chọn chuyến --</option>
               {availableTrips.map(t => (
                 <option key={t.id} value={t.id}>{t.departureTime.split(' ')[1]} - {t.licensePlate} ({t.route})</option>
               ))}
             </select>
           </div>
 
-          <div className="shrink-0 flex flex-col items-center gap-0.5">
-             <div className="flex items-center justify-center w-9 h-9 bg-primary/5 text-primary rounded-full border border-primary/20">
-                <ArrowLeftRight size={18} />
+          <div className="shrink-0 flex items-center gap-2">
+             <div className="flex items-center justify-center w-7 h-7 bg-primary/5 text-primary rounded-none border border-primary/20">
+                <ArrowLeftRight size={14} />
              </div>
-             <Button variant="ghost" size="sm" onClick={handleRefresh} disabled={isRefreshing} className="h-5 text-[9px] font-black uppercase text-slate-400 hover:text-primary">
-                {isRefreshing ? <Loader2 size={10} className="animate-spin" /> : <RefreshCw size={10} />}
-                <span className="ml-1">Đồng bộ</span>
+             <Button variant="ghost" size="sm" onClick={handleRefresh} disabled={isRefreshing} className="h-7 text-[10px] font-black uppercase text-slate-400 hover:text-primary rounded-none">
+                {isRefreshing ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+                <span className="ml-1 hidden sm:inline">Làm mới</span>
              </Button>
           </div>
 
-          <div className="flex-1 w-full">
-            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Xe đối chiếu số 2</label>
+          <div className="flex-1 w-full flex items-center gap-3">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Xe 2:</span>
             <select 
               value={trip2Id} 
               onChange={e => { setTrip2Id(e.target.value); setSelectedBooking(null); setSelectedSeatIds([]); }}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-primary/10 transition-all"
+              className="flex-1 bg-slate-50 border border-slate-200 rounded-none px-3 py-1.5 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 transition-all"
             >
-              <option value="">-- Chọn xe 2 --</option>
+              <option value="">-- Chọn chuyến --</option>
               {availableTrips.filter(t => t.id !== trip1Id).map(t => (
                 <option key={t.id} value={t.id}>{t.departureTime.split(' ')[1]} - {t.licensePlate} ({t.route})</option>
               ))}
             </select>
           </div>
+
+          <div className="shrink-0">
+             <Button 
+                variant={isSidebarVisible ? "secondary" : "default"} 
+                size="sm" 
+                onClick={() => setIsSidebarVisible(!isSidebarVisible)}
+                className="h-8 rounded-none text-xs font-bold px-3 flex items-center gap-2"
+             >
+                <ShoppingCart size={14}/>
+                {isSidebarVisible ? "Ẩn hàng chờ" : `Hiện hàng chờ (${transferQueue.length})`}
+             </Button>
+          </div>
         </div>
       </div>
 
-      <div className="flex gap-4 items-start h-[calc(100vh-250px)] relative overflow-hidden">
+      <div className="flex-1 flex gap-0 items-start overflow-hidden relative">
         
-        {/* Main Mapping Area */}
-        <div className="flex-1 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-full relative">
+        {/* 2. Main Comparison Area */}
+        <div className="flex-1 bg-white border-r border-slate-200 flex flex-col h-full relative rounded-none overflow-hidden">
           
           <div className="flex bg-slate-50 border-b border-slate-200 shrink-0 sticky top-0 z-20">
-              <div className="basis-1/2 min-w-0 px-4 py-2.5 border-r border-slate-200 flex justify-between items-center">
-                  <div className="flex items-center gap-2 text-[11px] font-black text-slate-700 uppercase tracking-tight truncate">
-                    <BusFront size={16} className={selectedFromTripId === trip1Id ? 'text-primary' : 'text-slate-400'}/> 
-                    {trip1 ? trip1.licensePlate : 'Xe 1'}
+              <div className={`basis-1/2 min-w-0 px-4 py-2 border-r border-slate-200 flex justify-between items-center ${selectedFromTripId === trip1Id ? 'bg-primary/5' : ''}`}>
+                  <div className="flex items-center gap-2 text-[10px] font-black text-slate-700 uppercase tracking-tight truncate">
+                    <BusFront size={14} className={selectedFromTripId === trip1Id ? 'text-primary' : 'text-slate-400'}/> 
+                    {trip1 ? trip1.licensePlate : 'Chuyến 1'}
                   </div>
-                  {selectedFromTripId === trip1Id && <Badge className="bg-primary text-white border-transparent px-2 py-0.5 text-[9px] font-black">NGUỒN</Badge>}
+                  {selectedFromTripId === trip1Id && <Badge className="bg-primary text-white border-transparent px-2 py-0 h-4 text-[8px] font-black rounded-none">NGUỒN</Badge>}
               </div>
-              <div className="basis-1/2 min-w-0 px-4 py-2.5 flex justify-between items-center">
-                  <div className="flex items-center gap-2 text-[11px] font-black text-slate-700 uppercase tracking-tight truncate">
-                    <BusFront size={16} className={selectedFromTripId === trip2Id ? 'text-primary' : 'text-slate-400'}/> 
-                    {trip2 ? trip2.licensePlate : 'Xe 2'}
+              <div className={`basis-1/2 min-w-0 px-4 py-2 flex justify-between items-center ${selectedFromTripId === trip2Id ? 'bg-primary/5' : ''}`}>
+                  <div className="flex items-center gap-2 text-[10px] font-black text-slate-700 uppercase tracking-tight truncate">
+                    <BusFront size={14} className={selectedFromTripId === trip2Id ? 'text-primary' : 'text-slate-400'}/> 
+                    {trip2 ? trip2.licensePlate : 'Chuyến 2'}
                   </div>
-                  {selectedFromTripId === trip2Id && <Badge className="bg-primary text-white border-transparent px-2 py-0.5 text-[9px] font-black">NGUỒN</Badge>}
+                  {selectedFromTripId === trip2Id && <Badge className="bg-primary text-white border-transparent px-2 py-0 h-4 text-[8px] font-black rounded-none">NGUỒN</Badge>}
               </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-thin">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden">
             <div className="flex h-full min-h-max min-w-full">
-                {/* Column 1 (Fixed 50%) */}
+                {/* Trip 1 Map */}
                 <div className={`basis-1/2 min-w-0 border-r border-slate-100 ${selectedFromTripId === trip1Id ? 'bg-primary/[0.01]' : ''}`}>
                     {trip1 ? (
-                       <SeatMap 
-                         seats={getAugmentedSeats(trip1)} 
-                         busType={trip1.type} 
-                         onSeatClick={(s) => handleSeatClick(s, trip1Id)} 
-                         bookings={bookings.filter(b => b.items.some(i => i.tripId === trip1Id))}
-                         currentTripId={trip1.id}
-                       />
+                       <div className="p-2">
+                        <SeatMap 
+                          seats={getAugmentedSeats(trip1)} 
+                          busType={trip1.type} 
+                          onSeatClick={(s) => handleSeatClick(s, trip1Id)} 
+                          bookings={bookings.filter(b => b.items.some(i => i.tripId === trip1Id))}
+                          currentTripId={trip1.id}
+                        />
+                       </div>
                     ) : (
-                       <div className="h-40 flex items-center justify-center text-slate-300 italic text-xs">Chưa chọn xe 1</div>
+                       <div className="h-full flex items-center justify-center text-slate-300 italic text-xs">Vui lòng chọn xe 1</div>
                     )}
                 </div>
 
-                {/* Column 2 (Fixed 50%) */}
+                {/* Trip 2 Map */}
                 <div className={`basis-1/2 min-w-0 ${selectedFromTripId === trip2Id ? 'bg-primary/[0.01]' : ''}`}>
                     {trip2 ? (
-                       <SeatMap 
-                         seats={getAugmentedSeats(trip2)} 
-                         busType={trip2.type} 
-                         onSeatClick={(s) => handleSeatClick(s, trip2Id)} 
-                         bookings={bookings.filter(b => b.items.some(i => i.tripId === trip2Id))}
-                         currentTripId={trip2.id}
-                       />
+                       <div className="p-2">
+                        <SeatMap 
+                          seats={getAugmentedSeats(trip2)} 
+                          busType={trip2.type} 
+                          onSeatClick={(s) => handleSeatClick(s, trip2Id)} 
+                          bookings={bookings.filter(b => b.items.some(i => i.tripId === trip2Id))}
+                          currentTripId={trip2.id}
+                        />
+                       </div>
                     ) : (
-                       <div className="h-40 flex items-center justify-center text-slate-300 italic text-xs">Chưa chọn xe 2</div>
+                       <div className="h-full flex items-center justify-center text-slate-300 italic text-xs">Vui lòng chọn xe 2</div>
                     )}
                 </div>
             </div>
           </div>
 
-          {/* Floated Control for Current Selection */}
+          {/* Floating Selection Tooltip/Control */}
           {selectedBooking && sourceTrip && targetTrip && (
-            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-white/95 backdrop-blur-md border border-indigo-200 shadow-2xl rounded-2xl p-4 flex flex-col gap-3 min-w-[400px] animate-in slide-in-from-bottom-4 z-40 ring-1 ring-indigo-500/20">
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white border border-indigo-200 shadow-xl rounded-none p-3 flex flex-col gap-3 min-w-[320px] animate-in slide-in-from-bottom-2 z-40">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white shadow-sm">
-                            <ShoppingCart size={18}/>
+                        <div className="w-6 h-6 rounded-none bg-indigo-600 flex items-center justify-center text-white">
+                            <ShoppingCart size={14}/>
                         </div>
-                        <span className="font-black text-slate-800 text-sm">Điều phối {selectedSeatIds.length} ghế</span>
+                        <span className="font-black text-slate-800 text-[11px] uppercase">Điều phối {selectedSeatIds.length} vị trí</span>
                     </div>
-                    <button onClick={() => { setSelectedBooking(null); setSelectedSeatIds([]); }} className="text-slate-400 hover:text-red-500 transition-colors"><X size={18}/></button>
+                    <button onClick={() => { setSelectedBooking(null); setSelectedSeatIds([]); }} className="text-slate-400 hover:text-red-500"><X size={16}/></button>
                 </div>
                 
-                <div className="flex flex-wrap gap-2 py-1 max-h-[80px] overflow-y-auto">
+                <div className="flex flex-wrap gap-1.5 py-1 max-h-[60px] overflow-y-auto">
                     {transferValidation?.results.map((r, i) => (
-                        <Badge key={i} className={`h-7 px-2 rounded-lg border font-bold flex items-center gap-2 ${r.isSwap ? 'bg-orange-50 text-orange-700 border-orange-200' : 'bg-green-50 text-green-700 border-green-200'}`}>
+                        <Badge key={i} className={`h-6 px-1.5 rounded-none border font-bold flex items-center gap-2 text-[10px] ${r.isSwap ? 'bg-orange-50 text-orange-700 border-orange-200' : 'bg-green-50 text-green-700 border-green-200'}`}>
                            {r.sourceLabel} 
-                           {r.isSwap ? <ArrowLeftRight size={10} className="animate-pulse"/> : <ArrowRight size={10}/>} 
+                           {r.isSwap ? <ArrowLeftRight size={10}/> : <ArrowRight size={10}/>} 
                            {r.targetLabel || '?'}
                         </Badge>
                     ))}
@@ -370,95 +389,77 @@ export const SeatTransfer: React.FC<SeatTransferProps> = ({ trips, bookings, sel
                 <Button 
                     onClick={addToQueue}
                     disabled={!transferValidation?.isAllValid}
-                    className={`h-11 rounded-xl font-black uppercase text-xs tracking-wider shadow-lg transition-all ${
+                    className={`h-9 rounded-none font-black uppercase text-[10px] tracking-wider transition-all ${
                         transferValidation?.isAllValid 
                         ? 'bg-indigo-600 hover:bg-indigo-700 text-white' 
-                        : 'bg-slate-400 text-white cursor-not-allowed'
+                        : 'bg-slate-300 text-white cursor-not-allowed'
                     }`}
                 >
-                    {transferValidation?.isAllValid ? 'Thêm vào hàng chờ lưu' : 'Lỗi vị trí đích'}
+                    {transferValidation?.isAllValid ? 'Thêm vào hàng chờ' : 'Vị trí đích không hợp lệ'}
                 </Button>
             </div>
           )}
         </div>
 
-        {/* Transfer Queue Side Panel - COLLAPSIBLE */}
+        {/* 3. Transfer Queue Sidebar - Toggleable */}
         <div 
           className={`
-            bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col h-full overflow-visible shrink-0 transition-all duration-300 relative
-            ${isSidebarVisible ? 'w-[320px] opacity-100' : 'w-0 opacity-0'}
+            bg-slate-50 flex flex-col h-full overflow-hidden transition-all duration-300 shrink-0 border-l border-slate-200
+            ${isSidebarVisible ? 'w-[300px]' : 'w-0 border-none'}
           `}
         >
-           {/* Toggle Button */}
-           <button 
-              onClick={() => setIsSidebarVisible(!isSidebarVisible)}
-              className={`
-                absolute top-1/2 -translate-y-1/2 -left-4 z-50 w-8 h-12 bg-white border border-slate-200 rounded-lg shadow-md flex items-center justify-center text-slate-400 hover:text-primary transition-all
-                ${!isSidebarVisible ? 'left-[-40px] opacity-100' : ''}
-              `}
-              title={isSidebarVisible ? "Thu gọn hàng chờ" : "Mở hàng chờ lưu"}
-           >
-              {isSidebarVisible ? <ChevronRight size={20}/> : <div className="relative"><ChevronLeft size={20}/>{transferQueue.length > 0 && <span className="absolute -top-5 -right-2 bg-red-500 text-white text-[8px] font-black rounded-full w-4 h-4 flex items-center justify-center ring-2 ring-white animate-bounce">{transferQueue.length}</span>}</div>}
-           </button>
+          <div className="px-4 py-3 bg-white border-b border-slate-200 flex items-center justify-between shrink-0">
+            <div className="flex items-center gap-2 font-black text-[10px] text-slate-800 uppercase tracking-widest">
+                <ShoppingCart size={14} className="text-indigo-600"/> Danh sách chờ ({transferQueue.length})
+            </div>
+            {transferQueue.length > 0 && (
+                <button onClick={() => setTransferQueue([])} className="text-[9px] font-bold text-red-500 hover:underline uppercase">Xóa hết</button>
+            )}
+          </div>
 
-           {isSidebarVisible && (
-              <>
-                <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between shrink-0">
-                  <div className="flex items-center gap-2 font-black text-[11px] text-slate-800 uppercase tracking-wider">
-                     <ShoppingCart size={14} className="text-indigo-600"/> Hàng chờ lưu ({transferQueue.length})
+          <div className="flex-1 overflow-y-auto p-3 space-y-2">
+              {transferQueue.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full text-slate-400 text-center px-6">
+                      <ShoppingCart size={32} className="opacity-10 mb-2"/>
+                      <p className="text-[10px] font-bold uppercase tracking-tight opacity-40">Chưa có lệnh điều phối nào</p>
                   </div>
-                  {transferQueue.length > 0 && (
-                      <button onClick={() => setTransferQueue([])} className="text-[9px] font-bold text-red-500 hover:underline">Xóa hết</button>
-                  )}
-                </div>
+              ) : (
+                  transferQueue.map(q => (
+                      <div key={q.id} className="bg-white p-2.5 rounded-none border border-slate-200 shadow-sm flex flex-col gap-2 relative group hover:border-indigo-400 transition-all">
+                          <div className="flex justify-between items-center">
+                              <span className="text-[10px] font-black text-slate-900">{q.phone}</span>
+                              <button onClick={() => setTransferQueue(prev => prev.filter(item => item.id !== q.id))} className="text-slate-300 hover:text-red-500">
+                                  <X size={14}/>
+                              </button>
+                          </div>
+                          <div className="flex items-center gap-1.5 text-[9px] font-black">
+                              <Badge className="bg-indigo-600 text-white border-transparent h-4 px-1 rounded-none">{q.sourceLabel}</Badge>
+                              {q.isSwap ? <ArrowLeftRight size={10} className="text-orange-500"/> : <ArrowRight size={10} className="text-indigo-400"/>}
+                              <Badge className="bg-green-600 text-white border-transparent h-4 px-1 rounded-none">{q.targetLabel}</Badge>
+                              <span className="text-[8px] text-slate-400 ml-auto font-medium">({q.posDesc})</span>
+                          </div>
+                          {q.isSwap && (
+                              <div className="text-[8px] bg-orange-50 text-orange-700 p-1.5 border border-orange-100 font-bold flex items-center gap-1">
+                                  <Repeat size={10}/> Đổi chéo: <span className="font-black">{q.swapPhone}</span>
+                              </div>
+                          )}
+                      </div>
+                  ))
+              )}
+          </div>
 
-                <div className="flex-1 overflow-y-auto p-3 space-y-2.5 bg-slate-50/50">
-                    {transferQueue.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center h-full text-slate-300 text-center px-4">
-                            <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center mb-3">
-                              <ShoppingCart size={20} className="opacity-20"/>
-                            </div>
-                            <p className="text-[10px] font-medium italic leading-relaxed">Chọn đoàn khách trên xe Nguồn để bắt đầu sắp xếp vào hàng chờ lưu.</p>
-                        </div>
-                    ) : (
-                        transferQueue.map(q => (
-                            <div key={q.id} className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-xs flex flex-col gap-2 relative group hover:border-indigo-300 transition-all">
-                                <div className="flex justify-between items-center">
-                                    <span className="text-[11px] font-black text-slate-800">{q.phone}</span>
-                                    <button onClick={() => setTransferQueue(prev => prev.filter(item => item.id !== q.id))} className="text-slate-300 hover:text-red-500">
-                                        <X size={14}/>
-                                    </button>
-                                </div>
-                                <div className="flex items-center gap-1.5 text-[10px] font-bold">
-                                   <Badge className="bg-indigo-600 text-white border-transparent h-5 px-1.5">{q.sourceLabel}</Badge>
-                                   {q.isSwap ? <ArrowLeftRight size={12} className="text-orange-500"/> : <ArrowRight size={12} className="text-indigo-400"/>}
-                                   <Badge className="bg-green-600 text-white border-transparent h-5 px-1.5">{q.targetLabel}</Badge>
-                                   <span className="text-[9px] text-slate-400 ml-auto font-medium">({q.posDesc})</span>
-                                </div>
-                                {q.isSwap && (
-                                    <div className="text-[9px] bg-orange-50 text-orange-700 p-1.5 rounded-lg border border-orange-100 font-bold">
-                                        <div className="flex items-center gap-1"><Repeat size={10}/> Đổi chéo: <span className="font-black ml-1">{q.swapPhone}</span></div>
-                                    </div>
-                                )}
-                            </div>
-                        ))
-                    )}
-                </div>
-
-                <div className="p-3 border-t border-slate-200 bg-white space-y-2 shrink-0">
-                    <Button 
-                      onClick={handleSaveAll}
-                      disabled={transferQueue.length === 0 || isProcessing}
-                      className="w-full h-10 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-indigo-500/20"
-                    >
-                      {isProcessing ? <Loader2 className="animate-spin" size={16}/> : <><Save className="mr-2" size={14}/> Lưu {transferQueue.length} thay đổi</>}
-                    </Button>
-                    <p className="text-[9px] text-slate-400 text-center px-2 leading-tight">Nhấn "Lưu" để thực hiện cập nhật toàn bộ các vị trí đã sắp xếp lên hệ thống.</p>
-                </div>
-              </>
-           )}
+          {/* Save Button - Stays at bottom of sidebar */}
+          <div className="p-3 border-t border-slate-200 bg-white space-y-2 shrink-0">
+              <Button 
+                onClick={handleSaveAll}
+                disabled={transferQueue.length === 0 || isProcessing}
+                className="w-full h-11 rounded-none bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[11px] uppercase tracking-widest shadow-md disabled:bg-slate-200 disabled:text-slate-400"
+              >
+                {isProcessing ? <Loader2 className="animate-spin" size={16}/> : <><Save className="mr-2" size={14}/> Lưu {transferQueue.length} thay đổi</>}
+              </Button>
+              <p className="text-[9px] text-slate-400 text-center uppercase tracking-tighter">Nhấn lưu để cập nhật vào hệ thống</p>
+          </div>
         </div>
-
       </div>
     </div>
   );

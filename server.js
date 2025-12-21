@@ -259,6 +259,26 @@ const processPaymentUpdate = async (booking, newPaymentState) => {
     await Booking.findByIdAndUpdate(booking._id, { updatedAt: new Date().toISOString() });
 };
 
+// --- HELPERS ---
+
+const ensureItemForTrip = (booking, trip) => {
+    let item = booking.items.find(i => i.tripId === trip.id);
+    if (!item) {
+        item = {
+            tripId: trip.id,
+            tripDate: trip.departureTime,
+            route: trip.route,
+            licensePlate: trip.licensePlate,
+            seatIds: [],
+            tickets: [],
+            price: 0,
+            busType: trip.type
+        };
+        booking.items.push(item);
+    }
+    return item;
+};
+
 // --- ROUTES ---
 
 app.get("/api/buses", async (req, res) => { try { const buses = await Bus.find(); res.json(buses); } catch (e) { res.status(500).json({ error: e.message }); } });
@@ -398,76 +418,97 @@ app.post("/api/bookings/transfer", async (req, res) => {
     const targetTrip = await Trip.findById(targetTripId);
     if (!booking || !sourceTrip || !targetTrip) return res.status(404).json({ error: "Data not found" });
 
-    const sourceItemIndex = booking.items.findIndex(i => i.tripId === sourceTripId);
-    if (sourceItemIndex === -1) return res.status(404).json({ error: "Source item not found" });
-    const sourceItem = booking.items[sourceItemIndex];
+    // Track bookings that were modified in the process to save them later
+    const modifiedBookings = new Map();
+    modifiedBookings.set(bookingId, booking);
 
     for (const transfer of seatTransfers) {
         const { sourceSeatId, targetSeatId } = transfer;
         
-        // KIỂM TRA HOÁN ĐỔI (SWAP)
+        // 1. Check for swap occupant on Target Trip
         const targetOccupant = await Booking.findOne({ 
             status: { $ne: 'cancelled' },
             "items": { $elemMatch: { tripId: targetTripId, seatIds: targetSeatId } }
         });
 
+        const sourceItem = booking.items.find(i => i.tripId === sourceTripId);
+        if (!sourceItem) continue;
+        const sourceTicketIndex = sourceItem.tickets.findIndex(t => t.seatId === sourceSeatId);
+        if (sourceTicketIndex === -1) continue;
+        const sourceTicket = sourceItem.tickets[sourceTicketIndex];
+
         if (targetOccupant) {
-            // Thực hiện đổi chéo tọa độ trong DB
-            // 1. Tìm ticket tương ứng của khách bị đổi
-            const targetOccItem = targetOccupant.items.find(i => i.tripId === targetTripId);
-            const targetTicket = targetOccItem.tickets.find(t => t.seatId === targetSeatId);
-            
-            // 2. Tìm ticket của khách nguồn
-            const sourceTicket = sourceItem.tickets.find(t => t.seatId === sourceSeatId);
+            // SWAP CASE
+            const tOccId = targetOccupant._id.toString();
+            const tBooking = modifiedBookings.get(tOccId) || targetOccupant;
+            modifiedBookings.set(tOccId, tBooking);
 
-            // 3. Swap tọa độ ID trong mảng ghế và mảng vé
-            // Cập nhật khách bị đổi về xe nguồn, tọa độ nguồn
-            targetOccItem.seatIds = targetOccItem.seatIds.map(sid => sid === targetSeatId ? sourceSeatId : sid);
-            targetTicket.seatId = sourceSeatId;
-            targetOccItem.tripId = sourceTripId;
-            targetOccItem.route = sourceTrip.route;
-            targetOccItem.tripDate = sourceTrip.departureTime;
-            targetOccItem.licensePlate = sourceTrip.licensePlate;
+            const tItem = tBooking.items.find(i => i.tripId === targetTripId);
+            const tTicketIndex = tItem.tickets.findIndex(t => t.seatId === targetSeatId);
+            const tTicket = tItem.tickets[tTicketIndex];
 
-            // Cập nhật khách nguồn sang xe đích, tọa độ đích
-            sourceItem.seatIds = sourceItem.seatIds.map(sid => sid === sourceSeatId ? targetSeatId : sid);
-            sourceTicket.seatId = targetSeatId;
-            
-            // Cập nhật trạng thái ghế trên sơ đồ (vẫn giữ status hiện tại vì cả 2 đều có khách)
+            // Update Trip statuses (Swap statuses)
             const sIdx = sourceTrip.seats.findIndex(s => s.id === sourceSeatId);
             const tIdx = targetTrip.seats.findIndex(s => s.id === targetSeatId);
             const sStatus = sourceTrip.seats[sIdx].status;
             const tStatus = targetTrip.seats[tIdx].status;
-            
             sourceTrip.seats[sIdx].status = tStatus;
             targetTrip.seats[tIdx].status = sStatus;
 
-            targetOccupant.markModified('items');
-            await targetOccupant.save();
-        } else {
-            // Di chuyển 1 chiều bình thường
-            sourceTrip.seats = sourceTrip.seats.map(s => s.id === sourceSeatId ? { ...s, status: 'available' } : s);
-            const targetStatus = booking.status === 'payment' ? 'sold' : booking.status === 'hold' ? 'held' : 'booked';
-            targetTrip.seats = targetTrip.seats.map(s => s.id === targetSeatId ? { ...s, status: targetStatus } : s);
-            
-            const sourceTicket = sourceItem.tickets.find(t => t.seatId === sourceSeatId);
-            sourceItem.seatIds = sourceItem.seatIds.map(sid => sid === sourceSeatId ? targetSeatId : sid);
+            // Perform logical move for Target Ticket (Target -> Source)
+            tItem.seatIds = tItem.seatIds.filter(sid => sid !== targetSeatId);
+            tItem.tickets.splice(tTicketIndex, 1);
+            tItem.price = tItem.tickets.reduce((sum, t) => sum + (t.price || 0), 0);
+
+            const targetMovedToItem = ensureItemForTrip(tBooking, sourceTrip);
+            targetMovedToItem.seatIds.push(sourceSeatId);
+            tTicket.seatId = sourceSeatId;
+            targetMovedToItem.tickets.push(tTicket);
+            targetMovedToItem.price = targetMovedToItem.tickets.reduce((sum, t) => sum + (t.price || 0), 0);
+
+            // Perform logical move for Source Ticket (Source -> Target)
+            sourceItem.seatIds = sourceItem.seatIds.filter(sid => sid !== sourceSeatId);
+            sourceItem.tickets.splice(sourceTicketIndex, 1);
+            sourceItem.price = sourceItem.tickets.reduce((sum, t) => sum + (t.price || 0), 0);
+
+            const sourceMovedToItem = ensureItemForTrip(booking, targetTrip);
+            sourceMovedToItem.seatIds.push(targetSeatId);
             sourceTicket.seatId = targetSeatId;
+            sourceMovedToItem.tickets.push(sourceTicket);
+            sourceMovedToItem.price = sourceMovedToItem.tickets.reduce((sum, t) => sum + (t.price || 0), 0);
+        } else {
+            // MOVE CASE (One-way)
+            const sIdx = sourceTrip.seats.findIndex(s => s.id === sourceSeatId);
+            const tIdx = targetTrip.seats.findIndex(s => s.id === targetSeatId);
+            const sStatus = sourceTrip.seats[sIdx].status;
+            
+            sourceTrip.seats[sIdx].status = 'available';
+            targetTrip.seats[tIdx].status = sStatus;
+
+            // Perform logical move for Source Ticket (Source -> Target)
+            sourceItem.seatIds = sourceItem.seatIds.filter(sid => sid !== sourceSeatId);
+            sourceItem.tickets.splice(sourceTicketIndex, 1);
+            sourceItem.price = sourceItem.tickets.reduce((sum, t) => sum + (t.price || 0), 0);
+
+            const sourceMovedToItem = ensureItemForTrip(booking, targetTrip);
+            sourceMovedToItem.seatIds.push(targetSeatId);
+            sourceTicket.seatId = targetSeatId;
+            sourceMovedToItem.tickets.push(sourceTicket);
+            sourceMovedToItem.price = sourceMovedToItem.tickets.reduce((sum, t) => sum + (t.price || 0), 0);
         }
     }
 
-    sourceItem.tripId = targetTripId;
-    sourceItem.route = targetTrip.route;
-    sourceItem.tripDate = targetTrip.departureTime;
-    sourceItem.licensePlate = targetTrip.licensePlate;
+    // Cleanup empty items for all modified bookings
+    for (const b of modifiedBookings.values()) {
+        b.items = b.items.filter(i => i.seatIds.length > 0);
+        b.markModified('items');
+        await b.save();
+    }
 
     sourceTrip.markModified('seats');
     targetTrip.markModified('seats');
-    booking.markModified('items');
-
     await sourceTrip.save();
     await targetTrip.save();
-    await booking.save();
 
     await logBookingAction(bookingId, 'TRANSFER', `Điều phối khách sang xe ${targetTrip.licensePlate}`);
 
