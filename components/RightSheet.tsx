@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from "react";
 import {
   Sheet,
@@ -23,6 +24,12 @@ import {
   ChevronRight,
   Hash,
   Zap,
+  PlusCircle,
+  RefreshCw,
+  ArrowRightLeft,
+  Trash2,
+  // Added Info icon import to fix the error on line 489
+  Info
 } from "lucide-react";
 import { Badge } from "./ui/Badge";
 import { Booking, BusTrip, UndoAction } from "../types";
@@ -124,6 +131,76 @@ export const RightSheet: React.FC<RightSheetProps> = ({
     setViewHistoryBooking(booking);
   };
 
+  // Logic diễn giải hành động hoàn tác
+  const renderUndoSummary = () => {
+    if (!lastUndoAction) return null;
+
+    switch (lastUndoAction.type) {
+      case 'CREATED_BOOKING':
+        return (
+          <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 space-y-3">
+             <div className="flex items-center gap-2 text-emerald-700 font-black text-xs uppercase tracking-wider">
+                <PlusCircle size={14}/> Vừa tạo đơn hàng mới
+             </div>
+             <div className="flex flex-col gap-1.5">
+                <div className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                   <Phone size={14} className="text-slate-400"/> {lastUndoAction.phone}
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                   {lastUndoAction.seatLabels.map(l => (
+                     <Badge key={l} className="bg-emerald-100 text-emerald-700 border-emerald-200 text-[10px] px-1.5 h-4">{l}</Badge>
+                   ))}
+                </div>
+             </div>
+             <p className="text-[11px] text-emerald-600/80 font-medium italic border-t border-emerald-100 pt-2">
+                Hành động hoàn tác sẽ **XÓA** đơn hàng này và trả lại ghế trống.
+             </p>
+          </div>
+        );
+      case 'UPDATED_BOOKING':
+        return (
+          <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 space-y-3">
+             <div className="flex items-center gap-2 text-blue-700 font-black text-xs uppercase tracking-wider">
+                <RefreshCw size={14}/> Vừa cập nhật đơn hàng
+             </div>
+             <div className="flex flex-col gap-1.5">
+                <div className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                   <Phone size={14} className="text-slate-400"/> {lastUndoAction.phone}
+                </div>
+                <div className="text-[11px] text-slate-500 font-medium">
+                   Mã đơn: <span className="font-mono font-bold">#{lastUndoAction.previousBooking.id.slice(-6).toUpperCase()}</span>
+                </div>
+             </div>
+             <p className="text-[11px] text-blue-600/80 font-medium italic border-t border-blue-100 pt-2">
+                Hành động hoàn tác sẽ khôi phục lại trạng thái (ghế/giá/điểm đón) **TRƯỚC KHI SỬA**.
+             </p>
+          </div>
+        );
+      case 'SWAPPED_SEATS':
+        return (
+          <div className="bg-purple-50 border border-purple-100 rounded-xl p-4 space-y-3">
+             <div className="flex items-center gap-2 text-purple-700 font-black text-xs uppercase tracking-wider">
+                <ArrowRightLeft size={14}/> Vừa đổi chỗ ghế
+             </div>
+             <div className="flex items-center justify-center gap-4 py-1">
+                <div className="flex flex-col items-center gap-1">
+                  <span className="font-black text-slate-500 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-xs text-sm min-w-[45px] text-center">{lastUndoAction.label1}</span>
+                </div>
+                <ArrowRightLeft size={16} className="text-purple-400"/>
+                <div className="flex flex-col items-center gap-1">
+                  <span className="font-black text-purple-700 bg-white px-3 py-1.5 rounded-xl border border-purple-300 shadow-md text-sm min-w-[45px] text-center">{lastUndoAction.label2}</span>
+                </div>
+             </div>
+             <p className="text-[11px] text-purple-600/80 font-medium italic border-t border-purple-100 pt-2 text-center">
+                Hành động hoàn tác sẽ hoán đổi lại vị trí 2 ghế này.
+             </p>
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
+
   const renderStatusBadge = (status: string) => {
     if (status === "cancelled") {
       return (
@@ -163,7 +240,7 @@ export const RightSheet: React.FC<RightSheetProps> = ({
         </SheetTrigger>
         <SheetContent
           side="right"
-          className="flex flex-col h-full w-full p-0 p-0 gap-0 border-l shadow-xl bg-white"
+          className="flex flex-col h-full w-full p-0 gap-0 border-l shadow-xl bg-white"
         >
           <SheetHeader className="px-6 py-5 border-b border-slate-100 shrink-0 bg-white">
             <div className="flex items-center justify-between">
@@ -177,11 +254,9 @@ export const RightSheet: React.FC<RightSheetProps> = ({
               {onUndo && lastUndoAction && (
                 <Button
                   onClick={() => setIsUndoAlertOpen(true)}
-                  variant="ghost"
-                  size="sm"
-                  className="text-white bg-red-400 hover:text-red-600 hover:bg-red-300 border border-red-100 h-8 px-3 rounded-full font-bold text-xs mr-5"
+                  className="text-white bg-red-500 hover:bg-red-600 border border-red-600 h-8 px-4 rounded-full font-black text-[11px] uppercase tracking-wider mr-5 shadow-lg shadow-red-500/20 animate-in zoom-in duration-300"
                 >
-                  <Undo2 size={14} className="mr-1.5" />
+                  <Undo2 size={14} className="mr-2" />
                   <span>Hoàn tác</span>
                 </Button>
               )}
@@ -397,33 +472,42 @@ export const RightSheet: React.FC<RightSheetProps> = ({
       </Sheet>
 
       <AlertDialog open={isUndoAlertOpen} onOpenChange={setIsUndoAlertOpen}>
-        <AlertDialogContent className="max-w-md rounded-2xl">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-red-600 flex items-center gap-2">
-              <AlertTriangle size={22} />
+        <AlertDialogContent className="max-w-md rounded-2xl p-0 overflow-hidden border-none shadow-2xl">
+          <AlertDialogHeader className="p-6 pb-0">
+            <AlertDialogTitle className="text-red-600 flex items-center gap-3 text-xl">
+              <div className="p-2.5 bg-red-50 rounded-2xl">
+                <AlertTriangle size={24} />
+              </div>
               Xác nhận hoàn tác
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
-              <div className="text-slate-600 pt-3 text-sm leading-relaxed">
-                Bạn đang yêu cầu hủy bỏ tác vụ vừa thực hiện và khôi phục lại dữ
-                liệu trước đó. Hành động này không thể rút lại.
+              <div className="text-slate-600 pt-4 text-sm leading-relaxed space-y-4">
+                <p className="font-medium">Bạn đang yêu cầu hủy bỏ tác vụ vừa thực hiện để khôi phục lại trạng thái dữ liệu trước đó.</p>
+                
+                {/* HIỂN THỊ CHI TIẾT HÀNH ĐỘNG SẮP HOÀN TÁC */}
+                {renderUndoSummary()}
+
+                <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 flex gap-2 items-start">
+                   <Info size={14} className="text-slate-400 mt-0.5 shrink-0"/>
+                   <span className="text-[11px] text-slate-500 italic">Lưu ý: Hành động hoàn tác là thao tác trực tiếp vào dữ liệu hệ thống và không thể rút lại sau khi xác nhận.</span>
+                </div>
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="mt-6 gap-3">
+          <AlertDialogFooter className="p-6 bg-slate-50/50 border-t border-slate-100 mt-6 gap-3">
             <Button
               variant="outline"
               onClick={() => setIsUndoAlertOpen(false)}
-              className="rounded-xl flex-1"
+              className="rounded-xl flex-1 h-11 border-slate-200 text-slate-600 hover:bg-white font-bold"
             >
               Đóng
             </Button>
             <Button
               variant="destructive"
               onClick={handleConfirmUndo}
-              className="rounded-xl flex-1 shadow-lg shadow-red-500/20 font-bold"
+              className="rounded-xl flex-1 h-11 bg-red-600 hover:bg-red-700 shadow-lg shadow-red-500/20 font-black uppercase text-xs tracking-widest"
             >
-              Xác nhận
+              Xác nhận hoàn tác
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
