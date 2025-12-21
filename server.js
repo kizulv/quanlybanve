@@ -203,7 +203,6 @@ const syncTripStatuses = async (tripId) => {
     activeBookings.forEach(b => {
         const item = b.items.find(i => i.tripId === tripId);
         if (item) {
-            // Xác định trạng thái hiển thị dựa trên status của đơn hàng
             let status = 'booked';
             if (b.status === 'payment') status = 'sold';
             else if (b.status === 'hold') status = 'held';
@@ -243,48 +242,25 @@ const logBookingAction = async (bookingId, action, description, details = {}) =>
   }
 };
 
-const getBookingPayments = async (bookingId) => {
-    const payments = await Payment.find({ bookingId });
-    const paidCash = payments.reduce((sum, p) => sum + (p.cashAmount || 0), 0);
-    const paidTransfer = payments.reduce((sum, p) => sum + (p.transferAmount || 0), 0);
-    return { paidCash, paidTransfer };
-};
-
-const processPaymentUpdate = async (booking, newPaymentState) => {
-    const current = await getBookingPayments(booking._id);
-    const newCash = newPaymentState?.paidCash || 0;
-    const newTransfer = newPaymentState?.paidTransfer || 0;
-    const cashDelta = newCash - current.paidCash;
-    const transferDelta = newTransfer - current.paidTransfer;
-    const totalDelta = cashDelta + transferDelta;
-    if (totalDelta === 0 && cashDelta === 0 && transferDelta === 0) return;
-    const type = totalDelta >= 0 ? 'payment' : 'refund';
-    let method = 'mixed';
-    if (transferDelta === 0 && cashDelta !== 0) method = 'cash';
-    else if (cashDelta === 0 && transferDelta !== 0) method = 'transfer';
-    const tripDetails = booking.items[0] || {};
-    const allSeats = booking.items.flatMap(i => i.seatIds);
-    const tripsSnapshot = [];
-    for (const item of booking.items) {
-        tripsSnapshot.push({ route: item.route, tripDate: item.tripDate, licensePlate: item.licensePlate, seats: item.seatIds, tickets: item.tickets, isEnhanced: item.isEnhanced });
-    }
-    const paymentRecord = new Payment({ bookingId: booking._id, totalAmount: totalDelta, cashAmount: cashDelta, transferAmount: transferDelta, type, method, note: type === 'refund' ? 'Hoàn tiền' : 'Thanh toán/Cập nhật', timestamp: new Date(), details: { seats: allSeats, tripDate: tripDetails.tripDate, route: tripDetails.route, licensePlate: tripDetails.licensePlate, trips: tripsSnapshot } });
-    await paymentRecord.save();
-    await Booking.findByIdAndUpdate(booking._id, { updatedAt: new Date().toISOString() });
-};
-
-const ensureItemForTrip = (booking, trip) => {
-    let item = booking.items.find(i => i.tripId === trip.id || i.tripId === trip._id.toString());
+const ensureItemForTrip = async (booking, tripId) => {
+    let item = booking.items.find(i => i.tripId === tripId);
     if (!item) {
+        const trip = await Trip.findById(tripId);
+        if (!trip) throw new Error("Trip not found: " + tripId);
+        
+        const route = await Route.findById(trip.routeId);
+        const isEnhanced = route?.isEnhanced || trip.name?.toLowerCase().includes('tăng cường') || trip.route?.toLowerCase().includes('tăng cường');
+
         item = {
-            tripId: trip.id || trip._id.toString(),
+            tripId: tripId,
             tripDate: trip.departureTime,
             route: trip.route,
             licensePlate: trip.licensePlate,
             seatIds: [],
             tickets: [],
             price: 0,
-            busType: trip.type
+            busType: trip.type,
+            isEnhanced: !!isEnhanced
         };
         booking.items.push(item);
     }
@@ -347,7 +323,7 @@ app.post("/api/bookings", async (req, res) => {
         calculatedTotalTickets += seatIds.length;
         const seatLabels = seatIds.map(sid => { const s = trip.seats.find(ts => ts.id === sid); return s ? s.label : sid; });
         logTripDetails.push({ route: trip.route, tripDate: trip.departureTime, seats: seatLabels, licensePlate: trip.licensePlate });
-        bookingItems.push({ tripId: trip.id, tripDate: trip.departureTime, route: trip.route, licensePlate: trip.licensePlate, seatIds: seatIds, tickets: tickets, price: itemPrice, isEnhanced: isEnhanced, busType: trip.type });
+        bookingItems.push({ tripId: trip.id, tripDate: trip.departureTime, route: trip.route, licensePlate: trip.licensePlate, seatIds: seatIds, tickets: tickets, price: itemPrice, isEnhanced: !!isEnhanced, busType: trip.type });
     }
     
     const totalPaid = (payment?.paidCash || 0) + (payment?.paidTransfer || 0);
@@ -360,126 +336,110 @@ app.post("/api/bookings", async (req, res) => {
     }
     
     await logBookingAction(booking._id, 'CREATE', `Tạo đơn hàng`, { trips: logTripDetails, totalTickets: calculatedTotalTickets });
-    if (totalPaid > 0 || payment) await processPaymentUpdate(booking, payment);
-    
-    const allTrips = await Trip.find();
-    const result = await Booking.aggregate([{ $match: { _id: booking._id } }, { $lookup: { from: "payments", localField: "_id", foreignField: "bookingId", as: "paymentRecords" } }, { $addFields: { id: "$_id", payment: { paidCash: { $sum: "$paymentRecords.cashAmount" }, paidTransfer: { $sum: "$paymentRecords.transferAmount" } } } }, { $project: { paymentRecords: 0, _id: 0, __v: 0 } }]);
-    res.json({ bookings: result, updatedTrips: allTrips }); 
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.put("/api/bookings/:id", async (req, res) => {
-  try {
-      const { items, passenger, payment, status: requestedStatus } = req.body;
-      const bookingId = req.params.id;
-      const oldBooking = await Booking.findById(bookingId);
-      if (!oldBooking) return res.status(404).json({ error: "Booking not found" });
-      
-      const involvedTripIds = new Set();
-      oldBooking.items.forEach(i => involvedTripIds.add(i.tripId));
-
-      let calculatedTotalPrice = 0;
-      let calculatedTotalTickets = 0;
-      const bookingItems = [];
-      for (const item of items) {
-          const trip = await Trip.findById(item.tripId);
-          if (!trip) continue; 
-          involvedTripIds.add(item.tripId);
-          const tickets = item.tickets || item.seats.map(s => ({ seatId: s.id, price: s.price, pickup: passenger.pickupPoint || '', dropoff: passenger.dropoffPoint || '', note: '' }));
-          const seatIds = tickets.map(t => t.seatId);
-          const itemPrice = tickets.reduce((sum, t) => sum + t.price, 0);
-          calculatedTotalPrice += itemPrice;
-          calculatedTotalTickets += seatIds.length;
-          bookingItems.push({ tripId: trip.id, tripDate: trip.departureTime, route: trip.route, licensePlate: trip.licensePlate, seatIds, tickets, price: itemPrice, busType: trip.type });
-      }
-      
-      const totalPaid = (payment?.paidCash || 0) + (payment?.paidTransfer || 0);
-      let finalStatus = requestedStatus || (totalPaid >= calculatedTotalPrice ? "payment" : "booking");
-      
-      oldBooking.passenger = passenger;
-      oldBooking.items = bookingItems;
-      oldBooking.status = finalStatus;
-      oldBooking.totalPrice = calculatedTotalPrice;
-      oldBooking.totalTickets = calculatedTotalTickets;
-      oldBooking.updatedAt = new Date().toISOString();
-      await oldBooking.save();
-      
-      for (const tId of involvedTripIds) {
-          await syncTripStatuses(tId);
-      }
-      
-      await processPaymentUpdate(oldBooking, payment);
-      const allTrips = await Trip.find();
-      const result = await Booking.aggregate([{ $match: { _id: oldBooking._id } }, { $lookup: { from: "payments", localField: "_id", foreignField: "bookingId", as: "paymentRecords" } }, { $addFields: { id: "$_id", payment: { paidCash: { $sum: "$paymentRecords.cashAmount" }, paidTransfer: { $sum: "$paymentRecords.transferAmount" } } } }, { $project: { paymentRecords: 0, _id: 0, __v: 0 } }]);
-      res.json({ booking: result[0], updatedTrips: allTrips });
+    res.json({ bookings: [booking], updatedTrips: await Trip.find() }); 
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.post("/api/bookings/transfer", async (req, res) => {
   try {
     const { bookingId, sourceTripId, targetTripId, seatTransfers } = req.body;
-    const booking = await Booking.findById(bookingId);
-    if (!booking) return res.status(404).json({ error: "Booking not found" });
-
-    const modifiedBookings = new Map();
-    modifiedBookings.set(bookingId, booking);
+    
+    // SỬA LỖI: Sử dụng cache để quản lý các đơn hàng đang bị thay đổi trong vòng lặp
+    // Điều này ngăn việc đọc dữ liệu cũ (stale data) từ Database khi chuyển nhiều ghế cùng lúc.
+    const cache = new Map();
+    
+    const sourceBooking = await Booking.findById(bookingId);
+    if (!sourceBooking) return res.status(404).json({ error: "Source booking not found" });
+    cache.set(bookingId, sourceBooking);
 
     for (const transfer of seatTransfers) {
         const { sourceSeatId, targetSeatId } = transfer;
-        const targetOccupant = await Booking.findOne({ status: { $ne: 'cancelled' }, "items": { $elemMatch: { tripId: targetTripId, seatIds: targetSeatId } } });
-        const sourceItem = booking.items.find(i => i.tripId === sourceTripId);
-        if (!sourceItem) continue;
-        const sourceTicketIndex = sourceItem.tickets.findIndex(t => t.seatId === sourceSeatId);
-        if (sourceTicketIndex === -1) continue;
-        const sourceTicket = JSON.parse(JSON.stringify(sourceItem.tickets[sourceTicketIndex]));
+        
+        // 1. Tìm người đang chiếm giữ ghế đích (nếu có)
+        // Ưu tiên tìm trong cache trước, nếu không có mới tìm trong DB
+        let targetOccupant = Array.from(cache.values()).find(b => 
+            b.status !== 'cancelled' && 
+            b.items.some(i => i.tripId === targetTripId && i.seatIds.includes(targetSeatId))
+        );
 
+        if (!targetOccupant) {
+            targetOccupant = await Booking.findOne({ 
+                status: { $ne: 'cancelled' }, 
+                "items": { $elemMatch: { tripId: targetTripId, seatIds: targetSeatId } } 
+            });
+            if (targetOccupant) cache.set(targetOccupant._id.toString(), targetOccupant);
+        }
+
+        // 2. Thực hiện chuyển ghế cho Source Booking
+        const sBooking = cache.get(bookingId);
+        const sItem = sBooking.items.find(i => i.tripId === sourceTripId);
+        if (!sItem) continue;
+
+        const sTicketIdx = sItem.tickets.findIndex(t => t.seatId === sourceSeatId);
+        if (sTicketIdx === -1) continue;
+
+        const sTicket = JSON.parse(JSON.stringify(sItem.tickets[sTicketIdx]));
+        
+        // Xóa khỏi Trip Nguồn
+        sItem.seatIds = sItem.seatIds.filter(sid => sid !== sourceSeatId);
+        sItem.tickets.splice(sTicketIdx, 1);
+
+        // Thêm vào Trip Đích
+        const sTargetItem = await ensureItemForTrip(sBooking, targetTripId);
+        sTargetItem.seatIds.push(targetSeatId);
+        sTicket.seatId = targetSeatId;
+        sTargetItem.tickets.push(sTicket);
+
+        // 3. Nếu có người ở đích, chuyển họ về chỗ của Source ở Trip Nguồn (Hoán đổi chéo)
         if (targetOccupant) {
-            const tOccId = targetOccupant._id.toString();
-            const tBooking = modifiedBookings.get(tOccId) || targetOccupant;
-            modifiedBookings.set(tOccId, tBooking);
+            const tBooking = cache.get(targetOccupant._id.toString());
             const tItem = tBooking.items.find(i => i.tripId === targetTripId);
-            const tTicketIndex = tItem.tickets.findIndex(t => t.seatId === targetSeatId);
-            const tTicket = JSON.parse(JSON.stringify(tItem.tickets[tTicketIndex]));
+            const tTicketIdx = tItem.tickets.findIndex(t => t.seatId === targetSeatId);
             
-            tItem.seatIds = tItem.seatIds.filter(sid => sid !== targetSeatId);
-            tItem.tickets.splice(tTicketIndex, 1);
-            const targetMovedToItem = await ensureItemForTrip(tBooking, await Trip.findById(sourceTripId));
-            targetMovedToItem.seatIds.push(sourceSeatId);
-            tTicket.seatId = sourceSeatId;
-            targetMovedToItem.tickets.push(tTicket);
+            if (tTicketIdx !== -1) {
+                const tTicket = JSON.parse(JSON.stringify(tItem.tickets[tTicketIdx]));
+                
+                // Xóa khỏi Trip Đích
+                tItem.seatIds = tItem.seatIds.filter(sid => sid !== targetSeatId);
+                tItem.tickets.splice(tTicketIdx, 1);
 
-            sourceItem.seatIds = sourceItem.seatIds.filter(sid => sid !== sourceSeatId);
-            sourceItem.tickets.splice(sourceTicketIndex, 1);
-            const sourceMovedToItem = await ensureItemForTrip(booking, await Trip.findById(targetTripId));
-            sourceMovedToItem.seatIds.push(targetSeatId);
-            sourceTicket.seatId = targetSeatId;
-            sourceMovedToItem.tickets.push(sourceTicket);
-        } else {
-            sourceItem.seatIds = sourceItem.seatIds.filter(sid => sid !== sourceSeatId);
-            sourceItem.tickets.splice(sourceTicketIndex, 1);
-            const sourceMovedToItem = await ensureItemForTrip(booking, await Trip.findById(targetTripId));
-            sourceMovedToItem.seatIds.push(targetSeatId);
-            sourceTicket.seatId = targetSeatId;
-            sourceMovedToItem.tickets.push(sourceTicket);
+                // Chuyển về Trip Nguồn (vị trí cũ của người kia)
+                const tSourceItem = await ensureItemForTrip(tBooking, sourceTripId);
+                tSourceItem.seatIds.push(sourceSeatId);
+                tTicket.seatId = sourceSeatId;
+                tSourceItem.tickets.push(tTicket);
+            }
         }
     }
 
-    for (const b of modifiedBookings.values()) {
-        b.items.forEach(item => { if (item.tickets) item.price = item.tickets.reduce((sum, t) => sum + (t.price || 0), 0); });
+    // 4. Lưu tất cả thay đổi và đồng bộ
+    for (const b of cache.values()) {
+        b.items.forEach(item => { 
+            if (item.tickets) {
+                item.price = item.tickets.reduce((sum, t) => sum + (t.price || 0), 0);
+            }
+        });
         b.items = b.items.filter(i => i.seatIds.length > 0);
         b.totalPrice = b.items.reduce((sum, i) => sum + (i.price || 0), 0);
         b.totalTickets = b.items.reduce((sum, i) => sum + i.seatIds.length, 0);
+        b.updatedAt = new Date().toISOString();
         b.markModified('items');
         await b.save();
     }
 
     await syncTripStatuses(sourceTripId);
     await syncTripStatuses(targetTripId);
-    await logBookingAction(bookingId, 'TRANSFER', `Điều phối khách`);
+    await logBookingAction(bookingId, 'TRANSFER', `Điều phối khách (${seatTransfers.length} ghế)`);
 
-    const allTrips = await Trip.find();
-    const allBookings = await Booking.aggregate([{ $lookup: { from: "payments", localField: "_id", foreignField: "bookingId", as: "paymentRecords" } }, { $addFields: { id: "$_id", payment: { paidCash: { $sum: "$paymentRecords.cashAmount" }, paidTransfer: { $sum: "$paymentRecords.transferAmount" } } } }, { $project: { paymentRecords: 0, _id: 0, __v: 0 } }]);
-    res.json({ success: true, trips: allTrips, bookings: allBookings });
+    res.json({ 
+        success: true, 
+        trips: await Trip.find(), 
+        bookings: await Booking.aggregate([
+            { $lookup: { from: "payments", localField: "_id", foreignField: "bookingId", as: "paymentRecords" } },
+            { $addFields: { id: "$_id", payment: { paidCash: { $sum: "$paymentRecords.cashAmount" }, paidTransfer: { $sum: "$paymentRecords.transferAmount" } } } },
+            { $project: { paymentRecords: 0, _id: 0, __v: 0 } }
+        ])
+    });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -491,7 +451,6 @@ app.post("/api/bookings/swap", async (req, res) => {
         
         if (!booking1 && !booking2) return res.status(404).json({ error: "No bookings found at these seats" });
 
-        // Trường hợp cả 2 ghế thuộc cùng 1 đơn hàng (Đổi chỗ nội bộ)
         if (booking1 && booking2 && booking1._id.equals(booking2._id)) {
             booking1.items = booking1.items.map(item => {
                 if (item.tripId === tripId) {
@@ -508,7 +467,6 @@ app.post("/api/bookings/swap", async (req, res) => {
             booking1.markModified('items');
             await booking1.save();
         } else {
-            // Trường hợp đổi chéo giữa 2 khách khác nhau hoặc đổi sang ghế trống
             if (booking1) {
                 booking1.items = booking1.items.map(item => { 
                     if (item.tripId === tripId) { 
@@ -535,77 +493,36 @@ app.post("/api/bookings/swap", async (req, res) => {
             }
         }
         
-        // QUAN TRỌNG: Cập nhật lại sơ đồ ghế thực tế từ dữ liệu đơn hàng
         await syncTripStatuses(tripId);
-
-        const allBookings = await Booking.aggregate([{ $lookup: { from: "payments", localField: "_id", foreignField: "bookingId", as: "paymentRecords" } }, { $addFields: { id: "$_id", payment: { paidCash: { $sum: "$paymentRecords.cashAmount" }, paidTransfer: { $sum: "$paymentRecords.transferAmount" } } } }, { $project: { paymentRecords: 0, _id: 0, __v: 0 } }]);
-        const allTrips = await Trip.find();
-        res.json({ bookings: allBookings, trips: allTrips });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.patch("/api/bookings/:id/tickets/:seatId", async (req, res) => {
-    try {
-        const { id, seatId } = req.params;
-        const { pickup, dropoff, note, phone, name } = req.body;
-        const booking = await Booking.findById(id);
-        if (!booking) return res.status(404).json({ error: "Booking not found" });
-        let updated = false;
-        booking.items.forEach(item => {
-            if (item.tickets) {
-                const ticket = item.tickets.find(t => t.seatId === seatId);
-                if (ticket) {
-                    if (pickup !== undefined) ticket.pickup = pickup;
-                    if (dropoff !== undefined) ticket.dropoff = dropoff;
-                    if (note !== undefined) ticket.note = note;
-                    updated = true;
-                }
-            }
+        res.json({ 
+            bookings: await Booking.aggregate([{ $lookup: { from: "payments", localField: "_id", foreignField: "bookingId", as: "paymentRecords" } }, { $addFields: { id: "$_id", payment: { paidCash: { $sum: "$paymentRecords.cashAmount" }, paidTransfer: { $sum: "$paymentRecords.transferAmount" } } } }, { $project: { paymentRecords: 0, _id: 0, __v: 0 } }]), 
+            trips: await Trip.find() 
         });
-        if (!updated) return res.status(404).json({ error: "Ticket not found" });
-        if (phone) booking.passenger.phone = phone;
-        if (name) booking.passenger.name = name;
-        booking.markModified('items');
-        await booking.save();
-        const result = await Booking.aggregate([{ $match: { _id: new mongoose.Types.ObjectId(id) } }, { $lookup: { from: "payments", localField: "_id", foreignField: "bookingId", as: "paymentRecords" } }, { $addFields: { id: "$_id", payment: { paidCash: { $sum: "$paymentRecords.cashAmount" }, paidTransfer: { $sum: "$paymentRecords.transferAmount" } } } }, { $project: { paymentRecords: 0, _id: 0, __v: 0 } }]);
-        res.json({ booking: result[0] });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.delete("/api/bookings/:id", async (req, res) => {
     try {
-        const bookingId = req.params.id;
-        const booking = await Booking.findById(bookingId);
+        const booking = await Booking.findById(req.params.id);
         if (!booking) return res.status(404).json({ error: "Booking not found" });
-        const involvedTripIds = booking.items.map(i => i.tripId);
-        await Payment.deleteMany({ bookingId: booking._id });
-        await Booking.findByIdAndDelete(bookingId);
-        for (const tId of involvedTripIds) { await syncTripStatuses(tId); }
-        const allTrips = await Trip.find();
-        const allBookings = await Booking.aggregate([{ $lookup: { from: "payments", localField: "_id", foreignField: "bookingId", as: "paymentRecords" } }, { $addFields: { id: "$_id", payment: { paidCash: { $sum: "$paymentRecords.cashAmount" }, paidTransfer: { $sum: "$paymentRecords.transferAmount" } } } }, { $project: { paymentRecords: 0, _id: 0, __v: 0 } }]);
-        res.json({ success: true, trips: allTrips, bookings: allBookings });
+        const tripIds = booking.items.map(i => i.tripId);
+        await Booking.findByIdAndDelete(req.params.id);
+        for (const tId of tripIds) { await syncTripStatuses(tId); }
+        res.json({ success: true, trips: await Trip.find(), bookings: await Booking.find() });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.get("/api/payments", async (req, res) => {
-    try {
-        const payments = await Payment.find().populate('bookingId').sort({ timestamp: -1 });
-        const formatted = payments.map(p => { const doc = p.toJSON(); doc.amount = doc.totalAmount; return doc; });
-        res.json(formatted);
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.put("/api/payments/:id", async (req, res) => { try { const payment = await Payment.findByIdAndUpdate(req.params.id, req.body, { new: true }); res.json(payment); } catch (e) { res.status(500).json({ error: e.message }); } });
 app.get("/api/settings/:key", async (req, res) => { try { const setting = await Setting.findOne({ key: req.params.key }); res.json(setting ? setting.value : null); } catch (error) { res.status(500).json({ error: error.message }); } });
 app.post("/api/settings", async (req, res) => { try { const { key, value } = req.body; const setting = await Setting.findOneAndUpdate({ key }, { value }, { upsert: true, new: true }); res.json(setting.value); } catch (error) { res.status(500).json({ error: error.message }); } });
-
 app.post("/api/maintenance/fix-seats", async (req, res) => {
   try {
     const trips = await Trip.find();
+    let count = 0;
     for (const trip of trips) {
       await syncTripStatuses(trip._id);
+      count++;
     }
-    res.json({ success: true });
+    res.json({ success: true, fixedCount: count });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
