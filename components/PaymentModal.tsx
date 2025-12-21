@@ -9,12 +9,15 @@ import {
   Calendar, 
   MapPin, 
   Bus,
+  Ticket,
+  ArrowRight,
+  Locate,
   Calculator,
+  Tag,
   RotateCcw,
   History,
   TrendingUp,
-  AlertCircle,
-  Locate
+  AlertCircle
 } from "lucide-react";
 import { BusTrip, Seat, Booking } from "../types";
 import { formatLunarDate } from "../utils/dateUtils";
@@ -27,7 +30,7 @@ interface PaymentItem {
   seats: Seat[];
   pickup: string;
   dropoff: string;
-  basePrice: number;
+  basePrice: number; // ADDED: Suggested price
 }
 
 interface SeatOverride {
@@ -39,13 +42,15 @@ interface SeatOverride {
 interface PaymentModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (payment: { paidCash: number; paidTransfer: number }, overrides: Record<string, SeatOverride>, noteSuffix: string) => void;
+  // Updated signature to accept note suffix
+  onConfirm: (finalTotal: number, seatOverrides: Record<string, SeatOverride>, noteSuffix?: string) => void;
   selectionBasket: { trip: BusTrip; seats: Seat[] }[];
   editingBooking?: Booking | null;
   bookingForm: { pickup: string; dropoff: string };
   paidCash: number;
   paidTransfer: number;
   onMoneyChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  isProcessing?: boolean;
   initialOverrides?: Record<string, SeatOverride>;
 }
 
@@ -59,126 +64,271 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   paidCash,
   paidTransfer,
   onMoneyChange,
+  isProcessing = false,
   initialOverrides = {},
 }) => {
   const [seatOverrides, setSeatOverrides] = useState<Record<string, SeatOverride>>({});
 
-  useEffect(() => {
-    if (isOpen) setSeatOverrides(initialOverrides);
-    else setSeatOverrides({});
-  }, [isOpen, initialOverrides]);
-
+  // 1. Normalize Data
   const items: PaymentItem[] = useMemo(() => {
-    return selectionBasket.map(item => ({
-      tripId: item.trip.id,
-      tripName: item.trip.name,
-      tripDate: item.trip.departureTime,
-      route: item.trip.route,
-      seats: item.seats,
-      pickup: bookingForm.pickup || "",
-      dropoff: bookingForm.dropoff || "",
-      basePrice: item.trip.basePrice || 0
-    }));
+    if (selectionBasket.length > 0) {
+      return selectionBasket.map(item => ({
+        tripId: item.trip.id,
+        tripName: item.trip.name,
+        tripDate: item.trip.departureTime,
+        route: item.trip.route,
+        seats: item.seats,
+        pickup: bookingForm.pickup || "",
+        dropoff: bookingForm.dropoff || "",
+        basePrice: item.trip.basePrice || 0
+      }));
+    }
+    return [];
   }, [selectionBasket, bookingForm]);
 
+  // 2. Helper to get effective values
   const getSeatValues = (tripId: string, seat: Seat, defaultPickup: string, defaultDropoff: string, tripBasePrice: number) => {
     const key = `${tripId}_${seat.id}`;
     const override = seatOverrides[key];
     
-    let price = override?.price ?? seat.price;
-    if (price === 0) price = tripBasePrice;
+    // SỬA ĐỔI CHÍNH: Nếu ghế đang có giá = 0 (do được đặt trước), gợi ý giá niêm yết của chuyến
+    let displayPrice = override?.price !== undefined ? override.price : seat.price;
+    if (displayPrice === 0) {
+        displayPrice = tripBasePrice;
+    }
 
     return {
-      price,
-      pickup: override?.pickup ?? defaultPickup,
-      dropoff: override?.dropoff ?? defaultDropoff,
-      isChanged: override?.price !== undefined
+      price: displayPrice,
+      pickup: override?.pickup !== undefined ? override.pickup : defaultPickup,
+      dropoff: override?.dropoff !== undefined ? override.dropoff : defaultDropoff,
+      isPriceChanged: override?.price !== undefined && override.price !== seat.price
     };
   };
 
-  const finalTotal = useMemo(() => {
-    let total = 0;
+  // 3. Standardize Location Logic
+  const getStandardizedLocation = (input: string) => {
+    if (!input) return "";
+    let value = input.trim();
+    const lower = value.toLowerCase();
+    
+    const mappings: Record<string, string> = {
+      "lai chau": "BX Lai Châu",
+      "lai châu": "BX Lai Châu",
+      "ha tinh": "BX Hà Tĩnh",
+      "hà tĩnh": "BX Hà Tĩnh",
+      "lao cai": "BX Lào Cai",
+      vinh: "BX Vinh",
+      "nghe an": "BX Vinh",
+      "nghệ an": "BX Vinh",
+    };
+    if (mappings[lower]) return mappings[lower];
+
+    if (!/^bx\s/i.test(value) && value.length > 2) {
+      value = value.replace(/(?:^|\s)\S/g, (a) => a.toUpperCase());
+    } else if (/^bx\s/i.test(value)) {
+       value = value.replace(/^bx\s/i, "BX ");
+       value = value.replace(/(?:^|\s)\S/g, (a) => a.toUpperCase());
+    }
+    return value;
+  };
+
+  // 4. Totals Calculation
+  const { totalOriginal, finalTotal } = useMemo(() => {
+    let original = 0;
+    let final = 0;
     items.forEach(trip => {
       trip.seats.forEach(seat => {
-        total += getSeatValues(trip.tripId, seat, trip.pickup, trip.dropoff, trip.basePrice).price;
+        original += seat.price;
+        const { price } = getSeatValues(trip.tripId, seat, trip.pickup, trip.dropoff, trip.basePrice);
+        final += price;
       });
     });
-    return total;
+    return { totalOriginal: original, finalTotal: final };
   }, [items, seatOverrides]);
 
+  // OLD BOOKING DATA (If Editing)
+  const oldTotal = editingBooking ? editingBooking.totalPrice : 0;
   const previouslyPaid = editingBooking ? ((editingBooking.payment?.paidCash || 0) + (editingBooking.payment?.paidTransfer || 0)) : 0;
-  const currentPaid = paidCash + paidTransfer;
-  const remaining = finalTotal - currentPaid;
-  const gapFromPrevious = finalTotal - previouslyPaid;
+  
+  // LOGIC:
+  const diffFromPrevious = finalTotal - previouslyPaid; 
 
-  const handleOverride = (tripId: string, seatId: string, field: keyof SeatOverride, value: string | number) => {
+  // Số tiền còn thiếu dựa trên INPUT hiện tại
+  const currentInputTotal = paidCash + paidTransfer;
+  const remainingBalance = finalTotal - currentInputTotal;
+
+  // Logic to determine button text and color
+  const getActionInfo = () => {
+      if (isProcessing) return { text: "Đang xử lý...", colorClass: "bg-slate-600 border-slate-700" };
+      
+      if (editingBooking) {
+          if (remainingBalance === 0) return { text: "Cập nhật đơn hàng", colorClass: "bg-blue-600 hover:bg-blue-500 border-blue-700 text-white" };
+          return { text: "Xác nhận & Lưu", colorClass: "bg-indigo-600 hover:bg-indigo-500 border-indigo-700 text-white" };
+      }
+
+      // New Booking
+      if (remainingBalance <= 0) return { text: "Xác nhận thanh toán", colorClass: "bg-green-600 hover:bg-green-500 border-green-700 text-white" };
+      return { text: "Lưu công nợ", colorClass: "bg-yellow-500 hover:bg-yellow-400 text-indigo-950 border-yellow-600" };
+  };
+
+  const actionInfo = getActionInfo();
+
+  // Handlers
+  const handleOverrideChange = (tripId: string, seatId: string, field: keyof SeatOverride, value: string) => {
     const key = `${tripId}_${seatId}`;
-    setSeatOverrides(prev => ({
-      ...prev,
-      [key]: { ...prev[key], [field]: typeof value === 'string' && field === 'price' ? parseInt(value.replace(/\D/g, '') || '0', 10) : value }
-    }));
-  };
-
-  const handleSettle = (method: 'cash' | 'transfer') => {
-    const newVal = (method === 'cash' ? paidCash : paidTransfer) + remaining;
-    onMoneyChange({ target: { name: method === 'cash' ? 'paidCash' : 'paidTransfer', value: newVal.toString() } } as any);
-  };
-
-  const handleConfirm = () => {
-    let noteSuffix = "";
-    if (remaining > 0) noteSuffix = `(Cần thu thêm: ${remaining.toLocaleString()}đ)`;
-    else if (remaining < 0) noteSuffix = `(Cần hoàn lại: ${Math.abs(remaining).toLocaleString()}đ)`;
-
-    const finalMap: Record<string, SeatOverride> = { ...seatOverrides };
-    items.forEach(trip => {
-      trip.seats.forEach(seat => {
-        const key = `${trip.tripId}_${seat.id}`;
-        const vals = getSeatValues(trip.tripId, seat, trip.pickup, trip.dropoff, trip.basePrice);
-        finalMap[key] = { price: vals.price, pickup: vals.pickup, dropoff: vals.dropoff };
-      });
+    setSeatOverrides(prev => {
+      const current = prev[key] || {};
+      let newValue: string | number = value;
+      if (field === 'price') {
+        newValue = parseInt(value.replace(/\D/g, '') || '0', 10);
+      }
+      return { ...prev, [key]: { ...current, [field]: newValue } };
     });
-
-    onConfirm({ paidCash, paidTransfer }, finalMap, noteSuffix);
   };
+
+  const handleLocationBlur = (tripId: string, seatId: string, field: 'pickup' | 'dropoff', value: string) => {
+      const standardized = getStandardizedLocation(value);
+      if (standardized !== value) {
+          handleOverrideChange(tripId, seatId, field, standardized);
+      }
+  };
+
+  const handleQuickSettle = (method: 'cash' | 'transfer') => {
+      const gap = remainingBalance; 
+      
+      const currentVal = method === 'cash' ? paidCash : paidTransfer;
+      const newVal = currentVal + gap;
+      
+      const event = {
+          target: {
+              name: method === 'cash' ? 'paidCash' : 'paidTransfer',
+              value: newVal.toString()
+          }
+      } as React.ChangeEvent<HTMLInputElement>;
+      
+      onMoneyChange(event);
+  };
+
+  const handleConfirmClick = () => {
+      let noteSuffix = "";
+      if (remainingBalance > 0) {
+          noteSuffix = `(Cần thu thêm: ${remainingBalance.toLocaleString('vi-VN')}đ)`;
+      } else if (remainingBalance < 0) {
+          noteSuffix = `(Cần hoàn lại: ${Math.abs(remainingBalance).toLocaleString('vi-VN')}đ)`;
+      }
+
+      // Khi nhấn xác nhận, chúng ta cần gửi bộ overrides đã bao gồm giá được "gợi ý"
+      // để Backend cập nhật đúng giá từ 0 sang giá thanh toán thật.
+      const finalOverrides: Record<string, SeatOverride> = { ...seatOverrides };
+      items.forEach(trip => {
+          trip.seats.forEach(seat => {
+              const key = `${trip.tripId}_${seat.id}`;
+              const { price } = getSeatValues(trip.tripId, seat, trip.pickup, trip.dropoff, trip.basePrice);
+              if (!finalOverrides[key]) finalOverrides[key] = {};
+              finalOverrides[key].price = price;
+          });
+      });
+
+      onConfirm(finalTotal, finalOverrides, noteSuffix);
+  };
+
+  // Reset or Load Initial
+  useEffect(() => {
+    if (isOpen) {
+        setSeatOverrides(initialOverrides);
+    } else {
+        setSeatOverrides({});
+    }
+  }, [isOpen, initialOverrides]);
 
   return (
-    <Dialog isOpen={isOpen} onClose={onClose} title="Thanh toán & Xuất vé" className="max-w-5xl bg-indigo-950 text-white">
-      <div className="flex flex-col md:flex-row h-[600px]">
+    <Dialog
+      isOpen={isOpen}
+      onClose={onClose}
+      title={editingBooking ? "Cập nhật thanh toán" : "Thanh toán & Xuất vé"}
+      className="max-w-5xl bg-indigo-950 text-white border-indigo-900"
+      headerClassName="bg-indigo-950 border-indigo-900 text-white"
+      footer={null} 
+    >
+      <div className="flex flex-col md:flex-row h-full md:h-[600px]">
+        
+        {/* --- LEFT: SCROLLABLE LIST OF SEATS (65%) --- */}
         <div className="flex-1 overflow-y-auto p-4 border-r border-indigo-900 bg-indigo-950/50">
+          {items.length === 0 && (
+             <div className="text-center py-10 text-indigo-400 italic text-sm">Không có dữ liệu vé.</div>
+          )}
+
           <div className="space-y-4">
-            {items.map(trip => {
-              const date = new Date(trip.tripDate);
+            {items.map((trip) => {
+              const tripDate = new Date(trip.tripDate);
               return (
                 <div key={trip.tripId} className="bg-indigo-900/40 rounded-lg border border-indigo-800 overflow-hidden">
-                  <div className="bg-indigo-900/60 px-3 py-2 border-b border-indigo-800 flex justify-between items-center">
+                  <div className="bg-indigo-900/60 px-3 py-2 border-b border-indigo-800 flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                       <Bus size={14} className="text-indigo-400" />
-                      <span className="font-bold text-xs">{trip.route}</span>
+                      <span className="font-bold text-xs text-white">{trip.route}</span>
+                      <span className="text-[10px] text-indigo-300 hidden sm:inline">({trip.tripName})</span>
                     </div>
-                    <div className="text-[10px] text-indigo-300">
-                      {date.getDate()}/{date.getMonth() + 1} ({formatLunarDate(date).replace(' Âm Lịch', '')})
+                    <div className="flex items-center gap-2 text-[10px] text-indigo-300">
+                      <Calendar size={12} />
+                      <span>{tripDate.getDate()}/{tripDate.getMonth()+1}</span>
+                      <span>({formatLunarDate(tripDate).replace(' Âm Lịch', '')})</span>
                     </div>
                   </div>
+
                   <div className="p-2 space-y-2">
-                    {trip.seats.map(seat => {
-                      const vals = getSeatValues(trip.tripId, seat, trip.pickup, trip.dropoff, trip.basePrice);
+                    {trip.seats.map((seat) => {
+                      const { price, pickup, dropoff, isPriceChanged } = getSeatValues(trip.tripId, seat, trip.pickup, trip.dropoff, trip.basePrice);
                       return (
-                        <div key={seat.id} className="flex flex-col sm:flex-row gap-2 items-center bg-indigo-950/50 p-2 rounded border border-indigo-900/50">
-                          <span className="w-8 h-7 bg-indigo-800 text-white font-bold text-xs rounded flex items-center justify-center shrink-0">{seat.label}</span>
-                          <div className="flex-1 grid grid-cols-2 gap-2">
-                            <div className="relative">
-                              <MapPin size={10} className="absolute left-2 top-2 text-indigo-400" />
-                              <input value={vals.pickup} onChange={e => handleOverride(trip.tripId, seat.id, 'pickup', e.target.value)} className="w-full pl-6 pr-2 py-1 text-[11px] bg-indigo-950 border border-indigo-800 rounded outline-none focus:border-yellow-500" placeholder="Đón" />
+                        <div key={seat.id} className="flex flex-col sm:flex-row gap-2 items-start sm:items-center bg-indigo-950/50 p-2 rounded border border-indigo-900/50 hover:border-indigo-700 transition-colors">
+                            <div className="shrink-0">
+                                <span className="inline-flex items-center justify-center w-8 h-7 bg-indigo-800 text-white font-bold text-xs rounded border border-indigo-700 shadow-sm">
+                                    {seat.label}
+                                </span>
                             </div>
-                            <div className="relative">
-                              <Locate size={10} className="absolute left-2 top-2 text-indigo-400" />
-                              <input value={vals.dropoff} onChange={e => handleOverride(trip.tripId, seat.id, 'dropoff', e.target.value)} className="w-full pl-6 pr-2 py-1 text-[11px] bg-indigo-950 border border-indigo-800 rounded outline-none focus:border-yellow-500" placeholder="Trả" />
+
+                            <div className="flex-1 grid grid-cols-2 gap-2 w-full">
+                                <div className="relative group">
+                                    <div className="absolute left-2 top-1.5 pointer-events-none">
+                                        <MapPin size={10} className="text-indigo-400 group-focus-within:text-yellow-400 transition-colors" />
+                                    </div>
+                                    <input 
+                                        type="text"
+                                        className="w-full pl-6 pr-2 py-1 text-[11px] bg-indigo-950 border border-indigo-800 rounded focus:border-yellow-400 focus:outline-none text-white placeholder-indigo-500/50 transition-colors"
+                                        placeholder="Điểm đón"
+                                        value={pickup}
+                                        onChange={(e) => handleOverrideChange(trip.tripId, seat.id, 'pickup', e.target.value)}
+                                        onBlur={(e) => handleLocationBlur(trip.tripId, seat.id, 'pickup', e.target.value)}
+                                    />
+                                </div>
+
+                                <div className="relative group">
+                                    <div className="absolute left-2 top-1.5 pointer-events-none">
+                                        <Locate size={10} className="text-indigo-400 group-focus-within:text-yellow-400 transition-colors" />
+                                    </div>
+                                    <input 
+                                        type="text"
+                                        className="w-full pl-6 pr-2 py-1 text-[11px] bg-indigo-950 border border-indigo-800 rounded focus:border-yellow-400 focus:outline-none text-white placeholder-indigo-500/50 transition-colors"
+                                        placeholder="Điểm trả"
+                                        value={dropoff}
+                                        onChange={(e) => handleOverrideChange(trip.tripId, seat.id, 'dropoff', e.target.value)}
+                                        onBlur={(e) => handleLocationBlur(trip.tripId, seat.id, 'dropoff', e.target.value)}
+                                    />
+                                </div>
                             </div>
-                          </div>
-                          <div className="relative shrink-0">
-                            <input value={vals.price.toLocaleString()} onChange={e => handleOverride(trip.tripId, seat.id, 'price', e.target.value)} className={`w-24 text-right font-bold text-xs bg-indigo-950 border rounded px-2 py-1 outline-none ${vals.isChanged ? 'text-yellow-400 border-yellow-500' : 'text-white border-indigo-800'}`} />
-                            <span className="absolute right-8 top-1.5 text-[10px] text-indigo-500">đ</span>
-                          </div>
+
+                            <div className="w-full sm:w-28 relative shrink-0">
+                                <input 
+                                    type="text"
+                                    className={`w-full text-right font-bold text-xs bg-indigo-950 border rounded px-2 py-1 focus:outline-none transition-colors
+                                        ${(isPriceChanged || seat.price === 0) ? 'text-yellow-400 border-yellow-500/50 ring-1 ring-yellow-500/20' : 'text-white border-indigo-800'}
+                                    `}
+                                    value={price.toLocaleString('vi-VN')}
+                                    onChange={(e) => handleOverrideChange(trip.tripId, seat.id, 'price', e.target.value)}
+                                />
+                                <span className="absolute right-8 top-1.5 text-[10px] text-indigo-500 pointer-events-none hidden sm:block">đ</span>
+                                {(isPriceChanged || seat.price === 0) && <div className="absolute top-1 right-1 w-1.5 h-1.5 bg-yellow-400 rounded-full animate-pulse shadow-sm"></div>}
+                            </div>
                         </div>
                       );
                     })}
@@ -189,54 +339,161 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           </div>
         </div>
 
-        <div className="w-[340px] bg-indigo-900/20 p-5 flex flex-col gap-4 border-l border-indigo-900">
-           <div className="bg-indigo-900/50 rounded-xl p-5 border border-indigo-800 space-y-3">
-              <div className="flex items-center gap-2 text-indigo-300 text-[10px] font-bold uppercase tracking-wider"><Calculator size={14} /> Tổng thanh toán</div>
+        {/* --- RIGHT: PAYMENT & ACTIONS (35%) --- */}
+        <div className="w-full md:w-[360px] bg-indigo-900/20 p-5 flex flex-col gap-4 shrink-0 border-t md:border-t-0 md:border-l border-indigo-900 shadow-xl overflow-y-auto">
+           
+           <div className="bg-indigo-900/50 rounded-xl p-5 border border-indigo-800 shadow-inner space-y-3">
+              <div className="flex items-center gap-2 mb-2 text-indigo-300 text-xs font-bold uppercase tracking-wider">
+                  <Calculator size={14} /> Tổng thanh toán
+              </div>
+              
               {editingBooking && (
-                <div className="space-y-1 pb-2 border-b border-indigo-800/50 mb-2">
-                   <div className="flex justify-between text-[11px] text-slate-400"><span>Tiền cũ:</span><span className="line-through">{editingBooking.totalPrice.toLocaleString()} đ</span></div>
-                   <div className="flex justify-between text-[11px] text-yellow-500 font-bold"><span>Tiền mới:</span><span>{finalTotal.toLocaleString()} đ</span></div>
-                </div>
+                  <div className="space-y-2 pb-3 border-b border-indigo-800/50">
+                      <div className="flex justify-between items-center text-xs">
+                          <span className="text-indigo-400 flex items-center gap-1"><History size={12}/> Tổng tiền cũ:</span>
+                          <span className="text-indigo-300 decoration-slate-500 line-through decoration-1">{oldTotal.toLocaleString('vi-VN')} đ</span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs">
+                          <span className="text-yellow-500 flex items-center gap-1"><TrendingUp size={12}/> Tổng tiền mới:</span>
+                          <span className="font-bold text-yellow-400">{finalTotal.toLocaleString('vi-VN')} đ</span>
+                      </div>
+                  </div>
               )}
+              
               <div className="flex justify-between items-end">
-                 <span className="text-xs text-indigo-400">Cần thu</span>
-                 <span className="text-3xl font-black text-yellow-400">{finalTotal.toLocaleString()} <span className="text-xs font-normal">đ</span></span>
+                 <span className="text-xs text-indigo-400 font-medium">Cần thanh toán</span>
+                 <span className="text-3xl font-bold text-yellow-400 tracking-tight">{finalTotal.toLocaleString('vi-VN')} <span className="text-sm font-normal text-yellow-400/70">đ</span></span>
               </div>
            </div>
 
-           {editingBooking && gapFromPrevious !== 0 && (
-             <div className={`p-3 rounded-lg border flex items-center gap-3 ${gapFromPrevious > 0 ? 'bg-amber-950/40 border-amber-700 text-amber-100' : 'bg-blue-950/40 border-blue-700 text-blue-100'}`}>
-                {gapFromPrevious > 0 ? <AlertCircle size={20}/> : <RotateCcw size={20}/>}
-                <div><div className="text-[10px] font-bold uppercase">{gapFromPrevious > 0 ? 'Thu thêm' : 'Hoàn tiền'}</div><div className="text-lg font-bold">{Math.abs(gapFromPrevious).toLocaleString()} đ</div></div>
-             </div>
+           {editingBooking && diffFromPrevious !== 0 && (
+               <div className={`p-4 rounded-xl border shadow-sm animate-in fade-in slide-in-from-top-2 flex flex-col gap-3
+                   ${diffFromPrevious > 0 
+                       ? 'bg-amber-950/40 border-amber-700/50 text-amber-100' 
+                       : 'bg-blue-950/40 border-blue-700/50 text-blue-100'
+                   }
+               `}>
+                   <div className="flex items-start gap-3">
+                       <div className={`p-2 rounded-full shrink-0 ${diffFromPrevious > 0 ? 'bg-amber-500/20 text-amber-400' : 'bg-blue-500/20 text-blue-400'}`}>
+                           {diffFromPrevious > 0 ? <AlertCircle size={20}/> : <RotateCcw size={20}/>}
+                       </div>
+                       <div>
+                           <h4 className="font-bold text-sm">
+                               {diffFromPrevious > 0 ? 'Cần thu thêm' : 'Cần hoàn lại'}
+                           </h4>
+                           <div className="text-2xl font-bold mt-1">
+                               {Math.abs(diffFromPrevious).toLocaleString('vi-VN')} <span className="text-xs font-normal opacity-70">đ</span>
+                           </div>
+                           <p className="text-[10px] opacity-70 mt-1">
+                               (Đã thanh toán trước đó: {previouslyPaid.toLocaleString('vi-VN')} đ)
+                           </p>
+                       </div>
+                   </div>
+                   
+                   {remainingBalance !== 0 && (
+                       <div className="grid grid-cols-2 gap-2 mt-1">
+                           <button 
+                               onClick={() => handleQuickSettle('cash')}
+                               className={`text-[10px] font-bold py-2 px-2 rounded border transition-colors flex items-center justify-center gap-1
+                                   ${diffFromPrevious > 0 
+                                       ? 'bg-amber-600/30 hover:bg-amber-600/50 border-amber-600/50 text-amber-200' 
+                                       : 'bg-blue-600/30 hover:bg-blue-600/50 border-blue-600/50 text-blue-200'}
+                               `}
+                           >
+                               <DollarSign size={10}/> {diffFromPrevious > 0 ? 'Thu thêm TM' : 'Hoàn tiền TM'}
+                           </button>
+                           <button 
+                               onClick={() => handleQuickSettle('transfer')}
+                               className={`text-[10px] font-bold py-2 px-2 rounded border transition-colors flex items-center justify-center gap-1
+                                   ${diffFromPrevious > 0 
+                                       ? 'bg-amber-600/30 hover:bg-amber-600/50 border-amber-600/50 text-amber-200' 
+                                       : 'bg-blue-600/30 hover:bg-blue-600/50 border-blue-600/50 text-blue-200'}
+                               `}
+                           >
+                               <CreditCard size={10}/> {diffFromPrevious > 0 ? 'Thu thêm CK' : 'Hoàn tiền CK'}
+                           </button>
+                       </div>
+                   )}
+               </div>
            )}
 
-           <div className="space-y-3">
-              <div className="relative">
-                 <DollarSign size={14} className="absolute left-3 top-2.5 text-indigo-400" />
-                 <input name="paidCash" value={paidCash.toLocaleString()} onChange={onMoneyChange} className="w-full pl-9 pr-12 py-2 bg-indigo-950 border border-indigo-800 rounded text-right font-bold text-white focus:border-green-500 outline-none" placeholder="Tiền mặt" />
-                 <span className="absolute right-3 top-2.5 text-[10px] font-bold text-indigo-500">TM</span>
-              </div>
-              <div className="relative">
-                 <CreditCard size={14} className="absolute left-3 top-2.5 text-indigo-400" />
-                 <input name="paidTransfer" value={paidTransfer.toLocaleString()} onChange={onMoneyChange} className="w-full pl-9 pr-12 py-2 bg-indigo-950 border border-indigo-800 rounded text-right font-bold text-white focus:border-blue-500 outline-none" placeholder="Chuyển khoản" />
-                 <span className="absolute right-3 top-2.5 text-[10px] font-bold text-indigo-500">CK</span>
-              </div>
+           <div className="space-y-3 pt-2">
+                 <div className="text-xs font-bold text-indigo-400 uppercase tracking-wider mb-2">Tổng thực thu / đã trả</div>
+                 <div className="relative group">
+                    <div className="absolute top-2 left-3 text-indigo-400 pointer-events-none group-focus-within:text-green-500 transition-colors">
+                        <DollarSign size={16} />
+                    </div>
+                    <input
+                      type="text"
+                      name="paidCash"
+                      value={paidCash.toLocaleString("vi-VN")}
+                      onChange={onMoneyChange}
+                      className="w-full pl-9 pr-12 py-2 bg-indigo-950 border border-indigo-800 rounded text-right font-bold text-sm text-white focus:border-green-500 focus:outline-none transition-colors placeholder-indigo-700"
+                      placeholder="0"
+                    />
+                    <span className="absolute top-2.5 right-3 text-[10px] text-indigo-500 pointer-events-none font-bold">TM</span>
+                 </div>
+                 <div className="relative group">
+                    <div className="absolute top-2 left-3 text-indigo-400 pointer-events-none group-focus-within:text-blue-500 transition-colors">
+                        <CreditCard size={16} />
+                    </div>
+                    <input
+                      type="text"
+                      name="paidTransfer"
+                      value={paidTransfer.toLocaleString("vi-VN")}
+                      onChange={onMoneyChange}
+                      className="w-full pl-9 pr-12 py-2 bg-indigo-950 border border-indigo-800 rounded text-right font-bold text-sm text-white focus:border-blue-500 focus:outline-none transition-colors placeholder-indigo-700"
+                      placeholder="0"
+                    />
+                     <span className="absolute top-2.5 right-3 text-[10px] text-indigo-500 pointer-events-none font-bold">CK</span>
+                 </div>
            </div>
 
-           <div className="flex flex-col gap-2 mt-auto">
-              {remaining !== 0 && (
-                <div className="grid grid-cols-2 gap-2 mb-2">
-                   <Button size="sm" variant="outline" className="text-[10px] border-indigo-700 text-indigo-300" onClick={() => handleSettle('cash')}>Khớp TM</Button>
-                   <Button size="sm" variant="outline" className="text-[10px] border-indigo-700 text-indigo-300" onClick={() => handleSettle('transfer')}>Khớp CK</Button>
+           {remainingBalance > 0 ? (
+                  <div className="p-2 rounded bg-red-950/30 border border-red-900/50 text-right text-xs text-red-400 font-bold flex justify-between items-center">
+                      <span>Đang thiếu:</span>
+                      <span>{remainingBalance.toLocaleString('vi-VN')} đ</span>
+                  </div>
+              ) : remainingBalance < 0 ? (
+                  <div className="p-2 rounded bg-blue-950/30 border border-blue-900/50 text-right text-xs text-blue-400 font-bold flex justify-between items-center">
+                      <span className="flex items-center gap-1"><RotateCcw size={12}/> Đang dư:</span>
+                      <span>{Math.abs(remainingBalance).toLocaleString('vi-VN')} đ</span>
+                  </div>
+              ) : (
+                  <div className="p-2 rounded bg-green-950/30 border border-green-900/50 text-right text-xs text-green-400 font-bold flex justify-center items-center gap-2">
+                      <CheckCircle2 size={14}/> Đã khớp thanh toán
+                  </div>
+           )}
+           
+           {remainingBalance !== 0 && (
+                <div className="text-[10px] text-center text-indigo-300 italic">
+                    * Hệ thống sẽ tự động thêm ghi chú: <br/>
+                    <span className="font-bold text-yellow-400">
+                        {remainingBalance > 0 
+                            ? `(Cần thu thêm: ${remainingBalance.toLocaleString('vi-VN')}đ)` 
+                            : `(Cần hoàn lại: ${Math.abs(remainingBalance).toLocaleString('vi-VN')}đ)`}
+                    </span>
                 </div>
-              )}
-              <Button onClick={handleConfirm} className={`w-full h-11 font-bold ${remaining <= 0 ? 'bg-green-600 hover:bg-green-500' : 'bg-yellow-500 hover:bg-yellow-400 text-indigo-950'}`}>
-                 {remaining <= 0 ? <CheckCircle2 size={16} className="mr-2"/> : <Calculator size={16} className="mr-2"/>} {remaining <= 0 ? 'Xác nhận thanh toán' : 'Lưu công nợ'}
+           )}
+
+           <div className="mt-auto space-y-3 pt-2">
+              <Button
+                onClick={handleConfirmClick}
+                disabled={isProcessing}
+                className={`w-full h-11 font-bold text-sm shadow-lg transition-all ${actionInfo.colorClass}`}
+              >
+                {actionInfo.text}
               </Button>
-              <Button variant="ghost" onClick={onClose} className="w-full text-indigo-400 hover:text-white h-9 text-xs">Quay lại</Button>
+              <Button 
+                variant="outline" 
+                onClick={onClose} 
+                className="w-full border-indigo-800 text-indigo-300 hover:bg-indigo-900 hover:text-white bg-transparent h-10 text-xs"
+              >
+                Hủy bỏ
+              </Button>
            </div>
         </div>
+
       </div>
     </Dialog>
   );
