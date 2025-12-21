@@ -220,7 +220,9 @@ function AppContent() {
               setTrips(tripsData);
           }
         } else {
-          const updatedSeats = selectedTrip!.seats.map(s => s.id === seat.id ? { ...s, note: p.note } : s);
+          // Xử lý hủy giữ chỗ thủ công (không có booking)
+          const newStatus = (extra?.action === 'REFUND' && seat.status === SeatStatus.HELD) ? SeatStatus.AVAILABLE : seat.status;
+          const updatedSeats = selectedTrip!.seats.map(s => s.id === seat.id ? { ...s, note: p.note, status: newStatus } : s);
           await api.trips.updateSeats(selectedTrip!.id, updatedSeats);
           setTrips(prev => prev.map(t => t.id === selectedTrip!.id ? { ...t, seats: updatedSeats } : t));
         }

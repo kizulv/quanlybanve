@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from "react";
 import { Dialog } from "./ui/Dialog";
 import { Button } from "./ui/Button";
@@ -25,6 +26,7 @@ import {
   CheckCircle2,
   ChevronRight,
   Tag,
+  Trash2,
 } from "lucide-react";
 import {
   formatPhoneNumber,
@@ -229,6 +231,7 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
 
   const isSold = seat.status === SeatStatus.SOLD;
   const isBooked = seat.status === SeatStatus.BOOKED;
+  const isHeld = seat.status === SeatStatus.HELD;
 
   return (
     <Dialog
@@ -381,7 +384,7 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
           </Button>
         </div>
 
-        {/* RIGHT: Financial Actions (Hidden if Sold) */}
+        {/* RIGHT: Financial Actions / Cancel Actions */}
         {!isSold && (
           <div className="w-full md:w-[280px] bg-indigo-900/20 p-4 flex flex-col gap-4 border-t md:border-t-0 md:border-l border-indigo-900/50 shadow-xl overflow-y-auto animate-in fade-in duration-300">
             <div className="bg-indigo-900/50 rounded-lg p-3 border border-indigo-800 space-y-3 shadow-inner mt-2">
@@ -448,6 +451,28 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
                     <CheckCircle2 size={14} className="mr-2" />
                   )}
                   Xác nhận thu tiền
+                </Button>
+              </div>
+            )}
+
+            {isHeld && (
+              <div className="space-y-4 animate-in fade-in slide-in-from-right-2 duration-300 mt-2">
+                <div className="bg-purple-900/30 p-3 rounded-lg border border-purple-800/50 flex items-start gap-2">
+                   <AlertTriangle size={16} className="text-purple-400 shrink-0 mt-0.5" />
+                   <p className="text-[10px] text-purple-300 italic">Ghế đang được giữ chỗ. Bạn có thể cập nhật thông tin khách hoặc hủy lệnh giữ chỗ này.</p>
+                </div>
+
+                <Button
+                  onClick={handleRefundSeat}
+                  disabled={isSaving}
+                  className="w-full bg-red-600 hover:bg-red-500 text-white font-black uppercase text-[10px] h-9 shadow-lg shadow-red-900/20 border border-red-700"
+                >
+                  {isSaving ? (
+                    <Loader2 className="animate-spin mr-2" size={14} />
+                  ) : (
+                    <Trash2 size={14} className="mr-2" />
+                  )}
+                  Hủy giữ chỗ
                 </Button>
               </div>
             )}
