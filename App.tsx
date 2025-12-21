@@ -42,9 +42,6 @@ function AppContent() {
   const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
   const [updateSummary, setUpdateSummary] = useState<any | null>(null);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
-  const [pendingPaymentContext, setPendingPaymentContext] = useState<any | null>(null);
-  const [modalPaymentInput, setModalPaymentInput] = useState({ paidCash: 0, paidTransfer: 0 });
-  const [modalInitialOverrides, setModalInitialOverrides] = useState<any>({});
 
   const refreshData = async () => {
     try {
@@ -55,7 +52,6 @@ function AppContent() {
 
   useEffect(() => { refreshData(); }, []);
 
-  // Effect to sync trips state when editingBooking changes
   useEffect(() => {
     if (editingBooking) {
       setTrips(currentTrips => currentTrips.map(trip => {
@@ -72,8 +68,6 @@ function AppContent() {
         }
         return trip;
       }));
-
-      // Set form data from booking
       setBookingForm({
         phone: editingBooking.passenger.phone,
         pickup: editingBooking.passenger.pickupPoint || "",
@@ -107,18 +101,14 @@ function AppContent() {
   const tripBookings = useMemo(() => !selectedTrip ? [] : bookings.filter((b) => b.items.some((item) => item.tripId === selectedTrip.id) && b.status !== "cancelled"), [bookings, selectedTrip]);
   
   const handleSelectBookingForEdit = (booking: Booking) => {
-      // 1. Tìm ngày của chuyến xe đầu tiên trong đơn hàng để chuyển lịch tới đó
       if (booking.items.length > 0) {
           const firstItem = booking.items[0];
           const tripDate = new Date(firstItem.tripDate.split(' ')[0]);
           setSelectedDate(tripDate);
           setSelectedTripId(firstItem.tripId);
-          // Hướng đi cũng cần được đồng bộ nếu có
           const trip = trips.find(t => t.id === firstItem.tripId);
           if (trip && trip.direction) setSelectedDirection(trip.direction);
       }
-      
-      // 2. Set đơn hàng đang sửa (Effect bên trên sẽ lo việc đánh dấu ghế SELECTED)
       setEditingBooking(booking);
       setActiveTab("sales");
   };
@@ -144,18 +134,15 @@ function AppContent() {
       return;
     }
     
-    // Nếu click vào ghế đã có khách và không ở chế độ sửa, highlight đơn hàng đó
     if ([SeatStatus.BOOKED, SeatStatus.SOLD, SeatStatus.HELD].includes(clickedSeat.status) && !editingBooking) {
         const booking = tripBookings.find(b => b.items.some(i => i.tripId === selectedTrip.id && i.seatIds.includes(clickedSeat.id)));
         if (booking) setHighlightedBookingId(booking.id); 
         return;
     }
 
-    // Toggle logic cho ghế được chọn
     const updatedSeats = selectedTrip.seats.map(s => {
         if (s.id === clickedSeat.id) {
             const isCurrentlySelected = s.status === SeatStatus.SELECTED;
-            // Nếu bỏ chọn, quay về trạng thái cũ (AVAILABLE hoặc status từ booking đang sửa)
             const nextStatus = isCurrentlySelected ? (s.originalStatus || SeatStatus.AVAILABLE) : SeatStatus.SELECTED;
             return { ...s, status: nextStatus, originalStatus: !isCurrentlySelected ? s.status : s.originalStatus };
         }
@@ -164,10 +151,35 @@ function AppContent() {
     setTrips(p => p.map(t => t.id === selectedTrip.id ? { ...selectedTrip, seats: updatedSeats } : t));
   };
 
+  const handleSavePassengerDetail = async (passenger: Passenger) => {
+    if (!seatDetailModal || !selectedTrip) return;
+    const { seat, booking } = seatDetailModal;
+    
+    try {
+        if (booking) {
+            // Update an existing booking
+            await api.bookings.update(booking.id, booking.items, passenger, booking.payment, booking.status);
+            toast({ type: 'success', title: 'Thành công', message: 'Đã cập nhật thông tin khách hàng' });
+        } else {
+            // "Hold" an available seat or update existing Hold note directly on Trip
+            const updatedSeats = selectedTrip.seats.map(s => {
+                if (s.id === seat.id) {
+                    return { ...s, status: SeatStatus.HELD, note: passenger.note || '' };
+                }
+                return s;
+            });
+            await api.trips.updateSeats(selectedTrip.id, updatedSeats);
+            toast({ type: 'success', title: 'Thành công', message: 'Đã cập nhật ghi chú giữ vé' });
+        }
+        await refreshData();
+        setSeatDetailModal(null);
+    } catch (e) {
+        toast({ type: 'error', title: 'Lỗi', message: 'Không thể lưu thông tin' });
+    }
+  };
+
   const filteredManifest = useMemo(() => !manifestSearch.trim() ? tripBookings : tripBookings.filter(b => b.passenger.phone.includes(manifestSearch.toLowerCase()) || (b.passenger.name || "").toLowerCase().includes(manifestSearch.toLowerCase()) || b.items.some(i => i.tripId === selectedTrip?.id && i.seatIds.some(s => s.toLowerCase().includes(manifestSearch.toLowerCase())))), [tripBookings, manifestSearch, selectedTrip]);
   const totalManifestPrice = useMemo(() => filteredManifest.reduce((sum, booking) => sum + (booking.items.find(i => i.tripId === selectedTrip?.id)?.price || 0), 0), [filteredManifest, selectedTrip]);
-
-  if (isLoading) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><Loader2 className="animate-spin text-primary" size={48} /></div>;
 
   return (
     <Layout
@@ -193,6 +205,17 @@ function AppContent() {
             </div>
           </div>
         </div>
+      )}
+
+      {seatDetailModal && (
+        <SeatDetailModal
+          isOpen={!!seatDetailModal}
+          onClose={() => setSeatDetailModal(null)}
+          booking={seatDetailModal.booking}
+          seat={seatDetailModal.seat}
+          bookings={bookings}
+          onSave={handleSavePassengerDetail}
+        />
       )}
 
       {activeTab === "sorting" && <SeatSortingView trips={trips} bookings={bookings} onRefresh={refreshData} selectedDate={selectedDate} />}

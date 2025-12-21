@@ -24,7 +24,7 @@ interface SeatMapProps {
   onSeatSwap?: (seat: Seat) => void; 
   onSeatRightClick?: (seat: Seat, booking: Booking | null) => void;
   editingBooking?: Booking | null;
-  swapSourceSeatId?: string; // Thêm prop để nhận biết ghế đang đổi
+  swapSourceSeatId?: string; 
 }
 
 export const SeatMap: React.FC<SeatMapProps> = ({
@@ -38,7 +38,6 @@ export const SeatMap: React.FC<SeatMapProps> = ({
   editingBooking,
   swapSourceSeatId,
 }) => {
-  // Helper to determine visuals based on status
   const getSeatStatusClass = (status: SeatStatus, isSwapping: boolean) => {
     if (isSwapping) {
       return "ring-4 ring-indigo-500 ring-offset-1 z-30 bg-indigo-50 border-indigo-500 shadow-xl cursor-pointer animate-pulse";
@@ -77,7 +76,6 @@ export const SeatMap: React.FC<SeatMapProps> = ({
   ) => {
     const isSwapping = swapSourceSeatId === seat.id;
     
-    // 1. Detect if this seat is a "Ghost" (Deselected during edit)
     const isGhost =
       seat.status === SeatStatus.AVAILABLE &&
       editingBooking?.items.some(
@@ -107,7 +105,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
     const hasInfo =
       (seat.status === SeatStatus.BOOKED ||
         seat.status === SeatStatus.SOLD ||
-        seat.status === SeatStatus.HELD || // Hiển thị info cho cả ghế HELD nếu có booking
+        seat.status === SeatStatus.HELD ||
         isGhost) &&
       booking &&
       bookingItem;
@@ -134,7 +132,6 @@ export const SeatMap: React.FC<SeatMapProps> = ({
           displayPrice = ticket.price;
           displayPickup = ticket.pickup || displayPickup;
           displayDropoff = ticket.dropoff || displayDropoff;
-          // FIX: Ưu tiên hiển thị ghi chú của vé nếu có (ngay cả khi là chuỗi rỗng để hỗ trợ xóa)
           if (ticket.note !== undefined && ticket.note !== null) displayNote = ticket.note;
         }
       }
@@ -149,12 +146,9 @@ export const SeatMap: React.FC<SeatMapProps> = ({
         onContextMenu={(e) => {
           e.preventDefault();
           e.stopPropagation();
+          // Cập nhật: Luôn cho phép right click để mở modal ghi chú/chi tiết
           if (onSeatRightClick) {
-            if (hasInfo && booking) {
-              onSeatRightClick(seat, booking);
-            } else if (seat.status === SeatStatus.HELD) {
-              onSeatRightClick(seat, null);
-            }
+            onSeatRightClick(seat, booking || null);
           }
         }}
         className={`relative flex flex-col border transition-all duration-200 select-none overflow-hidden group ${statusClass} ${
@@ -318,7 +312,6 @@ export const SeatMap: React.FC<SeatMapProps> = ({
   const regularSeats = seats.filter((s) => (s.row ?? 0) < 99 && !s.isFloorSeat);
   const floorSeats = seats.filter((s) => s.isFloorSeat);
 
-  // --- CABIN LOGIC ---
   const renderCabinColumn = (colIndex: number, label: string) => {
     const colSeats = regularSeats.filter((s) => (s.col ?? 0) === colIndex);
     const rows = Array.from(new Set(colSeats.map((s) => s.row ?? 0))).sort(
@@ -395,7 +388,6 @@ export const SeatMap: React.FC<SeatMapProps> = ({
     );
   };
 
-  // --- SLEEPER LOGIC ---
   const renderSleeperDeck = (floorNumber: number) => {
     const floorSeatsStandard = regularSeats.filter(
       (s) => s.floor === floorNumber
