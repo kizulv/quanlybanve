@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Seat, SeatStatus, BusType, Booking } from "../types";
 import {
@@ -236,77 +237,91 @@ export const SeatMap: React.FC<SeatMapProps> = ({
               </span>
             </div>
           ) : hasInfo ? (
-            <>
-              <div
-                className={`flex items-center gap-1 font-bold whitespace-nowrap ${
-                  isGhost
-                    ? "text-slate-400"
-                    : seat.status === SeatStatus.SOLD
-                    ? "text-green-800"
-                    : seat.status === SeatStatus.HELD
-                    ? "text-purple-800"
-                    : "text-yellow-900"
-                }`}
-              >
-                <Phone size={9} className="shrink-0 opacity-60" />
-                <div className="flex items-center gap-0.5 min-w-0">
-                  <span className="truncate">{formattedPhone}</span>
-                  {groupTotal > 1 && (
-                    <span className="shrink-0 bg-white/50 px-0.5 rounded text-[7px] font-normal border opacity-70">
-                      {groupIndex}/{groupTotal}
-                    </span>
-                  )}
+            seat.status === SeatStatus.HELD ? (
+              // Case: HELD with booking info - Show only label and note (HIDE Phone/Map)
+              <div className="flex flex-col h-full text-purple-800/80 items-center justify-center">
+                <div className="flex items-center justify-center">
+                  <Lock size={10} className="opacity-60 mr-1" />
+                  <span className="font-bold text-[8px]">ĐANG GIỮ</span>
                 </div>
+                {displayNote && (
+                  <div className="w-full bg-purple-100/80 rounded px-1 py-0.5 mt-1 border border-purple-200">
+                    <span className="truncate italic text-[10px] block text-center">
+                      {displayNote}
+                    </span>
+                  </div>
+                )}
               </div>
-              {displayPickup || displayDropoff ? (
+            ) : (
+              // Case: BOOKED, SOLD, or GHOST - Show full info
+              <>
                 <div
-                  className={`flex gap-1 overflow-hidden whitespace-nowrap ${
+                  className={`flex items-center gap-1 font-bold whitespace-nowrap ${
                     isGhost
                       ? "text-slate-400"
                       : seat.status === SeatStatus.SOLD
-                      ? "text-green-700"
-                      : seat.status === SeatStatus.HELD
-                      ? "text-purple-700"
-                      : "text-yellow-800"
+                      ? "text-green-800"
+                      : "text-yellow-900"
                   }`}
                 >
-                  <MapPin size={9} className="shrink-0 opacity-60" />
-                  <span
-                    className="truncate"
-                    title={`${displayPickup} - ${displayDropoff}`}
+                  <Phone size={9} className="shrink-0 opacity-60" />
+                  <div className="flex items-center gap-0.5 min-w-0">
+                    <span className="truncate">{formattedPhone}</span>
+                    {groupTotal > 1 && (
+                      <span className="shrink-0 bg-white/50 px-0.5 rounded text-[7px] font-normal border opacity-70">
+                        {groupIndex}/{groupTotal}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                {displayPickup || displayDropoff ? (
+                  <div
+                    className={`flex gap-1 overflow-hidden whitespace-nowrap ${
+                      isGhost
+                        ? "text-slate-400"
+                        : seat.status === SeatStatus.SOLD
+                        ? "text-green-700"
+                        : "text-yellow-800"
+                    }`}
                   >
-                    {displayPickup || "---"} - {displayDropoff || "---"}
-                  </span>
-                </div>
-              ) : (
-                <div className="opacity-50 italic text-[8px]">
-                  Chưa có điểm đón
-                </div>
-              )}
-              {displayNote && (
-                <div className="mt-auto flex items-center gap-1 text-slate-400 italic">
-                  <StickyNote size={10} className="text-amber-500" />
-                  <span className="w-full text-[10px] truncate">
-                    {displayNote}
-                  </span>
-                </div>
-              )}
-            </>
+                    <MapPin size={9} className="shrink-0 opacity-60" />
+                    <span
+                      className="truncate"
+                      title={`${displayPickup} - ${displayDropoff}`}
+                    >
+                      {displayPickup || "---"} - {displayDropoff || "---"}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="opacity-50 italic text-[8px]">
+                    Chưa có điểm đón
+                  </div>
+                )}
+                {displayNote && (
+                  <div className="mt-auto flex items-center gap-1 text-slate-400 italic">
+                    <StickyNote size={10} className="text-amber-500" />
+                    <span className="w-full text-[10px] truncate">
+                      {displayNote}
+                    </span>
+                  </div>
+                )}
+              </>
+            )
           ) : seat.status === SeatStatus.SELECTED ? (
             <div className="flex flex-col items-center justify-center h-full text-white/90">
-              <Check size={18} />
               <span className="font-medium text-[8px]">Đang chọn</span>
             </div>
           ) : seat.status === SeatStatus.HELD ? (
+            // Case: HELD without specific booking item (Direct hold or manual note)
             <div className="flex flex-col h-full text-purple-800/80 items-center justify-center">
               <div className="flex items-center justify-center">
                 <Lock size={10} className="opacity-60 mr-1" />
                 <span className="font-bold text-[8px]">ĐANG GIỮ</span>
               </div>
-              {seat.note && (
+              {(seat.note || displayNote) && (
                 <div className="w-full bg-purple-100/80 rounded px-1 py-0.5 mt-1 border border-purple-200">
                   <span className="truncate italic text-[10px] block text-center">
-                    {seat.note}
+                    {seat.note || displayNote}
                   </span>
                 </div>
               )}
