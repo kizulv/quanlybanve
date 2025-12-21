@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from "react";
 import { Layout } from "./components/Layout";
 import { SeatMap } from "./components/SeatMap";
@@ -493,17 +492,13 @@ function AppContent() {
         }
 
         // FIX: Cập nhật thông tin chi tiết riêng cho từng ghế thay vì cập nhật chung cho toàn bộ đơn hàng
-        const result = await api.bookings.updateTicket(
-          booking.id,
-          seat.id,
-          {
-            pickup: updatedPassenger.pickupPoint,
-            dropoff: updatedPassenger.dropoffPoint,
-            note: updatedPassenger.note,
-            phone: updatedPassenger.phone,
-            name: updatedPassenger.name
-          }
-        );
+        const result = await api.bookings.updateTicket(booking.id, seat.id, {
+          pickup: updatedPassenger.pickupPoint,
+          dropoff: updatedPassenger.dropoffPoint,
+          note: updatedPassenger.note,
+          phone: updatedPassenger.phone,
+          name: updatedPassenger.name,
+        });
 
         setBookings((prev) =>
           prev.map((b) => (b.id === booking.id ? result.booking : b))
@@ -525,7 +520,9 @@ function AppContent() {
         );
 
         if (existingHold) {
-          await api.bookings.updateTicket(existingHold.id, seat.id, { note: updatedPassenger.note });
+          await api.bookings.updateTicket(existingHold.id, seat.id, {
+            note: updatedPassenger.note,
+          });
           await refreshData();
         } else {
           const updatedSeats = selectedTrip.seats.map((s) => {
@@ -612,16 +609,21 @@ function AppContent() {
     setTrips(newTripsState);
 
     // FIX: Sử dụng trực tiếp trạng thái status của đơn hàng thay vì logic tính toán qua giá tiền
-    const currentMode = booking.status === "payment" ? "payment" : booking.status === "hold" ? "hold" : "booking";
+    const currentMode =
+      booking.status === "payment"
+        ? "payment"
+        : booking.status === "hold"
+        ? "hold"
+        : "booking";
     setBookingMode(currentMode);
 
     // FIX: Làm sạch ghi chú cũ để tránh lặp lại các hậu tố tự động
     const rawNote = booking.passenger.note || "";
     const cleanNote = rawNote
-        .replace(/\s*\(Chuyển sang [^\)]+\)/g, "")
-        .replace(/\s*\(Cần thu thêm: [^\)]+\)/g, "")
-        .replace(/\s*\(Cần hoàn lại: [^\)]+\)/g, "")
-        .trim();
+      .replace(/\s*\(Chuyển sang [^\)]+\)/g, "")
+      .replace(/\s*\(Cần thu thêm: [^\)]+\)/g, "")
+      .replace(/\s*\(Cần hoàn lại: [^\)]+\)/g, "")
+      .trim();
 
     setBookingForm({
       phone: booking.passenger.phone,
@@ -689,7 +691,7 @@ function AppContent() {
 
         let finalPrice =
           override?.price !== undefined ? override.price : s.price;
-        
+
         if (bookingMode === "booking") {
           finalPrice = 0;
         }
@@ -884,7 +886,7 @@ function AppContent() {
           let finalPrice =
             override?.price !== undefined ? override.price : s.price;
 
-          if (bookingMode === 'booking') {
+          if (bookingMode === "booking") {
             finalPrice = 0;
           }
 
@@ -945,7 +947,10 @@ function AppContent() {
         ];
       }
 
-      const finalPayment = (bookingMode === 'booking' || bookingMode === 'hold') ? { paidCash: 0, paidTransfer: 0 } : paymentData;
+      const finalPayment =
+        bookingMode === "booking" || bookingMode === "hold"
+          ? { paidCash: 0, paidTransfer: 0 }
+          : paymentData;
 
       const result = await api.bookings.update(
         targetBookingId,
@@ -1101,12 +1106,23 @@ function AppContent() {
     // FIX: Chỉ thêm hậu tố nếu trạng thái thực sự thay đổi so với đơn hàng cũ
     let noteSuffix = "";
     if (bookingMode !== editingBooking.status) {
-        noteSuffix = `(Chuyển sang ${bookingMode === 'hold' ? 'Giữ vé' : bookingMode === 'booking' ? 'Đặt vé' : 'Mua vé'})`;
+      noteSuffix = `(Chuyển sang ${
+        bookingMode === "hold"
+          ? "Giữ vé"
+          : bookingMode === "booking"
+          ? "Đặt vé"
+          : "Mua vé"
+      })`;
     }
 
-    if (bookingMode === 'booking' || bookingMode === 'hold') {
-        await executeBookingUpdate(editingBooking.id, { paidCash: 0, paidTransfer: 0 }, {}, noteSuffix);
-        return;
+    if (bookingMode === "booking" || bookingMode === "hold") {
+      await executeBookingUpdate(
+        editingBooking.id,
+        { paidCash: 0, paidTransfer: 0 },
+        {},
+        noteSuffix
+      );
+      return;
     }
 
     setModalPaymentInput({
@@ -1473,8 +1489,8 @@ function AppContent() {
                   <Users size={14} className="text-slate-400" />
                   <span>Danh sách khách ({tripBookings.length})</span>
                 </div>
-                <ManifestPrint 
-                  selectedTrip={selectedTrip} 
+                <ManifestPrint
+                  selectedTrip={selectedTrip}
                   manifest={filteredManifest}
                 />
               </div>
@@ -1544,7 +1560,11 @@ function AppContent() {
                         id={`booking-item-${booking.id}`}
                         onClick={() => handleSelectBookingFromHistory(booking)}
                         className={`px-3 py-2 border-b border-slate-100 cursor-pointer hover:bg-slate-50 transition-colors ${
-                          !isFullyPaid && booking.status !== 'hold' ? "bg-yellow-50/30" : (booking.status === 'hold' ? "bg-purple-50/30" : "")
+                          !isFullyPaid && booking.status !== "hold"
+                            ? "bg-yellow-50/30"
+                            : booking.status === "hold"
+                            ? "bg-purple-50/30"
+                            : ""
                         } ${
                           isHighlighted
                             ? "bg-indigo-50 ring-2 ring-indigo-500 z-10"
@@ -1578,13 +1598,16 @@ function AppContent() {
                           </div>
                           <div
                             className={`text-xs font-black whitespace-nowrap ${
-                              isFullyPaid ? "text-green-600" : (booking.status === 'hold' ? "text-purple-600" : "text-amber-600")
+                              booking.status === "payment"
+                                ? "text-green-600"
+                                : booking.status === "hold"
+                                ? "text-purple-600"
+                                : "text-amber-600"
                             }`}
                           >
-                            {booking.status === 'booking' && tripSubtotal === 0 
-                                ? "Đã đặt vé" 
-                                : tripSubtotal.toLocaleString("vi-VN")
-                            }
+                            {booking.status === "booking" && tripSubtotal === 0
+                              ? "Đã đặt vé"
+                              : tripSubtotal.toLocaleString("vi-VN")}
                           </div>
                         </div>
                       </div>
@@ -1700,9 +1723,7 @@ function AppContent() {
                             </Badge>
                           )}
                           {booking.status === "hold" && (
-                            <Badge
-                              className="bg-purple-100 text-purple-700 border-purple-200"
-                            >
+                            <Badge className="bg-purple-100 text-purple-700 border-purple-200">
                               Giữ vé
                             </Badge>
                           )}
