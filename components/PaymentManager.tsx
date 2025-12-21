@@ -82,11 +82,11 @@ export const PaymentManager: React.FC = () => {
              tripInfo: {
                 route: payment.details?.route || 'N/A',
                 date: payment.details?.tripDate || '',
-                seats: payment.details?.seats || []
+                seats: [] // Sẽ tổng hợp bên dưới
              },
              payments: [],
              totalCollected: 0,
-             latestTransaction: new Date(0) // Epoch
+             latestTransaction: new Date(0)
           };
        }
 
@@ -97,6 +97,18 @@ export const PaymentManager: React.FC = () => {
        if (pDate > groups[bKey].latestTransaction) {
            groups[bKey].latestTransaction = pDate;
        }
+    });
+
+    // Tổng hợp ghế từ tất cả payment trong group
+    Object.values(groups).forEach(g => {
+        const allSeats = new Set<string>();
+        g.payments.forEach(p => {
+            if (p.details?.seats) p.details.seats.forEach((s:string) => allSeats.add(s));
+            if (p.details?.trips) p.details.trips.forEach((t:any) => {
+                if (t.seats) t.seats.forEach((s:string) => allSeats.add(s));
+            });
+        });
+        g.tripInfo.seats = Array.from(allSeats).sort((a,b) => a.localeCompare(b, undefined, {numeric: true}));
     });
 
     return Object.values(groups).sort((a, b) => b.latestTransaction.getTime() - a.latestTransaction.getTime());
@@ -113,7 +125,6 @@ export const PaymentManager: React.FC = () => {
       });
 
       // 2. Thống kê vé dựa trên nguồn tin cậy nhất
-      // Vé PAID: Đếm tất cả seatId xuất hiện trong các bản ghi payment (type=payment) và trừ đi nếu có refund
       const paidSeatMap = new Map<string, { type: BusType, isEnhanced: boolean }>();
       
       payments.forEach(p => {
@@ -128,6 +139,7 @@ export const PaymentManager: React.FC = () => {
                   if (p.type === 'payment') {
                       paidSeatMap.set(key, { type, isEnhanced });
                   } else if (p.type === 'refund') {
+                      // Chỉ xóa khỏi map nếu số tiền hoàn đủ cho ghế này
                       paidSeatMap.delete(key);
                   }
               });
@@ -220,39 +232,68 @@ export const PaymentManager: React.FC = () => {
       return [];
   };
 
-  function calculateDiff(prevTrips: any[], currTrips: any[]) {
+  /**
+   * Tính toán thay đổi giữa các phiên bản ghế.
+   * Cải tiến: Nếu giao dịch là 'incremental' (thanh toán lẻ), nó chỉ hiển thị ghế MỚI,
+   * không hiểu lầm là các ghế cũ bị xóa.
+   */
+  function calculateDiff(prevTrips: any[], currPayment: any) {
+      const currTrips = normalizeTrips(currPayment.details);
+      const isIncremental = currPayment.transactionType === 'incremental';
+      
       const getTripKey = (t: any) => `${t.route}-${t.tripDate}`;
+      
       const prevMap = new Map();
       prevTrips.forEach(t => prevMap.set(getTripKey(t), t));
+      
       const currMap = new Map();
       currTrips.forEach(t => currMap.set(getTripKey(t), t));
+      
       const allKeys = new Set([...prevMap.keys(), ...currMap.keys()]);
       const results: any[] = [];
+      
       allKeys.forEach(key => {
           const prevT = prevMap.get(key);
           const currT = currMap.get(key);
+          
           const pSeats = new Set(prevT ? (prevT.seats || []) : []);
           const cSeats = new Set(currT ? (currT.seats || []) : []);
           const meta = currT || prevT || {};
           const seatDiffs: any[] = [];
-          const allSeats = new Set([...pSeats, ...cSeats]);
-          allSeats.forEach(s => {
-              const inPrev = pSeats.has(s);
-              const inCurr = cSeats.has(s);
-              let status = 'kept';
-              if (inCurr && !inPrev) status = 'added';
-              if (!inCurr && inPrev) status = 'removed';
-              let price = 0;
-              if (status !== 'removed' && currT) {
+          
+          if (isIncremental) {
+              // Thanh toán lẻ: Chỉ hiển thị các ghế có trong Curr là 'added'
+              // Không so sánh với Prev để tránh hiện 'removed'
+              cSeats.forEach(s => {
+                  let price = 0;
                   if (currT.tickets) { const t = currT.tickets.find((tic: any) => tic.seatId === s); if (t) price = t.price; }
-              }
-              if (status === 'removed' && prevT) {
-                   if (prevT.tickets) { const t = prevT.tickets.find((tic: any) => tic.seatId === s); if (t) price = t.price; }
-              }
-              seatDiffs.push({ id: s, status, price });
-          });
+                  seatDiffs.push({ id: s, status: 'added', price });
+              });
+          } else {
+              // Giao dịch toàn phần: So sánh 2 tập hợp
+              const allSeats = new Set([...pSeats, ...cSeats]);
+              allSeats.forEach(s => {
+                  const inPrev = pSeats.has(s);
+                  const inCurr = cSeats.has(s);
+                  let status = 'kept';
+                  if (inCurr && !inPrev) status = 'added';
+                  if (!inCurr && inPrev) status = 'removed';
+                  
+                  let price = 0;
+                  if (status !== 'removed' && currT) {
+                      if (currT.tickets) { const t = currT.tickets.find((tic: any) => tic.seatId === s); if (t) price = t.price; }
+                  }
+                  if (status === 'removed' && prevT) {
+                       if (prevT.tickets) { const t = prevT.tickets.find((tic: any) => tic.seatId === s); if (t) price = t.price; }
+                  }
+                  seatDiffs.push({ id: s, status, price });
+              });
+          }
+          
           seatDiffs.sort((a,b) => a.id.localeCompare(b.id, undefined, {numeric: true}));
-          results.push({ ...meta, diffSeats: seatDiffs });
+          if (seatDiffs.length > 0) {
+              results.push({ ...meta, diffSeats: seatDiffs });
+          }
       });
       return results;
   };
@@ -319,7 +360,7 @@ export const PaymentManager: React.FC = () => {
                    </div>
                    <div>
                       <h3 className="font-bold text-slate-800">Trạng thái vé</h3>
-                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Tổng số vé PAID: {stats.totalTickets}</p>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Dựa trên dữ liệu thanh toán thực tế</p>
                    </div>
                 </div>
                 <div className="text-right">
@@ -477,9 +518,9 @@ export const PaymentManager: React.FC = () => {
                             const isPositive = p.amount >= 0;
                             const isCash = p.method === 'cash';
                             const prevP = idx > 0 ? arr[idx-1] : null;
-                            const currTrips = normalizeTrips(p.details);
+                            
                             const prevTrips = prevP ? normalizeTrips(prevP.details) : [];
-                            const diffResult = calculateDiff(prevTrips, currTrips);
+                            const diffResult = calculateDiff(prevTrips, p);
 
                             return (
                                 <div key={p.id} className="relative pl-8 animate-in slide-in-from-left duration-300">
@@ -516,6 +557,11 @@ export const PaymentManager: React.FC = () => {
                                                         </div>
                                                     </div>
                                                 </div>
+                                                {p.transactionType === 'incremental' && (
+                                                    <Badge className="bg-indigo-50 text-indigo-700 border-indigo-200 text-[9px] font-black uppercase px-2 h-5">
+                                                        Thanh toán lẻ
+                                                    </Badge>
+                                                )}
                                             </div>
 
                                             {diffResult.length > 0 ? (

@@ -145,7 +145,8 @@ const paymentSchema = new mongoose.Schema(
     cashAmount: { type: Number, default: 0 },
     transferAmount: { type: Number, default: 0 },
     method: String,
-    type: String,
+    type: String, // 'payment' | 'refund'
+    transactionType: { type: String, default: 'snapshot' }, // 'snapshot' | 'incremental'
     note: String,
     timestamp: { type: Date, default: Date.now },
     performedBy: String,
@@ -238,6 +239,7 @@ const processPaymentUpdate = async (booking, newPaymentState) => {
     cashAmount: cashDelta,
     transferAmount: transferDelta,
     type,
+    transactionType: 'snapshot', // Cập nhật toàn phần đơn hàng
     method,
     note: type === "refund" ? "Hoàn tiền" : "Thanh toán/Cập nhật",
     timestamp: new Date(),
@@ -346,6 +348,9 @@ app.post("/api/bookings", async (req, res) => {
     const updatedTrips = [];
     const logTripDetails = [];
 
+    const totalPaid = (payment?.paidCash || 0) + (payment?.paidTransfer || 0);
+    const finalStatus = requestedStatus || (totalPaid > 0 ? "payment" : "booking");
+
     for (const item of items) {
       const trip = await Trip.findById(item.tripId);
       if (!trip) continue;
@@ -354,15 +359,16 @@ app.post("/api/bookings", async (req, res) => {
       
       const tickets = item.tickets || item.seats.map((s) => ({
         seatId: s.id,
-        price: s.price,
+        // Nếu là 'booking', ticket.price = 0 để phản ánh chưa thu tiền
+        price: finalStatus === 'payment' ? s.price : 0,
         pickup: passenger.pickupPoint || "",
         dropoff: passenger.dropoffPoint || "",
         note: "",
       }));
       
       const seatIds = tickets.map((t) => t.seatId);
-      const itemPrice = tickets.reduce((sum, t) => sum + t.price, 0);
-      calculatedTotalPrice += itemPrice;
+      const itemPrice = tickets.reduce((sum, t) => sum + (t.price || 0), 0);
+      calculatedTotalPrice += (item.price || item.seats.reduce((s,ss) => s + ss.price, 0)); // Booking total is always target amount
       calculatedTotalTickets += seatIds.length;
 
       bookingItems.push({
@@ -372,7 +378,7 @@ app.post("/api/bookings", async (req, res) => {
         licensePlate: trip.licensePlate,
         seatIds,
         tickets,
-        price: itemPrice,
+        price: itemPrice, // Thực thu cho trip này
         isEnhanced,
         busType: trip.type,
       });
@@ -380,8 +386,6 @@ app.post("/api/bookings", async (req, res) => {
       logTripDetails.push({ route: trip.route, tripDate: trip.departureTime, seats: seatIds, licensePlate: trip.licensePlate });
     }
 
-    const totalPaid = (payment?.paidCash || 0) + (payment?.paidTransfer || 0);
-    let finalStatus = requestedStatus || (totalPaid >= calculatedTotalPrice ? "payment" : "booking");
     const targetSeatStatus = finalStatus === "payment" ? "sold" : finalStatus === "hold" ? "held" : "booked";
 
     for (const item of bookingItems) {
@@ -428,15 +432,22 @@ app.put("/api/bookings/:id", async (req, res) => {
     let calculatedTotalTickets = 0;
     const bookingItems = [];
 
+    const totalPaid = (payment?.paidCash || 0) + (payment?.paidTransfer || 0);
+    const finalStatus = requestedStatus || (totalPaid > 0 ? "payment" : "booking");
+
     for (const item of items) {
       const trip = await Trip.findById(item.tripId);
       if (!trip) continue;
       const tickets = item.tickets || item.seats.map((s) => ({
-        seatId: s.id, price: s.price, pickup: passenger.pickupPoint || "", dropoff: passenger.dropoffPoint || "", note: ""
+        seatId: s.id, 
+        price: finalStatus === 'payment' ? s.price : 0, 
+        pickup: passenger.pickupPoint || "", 
+        dropoff: passenger.dropoffPoint || "", 
+        note: ""
       }));
       const seatIds = tickets.map((t) => t.seatId);
-      const itemPrice = tickets.reduce((sum, t) => sum + t.price, 0);
-      calculatedTotalPrice += itemPrice;
+      const itemPrice = tickets.reduce((sum, t) => sum + (t.price || 0), 0);
+      calculatedTotalPrice += (item.price || item.seats.reduce((s,ss) => s + ss.price, 0));
       calculatedTotalTickets += seatIds.length;
 
       bookingItems.push({
@@ -444,8 +455,6 @@ app.put("/api/bookings/:id", async (req, res) => {
       });
     }
 
-    const totalPaid = (payment?.paidCash || 0) + (payment?.paidTransfer || 0);
-    let finalStatus = requestedStatus || (totalPaid >= calculatedTotalPrice ? "payment" : "booking");
     const targetSeatStatus = finalStatus === "payment" ? "sold" : finalStatus === "hold" ? "held" : "booked";
 
     for (const item of bookingItems) {
@@ -562,7 +571,6 @@ app.post("/api/bookings/swap", async (req, res) => {
   }
 });
 
-/* FIX: Added transfer endpoint to support seat distribution between trips as requested by SeatTransfer.tsx */
 app.post("/api/bookings/transfer", async (req, res) => {
   try {
     const { bookingId, fromTripId, toTripId, seatTransfers } = req.body;
@@ -688,6 +696,7 @@ app.patch("/api/bookings/:id/tickets/:seatId", async (req, res) => {
             cashAmount: payment.paidCash || 0,
             transferAmount: payment.paidTransfer || 0,
             type: 'payment',
+            transactionType: 'incremental', // Quan trọng: Đánh dấu là cập nhật lẻ
             method: (payment.paidCash && payment.paidTransfer) ? 'mixed' : (payment.paidCash ? 'cash' : 'transfer'),
             note: `Thanh toán lẻ ghế ${seatId}`,
             timestamp: new Date(),
@@ -708,9 +717,8 @@ app.patch("/api/bookings/:id/tickets/:seatId", async (req, res) => {
         });
         await paymentRec.save();
         
-        // Cập nhật lại tổng tiền của Item và Booking
+        // Cập nhật lại tổng tiền ITEM (Tổng thực thu của trip này)
         targetItem.price = targetItem.tickets.reduce((sum, t) => sum + (t.price || 0), 0);
-        booking.totalPrice = booking.items.reduce((sum, item) => sum + (item.price || 0), 0);
 
         await logBookingAction(booking._id, "PAY_SEAT", `Thanh toán riêng cho ghế ${seatId}`, { seat: seatId, amount: paymentRec.totalAmount });
     }
@@ -731,6 +739,7 @@ app.patch("/api/bookings/:id/tickets/:seatId", async (req, res) => {
             cashAmount: -refundAmount, 
             transferAmount: 0,
             type: 'refund',
+            transactionType: 'incremental',
             method: 'cash',
             note: `Hoàn tiền & Hủy lẻ ghế ${seatId}`,
             timestamp: new Date(),
@@ -758,7 +767,6 @@ app.patch("/api/bookings/:id/tickets/:seatId", async (req, res) => {
         
         booking.items = booking.items.filter(item => item.seatIds.length > 0);
         booking.totalTickets = booking.items.reduce((sum, item) => sum + item.seatIds.length, 0);
-        booking.totalPrice = booking.items.reduce((sum, item) => sum + (item.price || 0), 0);
         
         if (booking.totalTickets === 0) booking.status = 'cancelled';
 
@@ -842,7 +850,9 @@ app.post("/api/maintenance/fix-seats", async (req, res) => {
             seats.forEach(seatId => {
                 const key = `${tId}_${seatId}`;
                 const existing = paymentOccupancy.get(key) || { totalPaid: 0, bookingIds: new Set() };
-                existing.totalPaid += p.totalAmount;
+                if (p.type === 'payment') existing.totalPaid += p.totalAmount;
+                else if (p.type === 'refund') existing.totalPaid += p.totalAmount; // amount âm
+
                 if (p.bookingId) existing.bookingIds.add(p.bookingId.toString());
                 paymentOccupancy.set(key, existing);
             });

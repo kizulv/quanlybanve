@@ -38,6 +38,7 @@ export const ManifestList: React.FC<ManifestListProps> = ({
   const totalManifestPrice = useMemo(() => {
     return filteredManifest.reduce((sum, booking) => {
       const tripItem = booking.items.find((i) => i.tripId === selectedTrip?.id);
+      // TripItem.price lúc này là tổng thực thu của chuyến này
       return sum + (tripItem?.price || 0);
     }, 0);
   }, [filteredManifest, selectedTrip]);
@@ -82,7 +83,7 @@ export const ManifestList: React.FC<ManifestListProps> = ({
       <div className="px-3 py-2 bg-indigo-50/50 border-b border-indigo-100 flex justify-between items-center text-xs shadow-inner shrink-0">
         <div className="flex items-center gap-1.5 text-slate-500 font-bold uppercase tracking-tight">
           <Calculator size={14} />
-          <span>Tổng thực thu:</span>
+          <span>Tổng tiền đã thu:</span>
         </div>
         <div className="font-black text-red-700 text-sm tracking-tight">
           {totalManifestPrice.toLocaleString("vi-VN")}
@@ -99,7 +100,7 @@ export const ManifestList: React.FC<ManifestListProps> = ({
             const totalPaid =
               (booking.payment?.paidCash || 0) +
               (booking.payment?.paidTransfer || 0);
-            const isFullyPaid = totalPaid >= booking.totalPrice;
+            
             const timeStr = new Date(
               booking.createdAt
             ).toLocaleTimeString("vi-VN", {
@@ -112,10 +113,7 @@ export const ManifestList: React.FC<ManifestListProps> = ({
             );
             const seatsToShow = tripItem ? tripItem.seatIds : [];
             const isHighlighted = booking.id === highlightedBookingId;
-            const tripSubtotal = tripItem ? tripItem.price : 0;
-
-            // Logically determine color based on payment state
-            const isPaidState = booking.status === 'payment' || (totalPaid > 0 && tripSubtotal > 0);
+            const tripCollected = tripItem ? tripItem.price : 0; // Số tiền đã thu của trip này
 
             return (
               <div
@@ -123,7 +121,7 @@ export const ManifestList: React.FC<ManifestListProps> = ({
                 id={`booking-item-${booking.id}`}
                 onClick={() => onSelectBooking(booking)}
                 className={`px-3 py-2 border-b border-slate-100 cursor-pointer hover:bg-slate-50 transition-colors ${
-                  !isFullyPaid && booking.status !== 'hold' ? "bg-yellow-50/30" : (booking.status === 'hold' ? "bg-purple-50/30" : "")
+                  tripCollected === 0 && booking.status !== 'hold' ? "bg-yellow-50/30" : (booking.status === 'hold' ? "bg-purple-50/30" : "")
                 } ${
                   isHighlighted
                     ? "bg-indigo-50 ring-2 ring-indigo-500 z-10"
@@ -157,12 +155,12 @@ export const ManifestList: React.FC<ManifestListProps> = ({
                   </div>
                   <div
                     className={`text-xs font-black whitespace-nowrap ${
-                      isFullyPaid ? "text-green-600" : (booking.status === 'hold' ? "text-purple-600" : "text-amber-600")
+                      tripCollected > 0 ? "text-green-600" : (booking.status === 'hold' ? "text-purple-600" : "text-amber-600")
                     }`}
                   >
-                    {booking.status === 'booking' && tripSubtotal === 0 
-                        ? "Đã đặt vé" 
-                        : tripSubtotal.toLocaleString("vi-VN")
+                    {tripCollected === 0 
+                        ? "Chưa thu tiền" 
+                        : tripCollected.toLocaleString("vi-VN")
                     }
                   </div>
                 </div>
