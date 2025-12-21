@@ -49,8 +49,6 @@ export const api = {
       fetchJson(`${API_URL}/bookings/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ items, passenger, payment, status }) }),
     transfer: (sourceTripId: string, sourceSeatId: string, targetTripId: string, targetSeatId: string) =>
       fetchJson(`${API_URL}/bookings/transfer`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sourceTripId, sourceSeatId, targetTripId, targetSeatId }) }),
-    bulkTransfer: (transfers: { sourceTripId: string; sourceSeatId: string; targetTripId: string; targetSeatId: string }[]) =>
-      fetchJson(`${API_URL}/bookings/bulk-transfer`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ transfers }) }),
     delete: (id: string) => fetchJson(`${API_URL}/bookings/${id}`, { method: "DELETE" }),
     getHistory: (id: string) => fetchJson(`${API_URL}/bookings/${id}/history`),
   },

@@ -42,6 +42,9 @@ function AppContent() {
   const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
   const [updateSummary, setUpdateSummary] = useState<any | null>(null);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [pendingPaymentContext, setPendingPaymentContext] = useState<any | null>(null);
+  const [modalPaymentInput, setModalPaymentInput] = useState({ paidCash: 0, paidTransfer: 0 });
+  const [modalInitialOverrides, setModalInitialOverrides] = useState<any>({});
 
   const refreshData = async () => {
     try {
@@ -51,32 +54,6 @@ function AppContent() {
   };
 
   useEffect(() => { refreshData(); }, []);
-
-  useEffect(() => {
-    if (editingBooking) {
-      setTrips(currentTrips => currentTrips.map(trip => {
-        const bookingItem = editingBooking.items.find(item => item.tripId === trip.id);
-        if (bookingItem) {
-          return {
-            ...trip,
-            seats: trip.seats.map(seat => 
-              bookingItem.seatIds.includes(seat.id) 
-                ? { ...seat, status: SeatStatus.SELECTED, originalStatus: seat.status } 
-                : seat
-            )
-          };
-        }
-        return trip;
-      }));
-      setBookingForm({
-        phone: editingBooking.passenger.phone,
-        pickup: editingBooking.passenger.pickupPoint || "",
-        dropoff: editingBooking.passenger.dropoffPoint || "",
-        note: editingBooking.passenger.note || ""
-      });
-      setBookingMode(editingBooking.status === 'payment' ? 'payment' : editingBooking.status === 'hold' ? 'hold' : 'booking');
-    }
-  }, [editingBooking]);
 
   const selectionBasket = useMemo(() => {
     const basket: { trip: BusTrip; seats: Seat[] }[] = [];
@@ -99,19 +76,8 @@ function AppContent() {
 
   const selectedTrip = trips.find((t) => t.id === selectedTripId) || null;
   const tripBookings = useMemo(() => !selectedTrip ? [] : bookings.filter((b) => b.items.some((item) => item.tripId === selectedTrip.id) && b.status !== "cancelled"), [bookings, selectedTrip]);
-  
-  const handleSelectBookingForEdit = (booking: Booking) => {
-      if (booking.items.length > 0) {
-          const firstItem = booking.items[0];
-          const tripDate = new Date(firstItem.tripDate.split(' ')[0]);
-          setSelectedDate(tripDate);
-          setSelectedTripId(firstItem.tripId);
-          const trip = trips.find(t => t.id === firstItem.tripId);
-          if (trip && trip.direction) setSelectedDirection(trip.direction);
-      }
-      setEditingBooking(booking);
-      setActiveTab("sales");
-  };
+  const filteredManifest = useMemo(() => !manifestSearch.trim() ? tripBookings : tripBookings.filter(b => b.passenger.phone.includes(manifestSearch.toLowerCase()) || (b.passenger.name || "").toLowerCase().includes(manifestSearch.toLowerCase()) || b.items.some(i => i.tripId === selectedTrip?.id && i.seatIds.some(s => s.toLowerCase().includes(manifestSearch.toLowerCase())))), [tripBookings, manifestSearch, selectedTrip]);
+  const totalManifestPrice = useMemo(() => filteredManifest.reduce((sum, booking) => sum + (booking.items.find(i => i.tripId === selectedTrip?.id)?.price || 0), 0), [filteredManifest, selectedTrip]);
 
   const handleTripSelect = (tripId: string) => {
     setSelectedTripId(tripId); setManifestSearch(""); setSwapSourceSeat(null); setHighlightedBookingId(null);
@@ -133,58 +99,20 @@ function AppContent() {
       } catch (e) { toast({ type: "error", title: "Lỗi", message: "Thao tác thất bại." }); } finally { setSwapSourceSeat(null); }
       return;
     }
-    
-    if ([SeatStatus.BOOKED, SeatStatus.SOLD, SeatStatus.HELD].includes(clickedSeat.status) && !editingBooking) {
+    if ([SeatStatus.BOOKED, SeatStatus.SOLD, SeatStatus.HELD].includes(clickedSeat.status)) {
         const booking = tripBookings.find(b => b.items.some(i => i.tripId === selectedTrip.id && i.seatIds.includes(clickedSeat.id)));
-        if (booking) setHighlightedBookingId(booking.id); 
-        return;
+        if (booking) setHighlightedBookingId(booking.id); return;
     }
-
-    const updatedSeats = selectedTrip.seats.map(s => {
-        if (s.id === clickedSeat.id) {
-            const isCurrentlySelected = s.status === SeatStatus.SELECTED;
-            const nextStatus = isCurrentlySelected ? (s.originalStatus || SeatStatus.AVAILABLE) : SeatStatus.SELECTED;
-            return { ...s, status: nextStatus, originalStatus: !isCurrentlySelected ? s.status : s.originalStatus };
-        }
-        return s;
-    });
+    const updatedSeats = selectedTrip.seats.map(s => s.id === clickedSeat.id ? { ...s, status: s.status === SeatStatus.SELECTED ? (s.originalStatus || SeatStatus.AVAILABLE) : SeatStatus.SELECTED, originalStatus: s.status === SeatStatus.HELD ? SeatStatus.HELD : undefined } : s);
     setTrips(p => p.map(t => t.id === selectedTrip.id ? { ...selectedTrip, seats: updatedSeats } : t));
   };
 
-  const handleSavePassengerDetail = async (passenger: Passenger) => {
-    if (!seatDetailModal || !selectedTrip) return;
-    const { seat, booking } = seatDetailModal;
-    
-    try {
-        if (booking) {
-            // Update an existing booking
-            await api.bookings.update(booking.id, booking.items, passenger, booking.payment, booking.status);
-            toast({ type: 'success', title: 'Thành công', message: 'Đã cập nhật thông tin khách hàng' });
-        } else {
-            // "Hold" an available seat or update existing Hold note directly on Trip
-            const updatedSeats = selectedTrip.seats.map(s => {
-                if (s.id === seat.id) {
-                    return { ...s, status: SeatStatus.HELD, note: passenger.note || '' };
-                }
-                return s;
-            });
-            await api.trips.updateSeats(selectedTrip.id, updatedSeats);
-            toast({ type: 'success', title: 'Thành công', message: 'Đã cập nhật ghi chú giữ vé' });
-        }
-        await refreshData();
-        setSeatDetailModal(null);
-    } catch (e) {
-        toast({ type: 'error', title: 'Lỗi', message: 'Không thể lưu thông tin' });
-    }
-  };
-
-  const filteredManifest = useMemo(() => !manifestSearch.trim() ? tripBookings : tripBookings.filter(b => b.passenger.phone.includes(manifestSearch.toLowerCase()) || (b.passenger.name || "").toLowerCase().includes(manifestSearch.toLowerCase()) || b.items.some(i => i.tripId === selectedTrip?.id && i.seatIds.some(s => s.toLowerCase().includes(manifestSearch.toLowerCase())))), [tripBookings, manifestSearch, selectedTrip]);
-  const totalManifestPrice = useMemo(() => filteredManifest.reduce((sum, booking) => sum + (booking.items.find(i => i.tripId === selectedTrip?.id)?.price || 0), 0), [filteredManifest, selectedTrip]);
+  if (isLoading) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><Loader2 className="animate-spin text-primary" size={48} /></div>;
 
   return (
     <Layout
       activeTab={activeTab} onTabChange={setActiveTab} selectedDate={selectedDate} onDateChange={setSelectedDate} availableTrips={availableTripsForDate} selectedTripId={selectedTripId} onTripChange={handleTripSelect} selectedDirection={selectedDirection} onDirectionChange={setSelectedDirection} routes={routes}
-      headerRight={<RightSheet bookings={bookings} trips={trips} onSelectBooking={handleSelectBookingForEdit} onUndo={() => refreshData()} />}
+      headerRight={<RightSheet bookings={bookings} trips={trips} onSelectBooking={(b) => { setEditingBooking(b); setActiveTab("sales"); }} onUndo={() => refreshData()} />}
     >
       {activeTab === "sales" && (
         <div className="flex flex-col md:flex-row gap-4 animate-in fade-in duration-300">
@@ -196,26 +124,15 @@ function AppContent() {
             <div className="flex-1 overflow-y-auto">{selectedTrip ? <SeatMap seats={selectedTrip.seats} busType={selectedTrip.type} onSeatClick={handleSeatClick} bookings={tripBookings} currentTripId={selectedTrip.id} onSeatSwap={setSwapSourceSeat} editingBooking={editingBooking} swapSourceSeatId={swapSourceSeat?.id} onSeatRightClick={(s,b) => setSeatDetailModal({seat:s, booking:b})} /> : <div className="h-[400px] md:h-full flex flex-col items-center justify-center text-slate-300 p-8 text-center"><BusFront size={48} className="mb-4 opacity-20" /><p className="text-sm font-medium">Vui lòng chọn chuyến xe</p></div>}</div>
           </div>
           <div className="w-full md:w-[320px] xl:w-[360px] flex flex-col gap-4 shrink-0 md:h-[calc(100vh-140px)]">
-            <BookingForm bookingForm={bookingForm} setBookingForm={setBookingForm} bookingMode={bookingMode} setBookingMode={setBookingMode} selectionBasket={selectionBasket} bookings={bookings} routes={routes} phoneError={phoneError} setPhoneError={setPhoneError} editingBooking={editingBooking} onConfirm={() => setIsPaymentModalOpen(true)} onCancel={() => { setEditingBooking(null); refreshData(); }} validatePhoneNumber={v => null} onNavigateToTrip={(date, id) => { setSelectedDate(date); setSelectedTripId(id); }} />
+            <BookingForm bookingForm={bookingForm} setBookingForm={setBookingForm} bookingMode={bookingMode} setBookingMode={setBookingMode} selectionBasket={selectionBasket} bookings={bookings} routes={routes} phoneError={phoneError} setPhoneError={setPhoneError} editingBooking={editingBooking} onConfirm={() => setIsPaymentModalOpen(true)} onCancel={() => refreshData()} validatePhoneNumber={v => null} />
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col min-h-[300px] md:flex-1 overflow-hidden">
                <div className="px-3 py-2.5 bg-white border-b border-slate-100 flex justify-between items-center shrink-0"><div className="flex items-center gap-1.5 text-slate-800 font-bold text-xs"><Users size={14} className="text-slate-400" /><span>Danh sách khách ({tripBookings.length})</span></div><ManifestPrint selectedTrip={selectedTrip} manifest={filteredManifest} /></div>
                <div className="p-2 border-b border-slate-100 bg-slate-50/50"><div className="relative"><Search size={14} className="absolute left-2.5 top-2 text-slate-400" /><input type="text" value={manifestSearch} onChange={e => setManifestSearch(e.target.value)} placeholder="Tìm kiếm..." className="w-full pl-8 pr-7 py-1.5 text-xs border border-slate-200 rounded-md focus:outline-none bg-white" /></div></div>
                <div className="px-3 py-2 bg-indigo-50/50 border-b border-indigo-100 flex justify-between items-center text-xs shrink-0"><div className="flex items-center gap-1.5 text-slate-500 font-bold uppercase tracking-tight"><Calculator size={14} /><span>Tổng thực thu:</span></div><div className="font-black text-red-700 text-sm">{totalManifestPrice.toLocaleString("vi-VN")}</div></div>
-               <div className="flex-1 overflow-y-auto">{filteredManifest.map((b, idx) => (<div key={idx} onClick={() => handleSelectBookingForEdit(b)} className="px-3 py-2 border-b border-slate-100 cursor-pointer hover:bg-slate-50 transition-colors"><div className="flex justify-between items-center mb-1.5"><span className="text-xs font-bold text-slate-800">{b.passenger.phone}</span></div><div className="flex justify-between items-start gap-2"><div className="flex gap-1 text-[11px] text-slate-600 flex-wrap">{b.items.find(i => i.tripId === selectedTrip?.id)?.seatIds.map(s => (<span key={s} className="bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">{s}</span>))}</div><div className="text-xs font-black text-green-600">{(b.items.find(i => i.tripId === selectedTrip?.id)?.price || 0).toLocaleString("vi-VN")}</div></div></div>))}</div>
+               <div className="flex-1 overflow-y-auto">{filteredManifest.map((b, idx) => (<div key={idx} className="px-3 py-2 border-b border-slate-100 cursor-pointer hover:bg-slate-50 transition-colors"><div className="flex justify-between items-center mb-1.5"><span className="text-xs font-bold text-slate-800">{b.passenger.phone}</span></div><div className="flex justify-between items-start gap-2"><div className="flex gap-1 text-[11px] text-slate-600 flex-wrap">{b.items.find(i => i.tripId === selectedTrip?.id)?.seatIds.map(s => (<span key={s} className="bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">{s}</span>))}</div><div className="text-xs font-black text-green-600">{(b.items.find(i => i.tripId === selectedTrip?.id)?.price || 0).toLocaleString("vi-VN")}</div></div></div>))}</div>
             </div>
           </div>
         </div>
-      )}
-
-      {seatDetailModal && (
-        <SeatDetailModal
-          isOpen={!!seatDetailModal}
-          onClose={() => setSeatDetailModal(null)}
-          booking={seatDetailModal.booking}
-          seat={seatDetailModal.seat}
-          bookings={bookings}
-          onSave={handleSavePassengerDetail}
-        />
       )}
 
       {activeTab === "sorting" && <SeatSortingView trips={trips} bookings={bookings} onRefresh={refreshData} selectedDate={selectedDate} />}
