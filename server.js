@@ -99,7 +99,7 @@ const ticketDetailSchema = new mongoose.Schema({
     price: Number,
     pickup: String,
     dropoff: String,
-    note: String // NEW: Ghi chú riêng cho ghế
+    note: String
 }, { _id: false });
 
 const bookingItemSchema = new mongoose.Schema({
@@ -161,7 +161,7 @@ const historySchema = new mongoose.Schema(
     bookingId: { type: mongoose.Schema.Types.ObjectId, ref: 'Booking' },
     action: { 
       type: String, 
-      enum: ['CREATE', 'UPDATE', 'CANCEL', 'SWAP', 'PASSENGER_UPDATE', 'DELETE'],
+      enum: ['CREATE', 'UPDATE', 'CANCEL', 'SWAP', 'PASSENGER_UPDATE', 'DELETE', 'TRANSFER'],
       required: true
     },
     description: String,
@@ -674,6 +674,95 @@ app.put("/api/bookings/:id", async (req, res) => {
   } catch (e) {
       console.error(e);
       res.status(500).json({ error: e.message });
+  }
+});
+
+app.post("/api/bookings/transfer", async (req, res) => {
+  try {
+    const { bookingId, sourceTripId, targetTripId, sourceSeatId, targetSeatId } = req.body;
+
+    const booking = await Booking.findById(bookingId);
+    const sourceTrip = await Trip.findById(sourceTripId);
+    const targetTrip = await Trip.findById(targetTripId);
+
+    if (!booking || !sourceTrip || !targetTrip) {
+      return res.status(404).json({ error: "Dữ liệu không tồn tại" });
+    }
+
+    // 1. Cập nhật Trip Nguồn: Giải phóng ghế
+    sourceTrip.seats = sourceTrip.seats.map(s => {
+      if (s.id === sourceSeatId) return { ...s, status: 'available' };
+      return s;
+    });
+    await sourceTrip.save();
+
+    // 2. Cập nhật Trip Đích: Khóa ghế mới
+    const bookingStatus = booking.status;
+    const targetSeatStatus = bookingStatus === 'payment' ? 'sold' : bookingStatus === 'hold' ? 'held' : 'booked';
+    
+    targetTrip.seats = targetTrip.seats.map(s => {
+      if (s.id === targetSeatId) return { ...s, status: targetSeatStatus };
+      return s;
+    });
+    await targetTrip.save();
+
+    // 3. Cập nhật Booking: Thay đổi item liên quan
+    booking.items = booking.items.map(item => {
+      if (item.tripId === sourceTripId) {
+        // Cập nhật mảng seatIds
+        const newSeatIds = item.seatIds.map(sid => sid === sourceSeatId ? targetSeatId : sid);
+        
+        // Cập nhật chi tiết vé nếu có
+        let newTickets = item.tickets;
+        if (newTickets) {
+          newTickets = newTickets.map(t => t.seatId === sourceSeatId ? { ...t, seatId: targetSeatId } : t);
+        }
+
+        // Cập nhật thông tin snapshot của trip đích
+        return {
+          ...item,
+          tripId: targetTripId,
+          tripDate: targetTrip.departureTime,
+          route: targetTrip.route,
+          licensePlate: targetTrip.licensePlate,
+          seatIds: newSeatIds,
+          tickets: newTickets,
+          busType: targetTrip.type
+        };
+      }
+      return item;
+    });
+
+    booking.updatedAt = new Date().toISOString();
+    await booking.save();
+
+    // 4. Log lịch sử
+    const sourceSeatLabel = sourceTrip.seats.find(s => s.id === sourceSeatId)?.label || sourceSeatId;
+    const targetSeatLabel = targetTrip.seats.find(s => s.id === targetSeatId)?.label || targetSeatId;
+
+    await logBookingAction(
+      bookingId,
+      'TRANSFER',
+      `Chuyển khách từ xe ${sourceTrip.licensePlate} (${sourceSeatLabel}) sang xe ${targetTrip.licensePlate} (${targetSeatLabel})`,
+      {
+        fromTrip: sourceTrip.licensePlate,
+        toTrip: targetTrip.licensePlate,
+        fromSeat: sourceSeatLabel,
+        toSeat: targetSeatLabel
+      }
+    );
+
+    const allTrips = await Trip.find();
+    const allBookings = await Booking.aggregate([
+      { $lookup: { from: "payments", localField: "_id", foreignField: "bookingId", as: "paymentRecords" } },
+      { $addFields: { id: "$_id", payment: { paidCash: { $sum: "$paymentRecords.cashAmount" }, paidTransfer: { $sum: "$paymentRecords.transferAmount" } } } },
+      { $project: { paymentRecords: 0, _id: 0, __v: 0 } }
+    ]);
+
+    res.json({ success: true, trips: allTrips, bookings: allBookings });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: e.message });
   }
 });
 

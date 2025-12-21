@@ -5,6 +5,7 @@ import { SeatMap } from "./components/SeatMap";
 import { SettingsView } from "./components/SettingsView";
 import { ScheduleView } from "./components/ScheduleView";
 import { PaymentManager } from "./components/PaymentManager";
+import { SeatTransfer } from "./components/SeatTransfer";
 import { Badge } from "./components/ui/Badge";
 import { ToastProvider, useToast } from "./components/ui/Toast";
 import { RightSheet } from "./components/RightSheet";
@@ -1611,6 +1612,15 @@ function AppContent() {
       )}
 
       {activeTab === "finance" && <PaymentManager />}
+
+      {activeTab === "transfer" && (
+        <SeatTransfer 
+          trips={trips} 
+          bookings={bookings} 
+          selectedDate={selectedDate} 
+          onRefresh={refreshData}
+        />
+      )}
 
       {activeTab === "tickets" && (
         <div className="space-y-6 animate-in fade-in duration-500">

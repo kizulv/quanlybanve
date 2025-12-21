@@ -11,7 +11,8 @@ import {
   BusFront,
   Zap,
   Bus,
-  BadgeDollarSign
+  BadgeDollarSign,
+  ArrowLeftRight
 } from "lucide-react";
 import { Button } from "./ui/Button";
 import { Popover } from "./ui/Popover";
@@ -88,6 +89,7 @@ export const Layout: React.FC<LayoutProps> = ({
   const navItems = [
     { id: "sales", icon: <Bus size={20} />, label: "Bán vé" },
     { id: "tickets", icon: <Ticket size={20} />, label: "Danh sách vé" },
+    { id: "transfer", icon: <ArrowLeftRight size={20} />, label: "Đổi chuyến" },
     { id: "schedule", icon: <CalendarIcon size={20} />, label: "Lịch trình" },
     { id: "finance", icon: <BadgeDollarSign size={20} />, label: "Tài chính" },
   ];
@@ -100,6 +102,10 @@ export const Layout: React.FC<LayoutProps> = ({
     tickets: {
       title: "Danh sách vé",
       description: "Tra cứu và quản lý lịch sử đặt vé",
+    },
+    transfer: {
+      title: "Đổi chuyến / Xe thường",
+      description: "Chuyển khách giữa các xe giường đơn cùng ngày",
     },
     schedule: {
       title: "Lịch trình",
@@ -364,7 +370,7 @@ export const Layout: React.FC<LayoutProps> = ({
 
             {/* Mobile-only center: Direction Toggle */}
             <div className="md:hidden flex-1 flex justify-center px-1">
-              {activeTab === 'sales' && <DirectionToggle />}
+              {(activeTab === 'sales' || activeTab === 'transfer') && <DirectionToggle />}
             </div>
 
             {/* Mobile-only right: headerRight */}
@@ -376,9 +382,9 @@ export const Layout: React.FC<LayoutProps> = ({
           {/* Row 2 (Mobile) / Middle (Desktop): Sales Filters */}
           <div className={`
             flex items-center gap-2 px-4 pb-3 md:pb-0 md:px-4 overflow-x-auto no-scrollbar justify-center md:justify-start
-            ${activeTab === 'sales' ? 'flex' : 'hidden md:flex'}
+            ${(activeTab === 'sales' || activeTab === 'transfer') ? 'flex' : 'hidden md:flex'}
           `}>
-            {activeTab === "sales" && (
+            {(activeTab === "sales" || activeTab === "transfer") && (
               <div className="flex items-center gap-2 md:gap-3 animate-in fade-in slide-in-from-right-4 duration-300 shrink-0">
                 
                 {/* 1. Direction Toggle (Desktop Only here) */}
@@ -419,101 +425,103 @@ export const Layout: React.FC<LayoutProps> = ({
                 />
 
                 {/* 3. Smart Trip Selector */}
-                <Popover
-                  align="right"
-                  trigger={
-                    <div className="flex items-center justify-between gap-3 h-9 px-2 md:px-3 border border-slate-200 rounded-md bg-white hover:bg-slate-50 hover:border-slate-300 transition-colors select-none cursor-pointer min-w-[140px] md:min-w-[200px] max-w-[240px] md:max-w-[340px]">
-                      <div className="flex items-center gap-2 overflow-hidden">
-                        <MapPin size={16} className="text-slate-500 shrink-0" />
-                        {selectedTripDisplay ? (
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className="text-xs md:text-sm font-medium text-slate-900 truncate">
-                              {selectedTripDisplay.displayTime} -{" "}
-                              {selectedTripDisplay.route}
+                {activeTab === 'sales' && (
+                  <Popover
+                    align="right"
+                    trigger={
+                      <div className="flex items-center justify-between gap-3 h-9 px-2 md:px-3 border border-slate-200 rounded-md bg-white hover:bg-slate-50 hover:border-slate-300 transition-colors select-none cursor-pointer min-w-[140px] md:min-w-[200px] max-w-[240px] md:max-w-[340px]">
+                        <div className="flex items-center gap-2 overflow-hidden">
+                          <MapPin size={16} className="text-slate-500 shrink-0" />
+                          {selectedTripDisplay ? (
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="text-xs md:text-sm font-medium text-slate-900 truncate">
+                                {selectedTripDisplay.displayTime} -{" "}
+                                {selectedTripDisplay.route}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-xs md:text-sm font-medium text-slate-500 truncate">
+                              Chọn chuyến...
                             </span>
+                          )}
+                        </div>
+                        <ChevronDown size={14} className="text-slate-400 shrink-0" />
+                      </div>
+                    }
+                    content={(close) => (
+                      <div className="w-[300px] md:w-[360px] max-h-[400px] overflow-y-auto bg-white rounded-lg border border-slate-200 shadow-xl p-1.5">
+                        {tripOptions.length === 0 ? (
+                          <div className="p-8 text-center text-slate-500">
+                            <BusFront size={24} className="mx-auto mb-2 opacity-20" />
+                            <p className="text-sm">
+                              Không có chuyến nào trong ngày này.
+                            </p>
                           </div>
                         ) : (
-                          <span className="text-xs md:text-sm font-medium text-slate-500 truncate">
-                            Chọn chuyến...
-                          </span>
-                        )}
-                      </div>
-                      <ChevronDown size={14} className="text-slate-400 shrink-0" />
-                    </div>
-                  }
-                  content={(close) => (
-                    <div className="w-[300px] md:w-[360px] max-h-[400px] overflow-y-auto bg-white rounded-lg border border-slate-200 shadow-xl p-1.5">
-                      {tripOptions.length === 0 ? (
-                        <div className="p-8 text-center text-slate-500">
-                          <BusFront size={24} className="mx-auto mb-2 opacity-20" />
-                          <p className="text-sm">
-                            Không có chuyến nào trong ngày này.
-                          </p>
-                        </div>
-                      ) : (
-                        <div className="space-y-1">
-                          {tripOptions.map((trip) => {
-                            const isSelected = trip.id === selectedTripId;
-                            return (
-                              <button
-                                key={trip.id}
-                                onClick={() => {
-                                  onTripChange(trip.id);
-                                  close();
-                                }}
-                                className={`w-full text-left p-2.5 rounded-md transition-all flex items-center gap-3 group ${
-                                  isSelected
-                                    ? "bg-primary/5 border border-primary/20"
-                                    : "hover:bg-slate-50 border border-transparent"
-                                }`}
-                              >
-                                {/* Time Column */}
-                                <div
-                                  className={`flex flex-col items-center justify-center w-12 h-10 rounded border text-xs font-bold shrink-0 ${
+                          <div className="space-y-1">
+                            {tripOptions.map((trip) => {
+                              const isSelected = trip.id === selectedTripId;
+                              return (
+                                <button
+                                  key={trip.id}
+                                  onClick={() => {
+                                    onTripChange(trip.id);
+                                    close();
+                                  }}
+                                  className={`w-full text-left p-2.5 rounded-md transition-all flex items-center gap-3 group ${
                                     isSelected
-                                      ? "bg-white border-primary/30 text-primary"
-                                      : "bg-slate-50 border-slate-200 text-slate-600"
+                                      ? "bg-primary/5 border border-primary/20"
+                                      : "hover:bg-slate-50 border border-transparent"
                                   }`}
                                 >
-                                  {trip.displayTime}
-                                </div>
-
-                                {/* Info Column */}
-                                <div className="flex-1 min-w-0">
+                                  {/* Time Column */}
                                   <div
-                                    className={`text-sm font-medium flex items-center gap-1.5 ${
+                                    className={`flex flex-col items-center justify-center w-12 h-10 rounded border text-xs font-bold shrink-0 ${
                                       isSelected
-                                        ? "text-primary"
-                                        : "text-slate-900"
+                                        ? "bg-white border-primary/30 text-primary"
+                                        : "bg-slate-50 border-slate-200 text-slate-600"
                                     }`}
                                   >
-                                    <span className="truncate">{trip.route}</span>
-                                    {trip.isEnhanced && (
-                                      <span className="shrink-0 inline-flex items-center text-[9px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200 shadow-sm ml-auto md:ml-0">
-                                        <Zap size={9} className="mr-0.5 fill-amber-700" />
-                                        TC {trip.enhancedIndex > 0 ? `#${trip.enhancedIndex}` : ""}
-                                      </span>
-                                    )}
+                                    {trip.displayTime}
                                   </div>
-                                  <div className="flex items-center gap-2 mt-0.5">
-                                    <span className="text-[10px] text-slate-500 bg-slate-100 px-1.5 rounded border border-slate-200/50">
-                                      {trip.licensePlate}
-                                    </span>
-                                  </div>
-                                </div>
 
-                                {/* Checkmark */}
-                                {isSelected && (
-                                  <Check size={16} className="text-primary ml-auto" />
-                                )}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                />
+                                  {/* Info Column */}
+                                  <div className="flex-1 min-w-0">
+                                    <div
+                                      className={`text-sm font-medium flex items-center gap-1.5 ${
+                                        isSelected
+                                          ? "text-primary"
+                                          : "text-slate-900"
+                                      }`}
+                                    >
+                                      <span className="truncate">{trip.route}</span>
+                                      {trip.isEnhanced && (
+                                        <span className="shrink-0 inline-flex items-center text-[9px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200 shadow-sm ml-auto md:ml-0">
+                                          <Zap size={9} className="mr-0.5 fill-amber-700" />
+                                          TC {trip.enhancedIndex > 0 ? `#${trip.enhancedIndex}` : ""}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-2 mt-0.5">
+                                      <span className="text-[10px] text-slate-500 bg-slate-100 px-1.5 rounded border border-slate-200/50">
+                                        {trip.licensePlate}
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  {/* Checkmark */}
+                                  {isSelected && (
+                                    <Check size={16} className="text-primary ml-auto" />
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  />
+                )}
               </div>
             )}
           </div>
