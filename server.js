@@ -819,11 +819,11 @@ app.post("/api/settings", async (req, res) => {
 /**
  * THUẬT TOÁN BẢO TRÌ NÂNG CẤP: LẤY BOOKING LÀM GỐC
  * Bổ sung ghi chú chi tiết từng thay đổi
+ * CẬP NHẬT: Đối soát chi tiết từng ghế (Granular seat status check)
  */
 app.post("/api/maintenance/fix-seats", async (req, res) => {
   try {
     const allBookings = await Booking.find({ status: { $ne: 'cancelled' } });
-    const allPayments = await Payment.find();
     const allTrips = await Trip.find();
     
     let fixedCount = 0;
@@ -832,32 +832,30 @@ app.post("/api/maintenance/fix-seats", async (req, res) => {
     const logs = []; // Danh sách chi tiết các ghế được sửa
 
     // 1. Map Booking Occupancy (Nguồn dữ liệu thật cho sơ đồ ghế)
+    // Map key: tripId_seatId -> Thông tin vé lẻ
     const bookingOccupancy = new Map();
     allBookings.forEach(b => {
         b.items.forEach(item => {
+            // b.items[x].tickets chứa thông tin chi tiết từng ghế trong booking đó
+            const tickets = item.tickets || [];
+            
             item.seatIds.forEach(seatId => {
                 const key = `${item.tripId}_${seatId}`;
+                const ticketDetail = tickets.find(t => t.seatId === seatId);
+                
                 if (!bookingOccupancy.has(key)) bookingOccupancy.set(key, []);
                 bookingOccupancy.get(key).push({
-                    id: b._id.toString(),
+                    bookingId: b._id.toString(),
                     phone: b.passenger?.phone,
-                    status: b.status,
+                    bookingStatus: b.status,
+                    ticketPrice: ticketDetail ? ticketDetail.price : 0,
                     updatedAt: b.updatedAt
                 });
             });
         });
     });
 
-    // 2. Map Payment (Để đồng bộ màu sắc Đã thanh toán)
-    const paymentMap = new Map();
-    allPayments.forEach(p => {
-        const bookingId = p.bookingId?.toString();
-        if (!bookingId) return;
-        const current = paymentMap.get(bookingId) || 0;
-        paymentMap.set(bookingId, current + (p.totalAmount || 0));
-    });
-
-    // 3. Thực hiện sửa lỗi từng Chuyến xe
+    // 2. Thực hiện sửa lỗi từng Chuyến xe
     for (const trip of allTrips) {
         let isModified = false;
         const tripId = trip._id.toString();
@@ -870,17 +868,16 @@ app.post("/api/maintenance/fix-seats", async (req, res) => {
             // LỖI 1: NHIỀU ĐƠN HÀNG TRÙNG GHẾ (CONFLICT)
             if (bookingsInSeat.length > 1) {
                 conflictCount++;
+                // Ưu tiên đơn có giá vé cao hơn hoặc cập nhật mới nhất
                 bookingsInSeat.sort((a, b) => {
-                    const paidA = paymentMap.get(a.id) || 0;
-                    const paidB = paymentMap.get(b.id) || 0;
-                    return (paidB - paidA) || (new Date(b.updatedAt) - new Date(a.updatedAt));
+                    return (b.ticketPrice - a.ticketPrice) || (new Date(b.updatedAt) - new Date(a.updatedAt));
                 });
 
                 const winner = bookingsInSeat[0];
                 const losers = bookingsInSeat.slice(1);
 
                 for (const loser of losers) {
-                    const bDoc = await Booking.findById(loser.id);
+                    const bDoc = await Booking.findById(loser.bookingId);
                     if (bDoc) {
                         bDoc.items = bDoc.items.map(item => {
                             if (item.tripId === tripId) {
@@ -909,10 +906,23 @@ app.post("/api/maintenance/fix-seats", async (req, res) => {
             const activeBooking = bookingsInSeat[0];
 
             if (activeBooking) {
-                const totalPaid = paymentMap.get(activeBooking.id) || 0;
+                // QUY TẮC PHÂN LOẠI MÀU (Trạng thái ghế):
+                // 1. Đơn hàng tổng thể là 'payment' -> Tất cả là 'sold' (Xanh)
+                // 2. Đơn hàng là 'hold' -> Tất cả là 'held' (Tím)
+                // 3. Đơn hàng là 'booking' -> Kiểm tra GIÁ VÉ LẺ (ticketPrice):
+                //    - price > 0: 'sold' (Xanh)
+                //    - price === 0: 'booked' (Vàng)
+                
                 let targetStatus = 'booked';
-                if (activeBooking.status === 'payment' || totalPaid > 0) targetStatus = 'sold';
-                else if (activeBooking.status === 'hold') targetStatus = 'held';
+                
+                if (activeBooking.bookingStatus === 'payment') {
+                    targetStatus = 'sold';
+                } else if (activeBooking.bookingStatus === 'hold') {
+                    targetStatus = 'held';
+                } else if (activeBooking.bookingStatus === 'booking') {
+                    // Đối soát chi tiết từng vé trong đơn hàng đặt chỗ
+                    targetStatus = activeBooking.ticketPrice > 0 ? 'sold' : 'booked';
+                }
 
                 if (s.status !== targetStatus) {
                     isModified = true;
@@ -922,11 +932,12 @@ app.post("/api/maintenance/fix-seats", async (req, res) => {
                       date: tripDate, 
                       seat: s.label, 
                       action: 'Đồng bộ màu sắc', 
-                      details: `Chuyển từ ${s.status} sang ${targetStatus}.`
+                      details: `Chuyển từ ${s.status} sang ${targetStatus} (Giá thu: ${activeBooking.ticketPrice}).`
                     });
                     return { ...s, status: targetStatus };
                 }
             } else {
+                // GIẢI PHÓNG GHẾ MA
                 if (s.status !== 'available') {
                     isModified = true;
                     fixedCount++;
