@@ -165,7 +165,7 @@ const historySchema = new mongoose.Schema(
     bookingId: { type: mongoose.Schema.Types.ObjectId, ref: "Booking" },
     action: {
       type: String,
-      enum: ["CREATE", "UPDATE", "CANCEL", "SWAP", "PASSENGER_UPDATE", "DELETE", "TRANSFER"],
+      enum: ["CREATE", "UPDATE", "CANCEL", "SWAP", "PASSENGER_UPDATE", "DELETE", "TRANSFER", "PAY_SEAT", "REFUND_SEAT"],
       required: true,
     },
     description: String,
@@ -643,26 +643,123 @@ app.post("/api/bookings/transfer", async (req, res) => {
 app.patch("/api/bookings/:id/tickets/:seatId", async (req, res) => {
   try {
     const { id, seatId } = req.params;
-    const { pickup, dropoff, note, phone, name } = req.body;
+    const { pickup, dropoff, note, phone, name, action, payment } = req.body;
     const booking = await Booking.findById(id);
     if (!booking) return res.status(404).json({ error: "Booking not found" });
-    let updated = false;
+    
+    let targetTicket = null;
+    let targetItem = null;
+    
     booking.items.forEach((item) => {
       if (item.tickets) {
         const ticket = item.tickets.find((t) => t.seatId === seatId);
         if (ticket) {
+          targetTicket = ticket;
+          targetItem = item;
           if (pickup !== undefined) ticket.pickup = pickup;
           if (dropoff !== undefined) ticket.dropoff = dropoff;
           if (note !== undefined) ticket.note = note;
-          updated = true;
         }
       }
     });
-    if (!updated) return res.status(404).json({ error: "Ticket not found" });
+
+    if (!targetTicket) return res.status(404).json({ error: "Ticket not found" });
+    
     if (phone) booking.passenger.phone = phone;
     if (name) booking.passenger.name = name;
+
+    // NGHIỆP VỤ TÀI CHÍNH LẺ
+    if (action === 'PAY' && payment) {
+        const trip = await Trip.findById(targetItem.tripId);
+        if (trip) {
+            trip.seats = trip.seats.map(s => s.id === seatId ? { ...s, status: 'sold' } : s);
+            trip.markModified("seats");
+            await trip.save();
+        }
+
+        // Tạo bản ghi thanh toán lẻ
+        const paymentRec = new Payment({
+            bookingId: booking._id,
+            totalAmount: (payment.paidCash || 0) + (payment.paidTransfer || 0),
+            cashAmount: payment.paidCash || 0,
+            transferAmount: payment.paidTransfer || 0,
+            type: 'payment',
+            method: (payment.paidCash && payment.paidTransfer) ? 'mixed' : (payment.paidCash ? 'cash' : 'transfer'),
+            note: `Thanh toán lẻ ghế ${seatId}`,
+            timestamp: new Date(),
+            details: {
+                seats: [seatId],
+                tripDate: targetItem.tripDate,
+                route: targetItem.route,
+                licensePlate: targetItem.licensePlate,
+                trips: [{
+                    tripId: targetItem.tripId,
+                    route: targetItem.route,
+                    tripDate: targetItem.tripDate,
+                    licensePlate: targetItem.licensePlate,
+                    seats: [seatId],
+                    tickets: [targetTicket]
+                }]
+            }
+        });
+        await paymentRec.save();
+        await logBookingAction(booking._id, "PAY_SEAT", `Thanh toán riêng cho ghế ${seatId}`, { seat: seatId, amount: paymentRec.totalAmount });
+    }
+
+    if (action === 'REFUND') {
+        const trip = await Trip.findById(targetItem.tripId);
+        if (trip) {
+            trip.seats = trip.seats.map(s => s.id === seatId ? { ...s, status: 'available' } : s);
+            trip.markModified("seats");
+            await trip.save();
+        }
+
+        // Hoàn tiền lẻ (Số tiền âm)
+        const refundAmount = targetTicket.price || 0;
+        const paymentRec = new Payment({
+            bookingId: booking._id,
+            totalAmount: -refundAmount,
+            cashAmount: -refundAmount, // Giả định hoàn tiền mặt
+            transferAmount: 0,
+            type: 'refund',
+            method: 'cash',
+            note: `Hoàn tiền & Hủy lẻ ghế ${seatId}`,
+            timestamp: new Date(),
+            details: {
+                seats: [seatId],
+                tripDate: targetItem.tripDate,
+                route: targetItem.route,
+                licensePlate: targetItem.licensePlate,
+                trips: [{
+                    tripId: targetItem.tripId,
+                    route: targetItem.route,
+                    tripDate: targetItem.tripDate,
+                    licensePlate: targetItem.licensePlate,
+                    seats: [seatId],
+                    tickets: [targetTicket]
+                }]
+            }
+        });
+        await paymentRec.save();
+
+        // Xóa ghế khỏi booking
+        targetItem.seatIds = targetItem.seatIds.filter(sid => sid !== seatId);
+        targetItem.tickets = targetItem.tickets.filter(t => t.seatId !== seatId);
+        targetItem.price = targetItem.tickets.reduce((sum, t) => sum + t.price, 0);
+        
+        booking.items = booking.items.filter(item => item.seatIds.length > 0);
+        booking.totalTickets = booking.items.reduce((sum, item) => sum + item.seatIds.length, 0);
+        booking.totalPrice = booking.items.reduce((sum, item) => sum + item.price, 0);
+        
+        if (booking.totalTickets === 0) booking.status = 'cancelled';
+
+        await logBookingAction(booking._id, "REFUND_SEAT", `Hoàn vé lẻ ghế ${seatId}`, { seat: seatId, amount: refundAmount });
+    }
+
     booking.markModified("items");
+    booking.updatedAt = new Date().toISOString();
     await booking.save();
+    
     res.json({ booking: (await getBookingsWithPayment({ _id: new mongoose.Types.ObjectId(id) }))[0] });
   } catch (e) {
     res.status(500).json({ error: e.message });

@@ -107,7 +107,6 @@ function AppContent() {
       try {
         const result = await api.bookings.swapSeats(selectedTrip.id, swapSourceSeat.id, clickedSeat.id);
         setBookings(result.bookings);
-        // FIX: Added explicit types to Map constructor to fix type mismatch in state setter
         const updatedTripsMap = new Map<string, BusTrip>(result.trips.map((t: BusTrip) => [t.id, t]));
         setTrips(prev => prev.map(t => updatedTripsMap.get(t.id) || t));
         setUndoStack(p => [...p, { type: 'SWAPPED_SEATS', tripId: selectedTrip.id, seat1: clickedSeat.id, seat2: swapSourceSeat.id, label1: clickedSeat.label, label2: swapSourceSeat.label, tripDate: selectedTrip.departureTime }]);
@@ -152,13 +151,11 @@ function AppContent() {
       if (action.type === "CREATED_BOOKING") {
         const del = await api.bookings.delete(action.bookingId);
         setBookings(del.bookings);
-        // FIX: Added explicit types to Map constructor to fix type mismatch in state setter
         const utMap = new Map<string, BusTrip>(del.trips.map((t: BusTrip) => [t.id, t]));
         setTrips(prev => prev.map(t => utMap.get(t.id) || t));
       } else if (action.type === "SWAPPED_SEATS") {
         const swapRes = await api.bookings.swapSeats(action.tripId, action.seat1, action.seat2);
         setBookings(swapRes.bookings);
-        // FIX: Added explicit types to Map constructor to fix type mismatch in state setter
         const utMap = new Map<string, BusTrip>(swapRes.trips.map((t: BusTrip) => [t.id, t]));
         setTrips(prev => prev.map(t => utMap.get(t.id) || t));
       }
@@ -193,35 +190,35 @@ function AppContent() {
           </div>
 
           <div className="w-full md:w-[320px] xl:w-[360px] flex flex-col gap-4 shrink-0 md:h-[calc(100vh-140px)]">
-            <BookingForm 
-              trips={trips} 
-              routes={routes} 
-              bookings={bookings} 
-              selectionBasket={selectionBasket} 
-              editingBooking={editingBooking} 
-              setTrips={setTrips} 
-              setBookings={setBookings} 
-              setUndoStack={setUndoStack} 
-              setEditingBooking={setEditingBooking} 
-              onCancelSelection={cancelAllSelections} 
-              onInitiateSwap={setSwapSourceSeat} 
-              onNavigateToTrip={(d, id) => { setSelectedDate(d); setSelectedTripId(id); }}
-            />
+            <BookingForm trips={trips} routes={routes} bookings={bookings} selectionBasket={selectionBasket} editingBooking={editingBooking} setTrips={setTrips} setBookings={setBookings} setUndoStack={setUndoStack} setEditingBooking={setEditingBooking} onCancelSelection={cancelAllSelections} onInitiateSwap={setSwapSourceSeat} onNavigateToTrip={(d, id) => { setSelectedDate(d); setSelectedTripId(id); }} />
             <ManifestList tripBookings={tripBookings} selectedTrip={selectedTrip} highlightedBookingId={highlightedBookingId} onSelectBooking={handleSelectBookingFromHistory} />
           </div>
         </div>
       )}
       {activeTab === "finance" && <PaymentManager />}
-      {activeTab === "tickets" && (/* ... (Trữ logic cũ của tab tickets) ... */ null)}
       {activeTab === "schedule" && <ScheduleView trips={trips} routes={routes} buses={buses} onAddTrip={async (d, t) => { await api.trips.create(t as any); refreshData(); }} onUpdateTrip={async (id, t) => { await api.trips.update(id, t); refreshData(); }} onDeleteTrip={async (id) => { await api.trips.delete(id); refreshData(); }} onUpdateBus={async (id, u) => { await api.buses.update(id, u); refreshData(); }} />}
       {activeTab === "settings" && <SettingsView routes={routes} setRoutes={setRoutes} buses={buses} setBuses={setBuses} trips={trips} setTrips={setTrips} onDataChange={refreshData} />}
 
-      <SeatDetailModal isOpen={!!seatDetailModal} onClose={() => setSeatDetailModal(null)} booking={seatDetailModal?.booking || null} seat={seatDetailModal?.seat || null} bookings={bookings} onSave={async (p) => {
+      <SeatDetailModal isOpen={!!seatDetailModal} onClose={() => setSeatDetailModal(null)} booking={seatDetailModal?.booking || null} seat={seatDetailModal?.seat || null} bookings={bookings} onSave={async (p, extra) => {
         if (!seatDetailModal) return;
         const { booking, seat } = seatDetailModal;
         if (booking) {
-          const res = await api.bookings.updateTicket(booking.id, seat.id, { pickup: p.pickupPoint, dropoff: p.dropoffPoint, note: p.note, phone: p.phone, name: p.name });
+          const res = await api.bookings.updateTicket(booking.id, seat.id, { 
+              pickup: p.pickupPoint, 
+              dropoff: p.dropoffPoint, 
+              note: p.note, 
+              phone: p.phone, 
+              name: p.name,
+              action: extra?.action,
+              payment: extra?.payment
+          });
           setBookings(prev => prev.map(b => b.id === booking.id ? res.booking : b));
+          
+          // Refresh trips if seat status changed (Payment/Refund)
+          if (extra?.action) {
+              const tripsData = await api.trips.getAll();
+              setTrips(tripsData);
+          }
         } else {
           const updatedSeats = selectedTrip!.seats.map(s => s.id === seat.id ? { ...s, note: p.note } : s);
           await api.trips.updateSeats(selectedTrip!.id, updatedSeats);

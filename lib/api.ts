@@ -3,7 +3,6 @@ import { Bus, BusTrip, Route, Passenger, Seat, Booking } from "../types";
 
 // Dynamically determine the API URL based on current window location
 const getApiUrl = () => {
-  // Check if we are running in a browser environment
   if (
     typeof window !== "undefined" &&
     window.location &&
@@ -18,7 +17,6 @@ const getApiUrl = () => {
 
 const API_URL = getApiUrl();
 
-// Generic fetch function with error handling
 const fetchJson = async (url: string, options?: RequestInit) => {
   try {
     const res = await fetch(url, options);
@@ -36,7 +34,6 @@ const fetchJson = async (url: string, options?: RequestInit) => {
   }
 };
 
-// API endpoints
 export const api = {
   buses: {
     getAll: () => fetchJson(`${API_URL}/buses`),
@@ -135,7 +132,7 @@ export const api = {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ passenger }),
       }),
-    updateTicket: (id: string, seatId: string, details: { pickup?: string, dropoff?: string, note?: string, phone?: string, name?: string }) =>
+    updateTicket: (id: string, seatId: string, details: { pickup?: string, dropoff?: string, note?: string, phone?: string, name?: string, action?: string, payment?: any }) =>
       fetchJson(`${API_URL}/bookings/${id}/tickets/${seatId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -160,7 +157,6 @@ export const api = {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ tripId, seatId1, seatId2 }),
         }),
-    /* FIX: Added missing transferSeat method to match SeatTransfer.tsx requirements */
     transferSeat: (bookingId: string, fromTripId: string, toTripId: string, seatTransfers: { sourceSeatId: string, targetSeatId: string }[]) =>
         fetchJson(`${API_URL}/bookings/transfer`, {
             method: "POST",
