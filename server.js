@@ -726,7 +726,7 @@ app.delete("/api/bookings/:id", async (req, res) => {
     const booking = await Booking.findById(bookingId);
     if (!booking) return res.status(404).json({ error: "Booking not found" });
     for (const item of booking.items) {
-      const trip = await Trip.findById(item.tripId);
+      const trip of await Trip.findById(item.tripId);
       if (trip) {
         trip.seats = trip.seats.map((s) => item.seatIds.includes(s.id) ? { ...s, status: "available" } : s);
         trip.markModified("seats");
@@ -760,31 +760,140 @@ app.post("/api/settings", async (req, res) => {
   try { const { key, value } = req.body; const setting = await Setting.findOneAndUpdate({ key }, { value }, { upsert: true, new: true }); res.json(setting.value); } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+/**
+ * NÂNG CẤP CHỨC NĂNG BẢO TRÌ: GHOST SEAT & DUPLICATE SEAT FIX
+ */
 app.post("/api/maintenance/fix-seats", async (req, res) => {
   try {
     const activeBookings = await Booking.find({ status: { $ne: "cancelled" } });
-    const occupiedMap = new Set();
+    const allPayments = await Payment.find().sort({ timestamp: -1 });
+    const trips = await Trip.find();
+    
+    let fixedCount = 0;
+    let conflictCount = 0;
+    let syncCount = 0;
+
+    // 1. Bản đồ chiếm dụng từ Booking (tripId_seatId -> BookingInfo)
+    const bookingOccupancy = new Map();
+    // 2. Bản đồ trùng ghế (tripId_seatId -> Array of Bookings)
+    const conflicts = new Map();
+
     activeBookings.forEach((b) => {
       b.items.forEach((item) => {
-        item.seatIds.forEach((seatId) => { occupiedMap.add(`${item.tripId}_${seatId}`); });
+        item.seatIds.forEach((seatId) => {
+          const key = `${item.tripId}_${seatId}`;
+          const bInfo = { 
+             id: b._id.toString(), 
+             phone: b.passenger.phone, 
+             status: b.status, 
+             updatedAt: b.updatedAt,
+             totalPaid: 0 // Will calculate below
+          };
+
+          if (bookingOccupancy.has(key)) {
+             if (!conflicts.has(key)) conflicts.set(key, [bookingOccupancy.get(key)]);
+             conflicts.get(key).push(bInfo);
+          } else {
+             bookingOccupancy.set(key, bInfo);
+          }
+        });
       });
     });
-    const trips = await Trip.find();
-    let fixedCount = 0;
+
+    // 3. Tính toán thực thu từng Booking từ Payments để xử lý trùng ghế
+    activeBookings.forEach(b => {
+        const bIdStr = b._id.toString();
+        const paid = allPayments
+            .filter(p => p.bookingId && p.bookingId.toString() === bIdStr)
+            .reduce((sum, p) => sum + (p.totalAmount || 0), 0);
+        
+        // Update totalPaid in all maps
+        bookingOccupancy.forEach(val => { if(val.id === bIdStr) val.totalPaid = paid; });
+        conflicts.forEach(arr => { arr.forEach(val => { if(val.id === bIdStr) val.totalPaid = paid; }); });
+    });
+
+    // 4. XỬ LÝ GHẾ TRÙNG (CONFLICTS)
+    // Quy tắc: Nếu ghế bị trùng giữa 2 SĐT, ưu tiên giữ lại đơn hàng có thanh toán cao hơn hoặc mới hơn
+    for (const [key, bList] of conflicts.entries()) {
+        conflictCount++;
+        // Sắp xếp: Thanh toán nhiều nhất lên đầu, nếu bằng nhau thì mới nhất lên đầu
+        bList.sort((a, b) => b.totalPaid - a.totalPaid || new Date(b.updatedAt) - new Date(a.updatedAt));
+        
+        const winner = bList[0];
+        const losers = bList.slice(1);
+
+        // Loại bỏ ghế khỏi các đơn hàng "thua cuộc"
+        for (const loser of losers) {
+            const bookingToUpdate = await Booking.findById(loser.id);
+            if (bookingToUpdate) {
+                const [tripId, seatId] = key.split('_');
+                bookingToUpdate.items = bookingToUpdate.items.map(item => {
+                    if (item.tripId === tripId) {
+                        item.seatIds = item.seatIds.filter(s => s !== seatId);
+                        item.tickets = item.tickets.filter(t => t.seatId !== seatId);
+                    }
+                    return item;
+                }).filter(item => item.seatIds.length > 0);
+                
+                bookingToUpdate.totalTickets = bookingToUpdate.items.reduce((s, i) => s + i.seatIds.length, 0);
+                bookingToUpdate.totalPrice = bookingToUpdate.items.reduce((s, i) => s + i.price, 0);
+                if (bookingToUpdate.totalTickets === 0) bookingToUpdate.status = 'cancelled';
+                
+                bookingToUpdate.markModified("items");
+                await bookingToUpdate.save();
+            }
+        }
+        // Cập nhật lại occupancy map với người thắng cuộc duy nhất
+        bookingOccupancy.set(key, winner);
+    }
+
+    // 5. QUÉT VÀ ĐỒNG BỘ TRẠNG THÁI CHUYẾN ĐI
     for (const trip of trips) {
       let isModified = false;
+      const tripId = trip._id.toString();
+
       trip.seats = trip.seats.map((s) => {
-        if ((s.status === "booked" || s.status === "sold" || s.status === "held") && !occupiedMap.has(`${trip.id}_${s.id}`)) {
-          isModified = true;
-          fixedCount++;
-          return { ...s, status: "available" };
+        const key = `${tripId}_${s.id}`;
+        const bInfo = bookingOccupancy.get(key);
+
+        if (bInfo) {
+          // Ghế có người đặt -> Kiểm tra đồng bộ trạng thái
+          // Status mapping: payment -> sold, hold -> held, others -> booked
+          const targetStatus = bInfo.status === "payment" ? "sold" : (bInfo.status === "hold" ? "held" : "booked");
+          
+          if (s.status !== targetStatus) {
+            isModified = true;
+            syncCount++;
+            return { ...s, status: targetStatus };
+          }
+          return s;
+        } else {
+          // Ghế báo bận nhưng không tìm thấy đơn hàng -> GHOST SEAT
+          if (s.status !== "available") {
+            isModified = true;
+            fixedCount++;
+            return { ...s, status: "available" };
+          }
+          return s;
         }
-        return s;
       });
-      if (isModified) { trip.markModified("seats"); await trip.save(); }
+
+      if (isModified) {
+        trip.markModified("seats");
+        await trip.save();
+      }
     }
-    res.json({ success: true, fixedCount });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+
+    res.json({ 
+        success: true, 
+        fixedCount,     // Số ghế ma đã giải phóng
+        conflictCount,  // Số trường hợp trùng ghế đã xử lý
+        syncCount       // Số ghế được đồng bộ lại trạng thái (màu sắc)
+    });
+  } catch (e) {
+    console.error("Maintenance Error:", e);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.listen(PORT, "0.0.0.0", async () => {
