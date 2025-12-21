@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from "react";
 import { Layout } from "./components/Layout";
 import { SeatMap } from "./components/SeatMap";
@@ -832,6 +833,9 @@ function AppContent() {
   const handleManualPaymentForEdit = () => {
     if (!editingBooking) return;
 
+    // Khi nhấn thanh toán, chúng ta đồng bộ luôn trạng thái UI sang 'payment'
+    setBookingMode("payment");
+
     const overrides: Record<string, SeatOverride> = {};
     editingBooking.items.forEach((item) => {
       if (item.tickets && item.tickets.length > 0) {
@@ -863,7 +867,8 @@ function AppContent() {
     targetBookingId: string,
     paymentData: { paidCash: number; paidTransfer: number },
     overrides: Record<string, SeatOverride> = {},
-    noteSuffix: string = ""
+    noteSuffix: string = "",
+    forcedStatus?: "booking" | "payment" | "hold"
   ) => {
     try {
       const finalNote = noteSuffix
@@ -886,7 +891,10 @@ function AppContent() {
           let finalPrice =
             override?.price !== undefined ? override.price : s.price;
 
-          if (bookingMode === "booking") {
+          // Nếu trạng thái đích không phải là 'payment', có thể giá vẫn là 0 (theo quy định nghiệp vụ trước đó)
+          // Tuy nhiên nếu đang thực hiện cập nhật có paymentData thì giá phải là giá thực.
+          const statusToUse = forcedStatus || bookingMode;
+          if (statusToUse === "booking" && !forcedStatus) {
             finalPrice = 0;
           }
 
@@ -947,8 +955,9 @@ function AppContent() {
         ];
       }
 
+      const statusToUse = forcedStatus || bookingMode;
       const finalPayment =
-        bookingMode === "booking" || bookingMode === "hold"
+        statusToUse === "booking" || statusToUse === "hold"
           ? { paidCash: 0, paidTransfer: 0 }
           : paymentData;
 
@@ -957,7 +966,7 @@ function AppContent() {
         finalBookingItems,
         passenger,
         finalPayment,
-        bookingMode // Gửi trạng thái hiện tại lên server
+        statusToUse 
       );
 
       setBookings((prev) =>
@@ -1025,6 +1034,7 @@ function AppContent() {
 
       const newTripMap = new Map<string, string[]>();
       selectionBasket.forEach((item) => {
+        // FIX: access label property from seat object 's'
         const labels = item.seats.map((s) => s.label);
         newTripMap.set(item.trip.id, labels);
       });
@@ -1164,11 +1174,13 @@ function AppContent() {
 
     if (pendingPaymentContext?.type === "update") {
       if (!pendingPaymentContext.bookingIds) return;
+      // Khi nhấn xác nhận từ Payment Modal trong chế độ update, ép trạng thái thành 'payment'
       await executeBookingUpdate(
         pendingPaymentContext.bookingIds[0],
         paymentPayload,
         overrides,
-        noteSuffix
+        noteSuffix,
+        "payment"
       );
     } else {
       await processBooking(paymentPayload, overrides, noteSuffix);
