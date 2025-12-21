@@ -830,6 +830,9 @@ function AppContent() {
   const handleManualPaymentForEdit = () => {
     if (!editingBooking) return;
 
+    // FIX: Khi mở modal thanh toán cho đơn đang sửa, chuyển mode sang payment để logic tính tiền khớp
+    setBookingMode("payment");
+
     const overrides: Record<string, SeatOverride> = {};
     editingBooking.items.forEach((item) => {
       if (item.tickets && item.tickets.length > 0) {
@@ -861,7 +864,8 @@ function AppContent() {
     targetBookingId: string,
     paymentData: { paidCash: number; paidTransfer: number },
     overrides: Record<string, SeatOverride> = {},
-    noteSuffix: string = ""
+    noteSuffix: string = "",
+    explicitStatus?: "booking" | "payment" | "hold"
   ) => {
     try {
       const finalNote = noteSuffix
@@ -876,6 +880,8 @@ function AppContent() {
         dropoffPoint: bookingForm.dropoff,
       };
 
+      const targetStatus = explicitStatus || bookingMode;
+
       const currentBookingItems = selectionBasket.map((item) => {
         const tickets = item.seats.map((s) => {
           const key = `${item.trip.id}_${s.id}`;
@@ -884,7 +890,7 @@ function AppContent() {
           let finalPrice =
             override?.price !== undefined ? override.price : s.price;
 
-          if (bookingMode === 'booking') {
+          if (targetStatus === 'booking') {
             finalPrice = 0;
           }
 
@@ -945,14 +951,15 @@ function AppContent() {
         ];
       }
 
-      const finalPayment = (bookingMode === 'booking' || bookingMode === 'hold') ? { paidCash: 0, paidTransfer: 0 } : paymentData;
+      // FIX: Use provided paymentData unless explicitly forcing a zero payment state
+      const finalPayment = (targetStatus === 'booking' || targetStatus === 'hold') ? { paidCash: 0, paidTransfer: 0 } : paymentData;
 
       const result = await api.bookings.update(
         targetBookingId,
         finalBookingItems,
         passenger,
         finalPayment,
-        bookingMode // Gửi trạng thái hiện tại lên server
+        targetStatus 
       );
 
       setBookings((prev) =>
@@ -1020,7 +1027,10 @@ function AppContent() {
 
       const newTripMap = new Map<string, string[]>();
       selectionBasket.forEach((item) => {
-        const labels = item.seats.map((s) => s.label);
+        const labels = item.seats.map((s) => {
+            const liveSeat = item.trip.seats.find(ts => ts.id === s.id);
+            return liveSeat ? liveSeat.label : s.label;
+        });
         newTripMap.set(item.trip.id, labels);
       });
 
@@ -1109,6 +1119,7 @@ function AppContent() {
         return;
     }
 
+    // Logic for transition to 'payment' (Mua vé)
     setModalPaymentInput({
       paidCash: editingBooking.payment?.paidCash || 0,
       paidTransfer: editingBooking.payment?.paidTransfer || 0,
@@ -1148,11 +1159,13 @@ function AppContent() {
 
     if (pendingPaymentContext?.type === "update") {
       if (!pendingPaymentContext.bookingIds) return;
+      // FIX: Force status to 'payment' when confirmed via modal
       await executeBookingUpdate(
         pendingPaymentContext.bookingIds[0],
         paymentPayload,
         overrides,
-        noteSuffix
+        noteSuffix,
+        "payment"
       );
     } else {
       await processBooking(paymentPayload, overrides, noteSuffix);
