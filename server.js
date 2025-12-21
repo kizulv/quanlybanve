@@ -239,7 +239,7 @@ const processPaymentUpdate = async (booking, newPaymentState) => {
     cashAmount: cashDelta,
     transferAmount: transferDelta,
     type,
-    transactionType: 'snapshot', // Cập nhật toàn phần đơn hàng
+    transactionType: 'snapshot', 
     method,
     note: type === "refund" ? "Hoàn tiền" : "Thanh toán/Cập nhật",
     timestamp: new Date(),
@@ -359,7 +359,6 @@ app.post("/api/bookings", async (req, res) => {
       
       const tickets = item.tickets || item.seats.map((s) => ({
         seatId: s.id,
-        // Nếu là 'booking', ticket.price = 0 để phản ánh chưa thu tiền
         price: finalStatus === 'payment' ? s.price : 0,
         pickup: passenger.pickupPoint || "",
         dropoff: passenger.dropoffPoint || "",
@@ -368,7 +367,7 @@ app.post("/api/bookings", async (req, res) => {
       
       const seatIds = tickets.map((t) => t.seatId);
       const itemPrice = tickets.reduce((sum, t) => sum + (t.price || 0), 0);
-      calculatedTotalPrice += (item.price || item.seats.reduce((s,ss) => s + ss.price, 0)); // Booking total is always target amount
+      calculatedTotalPrice += (item.price || item.seats.reduce((s,ss) => s + ss.price, 0)); 
       calculatedTotalTickets += seatIds.length;
 
       bookingItems.push({
@@ -378,7 +377,7 @@ app.post("/api/bookings", async (req, res) => {
         licensePlate: trip.licensePlate,
         seatIds,
         tickets,
-        price: itemPrice, // Thực thu cho trip này
+        price: itemPrice, 
         isEnhanced,
         busType: trip.type,
       });
@@ -676,7 +675,6 @@ app.patch("/api/bookings/:id/tickets/:seatId", async (req, res) => {
     if (phone) booking.passenger.phone = phone;
     if (name) booking.passenger.name = name;
 
-    // NGHIỆP VỤ TÀI CHÍNH LẺ
     if (action === 'PAY' && payment) {
         const trip = await Trip.findById(targetItem.tripId);
         if (trip) {
@@ -685,18 +683,16 @@ app.patch("/api/bookings/:id/tickets/:seatId", async (req, res) => {
             await trip.save();
         }
 
-        // Cập nhật giá thực tế của vé dựa trên số tiền thanh toán lẻ
         const paidAmount = (payment.paidCash || 0) + (payment.paidTransfer || 0);
         targetTicket.price = paidAmount;
 
-        // Tạo bản ghi thanh toán lẻ
         const paymentRec = new Payment({
             bookingId: booking._id,
             totalAmount: paidAmount,
             cashAmount: payment.paidCash || 0,
             transferAmount: payment.paidTransfer || 0,
             type: 'payment',
-            transactionType: 'incremental', // Quan trọng: Đánh dấu là cập nhật lẻ
+            transactionType: 'incremental', 
             method: (payment.paidCash && payment.paidTransfer) ? 'mixed' : (payment.paidCash ? 'cash' : 'transfer'),
             note: `Thanh toán lẻ ghế ${seatId}`,
             timestamp: new Date(),
@@ -717,7 +713,6 @@ app.patch("/api/bookings/:id/tickets/:seatId", async (req, res) => {
         });
         await paymentRec.save();
         
-        // Cập nhật lại tổng tiền ITEM (Tổng thực thu của trip này)
         targetItem.price = targetItem.tickets.reduce((sum, t) => sum + (t.price || 0), 0);
 
         await logBookingAction(booking._id, "PAY_SEAT", `Thanh toán riêng cho ghế ${seatId}`, { seat: seatId, amount: paymentRec.totalAmount });
@@ -731,7 +726,6 @@ app.patch("/api/bookings/:id/tickets/:seatId", async (req, res) => {
             await trip.save();
         }
 
-        // Hoàn tiền lẻ (Số tiền âm)
         const refundAmount = targetTicket.price || 0;
         const paymentRec = new Payment({
             bookingId: booking._id,
@@ -760,7 +754,6 @@ app.patch("/api/bookings/:id/tickets/:seatId", async (req, res) => {
         });
         await paymentRec.save();
 
-        // Xóa ghế khỏi booking
         targetItem.seatIds = targetItem.seatIds.filter(sid => sid !== seatId);
         targetItem.tickets = targetItem.tickets.filter(t => t.seatId !== seatId);
         targetItem.price = targetItem.tickets.reduce((sum, t) => sum + (t.price || 0), 0);
@@ -824,45 +817,22 @@ app.post("/api/settings", async (req, res) => {
 });
 
 /**
- * NÂNG CẤP CHỨC NĂNG BẢO TRÌ: TRUY VẾT DỰA TRÊN PAYMENT DÒNG TIỀN
+ * THUẬT TOÁN BẢO TRÌ NÂNG CẤP: LẤY BOOKING LÀM GỐC
  */
 app.post("/api/maintenance/fix-seats", async (req, res) => {
   try {
-    // 1. Dữ liệu thô từ Database
-    const allBookings = await Booking.find();
-    const allPayments = await Payment.find().sort({ timestamp: -1 });
+    const allBookings = await Booking.find({ status: { $ne: 'cancelled' } });
+    const allPayments = await Payment.find();
     const allTrips = await Trip.find();
     
     let fixedCount = 0;
     let conflictCount = 0;
     let syncCount = 0;
 
-    // 2. Map Trạng thái "Thực tế" từ Payment (tripId_seatId -> { totalPaid, phone, bookingId })
-    // Đây là nguồn tin cậy nhất về việc ghế nào đã thu tiền
-    const paymentOccupancy = new Map();
-    
-    allPayments.forEach(p => {
-        const tripsDetails = p.details?.trips || [];
-        tripsDetails.forEach(t => {
-            const tId = t.tripId || t.id;
-            if (!tId) return;
-            const seats = t.seats || [];
-            seats.forEach(seatId => {
-                const key = `${tId}_${seatId}`;
-                const existing = paymentOccupancy.get(key) || { totalPaid: 0, bookingIds: new Set() };
-                if (p.type === 'payment') existing.totalPaid += p.totalAmount;
-                else if (p.type === 'refund') existing.totalPaid += p.totalAmount; // amount âm
-
-                if (p.bookingId) existing.bookingIds.add(p.bookingId.toString());
-                paymentOccupancy.set(key, existing);
-            });
-        });
-    });
-
-    // 3. Map Trạng thái hiện tại từ các Đơn hàng (Booking Occupancy)
+    // 1. Map Booking Occupancy (Nguồn dữ liệu thật cho sơ đồ ghế)
+    // Key: tripId_seatId -> Array of Bookings
     const bookingOccupancy = new Map();
     allBookings.forEach(b => {
-        if (b.status === 'cancelled') return;
         b.items.forEach(item => {
             item.seatIds.forEach(seatId => {
                 const key = `${item.tripId}_${seatId}`;
@@ -877,30 +847,39 @@ app.post("/api/maintenance/fix-seats", async (req, res) => {
         });
     });
 
-    // 4. XỬ LÝ ĐỐI SOÁT
+    // 2. Map Payment (Để đồng bộ màu sắc Đã thanh toán)
+    const paymentMap = new Map();
+    allPayments.forEach(p => {
+        const bookingId = p.bookingId?.toString();
+        if (!bookingId) return;
+        
+        const current = paymentMap.get(bookingId) || 0;
+        paymentMap.set(bookingId, current + (p.totalAmount || 0));
+    });
+
+    // 3. Thực hiện sửa lỗi từng Chuyến xe
     for (const trip of allTrips) {
         let isModified = false;
         const tripId = trip._id.toString();
 
         trip.seats = await Promise.all(trip.seats.map(async (s) => {
             const key = `${tripId}_${s.id}`;
-            const payInfo = paymentOccupancy.get(key);
             const bookingsInSeat = bookingOccupancy.get(key) || [];
             
-            // QUY TẮC 1: XỬ LÝ GHẾ TRÙNG (Nhiều đơn hàng cùng 1 ghế)
+            // LỖI 1: NHIỀU ĐƠN HÀNG TRÙNG GHẾ (CONFLICT)
             if (bookingsInSeat.length > 1) {
                 conflictCount++;
-                // Sắp xếp: Ưu tiên đơn có thanh toán > 0, sau đó là đơn cập nhật mới nhất
+                // Ưu tiên: Đơn có thanh toán cao hơn, hoặc cập nhật mới nhất
                 bookingsInSeat.sort((a, b) => {
-                    const paidA = allPayments.filter(p => p.bookingId?.toString() === a.id).reduce((sum, p) => sum + p.totalAmount, 0);
-                    const paidB = allPayments.filter(p => p.bookingId?.toString() === b.id).reduce((sum, p) => sum + p.totalAmount, 0);
+                    const paidA = paymentMap.get(a.id) || 0;
+                    const paidB = paymentMap.get(b.id) || 0;
                     return (paidB - paidA) || (new Date(b.updatedAt) - new Date(a.updatedAt));
                 });
 
                 const winner = bookingsInSeat[0];
                 const losers = bookingsInSeat.slice(1);
 
-                // Loại bỏ ghế khỏi các đơn "thua cuộc"
+                // Loại bỏ ghế khỏi các đơn hàng "thua cuộc"
                 for (const loser of losers) {
                     const bDoc = await Booking.findById(loser.id);
                     if (bDoc) {
@@ -920,35 +899,29 @@ app.post("/api/maintenance/fix-seats", async (req, res) => {
                 }
             }
 
-            // QUY TẮC 2: XÁC ĐỊNH TRẠNG THÁI CUỐI CÙNG CHO SƠ ĐỒ GHẾ
-            const activeBooking = bookingsInSeat[0]; // Sau khi đã xử lý trùng thì chỉ còn 1 hoặc 0
-            const totalPaid = payInfo ? payInfo.totalPaid : 0;
+            // LỖI 2: ĐỒNG BỘ TRẠNG THÁI GHẾ TRÊN SƠ ĐỒ
+            const activeBooking = bookingsInSeat[0]; // Sau khi xử lý trùng thì chỉ còn 1 hoặc 0
 
             if (activeBooking) {
-                // Ghế CÓ đơn hàng -> Đồng bộ màu sắc theo thanh toán
-                // logic: đơn 'payment' hoặc tiền > 0 -> sold, còn lại -> booked
-                const targetStatus = (activeBooking.status === 'payment' || totalPaid > 0) ? 'sold' : 
-                                    (activeBooking.status === 'hold' ? 'held' : 'booked');
+                // GHẾ ĐANG CÓ ĐƠN HÀNG: Phải hiển thị màu theo thanh toán/loại đơn
+                const totalPaid = paymentMap.get(activeBooking.id) || 0;
+                let targetStatus = 'booked';
                 
+                if (activeBooking.status === 'payment' || totalPaid > 0) targetStatus = 'sold';
+                else if (activeBooking.status === 'hold') targetStatus = 'held';
+
                 if (s.status !== targetStatus) {
                     isModified = true;
                     syncCount++;
                     return { ...s, status: targetStatus };
                 }
             } else {
-                // Ghế KHÔNG CÓ đơn hàng hoạt động
-                if (totalPaid > 0) {
-                    // TRƯỜNG HỢP NÀY LÀ LỖI NẶNG: Có tiền nhưng mất đơn
-                    // Tạm thời đánh dấu bận để không bán trùng, admin cần kiểm tra lịch sử payment
-                    if (s.status !== 'sold') {
-                        isModified = true;
-                        syncCount++;
-                        return { ...s, status: 'sold' };
-                    }
-                } else if (s.status !== 'available') {
-                    // GHẾ MA: Sơ đồ báo bận nhưng không có đơn & không có tiền
+                // GHẾ KHÔNG CÓ ĐƠN HÀNG NÀO TRỎ ĐẾN
+                // Đây là trường hợp "Ghế không có thông tin nhưng lại hiển thị bận"
+                if (s.status !== 'available') {
                     isModified = true;
                     fixedCount++;
+                    // Cưỡng bức đưa về trạng thái Trống
                     return { ...s, status: 'available' };
                 }
             }
