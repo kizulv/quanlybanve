@@ -17,13 +17,14 @@ import {
   Lock
 } from "lucide-react";
 import { formatLunarDate } from "../utils/dateUtils";
+import { formatPhoneNumber, getStandardizedLocation } from "../utils/formatters";
 
 interface SeatDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   booking: Booking | null;
   seat: Seat | null;
-  bookings: Booking[]; // Required for history lookup
+  bookings: Booking[]; 
   onSave: (passenger: Passenger) => Promise<void>;
 }
 
@@ -35,7 +36,6 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
   bookings,
   onSave,
 }) => {
-  // Local form state
   const [form, setForm] = useState({
     phone: "",
     pickup: "",
@@ -46,11 +46,9 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
   const [showHistory, setShowHistory] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Initialize form when booking changes
   useEffect(() => {
     if (isOpen) {
         if (booking && seat) {
-          // Tìm vé cụ thể cho ghế này để hiển thị thông tin chính xác của ghế đó
           let initialNote = "";
           let initialPickup = booking.passenger.pickupPoint || "";
           let initialDropoff = booking.passenger.dropoffPoint || "";
@@ -59,7 +57,6 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
           if (bookingItem && bookingItem.tickets) {
               const ticket = bookingItem.tickets.find(t => t.seatId === seat.id);
               if (ticket) {
-                  // Ưu tiên ghi chú riêng của vé, nếu không có mới lấy ghi chú chung
                   initialNote = ticket.note !== undefined && ticket.note !== null ? ticket.note : (booking.passenger.note || "");
                   initialPickup = ticket.pickup || initialPickup;
                   initialDropoff = ticket.dropoff || initialDropoff;
@@ -75,7 +72,6 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
             note: initialNote,
           });
         } else if (seat) {
-            // HELD SEAT MODE: Just note
             setForm({
                 phone: "",
                 pickup: "",
@@ -87,43 +83,6 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
     }
   }, [isOpen, booking, seat]);
 
-  // --- HELPERS ---
-  const formatPhoneNumber = (value: string) => {
-    const raw = value.replace(/\D/g, "");
-    if (raw.length > 15) return raw.slice(0, 15);
-    if (raw.length > 7) {
-      return `${raw.slice(0, 4)} ${raw.slice(4, 7)} ${raw.slice(7)}`;
-    }
-    if (raw.length > 4) {
-      return `${raw.slice(0, 4)} ${raw.slice(4)}`;
-    }
-    return raw;
-  };
-
-  const getStandardizedLocation = (input: string) => {
-    if (!input) return "";
-    let value = input.trim();
-    const lower = value.toLowerCase();
-    const mappings: Record<string, string> = {
-      "lai chau": "BX Lai Châu",
-      "lai châu": "BX Lai Châu",
-      "ha tinh": "BX Hà Tĩnh",
-      "hà tĩnh": "BX Hà Tĩnh",
-      "lao cai": "BX Lào Cai",
-      vinh: "BX Vinh",
-      "nghe an": "BX Vinh",
-      "nghệ an": "BX Vinh",
-    };
-    if (mappings[lower]) return mappings[lower];
-
-    if (!/^bx\s/i.test(value) && value.length > 2) {
-      value = value.replace(/(?:^|\s)\S/g, (a) => a.toUpperCase());
-      return `${value}`;
-    }
-    return value.replace(/(?:^|\s)\S/g, (a) => a.toUpperCase());
-  };
-
-  // --- HISTORY LOGIC ---
   const historyMatches = useMemo(() => {
     if (!form.phone) return [];
     const cleanInput = form.phone.replace(/\D/g, "");
@@ -186,7 +145,7 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
               pickupPoint: form.pickup,
               dropoffPoint: form.dropoff,
               note: form.note,
-              name: booking?.passenger.name // Preserve name
+              name: booking?.passenger.name 
           };
           await onSave(passengerData);
       } finally {
@@ -234,7 +193,6 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
 
         {booking ? (
         <div className="space-y-3">
-          {/* Phone Input with History */}
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-blue-600">
               <Phone size={16} />
@@ -253,16 +211,12 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
               className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none text-sm"
             />
 
-            {/* HISTORY DROPDOWN */}
             {showHistory && passengerHistory.length > 0 && (
               <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-lg shadow-xl border border-slate-200 overflow-hidden z-[50] animate-in fade-in zoom-in-95 duration-200">
                 <div className="bg-slate-50 px-3 py-1.5 border-b border-slate-100 flex justify-between items-center">
                   <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 uppercase">
                     <History size={10} />
                     Lịch sử
-                    <span className="ml-1 bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded-full text-[9px] min-w-[16px] text-center">
-                      {historyMatches.length}
-                    </span>
                   </div>
                   <button
                     title="Đóng"

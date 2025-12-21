@@ -4,6 +4,7 @@ import { Seat, Booking, BusTrip, Route, UndoAction, Passenger, SeatStatus, Bus }
 import { Button } from "./ui/Button";
 import { Badge } from "./ui/Badge";
 import { formatLunarDate } from "../utils/dateUtils";
+import { formatPhoneNumber, validatePhoneNumber, getStandardizedLocation } from "../utils/formatters";
 import { api } from "../lib/api";
 import { useToast } from "./ui/Toast";
 import { PaymentModal } from "./PaymentModal";
@@ -59,20 +60,15 @@ interface TripDiffItem {
 }
 
 interface BookingFormProps {
-  // Global Data
   trips: BusTrip[];
   routes: Route[];
   bookings: Booking[];
   selectionBasket: { trip: BusTrip; seats: Seat[] }[];
   editingBooking: Booking | null;
-  
-  // State Setters from Parent
   setTrips: React.Dispatch<React.SetStateAction<BusTrip[]>>;
   setBookings: React.Dispatch<React.SetStateAction<Booking[]>>;
   setUndoStack: React.Dispatch<React.SetStateAction<UndoAction[]>>;
   setEditingBooking: (booking: Booking | null) => void;
-  
-  // Context Actions
   onCancelSelection: () => void;
   onInitiateSwap?: (seat: Seat) => void;
   onNavigateToTrip?: (date: Date, tripId: string) => void;
@@ -94,7 +90,6 @@ export const BookingForm: React.FC<BookingFormProps> = ({
 }) => {
   const { toast } = useToast();
 
-  // --- INTERNAL UI STATE ---
   const [bookingForm, setBookingForm] = useState({
     phone: "",
     pickup: "",
@@ -105,7 +100,6 @@ export const BookingForm: React.FC<BookingFormProps> = ({
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   
-  // Modal & Confirmation States
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [modalPaymentInput, setModalPaymentInput] = useState({ paidCash: 0, paidTransfer: 0 });
   const [modalInitialOverrides, setModalInitialOverrides] = useState<Record<string, SeatOverride>>({});
@@ -118,7 +112,6 @@ export const BookingForm: React.FC<BookingFormProps> = ({
     diffTrips: TripDiffItem[];
   } | null>(null);
 
-  // --- SYNC EDITING STATE ---
   useEffect(() => {
     if (editingBooking) {
       const currentMode = editingBooking.status === "payment" ? "payment" : editingBooking.status === "hold" ? "hold" : "booking";
@@ -149,40 +142,6 @@ export const BookingForm: React.FC<BookingFormProps> = ({
     }
   }, [editingBooking]);
 
-  // --- HELPERS & VALIDATION ---
-  const validatePhoneNumber = (phone: string): string | null => {
-    const raw = phone.replace(/\D/g, "");
-    if (raw.length === 0) return "Vui lòng nhập số điện thoại";
-    if (!raw.startsWith("0")) return "SĐT phải bắt đầu bằng số 0";
-    if (raw.length !== 10) return "SĐT phải đủ 10 số";
-    return null;
-  };
-
-  const formatPhoneNumber = (value: string) => {
-    const raw = value.replace(/\D/g, "");
-    if (raw.length > 15) return raw.slice(0, 15);
-    if (raw.length > 7) return `${raw.slice(0, 4)} ${raw.slice(4, 7)} ${raw.slice(7)}`;
-    if (raw.length > 4) return `${raw.slice(0, 4)} ${raw.slice(4)}`;
-    return raw;
-  };
-
-  const getStandardizedLocation = (input: string) => {
-    if (!input) return "";
-    let value = input.trim();
-    const mappings: Record<string, string> = {
-      "lai chau": "BX Lai Châu", "lai châu": "BX Lai Châu",
-      "ha tinh": "BX Hà Tĩnh", "hà tĩnh": "BX Hà Tĩnh",
-      "lao cai": "BX Lào Cai", "vinh": "BX Vinh",
-      "nghe an": "BX Vinh", "nghệ an": "BX Vinh",
-    };
-    if (mappings[value.toLowerCase()]) return mappings[value.toLowerCase()];
-    if (!/^bx\s/i.test(value) && value.length > 2) {
-      return value.replace(/(?:^|\s)\S/g, (a) => a.toUpperCase());
-    }
-    return value.replace(/(?:^|\s)\S/g, (a) => a.toUpperCase());
-  };
-
-  // --- DATA LOGIC ---
   const totalBasketPrice = useMemo(() => {
     if (!editingBooking && bookingMode === "booking") return 0;
     return selectionBasket.reduce((sum, item) => {
@@ -219,7 +178,6 @@ export const BookingForm: React.FC<BookingFormProps> = ({
     return Array.from(uniqueRoutes.values()).sort((a, b) => new Date(b.lastDate).getTime() - new Date(a.lastDate).getTime()).slice(0, 5);
   }, [historyMatches]);
 
-  // --- ACTIONS ---
   const processBooking = async (paymentData?: { paidCash: number; paidTransfer: number }, overrides: Record<string, SeatOverride> = {}, noteSuffix: string = "", explicitStatus?: "booking" | "payment" | "hold") => {
     if (selectionBasket.length === 0) {
       toast({ type: "warning", title: "Chưa chọn ghế", message: "Vui lòng chọn ít nhất 1 ghế." });
@@ -248,7 +206,6 @@ export const BookingForm: React.FC<BookingFormProps> = ({
       }));
 
       const result = await api.bookings.create(bookingItems, passenger, payment, status);
-      // FIX: Added explicit types to Map constructor to fix type mismatch in state setter
       const updatedTripsMap = new Map<string, BusTrip>(result.updatedTrips.map((t: BusTrip) => [t.id, t]));
       setTrips(prev => prev.map(t => updatedTripsMap.get(t.id) || t));
       setBookings(prev => [...prev.filter(b => !result.bookings.some(nb => nb.id === b.id)), ...result.bookings]);
@@ -280,7 +237,6 @@ export const BookingForm: React.FC<BookingFormProps> = ({
         })
       }));
 
-      // Merge with preserved items if editing a multi-trip booking
       const basketTripIds = new Set(currentItems.map(i => i.tripId));
       const loadedTripIds = new Set(trips.map(t => t.id));
       const preservedItems = (oldBooking?.items || []).filter(item => !basketTripIds.has(item.tripId) && !loadedTripIds.has(item.tripId));
@@ -290,7 +246,6 @@ export const BookingForm: React.FC<BookingFormProps> = ({
 
       const result = await api.bookings.update(targetBookingId, finalItems, passenger, finalPayment, status);
       setBookings(prev => prev.map(b => b.id === targetBookingId ? result.booking : b));
-      // FIX: Added explicit types to Map constructor to fix type mismatch in state setter
       const updatedTripsMap = new Map<string, BusTrip>(result.updatedTrips.map((t: BusTrip) => [t.id, t]));
       setTrips(prev => prev.map(t => updatedTripsMap.get(t.id) || t));
 
