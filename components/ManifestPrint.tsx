@@ -158,7 +158,7 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
             <div class="${Manifest_SeatFontSize} leading-tight opacity-90 mt-0.5">${
         data.pickup || "---"
       } - ${data.dropoff || "---"}</div>
-            <div class="text-[10px] truncate leading-tight opacity-90 mt-0.5 italic">${
+            <div class="text-[10px] leading-tight opacity-90 mt-0.5 italic">${
               data.note || ""
             }</div>
           </div>
@@ -383,7 +383,7 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
           <div class="flex justify-between items-center text-slate-500 text-[10px] shrink-0 mt-2">
             <div>Thời gian in: ${new Date().toLocaleString("vi-VN")} </div>
             <div class="no-print">
-               <button onclick="window.print()" class="bg-slate-900 text-white hover:bg-slate-700 px-8 py-2 rounded text-sm font-bold uppercase tracking-wider">In bảng kê ngay</button>
+               <button onclick="window.print()" class="bg-slate-900 text-white hover:bg-slate-700 px-8 py-2 rounded text-sm font-bold uppercase tracking-wider">In bảng kê</button>
             </div>
           </div>
         </div>
