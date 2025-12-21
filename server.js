@@ -832,11 +832,9 @@ app.post("/api/maintenance/fix-seats", async (req, res) => {
     const logs = []; // Danh sách chi tiết các ghế được sửa
 
     // 1. Map Booking Occupancy (Nguồn dữ liệu thật cho sơ đồ ghế)
-    // Map key: tripId_seatId -> Thông tin vé lẻ
     const bookingOccupancy = new Map();
     allBookings.forEach(b => {
         b.items.forEach(item => {
-            // b.items[x].tickets chứa thông tin chi tiết từng ghế trong booking đó
             const tickets = item.tickets || [];
             
             item.seatIds.forEach(seatId => {
@@ -907,20 +905,15 @@ app.post("/api/maintenance/fix-seats", async (req, res) => {
 
             if (activeBooking) {
                 // QUY TẮC PHÂN LOẠI MÀU (Trạng thái ghế):
-                // 1. Đơn hàng tổng thể là 'payment' -> Tất cả là 'sold' (Xanh)
-                // 2. Đơn hàng là 'hold' -> Tất cả là 'held' (Tím)
-                // 3. Đơn hàng là 'booking' -> Kiểm tra GIÁ VÉ LẺ (ticketPrice):
-                //    - price > 0: 'sold' (Xanh)
-                //    - price === 0: 'booked' (Vàng)
+                // CẬP NHẬT THEO YÊU CẦU: Ưu tiên tiền vé lẻ để quyết định Xanh/Vàng
+                // Nếu tiền vé = 0 thì LUÔN là 'booked' (Vàng)
                 
                 let targetStatus = 'booked';
                 
-                if (activeBooking.bookingStatus === 'payment') {
-                    targetStatus = 'sold';
-                } else if (activeBooking.bookingStatus === 'hold') {
+                if (activeBooking.bookingStatus === 'hold') {
                     targetStatus = 'held';
-                } else if (activeBooking.bookingStatus === 'booking') {
-                    // Đối soát chi tiết từng vé trong đơn hàng đặt chỗ
+                } else {
+                    // Nếu là đơn 'booking' hoặc 'payment', kiểm tra số tiền từng ghế
                     targetStatus = activeBooking.ticketPrice > 0 ? 'sold' : 'booked';
                 }
 
