@@ -89,7 +89,6 @@ export const Layout: React.FC<LayoutProps> = ({
   const navItems = [
     { id: "sales", icon: <Bus size={20} />, label: "Bán vé" },
     { id: "tickets", icon: <Ticket size={20} />, label: "Danh sách vé" },
-    { id: "transfer", icon: <ArrowLeftRight size={20} />, label: "Đổi chuyến" },
     { id: "schedule", icon: <CalendarIcon size={20} />, label: "Lịch trình" },
     { id: "finance", icon: <BadgeDollarSign size={20} />, label: "Tài chính" },
   ];
@@ -102,10 +101,6 @@ export const Layout: React.FC<LayoutProps> = ({
     tickets: {
       title: "Danh sách vé",
       description: "Tra cứu và quản lý lịch sử đặt vé",
-    },
-    transfer: {
-      title: "Đổi chuyến / Xe thường",
-      description: "Chuyển khách giữa các xe giường đơn cùng ngày",
     },
     schedule: {
       title: "Lịch trình",
@@ -370,7 +365,7 @@ export const Layout: React.FC<LayoutProps> = ({
 
             {/* Mobile-only center: Direction Toggle */}
             <div className="md:hidden flex-1 flex justify-center px-1">
-              {(activeTab === 'sales' || activeTab === 'transfer') && <DirectionToggle />}
+              {(activeTab === 'sales') && <DirectionToggle />}
             </div>
 
             {/* Mobile-only right: headerRight */}
@@ -382,9 +377,9 @@ export const Layout: React.FC<LayoutProps> = ({
           {/* Row 2 (Mobile) / Middle (Desktop): Sales Filters */}
           <div className={`
             flex items-center gap-2 px-4 pb-3 md:pb-0 md:px-4 overflow-x-auto no-scrollbar justify-center md:justify-start
-            ${(activeTab === 'sales' || activeTab === 'transfer') ? 'flex' : 'hidden md:flex'}
+            ${(activeTab === 'sales') ? 'flex' : 'hidden md:flex'}
           `}>
-            {(activeTab === "sales" || activeTab === "transfer") && (
+            {(activeTab === "sales") && (
               <div className="flex items-center gap-2 md:gap-3 animate-in fade-in slide-in-from-right-4 duration-300 shrink-0">
                 
                 {/* 1. Direction Toggle (Desktop Only here) */}

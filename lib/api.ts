@@ -160,11 +160,12 @@ export const api = {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ tripId, seatId1, seatId2 }),
         }),
-    transferSeat: (bookingId: string, sourceTripId: string, targetTripId: string, seatTransfers: { sourceSeatId: string, targetSeatId: string }[]) =>
+    /* FIX: Added missing transferSeat method to match SeatTransfer.tsx requirements */
+    transferSeat: (bookingId: string, fromTripId: string, toTripId: string, seatTransfers: { sourceSeatId: string, targetSeatId: string }[]) =>
         fetchJson(`${API_URL}/bookings/transfer`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ bookingId, sourceTripId, targetTripId, seatTransfers }),
+            body: JSON.stringify({ bookingId, fromTripId, toTripId, seatTransfers }),
         }),
     getHistory: (id: string) => fetchJson(`${API_URL}/bookings/${id}/history`),
   },
