@@ -49,12 +49,30 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
   // Initialize form when booking changes
   useEffect(() => {
     if (isOpen) {
-        if (booking) {
+        if (booking && seat) {
+          // Tìm vé cụ thể cho ghế này để hiển thị thông tin chính xác của ghế đó
+          let initialNote = "";
+          let initialPickup = booking.passenger.pickupPoint || "";
+          let initialDropoff = booking.passenger.dropoffPoint || "";
+          
+          const bookingItem = booking.items.find(i => i.seatIds.includes(seat.id));
+          if (bookingItem && bookingItem.tickets) {
+              const ticket = bookingItem.tickets.find(t => t.seatId === seat.id);
+              if (ticket) {
+                  // Ưu tiên ghi chú riêng của vé, nếu không có mới lấy ghi chú chung
+                  initialNote = ticket.note !== undefined && ticket.note !== null ? ticket.note : (booking.passenger.note || "");
+                  initialPickup = ticket.pickup || initialPickup;
+                  initialDropoff = ticket.dropoff || initialDropoff;
+              }
+          } else {
+              initialNote = booking.passenger.note || "";
+          }
+
           setForm({
             phone: formatPhoneNumber(booking.passenger.phone),
-            pickup: booking.passenger.pickupPoint || "",
-            dropoff: booking.passenger.dropoffPoint || "",
-            note: booking.passenger.note || "",
+            pickup: initialPickup,
+            dropoff: initialDropoff,
+            note: initialNote,
           });
         } else if (seat) {
             // HELD SEAT MODE: Just note

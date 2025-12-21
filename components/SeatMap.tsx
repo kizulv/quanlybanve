@@ -134,8 +134,8 @@ export const SeatMap: React.FC<SeatMapProps> = ({
           displayPrice = ticket.price;
           displayPickup = ticket.pickup || displayPickup;
           displayDropoff = ticket.dropoff || displayDropoff;
-          // FIX: Ưu tiên hiển thị ghi chú của vé nếu có
-          if (ticket.note) displayNote = ticket.note;
+          // FIX: Ưu tiên hiển thị ghi chú của vé nếu có (ngay cả khi là chuỗi rỗng để hỗ trợ xóa)
+          if (ticket.note !== undefined && ticket.note !== null) displayNote = ticket.note;
         }
       }
     }
