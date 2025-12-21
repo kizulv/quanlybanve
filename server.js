@@ -262,10 +262,10 @@ const processPaymentUpdate = async (booking, newPaymentState) => {
 // --- HELPERS ---
 
 const ensureItemForTrip = (booking, trip) => {
-    let item = booking.items.find(i => i.tripId === trip.id);
+    let item = booking.items.find(i => i.tripId === trip.id || i.tripId === trip._id.toString());
     if (!item) {
         item = {
-            tripId: trip.id,
+            tripId: trip.id || trip._id.toString(),
             tripDate: trip.departureTime,
             route: trip.route,
             licensePlate: trip.licensePlate,
@@ -416,68 +416,72 @@ app.post("/api/bookings/transfer", async (req, res) => {
     const booking = await Booking.findById(bookingId);
     const sourceTrip = await Trip.findById(sourceTripId);
     const targetTrip = await Trip.findById(targetTripId);
-    if (!booking || !sourceTrip || !targetTrip) return res.status(404).json({ error: "Data not found" });
+    
+    if (!booking || !sourceTrip || !targetTrip) {
+        return res.status(404).json({ error: "Dữ liệu không tồn tại (Booking/Trip)" });
+    }
 
-    // Track bookings that were modified in the process to save them later
     const modifiedBookings = new Map();
     modifiedBookings.set(bookingId, booking);
 
     for (const transfer of seatTransfers) {
         const { sourceSeatId, targetSeatId } = transfer;
         
-        // 1. Check for swap occupant on Target Trip
+        // 1. Kiểm tra đối tượng đang chiếm giữ ghế đích (nếu có)
         const targetOccupant = await Booking.findOne({ 
             status: { $ne: 'cancelled' },
             "items": { $elemMatch: { tripId: targetTripId, seatIds: targetSeatId } }
         });
 
+        // Lấy Item chứa ghế nguồn của booking hiện tại
         const sourceItem = booking.items.find(i => i.tripId === sourceTripId);
         if (!sourceItem) continue;
+        
         const sourceTicketIndex = sourceItem.tickets.findIndex(t => t.seatId === sourceSeatId);
         if (sourceTicketIndex === -1) continue;
-        const sourceTicket = sourceItem.tickets[sourceTicketIndex];
+        
+        // Clone đối tượng ticket để di chuyển an toàn
+        const sourceTicket = JSON.parse(JSON.stringify(sourceItem.tickets[sourceTicketIndex]));
 
         if (targetOccupant) {
-            // SWAP CASE
+            // --- TRƯỜNG HỢP ĐỔI CHÉO (SWAP) ---
             const tOccId = targetOccupant._id.toString();
             const tBooking = modifiedBookings.get(tOccId) || targetOccupant;
             modifiedBookings.set(tOccId, tBooking);
 
             const tItem = tBooking.items.find(i => i.tripId === targetTripId);
             const tTicketIndex = tItem.tickets.findIndex(t => t.seatId === targetSeatId);
-            const tTicket = tItem.tickets[tTicketIndex];
+            const tTicket = JSON.parse(JSON.stringify(tItem.tickets[tTicketIndex]));
 
-            // Update Trip statuses (Swap statuses)
+            // Hoán đổi trạng thái trên sơ đồ Trip
             const sIdx = sourceTrip.seats.findIndex(s => s.id === sourceSeatId);
             const tIdx = targetTrip.seats.findIndex(s => s.id === targetSeatId);
             const sStatus = sourceTrip.seats[sIdx].status;
             const tStatus = targetTrip.seats[tIdx].status;
+            
             sourceTrip.seats[sIdx].status = tStatus;
             targetTrip.seats[tIdx].status = sStatus;
 
-            // Perform logical move for Target Ticket (Target -> Source)
+            // Di chuyển vé của đối phương: Đích -> Nguồn
             tItem.seatIds = tItem.seatIds.filter(sid => sid !== targetSeatId);
             tItem.tickets.splice(tTicketIndex, 1);
-            tItem.price = tItem.tickets.reduce((sum, t) => sum + (t.price || 0), 0);
-
+            
             const targetMovedToItem = ensureItemForTrip(tBooking, sourceTrip);
             targetMovedToItem.seatIds.push(sourceSeatId);
-            tTicket.seatId = sourceSeatId;
+            tTicket.seatId = sourceSeatId; // CẬP NHẬT ID GHẾ MỚI VÀO TICKET DETAIL
             targetMovedToItem.tickets.push(tTicket);
-            targetMovedToItem.price = targetMovedToItem.tickets.reduce((sum, t) => sum + (t.price || 0), 0);
 
-            // Perform logical move for Source Ticket (Source -> Target)
+            // Di chuyển vé của mình: Nguồn -> Đích
             sourceItem.seatIds = sourceItem.seatIds.filter(sid => sid !== sourceSeatId);
             sourceItem.tickets.splice(sourceTicketIndex, 1);
-            sourceItem.price = sourceItem.tickets.reduce((sum, t) => sum + (t.price || 0), 0);
-
+            
             const sourceMovedToItem = ensureItemForTrip(booking, targetTrip);
             sourceMovedToItem.seatIds.push(targetSeatId);
-            sourceTicket.seatId = targetSeatId;
+            sourceTicket.seatId = targetSeatId; // CẬP NHẬT ID GHẾ MỚI VÀO TICKET DETAIL
             sourceMovedToItem.tickets.push(sourceTicket);
-            sourceMovedToItem.price = sourceMovedToItem.tickets.reduce((sum, t) => sum + (t.price || 0), 0);
+
         } else {
-            // MOVE CASE (One-way)
+            // --- TRƯỜNG HỢP CHUYỂN ĐƠN THUẦN (MOVE) ---
             const sIdx = sourceTrip.seats.findIndex(s => s.id === sourceSeatId);
             const tIdx = targetTrip.seats.findIndex(s => s.id === targetSeatId);
             const sStatus = sourceTrip.seats[sIdx].status;
@@ -485,22 +489,27 @@ app.post("/api/bookings/transfer", async (req, res) => {
             sourceTrip.seats[sIdx].status = 'available';
             targetTrip.seats[tIdx].status = sStatus;
 
-            // Perform logical move for Source Ticket (Source -> Target)
+            // Di chuyển vé của mình: Nguồn -> Đích
             sourceItem.seatIds = sourceItem.seatIds.filter(sid => sid !== sourceSeatId);
             sourceItem.tickets.splice(sourceTicketIndex, 1);
-            sourceItem.price = sourceItem.tickets.reduce((sum, t) => sum + (t.price || 0), 0);
 
             const sourceMovedToItem = ensureItemForTrip(booking, targetTrip);
             sourceMovedToItem.seatIds.push(targetSeatId);
-            sourceTicket.seatId = targetSeatId;
+            sourceTicket.seatId = targetSeatId; // QUAN TRỌNG: Cập nhật link ghế mới
             sourceMovedToItem.tickets.push(sourceTicket);
-            sourceMovedToItem.price = sourceMovedToItem.tickets.reduce((sum, t) => sum + (t.price || 0), 0);
         }
     }
 
-    // Cleanup empty items for all modified bookings
+    // 2. Cập nhật lại giá và làm sạch BookingItems cho tất cả booking bị ảnh hưởng
     for (const b of modifiedBookings.values()) {
+        b.items.forEach(item => {
+            if (item.tickets) {
+                item.price = item.tickets.reduce((sum, t) => sum + (t.price || 0), 0);
+            }
+        });
         b.items = b.items.filter(i => i.seatIds.length > 0);
+        b.totalPrice = b.items.reduce((sum, i) => sum + (i.price || 0), 0);
+        b.totalTickets = b.items.reduce((sum, i) => sum + i.seatIds.length, 0);
         b.markModified('items');
         await b.save();
     }
@@ -515,7 +524,10 @@ app.post("/api/bookings/transfer", async (req, res) => {
     const allTrips = await Trip.find();
     const allBookings = await Booking.aggregate([{ $lookup: { from: "payments", localField: "_id", foreignField: "bookingId", as: "paymentRecords" } }, { $addFields: { id: "$_id", payment: { paidCash: { $sum: "$paymentRecords.cashAmount" }, paidTransfer: { $sum: "$paymentRecords.transferAmount" } } } }, { $project: { paymentRecords: 0, _id: 0, __v: 0 } }]);
     res.json({ success: true, trips: allTrips, bookings: allBookings });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { 
+    console.error("Transfer error:", e);
+    res.status(500).json({ error: e.message }); 
+  }
 });
 
 app.patch("/api/bookings/:id/tickets/:seatId", async (req, res) => {

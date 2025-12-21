@@ -64,7 +64,7 @@ export const SeatTransfer: React.FC<SeatTransferProps> = ({ trips, bookings, sel
   const [isProcessing, setIsProcessing] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Filter trips for the selected date - support both Cabin and Sleeper for comparison
+  // Filter trips for the selected date
   const availableTrips = useMemo(() => {
     return trips.filter(t => {
       const tripDate = new Date(t.departureTime.split(' ')[0]);
@@ -100,12 +100,11 @@ export const SeatTransfer: React.FC<SeatTransferProps> = ({ trips, bookings, sel
       const sourceSeat = sourceTrip.seats.find(s => s.id === seatId);
       if (!sourceSeat) return { sourceSeatId: seatId, isValid: false, sourceLabel: '?', targetSeatId: '', posDesc: '?' };
 
-      // Try to find matching position in target bus
+      // Cố định logic tìm ghế đích khớp vị trí (Tầng -> Hàng -> Cột)
       const targetSeatByPos = targetTrip.seats.find(s => {
         if (s.floor !== sourceSeat.floor) return false;
         if (!!s.isFloorSeat !== !!sourceSeat.isFloorSeat) return false;
         
-        // Special logic for bench or standard seats
         const isSourceBench = (sourceSeat.row ?? 0) >= 6 && !sourceSeat.isFloorSeat;
         if (isSourceBench) {
             const isTargetBench = (s.row ?? 0) >= 6 && !s.isFloorSeat;
@@ -120,7 +119,7 @@ export const SeatTransfer: React.FC<SeatTransferProps> = ({ trips, bookings, sel
         b.items.some(item => item.tripId === targetTrip.id && item.seatIds.includes(targetSeatByPos?.id || ''))
       );
 
-      const isValid = targetSeatByPos && !isReservedInQueue;
+      const isValid = !!targetSeatByPos && !isReservedInQueue;
       const isSwap = !!targetOccupant;
       
       return {
@@ -129,8 +128,8 @@ export const SeatTransfer: React.FC<SeatTransferProps> = ({ trips, bookings, sel
         posDesc: getPositionDesc(sourceSeat),
         targetSeatId: targetSeatByPos?.id || '',
         targetLabel: targetSeatByPos?.label || '',
-        isValid: !!isValid,
-        isSwap: isSwap,
+        isValid,
+        isSwap,
         swapPhone: targetOccupant?.passenger.phone
       };
     });
@@ -148,7 +147,7 @@ export const SeatTransfer: React.FC<SeatTransferProps> = ({ trips, bookings, sel
     }
 
     if (transferQueue.some(q => q.sourceTripId === tripId && q.sourceSeatId === seat.id)) {
-        toast({ type: 'info', title: 'Ghế đã chờ chuyển', message: 'Ghế này đã nằm trong danh sách hàng chờ lưu.' });
+        toast({ type: 'info', title: 'Ghế đã chờ chuyển', message: 'Ghế này đã nằm trong danh sách hàng chờ.' });
         return;
     }
 
@@ -172,14 +171,6 @@ export const SeatTransfer: React.FC<SeatTransferProps> = ({ trips, bookings, sel
           setSelectedSeatIds([seat.id]);
         }
       }
-    } else {
-        // If clicking empty seat and we have a selection from OTHER trip, this is a target select
-        // This is handled by addToQueue UI button, but could be auto-added if we wanted.
-        if (selectedFromTripId === tripId) {
-            setSelectedBooking(null);
-            setSelectedFromTripId(null);
-            setSelectedSeatIds([]);
-        }
     }
   };
 
@@ -205,31 +196,46 @@ export const SeatTransfer: React.FC<SeatTransferProps> = ({ trips, bookings, sel
     setSelectedBooking(null);
     setSelectedSeatIds([]);
     setSelectedFromTripId(null);
-    toast({ type: 'success', title: 'Đã thêm vào hàng chờ', message: `Đã thêm ${newItems.length} lệnh điều phối.` });
+    toast({ type: 'success', title: 'Đã thêm hàng chờ', message: `Thêm ${newItems.length} vị trí cần điều phối.` });
   };
 
   const handleSaveAll = async () => {
-    if (transferQueue.length === 0) return;
+    if (transferQueue.length === 0 || isProcessing) return;
     setIsProcessing(true);
+    
     try {
+      // Nhóm theo bookingId để giảm số lượng API call và đảm bảo tính nhất quán của đơn hàng
       const grouped = transferQueue.reduce((acc, curr) => {
           if (!acc[curr.bookingId]) acc[curr.bookingId] = [];
           acc[curr.bookingId].push(curr);
           return acc;
       }, {} as Record<string, PendingTransfer[]>);
 
-      for (const bId of Object.keys(grouped)) {
+      const bookingIds = Object.keys(grouped);
+      for (const bId of bookingIds) {
           const queueItems = grouped[bId];
-          const seatTransfers = queueItems.map(q => ({ sourceSeatId: q.sourceSeatId, targetSeatId: q.targetSeatId }));
-          await api.bookings.transferSeat(bId, queueItems[0].sourceTripId, queueItems[0].targetTripId, seatTransfers);
+          const seatTransfers = queueItems.map(q => ({ 
+              sourceSeatId: q.sourceSeatId, 
+              targetSeatId: q.targetSeatId 
+          }));
+          
+          await api.bookings.transferSeat(
+            bId, 
+            queueItems[0].sourceTripId, 
+            queueItems[0].targetTripId, 
+            seatTransfers
+          );
       }
+      
       await onRefresh();
-      toast({ type: 'success', title: 'Thành công', message: `Đã cập nhật ${transferQueue.length} vị trí.` });
+      toast({ type: 'success', title: 'Thành công', message: `Đã lưu toàn bộ thay đổi điều phối.` });
       setTransferQueue([]);
     } catch (e) {
       console.error(e);
-      toast({ type: 'error', title: 'Lỗi', message: 'Không thể thực hiện lưu thay đổi.' });
-    } finally { setIsProcessing(false); }
+      toast({ type: 'error', title: 'Lỗi', message: 'Quá trình lưu dữ liệu gặp sự cố.' });
+    } finally { 
+      setIsProcessing(false); 
+    }
   };
 
   const getAugmentedSeats = (trip: BusTrip | undefined) => {
@@ -248,7 +254,6 @@ export const SeatTransfer: React.FC<SeatTransferProps> = ({ trips, bookings, sel
 
   return (
     <div className="flex flex-col h-[calc(100vh-100px)] animate-in fade-in duration-300">
-      {/* 1. Header Area: Selects Moved here for maximum space */}
       <div className="bg-white border-b border-slate-200 shrink-0 z-30 shadow-sm rounded-none">
         <div className="flex flex-col md:flex-row items-center gap-4 px-4 py-2">
           <div className="flex-1 w-full flex items-center gap-3">
@@ -304,10 +309,7 @@ export const SeatTransfer: React.FC<SeatTransferProps> = ({ trips, bookings, sel
       </div>
 
       <div className="flex-1 flex gap-0 items-start overflow-hidden relative">
-        
-        {/* 2. Main Comparison Area */}
         <div className="flex-1 bg-white border-r border-slate-200 flex flex-col h-full relative rounded-none overflow-hidden">
-          
           <div className="flex bg-slate-50 border-b border-slate-200 shrink-0 sticky top-0 z-20">
               <div className={`basis-1/2 min-w-0 px-4 py-2 border-r border-slate-200 flex justify-between items-center ${selectedFromTripId === trip1Id ? 'bg-primary/5' : ''}`}>
                   <div className="flex items-center gap-2 text-[10px] font-black text-slate-700 uppercase tracking-tight truncate">
@@ -327,7 +329,6 @@ export const SeatTransfer: React.FC<SeatTransferProps> = ({ trips, bookings, sel
 
           <div className="flex-1 overflow-y-auto overflow-x-hidden">
             <div className="flex h-full min-h-max min-w-full">
-                {/* Trip 1 Map */}
                 <div className={`basis-1/2 min-w-0 border-r border-slate-100 ${selectedFromTripId === trip1Id ? 'bg-primary/[0.01]' : ''}`}>
                     {trip1 ? (
                        <div className="p-2">
@@ -344,7 +345,6 @@ export const SeatTransfer: React.FC<SeatTransferProps> = ({ trips, bookings, sel
                     )}
                 </div>
 
-                {/* Trip 2 Map */}
                 <div className={`basis-1/2 min-w-0 ${selectedFromTripId === trip2Id ? 'bg-primary/[0.01]' : ''}`}>
                     {trip2 ? (
                        <div className="p-2">
@@ -363,7 +363,6 @@ export const SeatTransfer: React.FC<SeatTransferProps> = ({ trips, bookings, sel
             </div>
           </div>
 
-          {/* Floating Selection Tooltip/Control */}
           {selectedBooking && sourceTrip && targetTrip && (
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white border border-indigo-200 shadow-xl rounded-none p-3 flex flex-col gap-3 min-w-[320px] animate-in slide-in-from-bottom-2 z-40">
                 <div className="flex items-center justify-between">
@@ -401,13 +400,7 @@ export const SeatTransfer: React.FC<SeatTransferProps> = ({ trips, bookings, sel
           )}
         </div>
 
-        {/* 3. Transfer Queue Sidebar - Toggleable */}
-        <div 
-          className={`
-            bg-slate-50 flex flex-col h-full overflow-hidden transition-all duration-300 shrink-0 border-l border-slate-200
-            ${isSidebarVisible ? 'w-[300px]' : 'w-0 border-none'}
-          `}
-        >
+        <div className={`bg-slate-50 flex flex-col h-full overflow-hidden transition-all duration-300 shrink-0 border-l border-slate-200 ${isSidebarVisible ? 'w-[300px]' : 'w-0 border-none'}`}>
           <div className="px-4 py-3 bg-white border-b border-slate-200 flex items-center justify-between shrink-0">
             <div className="flex items-center gap-2 font-black text-[10px] text-slate-800 uppercase tracking-widest">
                 <ShoppingCart size={14} className="text-indigo-600"/> Danh sách chờ ({transferQueue.length})
@@ -448,7 +441,6 @@ export const SeatTransfer: React.FC<SeatTransferProps> = ({ trips, bookings, sel
               )}
           </div>
 
-          {/* Save Button - Stays at bottom of sidebar */}
           <div className="p-3 border-t border-slate-200 bg-white space-y-2 shrink-0">
               <Button 
                 onClick={handleSaveAll}
