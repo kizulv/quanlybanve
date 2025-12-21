@@ -100,34 +100,38 @@ export const SeatTransfer: React.FC<SeatTransferProps> = ({ trips, bookings, sel
       const sourceSeat = sourceTrip.seats.find(s => s.id === seatId);
       if (!sourceSeat) return { sourceSeatId: seatId, isValid: false, sourceLabel: '?', targetSeatId: '', posDesc: '?' };
 
-      // Cố định logic tìm ghế đích khớp vị trí (Tầng -> Hàng -> Cột)
-      const targetSeatByPos = targetTrip.seats.find(s => {
-        if (s.floor !== sourceSeat.floor) return false;
-        if (!!s.isFloorSeat !== !!sourceSeat.isFloorSeat) return false;
-        
-        const isSourceBench = (sourceSeat.row ?? 0) >= 6 && !sourceSeat.isFloorSeat;
-        if (isSourceBench) {
-            const isTargetBench = (s.row ?? 0) >= 6 && !s.isFloorSeat;
-            return isTargetBench && s.col === sourceSeat.col;
-        }
-        return s.row === sourceSeat.row && s.col === sourceSeat.col;
-      });
+      // FIX: Ưu tiên tìm ghế đích dựa trên Số thứ tự (Label) thay vì tọa độ vật lý
+      let targetSeat = targetTrip.seats.find(s => s.label === sourceSeat.label);
       
-      const isReservedInQueue = transferQueue.some(q => q.targetTripId === targetTrip.id && q.targetSeatId === targetSeatByPos?.id);
+      // Nếu không tìm thấy theo số thứ tự (do bus khác loại), mới fall-back về tọa độ
+      if (!targetSeat) {
+        targetSeat = targetTrip.seats.find(s => {
+            if (s.floor !== sourceSeat.floor) return false;
+            if (!!s.isFloorSeat !== !!sourceSeat.isFloorSeat) return false;
+            const isSourceBench = (sourceSeat.row ?? 0) >= 6 && !sourceSeat.isFloorSeat;
+            if (isSourceBench) {
+                const isTargetBench = (s.row ?? 0) >= 6 && !s.isFloorSeat;
+                return isTargetBench && s.col === sourceSeat.col;
+            }
+            return s.row === sourceSeat.row && s.col === sourceSeat.col;
+        });
+      }
+      
+      const isReservedInQueue = transferQueue.some(q => q.targetTripId === targetTrip.id && q.targetSeatId === targetSeat?.id);
       const targetOccupant = bookings.find(b => 
         b.status !== 'cancelled' && 
-        b.items.some(item => item.tripId === targetTrip.id && item.seatIds.includes(targetSeatByPos?.id || ''))
+        b.items.some(item => item.tripId === targetTrip.id && item.seatIds.includes(targetSeat?.id || ''))
       );
 
-      const isValid = !!targetSeatByPos && !isReservedInQueue;
+      const isValid = !!targetSeat && !isReservedInQueue;
       const isSwap = !!targetOccupant;
       
       return {
         sourceSeatId: seatId,
         sourceLabel: sourceSeat.label,
         posDesc: getPositionDesc(sourceSeat),
-        targetSeatId: targetSeatByPos?.id || '',
-        targetLabel: targetSeatByPos?.label || '',
+        targetSeatId: targetSeat?.id || '',
+        targetLabel: targetSeat?.label || '',
         isValid,
         isSwap,
         swapPhone: targetOccupant?.passenger.phone
@@ -204,7 +208,6 @@ export const SeatTransfer: React.FC<SeatTransferProps> = ({ trips, bookings, sel
     setIsProcessing(true);
     
     try {
-      // Nhóm theo bookingId để giảm số lượng API call và đảm bảo tính nhất quán của đơn hàng
       const grouped = transferQueue.reduce((acc, curr) => {
           if (!acc[curr.bookingId]) acc[curr.bookingId] = [];
           acc[curr.bookingId].push(curr);

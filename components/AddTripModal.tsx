@@ -127,11 +127,11 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
     const dateStr = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, "0")}-${String(targetDate.getDate()).padStart(2, "0")}`;
     const dateTimeStr = `${dateStr} ${time}`;
 
-    const occupiedSeatPosMap = new Map<string, Seat>(); 
+    // FIX: Sử dụng Map theo ID ghế (Số thứ tự) để bảo toàn trạng thái, KHÔNG dùng tọa độ hàng/cột
+    const occupiedSeatsMap = new Map<string, Seat>(); 
     (initialData?.seats || []).forEach((s) => {
       if (s.status !== SeatStatus.AVAILABLE) {
-        const key = `${s.floor}-${s.row ?? 0}-${s.col ?? 0}`;
-        occupiedSeatPosMap.set(key, s);
+        occupiedSeatsMap.set(s.id, s);
       }
     });
 
@@ -150,7 +150,7 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
           }
         }
       }
-      // Floor seats: Cabin 6, Sleeper 12
+      // Floor seats
       if (config.hasFloorSeats) {
           const fCount = bus.type === BusType.CABIN ? 6 : 12;
           for (let i = 0; i < fCount; i++) {
@@ -181,17 +181,20 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
 
     const handledOldIds = new Set<string>();
     let finalSeats = newLayoutSeats.map((newSeat) => {
-      const posKey = `${newSeat.floor}-${newSeat.row}-${newSeat.col}`;
-      const oldSeat = occupiedSeatPosMap.get(posKey);
+      // FIX: Ánh xạ dựa trên ID (Số thứ tự ghế)
+      const oldSeat = occupiedSeatsMap.get(newSeat.id);
       if (oldSeat) {
         handledOldIds.add(oldSeat.id);
-        return { ...newSeat, status: oldSeat.status, price: price };
+        // Giữ trạng thái cũ, nhưng cập nhật vị trí hàng/tầng theo bus mới
+        return { ...newSeat, status: oldSeat.status, price: price, note: oldSeat.note };
       }
       return newSeat;
     });
 
+    // Những ghế cũ đã đặt nhưng không tìm thấy ID tương ứng trên bus mới (Ghế thừa/Lệch sơ đồ)
     (initialData?.seats || []).forEach((oldSeat) => {
       if (oldSeat.status !== SeatStatus.AVAILABLE && !handledOldIds.has(oldSeat.id)) {
+        // Đưa vào khu vực "Ghế lệch sơ đồ" (row: 99) để quản lý không bị mất dữ liệu
         finalSeats.push({ ...oldSeat, floor: 1, row: 99, col: 0 });
       }
     });
@@ -203,8 +206,6 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
       onClose();
     } catch (e) { console.error(e); } finally { setIsSaving(false); }
   };
-
-  const selectedRoute = routes.find((r) => r.id === selectedRouteId);
 
   return (
     <Dialog isOpen={isOpen} onClose={onClose} title={initialData ? "Cập nhật chuyến xe" : "Tạo lịch chạy mới"} className="max-w-4xl"
@@ -244,7 +245,7 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
               <div><label className="block text-sm font-medium text-slate-700 mb-1.5">Giá vé (VNĐ)</label>
                 <input type="text" required className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none font-bold" value={price.toLocaleString("vi-VN")} onChange={(e) => setPrice(parseInt(e.target.value.replace(/\D/g, "") || "0", 10))} />
               </div>
-              <div className="mt-auto pt-4 border-t border-slate-100"><div className="flex items-start gap-2 text-xs text-slate-500 bg-slate-50 p-2 rounded border border-slate-100"><Info size={14} className="shrink-0 mt-0.5 text-slate-400" /><p>Hệ thống tự động cấu hình 6 vé sàn (Phòng) hoặc 12 vé sàn (Giường).</p></div></div>
+              <div className="mt-auto pt-4 border-t border-slate-100"><div className="flex items-start gap-2 text-xs text-slate-500 bg-slate-50 p-2 rounded border border-slate-100"><Info size={14} className="shrink-0 mt-0.5 text-slate-400" /><p>Hệ thống bảo toàn số ghế cũ dựa trên mã số ghế khi bạn thay đổi xe hoặc cập nhật thông tin.</p></div></div>
             </div>
           </div>
         </div>
