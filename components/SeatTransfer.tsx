@@ -6,14 +6,16 @@ import {
   ArrowRightLeft, 
   BusFront, 
   ChevronRight, 
-  Calendar, 
   AlertCircle, 
   CheckCircle2,
   Loader2,
   ArrowLeftRight,
   Info,
   ShieldAlert,
-  MousePointer2
+  MousePointer2,
+  RefreshCw,
+  ArrowRight,
+  MapIcon
 } from 'lucide-react';
 import { Button } from './ui/Button';
 import { Badge } from './ui/Badge';
@@ -29,109 +31,151 @@ interface SeatTransferProps {
 
 export const SeatTransfer: React.FC<SeatTransferProps> = ({ trips, bookings, selectedDate, onRefresh }) => {
   const { toast } = useToast();
-  const [sourceTripId, setSourceTripId] = useState<string>('');
-  const [targetTripId, setTargetTripId] = useState<string>('');
+  const [trip1Id, setTrip1Id] = useState<string>('');
+  const [trip2Id, setTrip2Id] = useState<string>('');
+  
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [selectedFromTripId, setSelectedFromTripId] = useState<string | null>(null);
   const [selectedSeatIds, setSelectedSeatIds] = useState<string[]>([]);
+  
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Lọc các chuyến xe giường đơn (thường) trong cùng ngày
   const availableTrips = useMemo(() => {
     return trips.filter(t => {
       const tripDate = new Date(t.departureTime.split(' ')[0]);
-      return tripDate.toDateString() === selectedDate.toDateString() && t.type === BusType.SLEEPER;
+      return tripDate.toDateString() === selectedDate.toDateString();
     });
   }, [trips, selectedDate]);
 
-  const sourceTrip = availableTrips.find(t => t.id === sourceTripId);
-  const targetTrip = availableTrips.find(t => t.id === targetTripId);
+  const trip1 = availableTrips.find(t => t.id === trip1Id);
+  const trip2 = availableTrips.find(t => t.id === trip2Id);
 
-  // Danh sách hiển thị các nhãn ghế đang chọn
+  const sourceTrip = selectedFromTripId === trip1Id ? trip1 : trip2;
+  const targetTrip = selectedFromTripId === trip1Id ? trip2 : trip1;
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await onRefresh();
+    setIsRefreshing(false);
+    toast({ type: 'info', title: 'Đã cập nhật', message: 'Dữ liệu ghế mới nhất đã được tải.' });
+  };
+
+  // Hàm helper mô tả vị trí ghế (Tầng-Hàng-Cột)
+  const getPositionDesc = (s: Seat | undefined) => {
+    if (!s) return 'N/A';
+    if (s.isFloorSeat) return `Sàn-${(s.row ?? 0) + 1}`;
+    const rowDesc = (s.row ?? 0) === 6 ? 'Băng5' : `H${(s.row ?? 0) + 1}`;
+    return `T${s.floor}-${rowDesc}-C${(s.col ?? 0) + 1}`;
+  };
+
+  // Danh sách hiển thị các mô tả vị trí ghế đang chọn
   const sourceSeatsLabels = useMemo(() => {
     if (!sourceTrip) return [];
-    return selectedSeatIds.map(sid => sourceTrip.seats.find(s => s.id === sid)?.label || sid);
+    return selectedSeatIds.map(sid => {
+        const s = sourceTrip.seats.find(seat => seat.id === sid);
+        return s ? `${s.label} (${getPositionDesc(s)})` : sid;
+    });
   }, [selectedSeatIds, sourceTrip]);
 
-  // Kiểm tra tính khả dụng trên xe đích
+  // KIỂM TRA TÍNH KHẢ DỤNG: ĐỐI CHIẾU THEO TỌA ĐỘ VẬT LÝ
   const transferValidation = useMemo(() => {
-    if (!selectedBooking || !targetTrip || selectedSeatIds.length === 0) return null;
+    if (!selectedBooking || !targetTrip || !sourceTrip || selectedSeatIds.length === 0) return null;
 
     const results = selectedSeatIds.map(seatId => {
-      // Tìm label của ghế nguồn để đối chiếu
-      const sourceSeat = sourceTrip?.seats.find(s => s.id === seatId);
-      const targetSeatByLabel = targetTrip.seats.find(s => s.label === sourceSeat?.label);
+      const sourceSeat = sourceTrip.seats.find(s => s.id === seatId);
+      if (!sourceSeat) return { sourceSeatId: seatId, isAvailable: false, sourceLabel: '?', targetSeatId: '', posDesc: '?' };
+
+      // TÌM GHẾ ĐÍCH THEO TỌA ĐỘ: floor, row, col, isFloorSeat
+      const targetSeatByPos = targetTrip.seats.find(s => 
+        s.floor === sourceSeat.floor && 
+        s.row === sourceSeat.row && 
+        s.col === sourceSeat.col && 
+        !!s.isFloorSeat === !!sourceSeat.isFloorSeat
+      );
       
-      const isAvailable = targetSeatByLabel?.status === SeatStatus.AVAILABLE;
+      // KIỂM TRA TRÙNG THỰC TẾ TRÊN BOOKINGS (Tránh dữ liệu rác/ghost seats)
+      const isOccupiedByBooking = bookings.some(b => 
+        b.status !== 'cancelled' && 
+        b.items.some(item => item.tripId === targetTrip.id && item.seatIds.includes(targetSeatByPos?.id || ''))
+      );
+
+      const isAvailable = targetSeatByPos && !isOccupiedByBooking;
       
       return {
         sourceSeatId: seatId,
-        sourceLabel: sourceSeat?.label || seatId,
-        targetSeatId: targetSeatByLabel?.id || '',
-        isAvailable
+        sourceLabel: sourceSeat.label,
+        posDesc: getPositionDesc(sourceSeat),
+        targetSeatId: targetSeatByPos?.id || '',
+        isAvailable: !!isAvailable
       };
     });
 
     const isAllAvailable = results.every(r => r.isAvailable);
-    const isPaid = selectedBooking.status === 'payment';
-
     return {
       results,
       isAllAvailable,
-      isPaid
+      isPaid: selectedBooking.status === 'payment'
     };
-  }, [selectedBooking, targetTrip, selectedSeatIds, sourceTrip]);
+  }, [selectedBooking, targetTrip, sourceTrip, selectedSeatIds, bookings]);
 
-  const handleSourceSeatClick = (seat: Seat) => {
+  const handleSeatClick = (seat: Seat, tripId: string) => {
+    if (!trip1Id || !trip2Id) {
+        toast({ type: 'warning', title: 'Chưa chọn xe', message: 'Vui lòng chọn đủ 2 xe để thực hiện đối chiếu.' });
+        return;
+    }
+
     if (seat.status === SeatStatus.BOOKED || seat.status === SeatStatus.SOLD || seat.status === SeatStatus.HELD) {
-      // Tìm booking chứa ghế này
       const booking = bookings.find(b => 
         b.status !== 'cancelled' && 
-        b.items.some(item => item.tripId === sourceTripId && item.seatIds.includes(seat.id))
+        b.items.some(item => item.tripId === tripId && item.seatIds.includes(seat.id))
       );
 
       if (booking) {
-        // TRƯỜNG HỢP 1: Click vào ghế thuộc ĐƠN HÀNG ĐANG CHỌN -> Toggle (Bỏ chọn/Chọn lại)
-        if (selectedBooking && selectedBooking.id === booking.id) {
+        if (selectedBooking && selectedBooking.id === booking.id && selectedFromTripId === tripId) {
           setSelectedSeatIds(prev => {
             const isAlreadySelected = prev.includes(seat.id);
-            const newList = isAlreadySelected 
-              ? prev.filter(id => id !== seat.id) 
-              : [...prev, seat.id];
-            
-            // Nếu bỏ chọn sạch sẽ thì reset luôn booking
+            const newList = isAlreadySelected ? prev.filter(id => id !== seat.id) : [...prev, seat.id];
             if (newList.length === 0) {
               setSelectedBooking(null);
+              setSelectedFromTripId(null);
             }
             return newList;
           });
         } 
-        // TRƯỜNG HỢP 2: Click vào đơn hàng khác -> Chọn toàn bộ nhóm mới
         else {
-          const tripItem = booking.items.find(i => i.tripId === sourceTripId);
+          const tripItem = booking.items.find(i => i.tripId === tripId);
           if (tripItem) {
             setSelectedBooking(booking);
+            setSelectedFromTripId(tripId);
             setSelectedSeatIds(tripItem.seatIds);
             toast({ 
               type: 'info', 
               title: 'Đã nhận diện nhóm khách', 
-              message: `Chọn tất cả ${tripItem.seatIds.length} ghế của khách ${booking.passenger.phone}. Bạn có thể click để bỏ chọn từng ghế nếu cần.` 
+              message: `Đã chọn đoàn khách ${booking.passenger.phone} (${tripItem.seatIds.length} ghế). Hệ thống sẽ tự động tìm vị trí tương ứng bên xe kia.` 
             });
           }
         }
       }
     } else {
-      toast({ type: 'warning', title: 'Thao tác không hợp lệ', message: 'Vui lòng chọn ghế đã có khách.' });
+        if (selectedFromTripId === tripId) {
+            setSelectedBooking(null);
+            setSelectedFromTripId(null);
+            setSelectedSeatIds([]);
+        } else {
+            toast({ type: 'warning', title: 'Thao tác không hợp lệ', message: 'Vui lòng chọn ghế đang có người ngồi.' });
+        }
     }
   };
 
   const handleTransfer = async () => {
-    if (!selectedBooking || !targetTrip || !transferValidation || selectedSeatIds.length === 0) return;
+    if (!selectedBooking || !selectedFromTripId || !targetTrip || !transferValidation) return;
 
     if (!transferValidation.isAllAvailable) {
       toast({ 
         type: 'error', 
-        title: 'Vị trí đã bị chiếm', 
-        message: 'Một số vị trí tương ứng trên xe đích đã có khách. Không thể thực hiện chuyển nhóm.' 
+        title: 'Vị trí đích không khả dụng', 
+        message: 'Các vị trí vật lý tương ứng trên xe đích không trống hoặc không tồn tại.' 
       });
       return;
     }
@@ -145,8 +189,8 @@ export const SeatTransfer: React.FC<SeatTransferProps> = ({ trips, bookings, sel
 
       await api.bookings.transferSeat(
         selectedBooking.id,
-        sourceTripId,
-        targetTripId,
+        selectedFromTripId,
+        targetTrip.id,
         seatTransfers
       );
 
@@ -154,12 +198,13 @@ export const SeatTransfer: React.FC<SeatTransferProps> = ({ trips, bookings, sel
       
       toast({ 
         type: 'success', 
-        title: 'Đổi chuyến thành công', 
-        message: `Đã chuyển ${seatTransfers.length} ghế từ ${sourceTrip?.licensePlate} sang ${targetTrip?.licensePlate}` 
+        title: 'Đổi đúng vị trí thành công', 
+        message: `Đã chuyển ${seatTransfers.length} ghế dựa trên tọa độ sơ đồ sang xe ${targetTrip.licensePlate}` 
       });
 
       setSelectedBooking(null);
       setSelectedSeatIds([]);
+      setSelectedFromTripId(null);
     } catch (e) {
       console.error(e);
       toast({ type: 'error', title: 'Lỗi', message: 'Không thể thực hiện đổi chuyến.' });
@@ -168,53 +213,53 @@ export const SeatTransfer: React.FC<SeatTransferProps> = ({ trips, bookings, sel
     }
   };
 
-  // Mock ghế nguồn để highlight những ghế được chọn trong SeatMap
-  const highlightedSourceSeats = useMemo(() => {
-    if (!sourceTrip) return [];
-    return sourceTrip.seats.map(s => {
-      if (selectedSeatIds.includes(s.id)) {
-        return { ...s, status: SeatStatus.SELECTED };
-      }
+  const getHighlightedSeats = (trip: BusTrip | undefined) => {
+    if (!trip) return [];
+    if (selectedFromTripId !== trip.id) return trip.seats;
+    return trip.seats.map(s => {
+      if (selectedSeatIds.includes(s.id)) return { ...s, status: SeatStatus.SELECTED };
       return s;
     });
-  }, [sourceTrip, selectedSeatIds]);
+  };
 
   return (
     <div className="flex flex-col gap-6 animate-in fade-in duration-300">
       {/* Header Controls */}
-      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden">
         <div className="flex flex-col md:flex-row items-center gap-6">
           <div className="flex-1 w-full">
-            <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Xe nguồn (Đang có khách)</label>
+            <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Xe đối chiếu số 1</label>
             <select 
-              value={sourceTripId} 
-              onChange={e => { 
-                setSourceTripId(e.target.value); 
-                setSelectedBooking(null); 
-                setSelectedSeatIds([]);
-              }}
+              value={trip1Id} 
+              onChange={e => { setTrip1Id(e.target.value); setSelectedBooking(null); setSelectedSeatIds([]); }}
               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-primary/10 transition-all"
             >
-              <option value="">-- Chọn xe đi --</option>
+              <option value="">-- Chọn xe --</option>
               {availableTrips.map(t => (
                 <option key={t.id} value={t.id}>{t.departureTime.split(' ')[1]} - {t.licensePlate} ({t.route})</option>
               ))}
             </select>
           </div>
 
-          <div className="shrink-0 flex items-center justify-center w-12 h-12 bg-primary/5 text-primary rounded-full border border-primary/20">
-             <ArrowLeftRight size={24} />
+          <div className="shrink-0 flex flex-col items-center gap-1">
+             <div className="flex items-center justify-center w-10 h-10 bg-primary/5 text-primary rounded-full border border-primary/20">
+                <ArrowLeftRight size={20} />
+             </div>
+             <Button variant="ghost" size="sm" onClick={handleRefresh} disabled={isRefreshing} className="h-6 text-[10px] font-black uppercase text-slate-400">
+                {isRefreshing ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+                <span className="ml-1">Đồng bộ</span>
+             </Button>
           </div>
 
           <div className="flex-1 w-full">
-            <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Xe đích (Ghế trống)</label>
+            <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Xe đối chiếu số 2</label>
             <select 
-              value={targetTripId} 
-              onChange={e => { setTargetTripId(e.target.value); }}
+              value={trip2Id} 
+              onChange={e => { setTrip2Id(e.target.value); setSelectedBooking(null); setSelectedSeatIds([]); }}
               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-primary/10 transition-all"
             >
-              <option value="">-- Chọn xe đến --</option>
-              {availableTrips.filter(t => t.id !== sourceTripId).map(t => (
+              <option value="">-- Chọn xe --</option>
+              {availableTrips.filter(t => t.id !== trip1Id).map(t => (
                 <option key={t.id} value={t.id}>{t.departureTime.split(' ')[1]} - {t.licensePlate} ({t.route})</option>
               ))}
             </select>
@@ -222,141 +267,144 @@ export const SeatTransfer: React.FC<SeatTransferProps> = ({ trips, bookings, sel
         </div>
       </div>
 
-      {/* Group Info Warning */}
-      {selectedBooking && (
-        <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 flex items-start gap-4 animate-in slide-in-from-top-2">
-            <div className="p-2 bg-white rounded-lg text-indigo-600 shadow-sm">
-                <Info size={20} />
+      {/* Logic Warning */}
+      {selectedBooking && sourceTrip && (
+        <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 flex items-start gap-4 animate-in slide-in-from-top-2">
+            <div className="p-2 bg-white rounded-lg text-blue-600 shadow-sm">
+                <MapIcon size={20} />
             </div>
             <div className="flex-1">
-                <h4 className="font-black text-indigo-900 text-sm">Chế độ chọn lọc theo nhóm</h4>
-                <p className="text-xs text-indigo-700 mt-1 leading-relaxed">
-                    Đã nhận diện đơn hàng của khách <strong>{selectedBooking.passenger.phone}</strong>. 
-                    Bạn có thể <strong>click trực tiếp trên sơ đồ nguồn</strong> để bỏ chọn những ghế không muốn chuyển đi.
+                <h4 className="font-black text-blue-900 text-sm">Chế độ chuyển đổi đúng vị trí sơ đồ</h4>
+                <p className="text-xs text-blue-700 mt-1 leading-relaxed">
+                    Đang chọn <strong>{selectedSeatIds.length} ghế</strong> từ xe {sourceTrip.licensePlate}. 
+                    Hệ thống sẽ đối chiếu theo <strong>Tầng - Hàng - Cột</strong> sang xe {targetTrip?.licensePlate}. 
+                    Bạn có thể click vào ghế trên sơ đồ xe nguồn để tùy chỉnh danh sách ghế muốn chuyển.
                 </p>
                 {selectedBooking.status === 'payment' && (
                   <div className="mt-2 flex items-center gap-1.5 text-[10px] font-black uppercase text-red-600">
-                      <ShieldAlert size={14}/> Ràng buộc: Vé đã thanh toán chỉ được đổi đúng vị trí.
+                      <ShieldAlert size={14}/> Ràng buộc nghiêm ngặt: Vé đã thanh toán chỉ được đổi đúng tọa độ vật lý tương ứng.
                   </div>
                 )}
             </div>
             <Button 
               variant="ghost" 
               size="sm" 
-              onClick={() => { setSelectedBooking(null); setSelectedSeatIds([]); }}
-              className="text-indigo-400 hover:text-indigo-600"
+              onClick={() => { setSelectedBooking(null); setSelectedSeatIds([]); setSelectedFromTripId(null); }}
+              className="text-blue-400 hover:text-blue-600"
             >
-               Hủy chọn nhóm
+               Hủy chọn
             </Button>
         </div>
       )}
 
-      {/* Comparison Area */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-        {/* Source Trip Column */}
+        {/* Column 1 */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-[calc(100vh-380px)]">
           <div className="px-5 py-3.5 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
-             <div className="flex items-center gap-2">
-                <MousePointer2 size={18} className="text-primary"/>
-                <span className="font-black text-slate-700 uppercase text-xs tracking-tighter">Bản đồ nguồn (Chọn ghế muốn chuyển)</span>
+             <div className="flex items-center gap-2 text-xs font-black text-slate-700 uppercase tracking-tighter">
+                <BusFront size={18} className="text-slate-400"/> {trip1 ? trip1.licensePlate : 'Chưa chọn xe'}
              </div>
-             {selectedSeatIds.length > 0 && (
-                <Badge className="bg-primary text-white border-transparent px-3 py-1 font-black">
-                   ĐANG CHỌN: {sourceSeatsLabels.join(', ')}
-                </Badge>
+             {selectedFromTripId === trip1Id && (
+                <Badge className="bg-primary text-white border-transparent px-3 py-1 font-black animate-pulse">NGUỒN</Badge>
              )}
           </div>
           <div className="flex-1 overflow-y-auto">
-            {sourceTrip ? (
+            {trip1 ? (
                <SeatMap 
-                 seats={highlightedSourceSeats} 
-                 busType={sourceTrip.type} 
-                 onSeatClick={handleSourceSeatClick} 
-                 bookings={bookings.filter(b => b.items.some(i => i.tripId === sourceTripId))}
-                 currentTripId={sourceTrip.id}
-                 swapSourceSeatId={selectedSeatIds.length === 1 ? selectedSeatIds[0] : undefined}
+                 seats={getHighlightedSeats(trip1)} 
+                 busType={trip1.type} 
+                 onSeatClick={(s) => handleSeatClick(s, trip1Id)} 
+                 bookings={bookings.filter(b => b.items.some(i => i.tripId === trip1Id))}
+                 currentTripId={trip1.id}
                />
             ) : (
                <div className="h-full flex flex-col items-center justify-center text-slate-300 p-8 text-center opacity-40">
                   <AlertCircle size={48} className="mb-4" />
-                  <p className="text-sm font-medium">Vui lòng chọn xe nguồn để xem sơ đồ</p>
+                  <p className="text-sm font-medium italic">Vui lòng chọn xe đối chiếu số 1</p>
                </div>
             )}
           </div>
         </div>
 
-        {/* Target Trip Column */}
+        {/* Column 2 */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-[calc(100vh-380px)]">
            <div className="px-5 py-3.5 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                 <BusFront size={18} className="text-slate-400"/>
-                 <span className="font-black text-slate-700 uppercase text-xs tracking-tighter">Bản đồ đích (Đối chiếu)</span>
+              <div className="flex items-center gap-2 text-xs font-black text-slate-700 uppercase tracking-tighter">
+                 <BusFront size={18} className="text-slate-400"/> {trip2 ? trip2.licensePlate : 'Chưa chọn xe'}
               </div>
-              {transferValidation && (
-                <Badge className={`${transferValidation.isAllAvailable ? 'bg-green-600' : 'bg-red-600'} text-white border-transparent px-3 py-1 font-black uppercase`}>
-                   {transferValidation.isAllAvailable ? 'KHẢ DỤNG' : 'BỊ TRÙNG VỊ TRÍ'}
-                </Badge>
+              {selectedFromTripId === trip2Id && (
+                <Badge className="bg-primary text-white border-transparent px-3 py-1 font-black animate-pulse">NGUỒN</Badge>
               )}
            </div>
            <div className="flex-1 overflow-y-auto">
-             {targetTrip ? (
+             {trip2 ? (
                 <SeatMap 
-                  seats={targetTrip.seats} 
-                  busType={targetTrip.type} 
-                  onSeatClick={() => {}} // Đóng click ở đích vì chúng ta map theo label tương ứng
-                  bookings={bookings.filter(b => b.items.some(i => i.tripId === targetTrip.id))}
-                  currentTripId={targetTrip.id}
+                  seats={getHighlightedSeats(trip2)} 
+                  busType={trip2.type} 
+                  onSeatClick={(s) => handleSeatClick(s, trip2Id)} 
+                  bookings={bookings.filter(b => b.items.some(i => i.tripId === trip2Id))}
+                  currentTripId={trip2.id}
                 />
              ) : (
                 <div className="h-full flex flex-col items-center justify-center text-slate-300 p-8 text-center opacity-40">
                    <AlertCircle size={48} className="mb-4" />
-                   <p className="text-sm font-medium">Vui lòng chọn xe đích để xem đối chiếu</p>
+                   <p className="text-sm font-medium italic">Vui lòng chọn xe đối chiếu số 2</p>
                 </div>
              )}
            </div>
         </div>
       </div>
 
-      {/* Action Footer */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-lg flex items-center justify-between">
-         <div className="flex items-center gap-6 text-sm">
-            <div className="flex flex-col">
-               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Ghế nguồn ({selectedSeatIds.length})</span>
-               <div className="flex gap-1.5 flex-wrap max-w-[300px]">
-                  {sourceSeatsLabels.length > 0 ? sourceSeatsLabels.map(s => (
-                    <Badge key={s} className="bg-slate-100 text-slate-700 border-slate-200 font-black">{s}</Badge>
-                  )) : <span className="text-slate-300 font-bold italic">Chưa chọn ghế</span>}
+      {/* Detailed Position Footer */}
+      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-lg flex flex-col md:flex-row items-center justify-between gap-6">
+         <div className="flex-1 flex items-center gap-6 text-sm w-full">
+            <div className="flex flex-col min-w-0">
+               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Vị trí nguồn ({selectedSeatIds.length})</span>
+               <div className="flex gap-2 flex-wrap">
+                  {sourceSeatsLabels.length > 0 ? sourceSeatsLabels.map((lbl, idx) => (
+                    <Badge key={idx} className="bg-slate-100 text-slate-700 border-slate-200 font-bold py-1 px-2.5 rounded-lg shadow-xs">{lbl}</Badge>
+                  )) : <span className="text-slate-300 font-bold italic text-xs">Chưa chọn ghế</span>}
                </div>
             </div>
-            <ChevronRight className="text-slate-300" />
-            <div className="flex flex-col">
-               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Vị trí xe đích</span>
-               <div className="flex gap-1.5 flex-wrap max-w-[300px]">
+            
+            {sourceTrip && targetTrip && selectedSeatIds.length > 0 && (
+                <div className="shrink-0 flex items-center justify-center h-10 w-10 bg-blue-50 rounded-full border border-blue-100">
+                    <ArrowRight size={20} className="text-blue-600 animate-pulse" />
+                </div>
+            )}
+
+            <div className="flex flex-col min-w-0">
+               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Trạng thái xe đích (Theo tọa độ)</span>
+               <div className="flex gap-2 flex-wrap">
                   {transferValidation ? transferValidation.results.map((r, i) => (
-                    <Badge key={i} className={`${r.isAvailable ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'} font-black`}>
-                       {r.sourceLabel}
+                    <Badge key={i} className={`${r.isAvailable ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'} font-bold py-1 px-2.5 rounded-lg shadow-xs flex items-center gap-1.5`}>
+                       {r.isAvailable ? <CheckCircle2 size={12}/> : <AlertCircle size={12}/>}
+                       {r.posDesc}
                     </Badge>
-                  )) : <span className="text-slate-300 font-bold italic">Chờ đối chiếu</span>}
+                  )) : <span className="text-slate-300 font-bold italic text-xs">Chờ đối chiếu tọa độ...</span>}
                </div>
             </div>
          </div>
 
-         <div className="flex items-center gap-4">
+         <div className="shrink-0 flex items-center gap-4 w-full md:w-auto">
              {transferValidation && !transferValidation.isAllAvailable && (
-                 <div className="flex items-center gap-2 text-red-600 font-bold text-xs bg-red-50 px-4 py-2 rounded-xl border border-red-100">
-                    <ShieldAlert size={16}/>
-                    Không thể chuyển vì trùng ghế
+                 <div className="flex items-center gap-2 text-red-600 font-black text-xs bg-red-50 px-4 py-2.5 rounded-xl border border-red-100 animate-bounce">
+                    <ShieldAlert size={16}/> Vị trí đích không trống
                  </div>
              )}
              <Button 
                onClick={handleTransfer}
-               disabled={selectedSeatIds.length === 0 || !targetTripId || !transferValidation?.isAllAvailable || isProcessing}
-               className={`${transferValidation?.isAllAvailable ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-slate-400'} text-white px-8 h-12 rounded-xl font-black text-base shadow-xl shadow-indigo-200 transition-all active:scale-95`}
+               disabled={selectedSeatIds.length === 0 || !trip1Id || !trip2Id || !transferValidation?.isAllAvailable || isProcessing}
+               className={`flex-1 md:flex-initial h-12 px-10 rounded-xl font-black text-sm uppercase tracking-wider transition-all shadow-xl active:scale-95 ${
+                 transferValidation?.isAllAvailable 
+                 ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200' 
+                 : 'bg-slate-400 text-white cursor-not-allowed shadow-none'
+               }`}
              >
                 {isProcessing ? (
-                   <><Loader2 className="animate-spin mr-2" size={20}/> Đang thực hiện...</>
+                   <><Loader2 className="animate-spin mr-2" size={20}/> Đang xử lý...</>
                 ) : (
-                   <><CheckCircle2 className="mr-2" size={20}/> Xác nhận chuyển {selectedSeatIds.length} ghế</>
+                   <><CheckCircle2 className="mr-2" size={20}/> Xác nhận đổi {selectedSeatIds.length} ghế</>
                 )}
              </Button>
          </div>
