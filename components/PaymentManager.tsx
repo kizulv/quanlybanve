@@ -104,7 +104,7 @@ export const PaymentManager: React.FC = () => {
 
   // --- ACCURATE STATS CALCULATION ---
   const stats = useMemo(() => {
-      // 1. Financial Totals directly from Payments (Cash flow history)
+      // 1. Dòng tiền thực tế
       let cashTotal = 0;
       let transferTotal = 0;
       payments.forEach(p => {
@@ -112,34 +112,50 @@ export const PaymentManager: React.FC = () => {
           transferTotal += (p.transferAmount || 0);
       });
 
-      // 2. Ticket Totals from current active Bookings (Snapshot state)
+      // 2. Thống kê vé dựa trên nguồn tin cậy nhất
+      // Vé PAID: Đếm tất cả seatId xuất hiện trong các bản ghi payment (type=payment) và trừ đi nếu có refund
+      const paidSeatMap = new Map<string, { type: BusType, isEnhanced: boolean }>();
+      
+      payments.forEach(p => {
+          if (!p.details?.trips) return;
+          p.details.trips.forEach((t: any) => {
+              const seats = t.seats || [];
+              const isEnhanced = t.isEnhanced === true || (t.route || '').toLowerCase().includes('tăng cường');
+              const type = t.busType === BusType.CABIN ? BusType.CABIN : BusType.SLEEPER;
+              
+              seats.forEach((sId: string) => {
+                  const key = `${t.tripId}_${sId}`;
+                  if (p.type === 'payment') {
+                      paidSeatMap.set(key, { type, isEnhanced });
+                  } else if (p.type === 'refund') {
+                      paidSeatMap.delete(key);
+                  }
+              });
+          });
+      });
+
       let cabinTickets = 0;
       let sleeperTickets = 0;
       let enhancedTickets = 0;
-      let totalTickets = 0;
+      
+      paidSeatMap.forEach((val) => {
+          if (val.isEnhanced) enhancedTickets++;
+          else if (val.type === BusType.CABIN) cabinTickets++;
+          else sleeperTickets++;
+      });
 
-      bookings.forEach(booking => {
-          const paid = (booking.payment?.paidCash || 0) + (booking.payment?.paidTransfer || 0);
-          
-          if (booking.status !== 'cancelled' && paid > 0) {
-              booking.items.forEach(item => {
-                  const count = (item.seatIds || []).length;
-                  if (count === 0) return;
-
-                  if (item.isEnhanced === true) {
-                      enhancedTickets += count;
-                  } else {
-                      const isCabin = item.busType === BusType.CABIN || (item.route || '').toLowerCase().includes('cabin');
-                      if (isCabin) {
-                          cabinTickets += count;
-                      } else {
-                          sleeperTickets += count;
-                      }
+      // Vé BOOKED (Chưa trả tiền): Duyệt bookings, đếm seatId KHÔNG nằm trong paidSeatMap
+      let totalBooked = 0;
+      bookings.forEach(b => {
+          if (b.status === 'cancelled' || b.status === 'hold') return;
+          b.items.forEach(item => {
+              item.seatIds.forEach(sId => {
+                  const key = `${item.tripId}_${sId}`;
+                  if (!paidSeatMap.has(key)) {
+                      totalBooked++;
                   }
-                  
-                  totalTickets += count;
               });
-          }
+          });
       });
 
       return {
@@ -149,7 +165,8 @@ export const PaymentManager: React.FC = () => {
           cabinTickets,
           sleeperTickets,
           enhancedTickets,
-          totalTickets
+          totalTickets: paidSeatMap.size,
+          totalBooked
       };
   }, [payments, bookings]);
 
@@ -301,12 +318,13 @@ export const PaymentManager: React.FC = () => {
                       <Ticket size={24}/>
                    </div>
                    <div>
-                      <h3 className="font-bold text-slate-800">Vé đã thanh toán</h3>
-                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Trạng thái hiện tại</p>
+                      <h3 className="font-bold text-slate-800">Trạng thái vé</h3>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Tổng số vé PAID: {stats.totalTickets}</p>
                    </div>
                 </div>
                 <div className="text-right">
-                   <p className="text-3xl font-black text-blue-700 tracking-tight">{stats.totalTickets} <span className="text-base font-bold">vé</span></p>
+                   <p className="text-xl font-black text-amber-600 tracking-tight">Chưa thu: {stats.totalBooked} <span className="text-xs font-bold uppercase">vé</span></p>
+                   <p className="text-2xl font-black text-blue-700 tracking-tight">Đã thu: {stats.totalTickets} <span className="text-sm font-bold uppercase">vé</span></p>
                 </div>
              </div>
 

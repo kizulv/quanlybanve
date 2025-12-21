@@ -677,10 +677,14 @@ app.patch("/api/bookings/:id/tickets/:seatId", async (req, res) => {
             await trip.save();
         }
 
+        // Cập nhật giá thực tế của vé dựa trên số tiền thanh toán lẻ
+        const paidAmount = (payment.paidCash || 0) + (payment.paidTransfer || 0);
+        targetTicket.price = paidAmount;
+
         // Tạo bản ghi thanh toán lẻ
         const paymentRec = new Payment({
             bookingId: booking._id,
-            totalAmount: (payment.paidCash || 0) + (payment.paidTransfer || 0),
+            totalAmount: paidAmount,
             cashAmount: payment.paidCash || 0,
             transferAmount: payment.paidTransfer || 0,
             type: 'payment',
@@ -703,6 +707,11 @@ app.patch("/api/bookings/:id/tickets/:seatId", async (req, res) => {
             }
         });
         await paymentRec.save();
+        
+        // Cập nhật lại tổng tiền của Item và Booking
+        targetItem.price = targetItem.tickets.reduce((sum, t) => sum + (t.price || 0), 0);
+        booking.totalPrice = booking.items.reduce((sum, item) => sum + (item.price || 0), 0);
+
         await logBookingAction(booking._id, "PAY_SEAT", `Thanh toán riêng cho ghế ${seatId}`, { seat: seatId, amount: paymentRec.totalAmount });
     }
 
@@ -719,7 +728,7 @@ app.patch("/api/bookings/:id/tickets/:seatId", async (req, res) => {
         const paymentRec = new Payment({
             bookingId: booking._id,
             totalAmount: -refundAmount,
-            cashAmount: -refundAmount, // Giả định hoàn tiền mặt
+            cashAmount: -refundAmount, 
             transferAmount: 0,
             type: 'refund',
             method: 'cash',
@@ -745,11 +754,11 @@ app.patch("/api/bookings/:id/tickets/:seatId", async (req, res) => {
         // Xóa ghế khỏi booking
         targetItem.seatIds = targetItem.seatIds.filter(sid => sid !== seatId);
         targetItem.tickets = targetItem.tickets.filter(t => t.seatId !== seatId);
-        targetItem.price = targetItem.tickets.reduce((sum, t) => sum + t.price, 0);
+        targetItem.price = targetItem.tickets.reduce((sum, t) => sum + (t.price || 0), 0);
         
         booking.items = booking.items.filter(item => item.seatIds.length > 0);
         booking.totalTickets = booking.items.reduce((sum, item) => sum + item.seatIds.length, 0);
-        booking.totalPrice = booking.items.reduce((sum, item) => sum + item.price, 0);
+        booking.totalPrice = booking.items.reduce((sum, item) => sum + (item.price || 0), 0);
         
         if (booking.totalTickets === 0) booking.status = 'cancelled';
 

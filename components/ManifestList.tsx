@@ -114,6 +114,9 @@ export const ManifestList: React.FC<ManifestListProps> = ({
             const isHighlighted = booking.id === highlightedBookingId;
             const tripSubtotal = tripItem ? tripItem.price : 0;
 
+            // Logically determine color based on payment state
+            const isPaidState = booking.status === 'payment' || (totalPaid > 0 && tripSubtotal > 0);
+
             return (
               <div
                 key={booking.id}
