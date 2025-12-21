@@ -692,68 +692,84 @@ app.post("/api/bookings/transfer", async (req, res) => {
     const bookingStatus = booking.status;
     const targetSeatStatus = bookingStatus === 'payment' ? 'sold' : bookingStatus === 'hold' ? 'held' : 'booked';
 
+    const movedSeatIds = seatTransfers.map(t => t.sourceSeatId);
     const logDetails = [];
 
-    // Lặp qua danh sách ghế cần chuyển
+    // Tìm item nguồn
+    const sourceItemIndex = booking.items.findIndex(i => i.tripId === sourceTripId);
+    if (sourceItemIndex === -1) return res.status(404).json({ error: "Source trip item not found in booking" });
+    
+    const sourceItem = booking.items[sourceItemIndex];
+    const isPartialTransfer = movedSeatIds.length < sourceItem.seatIds.length;
+
+    // 1. Cập nhật Trip Nguồn & Đích cho từng ghế (SỬA LỖI MAPPING LẶP)
     for (const transfer of seatTransfers) {
         const { sourceSeatId, targetSeatId } = transfer;
+        if (!targetSeatId) continue; // Bỏ qua nếu không có mapping hợp lệ
 
-        // 1. Cập nhật Trip Nguồn: Giải phóng ghế
-        sourceTrip.seats = sourceTrip.seats.map(s => {
-          if (s.id === sourceSeatId) return { ...s, status: 'available' };
-          return s;
-        });
-
-        // 2. Cập nhật Trip Đích: Khóa ghế mới
-        targetTrip.seats = targetTrip.seats.map(s => {
-          if (s.id === targetSeatId) return { ...s, status: targetSeatStatus };
-          return s;
-        });
-
-        // 3. Cập nhật Booking: Thay đổi item liên quan
-        booking.items = booking.items.map(item => {
-          if (item.tripId === sourceTripId) {
-            const newSeatIds = item.seatIds.map(sid => sid === sourceSeatId ? targetSeatId : sid);
-            
-            let newTickets = item.tickets;
-            if (newTickets) {
-              newTickets = newTickets.map(t => t.seatId === sourceSeatId ? { ...t, seatId: targetSeatId } : t);
-            }
-
-            return {
-              ...item,
-              tripId: targetTripId,
-              tripDate: targetTrip.departureTime,
-              route: targetTrip.route,
-              licensePlate: targetTrip.licensePlate,
-              seatIds: newSeatIds,
-              tickets: newTickets,
-              busType: targetTrip.type
-            };
-          }
-          return item;
-        });
-
+        sourceTrip.seats = sourceTrip.seats.map(s => s.id === sourceSeatId ? { ...s, status: 'available' } : s);
+        targetTrip.seats = targetTrip.seats.map(s => s.id === targetSeatId ? { ...s, status: targetSeatStatus } : s);
+        
         const sLabel = sourceTrip.seats.find(s => s.id === sourceSeatId)?.label || sourceSeatId;
         const tLabel = targetTrip.seats.find(s => s.id === targetSeatId)?.label || targetSeatId;
         logDetails.push({ from: sLabel, to: tLabel });
     }
+
+    // Đánh dấu mảng seats đã thay đổi để Mongoose lưu chính xác
+    sourceTrip.markModified('seats');
+    targetTrip.markModified('seats');
+
+    // 2. Cập nhật Booking Items (SPLIT LOGIC)
+    const ticketsToMove = (sourceItem.tickets || []).filter(t => movedSeatIds.includes(t.seatId)).map(t => {
+       const transfer = seatTransfers.find(st => st.sourceSeatId === t.seatId);
+       return { ...t, seatId: transfer.targetSeatId };
+    });
+    
+    const targetSeatIds = seatTransfers.map(st => st.targetSeatId).filter(id => !!id);
+
+    if (isPartialTransfer) {
+        // TÁCH: Giảm ghế ở item cũ
+        sourceItem.seatIds = sourceItem.seatIds.filter(id => !movedSeatIds.includes(id));
+        sourceItem.tickets = (sourceItem.tickets || []).filter(t => !movedSeatIds.includes(t.seatId));
+        sourceItem.price = sourceItem.tickets.reduce((sum, t) => sum + t.price, 0);
+
+        // TÁCH: Thêm item mới cho xe đích
+        booking.items.push({
+            tripId: targetTripId,
+            tripDate: targetTrip.departureTime,
+            route: targetTrip.route,
+            licensePlate: targetTrip.licensePlate,
+            seatIds: targetSeatIds,
+            tickets: ticketsToMove,
+            price: ticketsToMove.reduce((sum, t) => sum + t.price, 0),
+            busType: targetTrip.type
+        });
+    } else {
+        // CHUYỂN TOÀN BỘ: Chỉ cập nhật thông tin chuyến cho item hiện tại
+        booking.items[sourceItemIndex] = {
+            ...sourceItem,
+            tripId: targetTripId,
+            tripDate: targetTrip.departureTime,
+            route: targetTrip.route,
+            licensePlate: targetTrip.licensePlate,
+            seatIds: targetSeatIds,
+            tickets: ticketsToMove,
+            busType: targetTrip.type
+        };
+    }
+
+    booking.markModified('items');
 
     await sourceTrip.save();
     await targetTrip.save();
     booking.updatedAt = new Date().toISOString();
     await booking.save();
 
-    // 4. Log lịch sử tập trung
     await logBookingAction(
       bookingId,
       'TRANSFER',
       `Chuyển nhóm khách (${logDetails.length} ghế) từ xe ${sourceTrip.licensePlate} sang xe ${targetTrip.licensePlate}`,
-      {
-        fromTrip: sourceTrip.licensePlate,
-        toTrip: targetTrip.licensePlate,
-        transfers: logDetails
-      }
+      { fromTrip: sourceTrip.licensePlate, toTrip: targetTrip.licensePlate, transfers: logDetails, isSplit: isPartialTransfer }
     );
 
     const allTrips = await Trip.find();
@@ -802,6 +818,7 @@ app.patch("/api/bookings/:id/tickets/:seatId", async (req, res) => {
         if (name) booking.passenger.name = name;
 
         booking.updatedAt = new Date().toISOString();
+        booking.markModified('items');
         await booking.save();
 
         await logBookingAction(
@@ -898,6 +915,7 @@ app.delete("/api/bookings/:id", async (req, res) => {
                     if (item.seatIds.includes(s.id)) return { ...s, status: 'available' };
                     return s;
                 });
+                trip.markModified('seats');
                 await trip.save();
             }
         }
@@ -965,6 +983,7 @@ app.post("/api/maintenance/fix-seats", async (req, res) => {
         return s;
       });
       if (isModified) {
+        trip.markModified('seats');
         await trip.save();
         fixedTrips.push(trip.id);
       }
@@ -1011,10 +1030,8 @@ app.post("/api/bookings/swap", async (req, res) => {
                      return item;
                  });
                  
-                 // Không cần thay đổi trạng thái trong trip.seats vì cả 2 đều đang bị chiếm giữ
-                 // Tuy nhiên vẫn cần cập nhật label nếu cần (thường label gắn với seatId)
-                 
                  booking1.updatedAt = new Date().toISOString();
+                 booking1.markModified('items');
                  await booking1.save();
              } else {
                  // Trường hợp 2 ghế thuộc 2 đơn hàng khác nhau
@@ -1048,6 +1065,10 @@ app.post("/api/bookings/swap", async (req, res) => {
                  const updateNow = new Date().toISOString();
                  booking1.updatedAt = updateNow;
                  booking2.updatedAt = updateNow;
+                 
+                 booking1.markModified('items');
+                 booking2.markModified('items');
+                 trip.markModified('seats');
 
                  await booking1.save();
                  await booking2.save();
@@ -1087,6 +1108,8 @@ app.post("/api/bookings/swap", async (req, res) => {
             });
 
             booking1.updatedAt = new Date().toISOString();
+            booking1.markModified('items');
+            trip.markModified('seats');
             await booking1.save();
             await trip.save();
 
