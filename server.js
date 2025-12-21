@@ -818,6 +818,7 @@ app.post("/api/settings", async (req, res) => {
 
 /**
  * THUẬT TOÁN BẢO TRÌ NÂNG CẤP: LẤY BOOKING LÀM GỐC
+ * Bổ sung ghi chú chi tiết từng thay đổi
  */
 app.post("/api/maintenance/fix-seats", async (req, res) => {
   try {
@@ -828,9 +829,9 @@ app.post("/api/maintenance/fix-seats", async (req, res) => {
     let fixedCount = 0;
     let conflictCount = 0;
     let syncCount = 0;
+    const logs = []; // Danh sách chi tiết các ghế được sửa
 
     // 1. Map Booking Occupancy (Nguồn dữ liệu thật cho sơ đồ ghế)
-    // Key: tripId_seatId -> Array of Bookings
     const bookingOccupancy = new Map();
     allBookings.forEach(b => {
         b.items.forEach(item => {
@@ -852,7 +853,6 @@ app.post("/api/maintenance/fix-seats", async (req, res) => {
     allPayments.forEach(p => {
         const bookingId = p.bookingId?.toString();
         if (!bookingId) return;
-        
         const current = paymentMap.get(bookingId) || 0;
         paymentMap.set(bookingId, current + (p.totalAmount || 0));
     });
@@ -861,6 +861,7 @@ app.post("/api/maintenance/fix-seats", async (req, res) => {
     for (const trip of allTrips) {
         let isModified = false;
         const tripId = trip._id.toString();
+        const tripDate = trip.departureTime.split(" ")[0];
 
         trip.seats = await Promise.all(trip.seats.map(async (s) => {
             const key = `${tripId}_${s.id}`;
@@ -869,7 +870,6 @@ app.post("/api/maintenance/fix-seats", async (req, res) => {
             // LỖI 1: NHIỀU ĐƠN HÀNG TRÙNG GHẾ (CONFLICT)
             if (bookingsInSeat.length > 1) {
                 conflictCount++;
-                // Ưu tiên: Đơn có thanh toán cao hơn, hoặc cập nhật mới nhất
                 bookingsInSeat.sort((a, b) => {
                     const paidA = paymentMap.get(a.id) || 0;
                     const paidB = paymentMap.get(b.id) || 0;
@@ -879,7 +879,6 @@ app.post("/api/maintenance/fix-seats", async (req, res) => {
                 const winner = bookingsInSeat[0];
                 const losers = bookingsInSeat.slice(1);
 
-                // Loại bỏ ghế khỏi các đơn hàng "thua cuộc"
                 for (const loser of losers) {
                     const bDoc = await Booking.findById(loser.id);
                     if (bDoc) {
@@ -897,31 +896,47 @@ app.post("/api/maintenance/fix-seats", async (req, res) => {
                         await bDoc.save();
                     }
                 }
+                logs.push({ 
+                  route: trip.route, 
+                  date: tripDate, 
+                  seat: s.label, 
+                  action: 'Xử lý trùng ghế', 
+                  details: `Giữ lại đơn: ${winner.phone}, Loại bỏ ${losers.length} đơn trùng.`
+                });
             }
 
             // LỖI 2: ĐỒNG BỘ TRẠNG THÁI GHẾ TRÊN SƠ ĐỒ
-            const activeBooking = bookingsInSeat[0]; // Sau khi xử lý trùng thì chỉ còn 1 hoặc 0
+            const activeBooking = bookingsInSeat[0];
 
             if (activeBooking) {
-                // GHẾ ĐANG CÓ ĐƠN HÀNG: Phải hiển thị màu theo thanh toán/loại đơn
                 const totalPaid = paymentMap.get(activeBooking.id) || 0;
                 let targetStatus = 'booked';
-                
                 if (activeBooking.status === 'payment' || totalPaid > 0) targetStatus = 'sold';
                 else if (activeBooking.status === 'hold') targetStatus = 'held';
 
                 if (s.status !== targetStatus) {
                     isModified = true;
                     syncCount++;
+                    logs.push({ 
+                      route: trip.route, 
+                      date: tripDate, 
+                      seat: s.label, 
+                      action: 'Đồng bộ màu sắc', 
+                      details: `Chuyển từ ${s.status} sang ${targetStatus}.`
+                    });
                     return { ...s, status: targetStatus };
                 }
             } else {
-                // GHẾ KHÔNG CÓ ĐƠN HÀNG NÀO TRỎ ĐẾN
-                // Đây là trường hợp "Ghế không có thông tin nhưng lại hiển thị bận"
                 if (s.status !== 'available') {
                     isModified = true;
                     fixedCount++;
-                    // Cưỡng bức đưa về trạng thái Trống
+                    logs.push({ 
+                      route: trip.route, 
+                      date: tripDate, 
+                      seat: s.label, 
+                      action: 'Giải phóng ghế ma', 
+                      details: 'Đưa ghế về trạng thái Trống (không có đơn hàng thực).'
+                    });
                     return { ...s, status: 'available' };
                 }
             }
@@ -934,7 +949,7 @@ app.post("/api/maintenance/fix-seats", async (req, res) => {
         }
     }
 
-    res.json({ success: true, fixedCount, conflictCount, syncCount });
+    res.json({ success: true, fixedCount, conflictCount, syncCount, logs });
   } catch (e) {
     console.error("Maintenance Error:", e);
     res.status(500).json({ error: e.message });

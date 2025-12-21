@@ -9,13 +9,21 @@ import {
   ArrowRight, Clock, Zap, AlertCircle, CheckCircle2, 
   MoreHorizontal, Phone, LayoutGrid, AlertTriangle, ShieldCheck, RefreshCw,
   Database, Activity, BarChart3, HardDrive, Server,
-  Loader2
+  Loader2, Calendar, ChevronRight
 } from 'lucide-react';
 import { ManagerRouteModal } from './ManagerRouteModal';
 import { ManagerCarModal } from './ManagerCarModal';
 import { api } from '../lib/api';
 import { Dialog } from './ui/Dialog';
 import { useToast } from './ui/Toast';
+
+interface MaintenanceLog {
+  route: string;
+  date: string;
+  seat: string;
+  action: string;
+  details: string;
+}
 
 interface SettingsViewProps {
   routes: Route[];
@@ -49,6 +57,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   // Maintenance State
   const [isFixing, setIsFixing] = useState(false);
+  const [maintenanceResults, setMaintenanceResults] = useState<{
+    logs: MaintenanceLog[];
+    counts: { fixed: number; sync: number; conflict: number };
+  } | null>(null);
 
   // Stats
   const activeBusesCount = buses.filter(b => b.status === 'Hoạt động').length;
@@ -97,20 +109,31 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   const handleFixSeats = async () => {
     setIsFixing(true);
+    setMaintenanceResults(null);
     try {
       const result = await api.maintenance.fixSeats();
-      const message = [
-          result.fixedCount > 0 ? `Giải phóng ${result.fixedCount} ghế ma.` : null,
-          result.conflictCount > 0 ? `Xử lý ${result.conflictCount} ghế bị trùng SĐT.` : null,
-          result.syncCount > 0 ? `Đồng bộ ${result.syncCount} ghế về đúng màu thanh toán.` : null,
-          (!result.fixedCount && !result.conflictCount && !result.syncCount) ? "Dữ liệu đã sạch, không cần sửa đổi." : null
-      ].filter(Boolean).join(" ");
-
-      toast({
-        type: 'success',
-        title: 'Bảo trì hoàn tất',
-        message: message || "Hệ thống đã được tối ưu hóa."
+      setMaintenanceResults({
+        logs: result.logs || [],
+        counts: {
+          fixed: result.fixedCount || 0,
+          sync: result.syncCount || 0,
+          conflict: result.conflictCount || 0
+        }
       });
+
+      if (result.logs && result.logs.length > 0) {
+        toast({
+          type: 'success',
+          title: 'Đã xử lý dữ liệu',
+          message: `Phát hiện và sửa lỗi cho ${result.logs.length} vị trí.`
+        });
+      } else {
+        toast({
+          type: 'info',
+          title: 'Hệ thống sạch',
+          message: 'Không phát hiện lỗi dữ liệu nào cần xử lý.'
+        });
+      }
       await onDataChange();
     } catch (e) {
       toast({ type: 'error', title: 'Lỗi bảo trì', message: 'Không thể thực hiện quét dữ liệu.' });
@@ -228,6 +251,68 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                           </div>
                       </div>
                   </div>
+
+                  {maintenanceResults && (
+                    <div className="mt-10 animate-in slide-in-from-bottom-4 duration-500">
+                      <div className="bg-slate-50 rounded-2xl border border-slate-200 overflow-hidden">
+                        <div className="p-5 border-b border-slate-200 bg-white flex flex-col md:flex-row md:items-center justify-between gap-4">
+                           <div className="flex items-center gap-3">
+                              <div className="p-2 bg-green-50 rounded-lg text-green-600"><CheckCircle2 size={20}/></div>
+                              <h5 className="font-bold text-slate-800">Kết quả bảo trì hệ thống</h5>
+                           </div>
+                           <div className="flex gap-2 flex-wrap">
+                              <Badge className="bg-blue-50 text-blue-700 border-blue-200 font-bold px-2.5 py-1">Đã sửa: {maintenanceResults.counts.fixed}</Badge>
+                              <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 font-bold px-2.5 py-1">Đồng bộ: {maintenanceResults.counts.sync}</Badge>
+                              <Badge className="bg-amber-50 text-amber-700 border-amber-200 font-bold px-2.5 py-1">Xung đột: {maintenanceResults.counts.conflict}</Badge>
+                           </div>
+                        </div>
+                        
+                        <div className="max-h-[400px] overflow-y-auto">
+                          {maintenanceResults.logs.length === 0 ? (
+                            <div className="p-12 text-center text-slate-400 italic font-medium">Không phát hiện sai lệch dữ liệu nào trong phiên quét này.</div>
+                          ) : (
+                            <table className="w-full text-sm text-left">
+                              <thead className="bg-slate-100/50 text-[10px] font-black text-slate-500 uppercase tracking-widest sticky top-0 z-10 border-b border-slate-200">
+                                <tr>
+                                  <th className="px-6 py-3">Ghế & Lịch trình</th>
+                                  <th className="px-6 py-3">Loại sửa đổi</th>
+                                  <th className="px-6 py-3">Chi tiết xử lý</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-200">
+                                {maintenanceResults.logs.map((log, idx) => (
+                                  <tr key={idx} className="hover:bg-white transition-colors bg-slate-50/30">
+                                    <td className="px-6 py-4">
+                                      <div className="flex items-center gap-3">
+                                        <div className="w-9 h-9 rounded-lg bg-white border border-slate-200 flex items-center justify-center font-black text-primary shadow-sm">{log.seat}</div>
+                                        <div className="flex flex-col">
+                                          <span className="font-bold text-slate-900">{log.route}</span>
+                                          <div className="flex items-center gap-1.5 text-[10px] text-slate-500 font-bold mt-0.5">
+                                            <Calendar size={10}/> {log.date}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-tight border
+                                        ${log.action.includes('Trống') || log.action.includes('ma') ? 'bg-blue-50 text-blue-700 border-blue-200' : 
+                                          log.action.includes('màu') ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 
+                                          'bg-amber-50 text-amber-700 border-amber-200'}`}>
+                                        {log.action}
+                                      </span>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                      <p className="text-xs text-slate-600 font-medium italic leading-relaxed">{log.details}</p>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                </div>
                <div className="bg-slate-50 p-6 border-t border-slate-100 flex flex-wrap gap-8 justify-around"><div className="flex items-center gap-3 text-slate-500"><Server size={16} /><div className="flex flex-col"><span className="text-[10px] font-black uppercase opacity-60">Database</span><span className="text-xs font-bold text-slate-700">MongoDB Cluster 7.0</span></div></div><div className="flex items-center gap-3 text-slate-500"><HardDrive size={16} /><div className="flex flex-col"><span className="text-[10px] font-black uppercase opacity-60">Data Integrity</span><span className="text-xs font-bold text-green-600">Secure (AES-256)</span></div></div><div className="flex items-center gap-3 text-slate-500"><Activity size={16} /><div className="flex flex-col"><span className="text-[10px] font-black uppercase opacity-60">API Latency</span><span className="text-xs font-bold text-slate-700">14ms</span></div></div></div>
            </div>
