@@ -137,9 +137,27 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
       const statusColors = {
         sold: "border-slate-600 bg-slate-200",
         booked: "border-slate-600",
-        held: "border-slate-600",
+        held: "border-slate-600 bg-purple-50",
       };
 
+      // Case: HELD - Only show label and note
+      if (data.status === "held") {
+        return `
+          <div class="border-2 flex flex-col p-1 relative overflow-hidden ${statusColors.held} ${Manifest_RecordHight}">
+            <div class="flex justify-between items-center border-b border-black/5 pb-0.5 mb-1">
+              <span class="font-black text-[11px] text-black leading-none">${label}</span>
+            </div>
+            <div class="flex-1 flex flex-col items-center justify-center text-center overflow-hidden">
+              <div class="font-black text-[9px] text-purple-800 opacity-60 uppercase mb-1">ĐANG GIỮ</div>
+              <div class="text-[10px] leading-tight text-purple-900 italic font-medium w-full truncate px-1">
+                ${data.note || ""}
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      // Case: SOLD or BOOKED - Full Info
       return `
         <div class="border-2 flex flex-col p-1 relative overflow-hidden ${
           statusColors[data.status]

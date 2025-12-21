@@ -246,7 +246,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
                 ) : (
                   <div className="flex items-center justify-center">
                     <Lock size={10} className="opacity-60 mr-1" />
-                    <span className="font-bold text-[8px]">ĐANG GIỮ</span>
+                    <span className="font-bold text-[10px]">ĐANG GIỮ</span>
                   </div>
                 )}
               </div>
