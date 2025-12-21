@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Seat, SeatStatus, BusType, Booking } from "../types";
 import {
@@ -240,15 +239,14 @@ export const SeatMap: React.FC<SeatMapProps> = ({
             seat.status === SeatStatus.HELD ? (
               // Case: HELD with booking info - Show only label and note (HIDE Phone/Map)
               <div className="flex flex-col h-full text-purple-800/80 items-center justify-center">
-                <div className="flex items-center justify-center">
-                  <Lock size={10} className="opacity-60 mr-1" />
-                  <span className="font-bold text-[8px]">ĐANG GIỮ</span>
-                </div>
-                {displayNote && (
-                  <div className="w-full bg-purple-100/80 rounded px-1 py-0.5 mt-1 border border-purple-200">
-                    <span className="truncate italic text-[10px] block text-center">
-                      {displayNote}
-                    </span>
+                {displayNote ? (
+                  <span className="truncate italic text-[10px] block text-center">
+                    {displayNote}
+                  </span>
+                ) : (
+                  <div className="flex items-center justify-center">
+                    <Lock size={10} className="opacity-60 mr-1" />
+                    <span className="font-bold text-[8px]">ĐANG GIỮ</span>
                   </div>
                 )}
               </div>

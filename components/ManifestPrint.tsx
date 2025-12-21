@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Printer } from "lucide-react";
 import { Button } from "./ui/Button";
@@ -74,7 +75,8 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
           pickup: ticket?.pickup || booking.passenger.pickupPoint || "",
           dropoff: ticket?.dropoff || booking.passenger.dropoffPoint || "",
           price: ticket?.price || 0,
-          note: booking.passenger.note || "",
+          // FIX: Ưu tiên ghi chú của từng vé, sau đó mới đến ghi chú chung của khách hàng
+          note: ticket?.note || booking.passenger.note || "",
           status: status,
           groupIndex,
           groupTotal,
