@@ -9,7 +9,7 @@ import {
   ArrowRight, Clock, Zap, AlertCircle, CheckCircle2, 
   MoreHorizontal, Phone, LayoutGrid, AlertTriangle, ShieldCheck, RefreshCw,
   Database, Activity, BarChart3, HardDrive, Server,
-  Loader2, Calendar, ChevronRight
+  Loader2, Calendar, ChevronRight, WalletCards, CircleDollarSign
 } from 'lucide-react';
 import { ManagerRouteModal } from './ManagerRouteModal';
 import { ManagerCarModal } from './ManagerCarModal';
@@ -55,11 +55,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteType, setDeleteType] = useState<'route' | 'bus' | null>(null);
 
-  // Maintenance State
-  const [isFixing, setIsFixing] = useState(false);
+  // Maintenance State (Seats)
+  const [isFixingSeats, setIsFixingSeats] = useState(false);
   const [maintenanceResults, setMaintenanceResults] = useState<{
     logs: MaintenanceLog[];
     counts: { fixed: number; sync: number; conflict: number };
+  } | null>(null);
+
+  // Maintenance State (Payments)
+  const [isFixingPayments, setIsFixingPayments] = useState(false);
+  const [paymentMaintenanceResults, setPaymentMaintenanceResults] = useState<{
+    logs: MaintenanceLog[];
+    deletedCount: number;
   } | null>(null);
 
   // Stats
@@ -108,8 +115,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   const handleFixSeats = async () => {
-    setIsFixing(true);
+    setIsFixingSeats(true);
     setMaintenanceResults(null);
+    setPaymentMaintenanceResults(null);
     try {
       const result = await api.maintenance.fixSeats();
       setMaintenanceResults({
@@ -138,7 +146,39 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     } catch (e) {
       toast({ type: 'error', title: 'Lỗi bảo trì', message: 'Không thể thực hiện quét dữ liệu.' });
     } finally {
-      setIsFixing(false);
+      setIsFixingSeats(false);
+    }
+  };
+
+  const handleFixPayments = async () => {
+    setIsFixingPayments(true);
+    setPaymentMaintenanceResults(null);
+    setMaintenanceResults(null);
+    try {
+      const result = await api.maintenance.fixPayments();
+      setPaymentMaintenanceResults({
+        logs: result.logs || [],
+        deletedCount: result.deletedCount || 0
+      });
+
+      if (result.deletedCount > 0) {
+        toast({
+          type: 'success',
+          title: 'Đã dọn dẹp dòng tiền',
+          message: `Đã xóa ${result.deletedCount} giao dịch thanh toán không hợp lệ.`
+        });
+      } else {
+        toast({
+          type: 'info',
+          title: 'Dòng tiền ổn định',
+          message: 'Không tìm thấy giao dịch thanh toán nào gắn với đơn HOLD.'
+        });
+      }
+      await onDataChange();
+    } catch (e) {
+      toast({ type: 'error', title: 'Lỗi bảo trì', message: 'Không thể thực hiện quét thanh toán.' });
+    } finally {
+      setIsFixingPayments(false);
     }
   };
 
@@ -234,87 +274,122 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm"><div className="flex items-center gap-3 mb-6"><div className="p-2 bg-emerald-50 rounded-lg text-emerald-600"><Activity size={20} /></div><h3 className="font-bold text-slate-900">Trạng thái vận hành ghế</h3></div><div className="space-y-4"><div className="space-y-2"><div className="flex justify-between text-xs font-bold text-slate-500 uppercase"><span>Công suất VIP Room</span><span>{detailedStats.cabinOccupied} vé</span></div><div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden"><div className="bg-indigo-500 h-full transition-all duration-1000" style={{ width: `${Math.min(100, (detailedStats.cabinOccupied / (detailedStats.cabinBuses * 28 || 1)) * 100)}%` }}></div></div></div><div className="space-y-2"><div className="flex justify-between text-xs font-bold text-slate-500 uppercase"><span>Công suất Giường đơn</span><span>{detailedStats.sleeperOccupied} vé</span></div><div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden"><div className="bg-blue-500 h-full transition-all duration-1000" style={{ width: `${Math.min(100, (detailedStats.sleeperOccupied / (detailedStats.sleeperBuses * 41 || 1)) * 100)}%` }}></div></div></div></div></div>
            </div>
 
-           <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-               <div className="p-6 border-b border-slate-100 flex items-center gap-3 bg-slate-50/50"><ShieldCheck size={20} className="text-primary" /><h3 className="font-bold text-slate-900">Công cụ bảo trì dữ liệu</h3></div>
-               <div className="p-8">
-                  <div className="flex flex-col md:flex-row items-start gap-8">
-                      <div className={`w-20 h-20 rounded-2xl flex items-center justify-center shrink-0 transition-all duration-500 ${isFixing ? 'bg-primary text-white scale-110 shadow-xl shadow-primary/20 ring-4 ring-primary/10' : 'bg-blue-50 text-blue-600'}`}><RefreshCw size={40} className={isFixing ? "animate-spin" : ""} /></div>
-                      <div className="flex-1">
-                          <h4 className="text-xl font-black text-slate-900 mb-3">Quét & Khôi phục sơ đồ ghế (Ghost & Duplicate Seats Fix)</h4>
-                          <p className="text-slate-500 mb-6 leading-relaxed max-w-3xl">
-                              Hệ thống thực hiện đối soát 3 chiều giữa <strong>Dòng tiền (Payments)</strong>, <strong>Đơn hàng (Bookings)</strong> và <strong>Sơ đồ ghế (Trips)</strong>. 
-                              Tự động phát hiện ghế bị trùng giữa 2 số điện thoại và giữ lại đơn có thanh toán cao hơn. Giải phóng các "ghế ma" không có đơn hàng thực tế.
-                          </p>
-                          <div className="flex flex-wrap gap-4 items-center">
-                            <Button onClick={handleFixSeats} disabled={isFixing} className="bg-blue-600 hover:bg-blue-700 h-12 px-8 font-bold text-base shadow-lg shadow-blue-500/20">{isFixing ? <><Loader2 className="animate-spin mr-2" size={18} />Đang đối soát dữ liệu...</> : 'Bắt đầu quét & sửa lỗi'}</Button>
-                            {isFixing && <div className="flex items-center gap-3 text-sm font-bold text-primary animate-pulse"><Database size={16} /><span>Đang kiểm tra chéo lịch sử thanh toán...</span></div>}
+           <div className="grid grid-cols-1 gap-6">
+               {/* Seat Diagram Fix Tool */}
+               <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                   <div className="p-6 border-b border-slate-100 flex items-center gap-3 bg-slate-50/50"><ShieldCheck size={20} className="text-primary" /><h3 className="font-bold text-slate-900">Công cụ bảo trì sơ đồ ghế</h3></div>
+                   <div className="p-8">
+                      <div className="flex flex-col md:flex-row items-start gap-8">
+                          <div className={`w-20 h-20 rounded-2xl flex items-center justify-center shrink-0 transition-all duration-500 ${isFixingSeats ? 'bg-primary text-white scale-110 shadow-xl shadow-primary/20 ring-4 ring-primary/10' : 'bg-blue-50 text-blue-600'}`}><RefreshCw size={40} className={isFixingSeats ? "animate-spin" : ""} /></div>
+                          <div className="flex-1">
+                              <h4 className="text-xl font-black text-slate-900 mb-3">Quét & Khôi phục sơ đồ ghế (Ghost & Duplicate Seats Fix)</h4>
+                              <p className="text-slate-500 mb-6 leading-relaxed max-w-3xl">
+                                  Hệ thống thực hiện đối soát 3 chiều giữa <strong>Dòng tiền (Payments)</strong>, <strong>Đơn hàng (Bookings)</strong> và <strong>Sơ đồ ghế (Trips)</strong>. 
+                                  Tự động phát hiện ghế bị trùng giữa 2 số điện thoại và giữ lại đơn có thanh toán cao hơn. Giải phóng các "ghế ma" không có đơn hàng thực tế.
+                              </p>
+                              <div className="flex flex-wrap gap-4 items-center">
+                                <Button onClick={handleFixSeats} disabled={isFixingSeats} className="bg-blue-600 hover:bg-blue-700 h-12 px-8 font-bold text-base shadow-lg shadow-blue-500/20">{isFixingSeats ? <><Loader2 className="animate-spin mr-2" size={18} />Đang đối soát dữ liệu...</> : 'Bắt đầu quét & sửa lỗi'}</Button>
+                              </div>
                           </div>
                       </div>
-                  </div>
 
-                  {maintenanceResults && (
-                    <div className="mt-10 animate-in slide-in-from-bottom-4 duration-500">
-                      <div className="bg-slate-50 rounded-2xl border border-slate-200 overflow-hidden">
-                        <div className="p-5 border-b border-slate-200 bg-white flex flex-col md:flex-row md:items-center justify-between gap-4">
-                           <div className="flex items-center gap-3">
-                              <div className="p-2 bg-green-50 rounded-lg text-green-600"><CheckCircle2 size={20}/></div>
-                              <h5 className="font-bold text-slate-800">Kết quả bảo trì hệ thống</h5>
-                           </div>
-                           <div className="flex gap-2 flex-wrap">
-                              <Badge className="bg-blue-50 text-blue-700 border-blue-200 font-bold px-2.5 py-1">Đã sửa: {maintenanceResults.counts.fixed}</Badge>
-                              <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 font-bold px-2.5 py-1">Đồng bộ: {maintenanceResults.counts.sync}</Badge>
-                              <Badge className="bg-amber-50 text-amber-700 border-amber-200 font-bold px-2.5 py-1">Xung đột: {maintenanceResults.counts.conflict}</Badge>
-                           </div>
+                      {maintenanceResults && (
+                        <div className="mt-10 animate-in slide-in-from-bottom-4 duration-500">
+                          <div className="bg-slate-50 rounded-2xl border border-slate-200 overflow-hidden">
+                            <div className="p-5 border-b border-slate-200 bg-white flex flex-col md:flex-row md:items-center justify-between gap-4">
+                               <div className="flex items-center gap-3">
+                                  <div className="p-2 bg-green-50 rounded-lg text-green-600"><CheckCircle2 size={20}/></div>
+                                  <h5 className="font-bold text-slate-800">Kết quả bảo trì sơ đồ</h5>
+                               </div>
+                               <div className="flex gap-2 flex-wrap">
+                                  <Badge className="bg-blue-50 text-blue-700 border-blue-200 font-bold px-2.5 py-1">Đã sửa: {maintenanceResults.counts.fixed}</Badge>
+                                  <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 font-bold px-2.5 py-1">Đồng bộ: {maintenanceResults.counts.sync}</Badge>
+                                  <Badge className="bg-amber-50 text-amber-700 border-amber-200 font-bold px-2.5 py-1">Xung đột: {maintenanceResults.counts.conflict}</Badge>
+                               </div>
+                            </div>
+                            
+                            <div className="max-h-[300px] overflow-y-auto">
+                              {maintenanceResults.logs.length === 0 ? (
+                                <div className="p-12 text-center text-slate-400 italic font-medium">Không phát hiện sai lệch sơ đồ ghế nào.</div>
+                              ) : (
+                                <table className="w-full text-sm text-left">
+                                  <thead className="bg-slate-100/50 text-[10px] font-black text-slate-500 uppercase tracking-widest sticky top-0 z-10 border-b border-slate-200">
+                                    <tr><th className="px-6 py-3">Ghế & Lịch trình</th><th className="px-6 py-3">Loại sửa đổi</th><th className="px-6 py-3">Chi tiết xử lý</th></tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-slate-200">
+                                    {maintenanceResults.logs.map((log, idx) => (
+                                      <tr key={idx} className="hover:bg-white transition-colors bg-slate-50/30">
+                                        <td className="px-6 py-4"><div className="flex items-center gap-3"><div className="w-9 h-9 rounded-lg bg-white border border-slate-200 flex items-center justify-center font-black text-primary shadow-sm">{log.seat}</div><div className="flex flex-col"><span className="font-bold text-slate-900">{log.route}</span><div className="flex items-center gap-1.5 text-[10px] text-slate-500 font-bold mt-0.5"><Calendar size={10}/> {log.date}</div></div></div></td>
+                                        <td className="px-6 py-4"><span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-tight border ${log.action.includes('Trống') || log.action.includes('ma') ? 'bg-blue-50 text-blue-700 border-blue-200' : log.action.includes('màu') ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>{log.action}</span></td>
+                                        <td className="px-6 py-4"><p className="text-xs text-slate-600 font-medium italic leading-relaxed">{log.details}</p></td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                        
-                        <div className="max-h-[400px] overflow-y-auto">
-                          {maintenanceResults.logs.length === 0 ? (
-                            <div className="p-12 text-center text-slate-400 italic font-medium">Không phát hiện sai lệch dữ liệu nào trong phiên quét này.</div>
-                          ) : (
-                            <table className="w-full text-sm text-left">
-                              <thead className="bg-slate-100/50 text-[10px] font-black text-slate-500 uppercase tracking-widest sticky top-0 z-10 border-b border-slate-200">
-                                <tr>
-                                  <th className="px-6 py-3">Ghế & Lịch trình</th>
-                                  <th className="px-6 py-3">Loại sửa đổi</th>
-                                  <th className="px-6 py-3">Chi tiết xử lý</th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-slate-200">
-                                {maintenanceResults.logs.map((log, idx) => (
-                                  <tr key={idx} className="hover:bg-white transition-colors bg-slate-50/30">
-                                    <td className="px-6 py-4">
-                                      <div className="flex items-center gap-3">
-                                        <div className="w-9 h-9 rounded-lg bg-white border border-slate-200 flex items-center justify-center font-black text-primary shadow-sm">{log.seat}</div>
-                                        <div className="flex flex-col">
-                                          <span className="font-bold text-slate-900">{log.route}</span>
-                                          <div className="flex items-center gap-1.5 text-[10px] text-slate-500 font-bold mt-0.5">
-                                            <Calendar size={10}/> {log.date}
-                                          </div>
-                                        </div>
-                                      </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-tight border
-                                        ${log.action.includes('Trống') || log.action.includes('ma') ? 'bg-blue-50 text-blue-700 border-blue-200' : 
-                                          log.action.includes('màu') ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 
-                                          'bg-amber-50 text-amber-700 border-amber-200'}`}>
-                                        {log.action}
-                                      </span>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                      <p className="text-xs text-slate-600 font-medium italic leading-relaxed">{log.details}</p>
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )}
+                      )}
+                   </div>
                </div>
-               <div className="bg-slate-50 p-6 border-t border-slate-100 flex flex-wrap gap-8 justify-around"><div className="flex items-center gap-3 text-slate-500"><Server size={16} /><div className="flex flex-col"><span className="text-[10px] font-black uppercase opacity-60">Database</span><span className="text-xs font-bold text-slate-700">MongoDB Cluster 7.0</span></div></div><div className="flex items-center gap-3 text-slate-500"><HardDrive size={16} /><div className="flex flex-col"><span className="text-[10px] font-black uppercase opacity-60">Data Integrity</span><span className="text-xs font-bold text-green-600">Secure (AES-256)</span></div></div><div className="flex items-center gap-3 text-slate-500"><Activity size={16} /><div className="flex flex-col"><span className="text-[10px] font-black uppercase opacity-60">API Latency</span><span className="text-xs font-bold text-slate-700">14ms</span></div></div></div>
+
+               {/* Payment Cleanup Tool */}
+               <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                   <div className="p-6 border-b border-slate-100 flex items-center gap-3 bg-slate-50/50"><CircleDollarSign size={20} className="text-emerald-600" /><h3 className="font-bold text-slate-900">Công cụ bảo trì dòng tiền</h3></div>
+                   <div className="p-8">
+                      <div className="flex flex-col md:flex-row items-start gap-8">
+                          <div className={`w-20 h-20 rounded-2xl flex items-center justify-center shrink-0 transition-all duration-500 ${isFixingPayments ? 'bg-emerald-600 text-white scale-110 shadow-xl shadow-emerald-500/20 ring-4 ring-emerald-500/10' : 'bg-emerald-50 text-emerald-600'}`}><WalletCards size={40} className={isFixingPayments ? "animate-bounce" : ""} /></div>
+                          <div className="flex-1">
+                              <h4 className="text-xl font-black text-slate-900 mb-3">Dọn dẹp giao dịch không hợp lệ (Payment Cleanup)</h4>
+                              <p className="text-slate-500 mb-6 leading-relaxed max-w-3xl">
+                                  Tự động lọc và xóa bỏ các bản ghi thanh toán (Payment) liên quan đến đơn hàng đang ở trạng thái <strong>Hold (Giữ vé)</strong>. 
+                                  Theo quy tắc hệ thống, đơn giữ vé không được phép có giao dịch thanh toán để tránh sai lệch báo cáo doanh thu thực tế.
+                              </p>
+                              <div className="flex flex-wrap gap-4 items-center">
+                                <Button onClick={handleFixPayments} disabled={isFixingPayments} className="bg-emerald-600 hover:bg-emerald-700 h-12 px-8 font-bold text-base shadow-lg shadow-emerald-500/20">{isFixingPayments ? <><Loader2 className="animate-spin mr-2" size={18} />Đang quét thanh toán...</> : 'Bắt đầu dọn dẹp dòng tiền'}</Button>
+                              </div>
+                          </div>
+                      </div>
+
+                      {paymentMaintenanceResults && (
+                        <div className="mt-10 animate-in slide-in-from-bottom-4 duration-500">
+                          <div className="bg-emerald-50 rounded-2xl border border-emerald-200 overflow-hidden">
+                            <div className="p-5 border-b border-emerald-200 bg-white flex flex-col md:flex-row md:items-center justify-between gap-4">
+                               <div className="flex items-center gap-3">
+                                  <div className="p-2 bg-emerald-50 rounded-lg text-emerald-600"><CheckCircle2 size={20}/></div>
+                                  <h5 className="font-bold text-slate-800">Kết quả bảo trì dòng tiền</h5>
+                               </div>
+                               <div>
+                                  <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 font-bold px-3 py-1.5">Tổng giao dịch đã xóa: {paymentMaintenanceResults.deletedCount}</Badge>
+                               </div>
+                            </div>
+                            
+                            <div className="max-h-[300px] overflow-y-auto">
+                              {paymentMaintenanceResults.logs.length === 0 ? (
+                                <div className="p-12 text-center text-slate-400 italic font-medium">Hệ thống tài chính sạch. Không tìm thấy thanh toán lỗi nào.</div>
+                              ) : (
+                                <table className="w-full text-sm text-left">
+                                  <thead className="bg-emerald-100/50 text-[10px] font-black text-slate-500 uppercase tracking-widest sticky top-0 z-10 border-b border-emerald-200">
+                                    <tr><th className="px-6 py-3">Lịch trình & Ghế</th><th className="px-6 py-3">Phân loại</th><th className="px-6 py-3">Lý do xử lý</th></tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-emerald-200/50">
+                                    {paymentMaintenanceResults.logs.map((log, idx) => (
+                                      <tr key={idx} className="hover:bg-white transition-colors bg-white/40">
+                                        <td className="px-6 py-4"><div className="flex flex-col"><span className="font-bold text-slate-900">{log.route}</span><div className="flex items-center gap-1.5 text-[10px] text-slate-500 font-bold mt-0.5"><Badge variant="outline" className="text-[9px] px-1 h-4 border-slate-200">{log.seat || 'Không rõ ghế'}</Badge><span className="mx-1">•</span>{log.date}</div></div></td>
+                                        <td className="px-6 py-4"><span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-tight border bg-red-50 text-red-700 border-red-200">{log.action}</span></td>
+                                        <td className="px-6 py-4"><p className="text-xs text-slate-600 font-medium italic leading-relaxed">{log.details}</p></td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                   </div>
+               </div>
            </div>
         </TabsContent>
       </Tabs>

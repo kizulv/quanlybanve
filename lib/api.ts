@@ -192,5 +192,6 @@ export const api = {
 
   maintenance: {
     fixSeats: () => fetchJson(`${API_URL}/maintenance/fix-seats`, { method: "POST" }),
+    fixPayments: () => fetchJson(`${API_URL}/maintenance/fix-payments`, { method: "POST" }),
   }
 };
