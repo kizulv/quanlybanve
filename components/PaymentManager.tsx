@@ -96,6 +96,7 @@ export const PaymentManager: React.FC = () => {
           tripDate: details.tripDate,
           licensePlate: details.licensePlate,
           seats: details.seats || [],
+          tripId: details.tripId
         },
       ];
     }
@@ -160,7 +161,7 @@ export const PaymentManager: React.FC = () => {
     let cashTotal = 0;
     let transferTotal = 0;
     
-    // 1. Tính dòng tiền thực tế
+    // 1. Dòng tiền thực tế từ bảng thanh toán
     payments.forEach((p) => {
       cashTotal += p.cashAmount || 0;
       transferTotal += p.transferAmount || 0;
@@ -168,13 +169,12 @@ export const PaymentManager: React.FC = () => {
 
     /**
      * 2. Thống kê vé ĐÃ THU TIỀN (Paid Seats)
-     * Quy tắc: Một ghế được coi là "Đã thu" nếu giao dịch gần nhất của nó có giá trị dương
+     * Quy tắc: Một ghế chỉ được tính là "Đã thu" nếu tổng thanh toán tích lũy cho nó là dương.
+     * Để đơn giản và chính xác, chúng ta duyệt qua tất cả giao dịch theo thời gian.
      */
-    const paidSeatMap = new Map<
-      string,
-      { type: BusType; isEnhanced: boolean }
-    >();
+    const paidSeatMap = new Map<string, { type: BusType; isEnhanced: boolean }>();
 
+    // Sắp xếp thanh toán theo thời gian tăng dần để rebuild trạng thái cuối cùng của từng ghế
     const sortedPayments = [...payments].sort((a, b) => 
       new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
     );
@@ -183,36 +183,38 @@ export const PaymentManager: React.FC = () => {
       const trips = normalizeTrips(p.details);
       
       trips.forEach((t: any) => {
-        const isEnhanced =
-          t.isEnhanced === true ||
-          (t.route || "").toLowerCase().includes("tăng cường");
+        const isEnhanced = !!(t.isEnhanced || (t.route || "").toLowerCase().includes("tăng cường"));
         
-        // Fallback xác định loại xe dựa trên nhãn ghế nếu busType bị thiếu
+        // Xác định loại xe (fallback nếu thiếu busType)
         let type = t.busType;
         if (!type) {
             const seats = t.seats || [];
-            const hasRoomA = seats.some((s: string) => /^[A|B]\d+$/.test(s));
-            type = hasRoomA ? BusType.CABIN : BusType.SLEEPER;
+            const hasRoomPrefix = seats.some((s: string) => /^[A|B]\d+$/.test(s));
+            type = hasRoomPrefix ? BusType.CABIN : BusType.SLEEPER;
         }
 
         if (p.type === "payment") {
+            // Nếu có chi tiết từng vé (tickets), kiểm tra giá từng ghế
             if (t.tickets && t.tickets.length > 0) {
                 t.tickets.forEach((ticket: any) => {
                     const key = `${t.tripId}_${ticket.seatId}`;
                     if (ticket.price > 0) {
                         paidSeatMap.set(key, { type, isEnhanced });
                     } else {
+                        // Nếu giá là 0 (đặt chỗ nhưng chưa thu), không tính vào "Đã thu"
                         paidSeatMap.delete(key);
                     }
                 });
             } else if (t.seats) {
+                // Snapshot cũ không có tickets, dựa vào amount của record
                 t.seats.forEach((sId: string) => {
                     const key = `${t.tripId || p.details.tripId}_${sId}`;
-                    if (p.totalAmount > 0) paidSeatMap.set(key, { type, isEnhanced });
-                    else if (p.totalAmount < 0) paidSeatMap.delete(key);
+                    if (p.amount > 0) paidSeatMap.set(key, { type, isEnhanced });
+                    else if (p.amount < 0) paidSeatMap.delete(key);
                 });
             }
         } else if (p.type === "refund") {
+            // Xóa ghế khỏi danh sách đã thu nếu bị hoàn tiền
             const sList = t.seats || t.seatIds || [];
             sList.forEach((sId: string) => {
                 const key = `${t.tripId || p.details.tripId}_${sId}`;
@@ -228,16 +230,21 @@ export const PaymentManager: React.FC = () => {
 
     paidSeatMap.forEach((val) => {
       // Phân loại loại trừ lẫn nhau (Mutually Exclusive)
+      // Ưu tiên 1: Tăng cường
       if (val.isEnhanced) {
         enhancedTickets++;
-      } else if (val.type === BusType.CABIN) {
+      } 
+      // Ưu tiên 2: Cabin (Xe phòng 22)
+      else if (val.type === BusType.CABIN) {
         cabinTickets++;
-      } else {
+      } 
+      // Ưu tiên 3: Sleeper (Xe giường 41)
+      else {
         sleeperTickets++;
       }
     });
 
-    // 3. Tính vé BOOKED (Chưa thu tiền): Bookings không phải Cancel/Hold mà không có trong paidSeatMap
+    // 3. Tính vé CHƯA THU (Booked): Bookings hợp lệ mà ghế KHÔNG nằm trong paidSeatMap
     let totalBooked = 0;
     bookings.forEach((b) => {
       if (b.status === "cancelled" || b.status === "hold") return;
@@ -510,8 +517,8 @@ export const PaymentManager: React.FC = () => {
             size="sm"
             className="rounded-lg h-[40px] w-[200px] flex items-center justify-center bg-primary text-white hover:bg-primary/90 transition-all"
           >
-            <RotateCcw size={18} className="mr-2" />
-            Làm mới dữ liệu
+            <RotateCcw size={18} />
+            &nbsp;Làm mới dữ liệu
           </Button>
         </div>
       </div>
