@@ -85,6 +85,23 @@ export const PaymentManager: React.FC = () => {
     fetchData();
   }, []);
 
+  // --- NORMALIZE HELPER ---
+  function normalizeTrips(details: any) {
+    if (!details) return [];
+    if (details.trips && Array.isArray(details.trips)) return details.trips;
+    if (details.route || (details.seats && details.seats.length > 0)) {
+      return [
+        {
+          route: details.route || "Unknown",
+          tripDate: details.tripDate,
+          licensePlate: details.licensePlate,
+          seats: details.seats || [],
+        },
+      ];
+    }
+    return [];
+  }
+
   // --- GROUPING LOGIC ---
   const groupedPayments = useMemo(() => {
     const groups: Record<string, PaymentGroup> = {};
@@ -123,12 +140,10 @@ export const PaymentManager: React.FC = () => {
     Object.values(groups).forEach((g) => {
       const allSeats = new Set<string>();
       g.payments.forEach((p) => {
-        if (p.details?.seats)
-          p.details.seats.forEach((s: string) => allSeats.add(s));
-        if (p.details?.trips)
-          p.details.trips.forEach((t: any) => {
-            if (t.seats) t.seats.forEach((s: string) => allSeats.add(s));
-          });
+        const pTrips = normalizeTrips(p.details);
+        pTrips.forEach((t: any) => {
+          if (t.seats) t.seats.forEach((s: string) => allSeats.add(s));
+        });
       });
       g.tripInfo.seats = Array.from(allSeats).sort((a, b) =>
         a.localeCompare(b, undefined, { numeric: true })
@@ -142,9 +157,10 @@ export const PaymentManager: React.FC = () => {
 
   // --- STRICT STATS CALCULATION ---
   const stats = useMemo(() => {
-    // 1. Dòng tiền thực tế
     let cashTotal = 0;
     let transferTotal = 0;
+    
+    // 1. Tính dòng tiền thực tế
     payments.forEach((p) => {
       cashTotal += p.cashAmount || 0;
       transferTotal += p.transferAmount || 0;
@@ -152,7 +168,7 @@ export const PaymentManager: React.FC = () => {
 
     /**
      * 2. Thống kê vé ĐÃ THU TIỀN (Paid Seats)
-     * Quy tắc: Một ghế được coi là "Đã thu" nếu giao dịch gần nhất của nó có Price > 0
+     * Quy tắc: Một ghế được coi là "Đã thu" nếu giao dịch gần nhất của nó có giá trị dương
      */
     const paidSeatMap = new Map<
       string,
@@ -164,17 +180,18 @@ export const PaymentManager: React.FC = () => {
     );
 
     sortedPayments.forEach((p) => {
-      if (!p.details?.trips) return;
+      const trips = normalizeTrips(p.details);
       
-      p.details.trips.forEach((t: any) => {
+      trips.forEach((t: any) => {
         const isEnhanced =
           t.isEnhanced === true ||
           (t.route || "").toLowerCase().includes("tăng cường");
         
+        // Fallback xác định loại xe dựa trên nhãn ghế nếu busType bị thiếu
         let type = t.busType;
         if (!type) {
             const seats = t.seats || [];
-            const hasRoomA = seats.some((s: string) => s.startsWith('A'));
+            const hasRoomA = seats.some((s: string) => /^[A|B]\d+$/.test(s));
             type = hasRoomA ? BusType.CABIN : BusType.SLEEPER;
         }
 
@@ -190,18 +207,17 @@ export const PaymentManager: React.FC = () => {
                 });
             } else if (t.seats) {
                 t.seats.forEach((sId: string) => {
-                    const key = `${t.tripId}_${sId}`;
+                    const key = `${t.tripId || p.details.tripId}_${sId}`;
                     if (p.totalAmount > 0) paidSeatMap.set(key, { type, isEnhanced });
                     else if (p.totalAmount < 0) paidSeatMap.delete(key);
                 });
             }
         } else if (p.type === "refund") {
-            if (t.seats) {
-                t.seats.forEach((sId: string) => {
-                    const key = `${t.tripId}_${sId}`;
-                    paidSeatMap.delete(key);
-                });
-            }
+            const sList = t.seats || t.seatIds || [];
+            sList.forEach((sId: string) => {
+                const key = `${t.tripId || p.details.tripId}_${sId}`;
+                paidSeatMap.delete(key);
+            });
         }
       });
     });
@@ -211,22 +227,17 @@ export const PaymentManager: React.FC = () => {
     let enhancedTickets = 0;
 
     paidSeatMap.forEach((val) => {
-      // Logic phân loại loại trừ lẫn nhau (Mutually Exclusive)
-      // Ưu tiên 1: Vé tăng cường
+      // Phân loại loại trừ lẫn nhau (Mutually Exclusive)
       if (val.isEnhanced) {
         enhancedTickets++;
-      } 
-      // Ưu tiên 2: Xe phòng (nếu không phải tăng cường)
-      else if (val.type === BusType.CABIN) {
+      } else if (val.type === BusType.CABIN) {
         cabinTickets++;
-      } 
-      // Ưu tiên 3: Xe thường (giường đơn, không phải tăng cường)
-      else {
+      } else {
         sleeperTickets++;
       }
     });
 
-    // Vé BOOKED (Chưa thu tiền): Bookings (trừ Hold/Cancel) mà KHÔNG nằm trong paidSeatMap
+    // 3. Tính vé BOOKED (Chưa thu tiền): Bookings không phải Cancel/Hold mà không có trong paidSeatMap
     let totalBooked = 0;
     bookings.forEach((b) => {
       if (b.status === "cancelled" || b.status === "hold") return;
@@ -297,21 +308,6 @@ export const PaymentManager: React.FC = () => {
       toast({ type: "error", title: "Lỗi", message: "Không thể cập nhật" });
     }
   };
-
-  function normalizeTrips(details: any) {
-    if (details.trips && Array.isArray(details.trips)) return details.trips;
-    if (details.route || (details.seats && details.seats.length > 0)) {
-      return [
-        {
-          route: details.route || "Unknown",
-          tripDate: details.tripDate,
-          licensePlate: details.licensePlate,
-          seats: details.seats || [],
-        },
-      ];
-    }
-    return [];
-  }
 
   function calculateDiff(prevTrips: any[], currPayment: any) {
     const currTrips = normalizeTrips(currPayment.details);
