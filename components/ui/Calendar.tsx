@@ -1,10 +1,17 @@
+
 import React, { useState, useMemo } from "react";
 import { ChevronLeft, ChevronRight, Ban } from "lucide-react";
-import { getLunarDate } from "../../utils/dateUtils";
+import { getLunarDate, isSameDay } from "../../utils/dateUtils";
+
+interface DateRange {
+  from: Date | undefined;
+  to?: Date | undefined;
+}
 
 interface CalendarProps {
-  selected?: Date;
-  onSelect?: (date: Date) => void;
+  selected?: Date | DateRange;
+  onSelect?: (date: any) => void;
+  mode?: "single" | "range";
   className?: string;
   shutdownRange?: { start: string; end: string };
   peakDays?: string[];
@@ -13,11 +20,16 @@ interface CalendarProps {
 export const Calendar: React.FC<CalendarProps> = ({
   selected,
   onSelect,
+  mode = "single",
   className = "",
   shutdownRange,
   peakDays = [],
 }) => {
-  const [viewDate, setViewDate] = useState(selected || new Date());
+  const initialViewDate = mode === "range" 
+    ? (selected as DateRange)?.from || new Date() 
+    : (selected as Date) || new Date();
+    
+  const [viewDate, setViewDate] = useState(initialViewDate);
 
   const daysInMonth = (year: number, month: number) =>
     new Date(year, month + 1, 0).getDate();
@@ -27,14 +39,12 @@ export const Calendar: React.FC<CalendarProps> = ({
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
 
-  // Calculate Lunar Range for the Header
   const lunarRangeInfo = useMemo(() => {
     const start = new Date(year, month, 1);
     const end = new Date(year, month, daysInMonth(year, month));
     const startLunar = getLunarDate(start);
     const endLunar = getLunarDate(end);
 
-    // Check if month spans across two lunar months or years
     if (
       startLunar.month === endLunar.month &&
       startLunar.year === endLunar.year
@@ -84,58 +94,81 @@ export const Calendar: React.FC<CalendarProps> = ({
     e.stopPropagation();
     const newDate = new Date(year, month, day);
 
-    // Prevent selection if shutdown day
     if (isShutdownDay(newDate)) return;
 
     if (onSelect) {
-      onSelect(newDate);
+      if (mode === "range") {
+        const range = (selected as DateRange) || { from: undefined, to: undefined };
+        if (!range.from || (range.from && range.to)) {
+          onSelect({ from: newDate, to: undefined });
+        } else {
+          // Nếu nhấn vào ngày trước ngày from, đảo ngược lại
+          if (newDate < range.from) {
+            onSelect({ from: newDate, to: range.from });
+          } else {
+            onSelect({ from: range.from, to: newDate });
+          }
+        }
+      } else {
+        onSelect(newDate);
+      }
     }
   };
 
   const renderDays = () => {
     const totalDays = daysInMonth(year, month);
     const startDay = startDayOfMonth(year, month);
-
     const days = [];
+
     for (let i = 0; i < startDay; i++) {
-      days.push(<div key={`empty-${i}`} className="h-10 w-10" />);
+      days.push(<div key={`empty-${i}`} className="h-11 w-11" />);
     }
 
     for (let day = 1; day <= totalDays; day++) {
       const currentDate = new Date(year, month, day);
-      const isSelected =
-        selected &&
-        currentDate.getDate() === selected.getDate() &&
-        currentDate.getMonth() === selected.getMonth() &&
-        currentDate.getFullYear() === selected.getFullYear();
-
       const isToday = new Date().toDateString() === currentDate.toDateString();
 
-      // Calculate real lunar date
+      // Check selected status
+      let isSelected = false;
+      let isStart = false;
+      let isEnd = false;
+      let isInRange = false;
+
+      // Fixed: Declared 'range' outside of the 'if' block so it is available in the subsequent template usage.
+      const range = mode === "range" ? (selected as DateRange) : undefined;
+
+      if (mode === "range" && range) {
+        if (range.from && isSameDay(currentDate, range.from)) {
+          isSelected = true;
+          isStart = true;
+        }
+        if (range.to && isSameDay(currentDate, range.to)) {
+          isSelected = true;
+          isEnd = true;
+        }
+        if (range.from && range.to) {
+          isInRange = currentDate > range.from && currentDate < range.to;
+        }
+      } else {
+        isSelected = selected instanceof Date && isSameDay(currentDate, selected);
+      }
+
       const { day: lunarDay, month: lunarMonth } = getLunarDate(currentDate);
-
-      // Show Month if it's 1st day OR 15th day (Full Moon) OR if it's selected (for clarity)
-      // Also show month if it's the 30th (often end of month) to help orient
       const showMonth = lunarDay === 1 || lunarDay === 15 || isSelected;
-      const lunarText = showMonth
-        ? `${lunarDay}/${lunarMonth}`
-        : lunarDay.toString();
-
+      const lunarText = showMonth ? `${lunarDay}/${lunarMonth}` : lunarDay.toString();
       const isShutdown = isShutdownDay(currentDate);
       const isPeak = isPeakDay(currentDate);
 
-      // Styles
       let bgClass = "hover:bg-slate-100 text-slate-900";
       let borderClass = "border-transparent";
       let textClass = "";
 
       if (isShutdown) {
-        bgClass =
-          "bg-slate-50 text-slate-400 cursor-not-allowed decoration-slate-300";
-        borderClass = "border-transparent";
+        bgClass = "bg-slate-50 text-slate-400 cursor-not-allowed";
       } else if (isSelected) {
-        bgClass =
-          "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm";
+        bgClass = "bg-primary text-primary-foreground shadow-sm z-10";
+      } else if (isInRange) {
+        bgClass = "bg-primary/10 text-primary hover:bg-primary/20 rounded-none";
       } else if (isPeak) {
         bgClass = "bg-orange-50 hover:bg-orange-100 text-orange-700 font-bold";
         borderClass = "border-orange-200";
@@ -151,43 +184,30 @@ export const Calendar: React.FC<CalendarProps> = ({
           onClick={(e) => handleDateClick(e, day)}
           disabled={isShutdown}
           className={`
-            relative h-11 w-11 p-1 rounded-md flex flex-col items-center justify-center transition-all border
+            relative h-11 w-11 p-1 flex flex-col items-center justify-center transition-all border
             ${bgClass}
             ${borderClass}
             ${textClass}
+            ${mode === "range" && !isInRange ? "rounded-md" : (mode === "single" ? "rounded-md" : "")}
+            ${isStart && range?.to ? "rounded-r-none rounded-l-md" : ""}
+            ${isEnd ? "rounded-l-none rounded-r-md" : ""}
           `}
         >
-          <span
-            className={`text-sm leading-none z-10 ${
-              isSelected ? "font-bold" : ""
-            }`}
-          >
+          <span className={`text-sm leading-none z-10 ${isSelected ? "font-bold" : ""}`}>
             {day}
           </span>
-
-          {/* Lunar Date or "Nghỉ Tết" Text */}
           <span
             className={`text-[0.6rem] leading-tight mt-0.5 z-10 whitespace-nowrap 
-            ${
-              isSelected
-                ? "text-primary-foreground/80"
-                : isShutdown
-                ? "text-red-500 font-bold"
-                : showMonth
-                ? "text-slate-500 font-medium"
-                : "text-slate-400"
-            }`}
+            ${isSelected ? "text-primary-foreground/80" : isShutdown ? "text-red-500 font-bold" : showMonth ? "text-slate-500 font-medium" : "text-slate-400"}`}
           >
             {isShutdown ? "Nghỉ Tết" : lunarText}
           </span>
-
-          {/* Indicators */}
           {isShutdown && (
             <div className="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none">
               <Ban size={28} className="text-red-500" />
             </div>
           )}
-          {isPeak && !isShutdown && !isSelected && (
+          {isPeak && !isShutdown && !isSelected && !isInRange && (
             <div className="absolute top-1 right-1">
               <div className="w-1.5 h-1.5 bg-orange-500 rounded-full shadow-sm"></div>
             </div>
@@ -229,10 +249,7 @@ export const Calendar: React.FC<CalendarProps> = ({
       </div>
       <div className="grid grid-cols-7 gap-1 mb-2">
         {["CN", "T2", "T3", "T4", "T5", "T6", "T7"].map((day) => (
-          <div
-            key={day}
-            className="text-[0.75rem] font-medium text-center text-slate-500 py-1"
-          >
+          <div key={day} className="text-[0.75rem] font-medium text-center text-slate-500 py-1">
             {day}
           </div>
         ))}
@@ -240,21 +257,17 @@ export const Calendar: React.FC<CalendarProps> = ({
       <div className="grid grid-cols-7 gap-1 text-center justify-items-center">
         {renderDays()}
       </div>
-
-      {/* Legend */}
       <div className="mt-3 pt-3 border-t border-slate-100 flex justify-center gap-4 text-[10px] text-slate-500">
         <div className="flex items-center gap-1.5">
-          <div className="w-2.5 h-2.5 rounded-sm bg-slate-100 border border-slate-200 flex items-center justify-center">
-            <span className="block w-1.5 h-1.5 bg-red-400 rounded-full"></span>
-          </div>{" "}
-          Nghỉ Tết
+          <div className="w-2.5 h-2.5 rounded-sm bg-primary"></div> Chọn
         </div>
+        {mode === "range" && (
+           <div className="flex items-center gap-1.5">
+            <div className="w-2.5 h-2.5 rounded-sm bg-primary/10"></div> Trong khoảng
+          </div>
+        )}
         <div className="flex items-center gap-1.5">
-          <div className="w-2.5 h-2.5 rounded-sm bg-orange-100 border border-orange-200"></div>{" "}
-          Cao điểm
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-2.5 h-2.5 rounded-sm bg-primary"></div> Đang chọn
+          <div className="w-2.5 h-2.5 rounded-sm bg-orange-100 border border-orange-200"></div> Cao điểm
         </div>
       </div>
     </div>
