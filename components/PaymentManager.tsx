@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from "react";
 import { api } from "../lib/api";
 import { Badge } from "./ui/Badge";
@@ -39,7 +38,7 @@ interface PaymentGroup {
   tripInfo: {
     route: string;
     date: string;
-    seats: { label: string; status: 'paid' | 'booked' | 'refunded' }[];
+    seats: { label: string; status: "paid" | "booked" | "refunded" }[];
   };
   payments: any[];
   totalCollected: number;
@@ -141,14 +140,14 @@ export const PaymentManager: React.FC = () => {
 
     Object.values(groups).forEach((g) => {
       // 1. Tìm đơn hàng hiện tại để biết ghế nào CÒN HOẠT ĐỘNG
-      const currentBooking = bookings.find(b => b.id === g.bookingId);
+      const currentBooking = bookings.find((b) => b.id === g.bookingId);
       const activePaidLabels = new Set<string>();
       const activeBookedLabels = new Set<string>();
 
-      if (currentBooking && currentBooking.status !== 'cancelled') {
-        currentBooking.items.forEach(item => {
+      if (currentBooking && currentBooking.status !== "cancelled") {
+        currentBooking.items.forEach((item) => {
           if (item.tickets && item.tickets.length > 0) {
-            item.tickets.forEach(ticket => {
+            item.tickets.forEach((ticket) => {
               // Cần ánh xạ seatId sang label nếu database lưu seatId
               // Trong hệ thống này thường seatId và label tương đồng trong snapshot
               if (ticket.price > 0) activePaidLabels.add(ticket.seatId);
@@ -156,8 +155,9 @@ export const PaymentManager: React.FC = () => {
             });
           } else {
             // Fallback
-            item.seatIds.forEach(sid => {
-              if (currentBooking.status === 'payment') activePaidLabels.add(sid);
+            item.seatIds.forEach((sid) => {
+              if (currentBooking.status === "payment")
+                activePaidLabels.add(sid);
               else activeBookedLabels.add(sid);
             });
           }
@@ -177,10 +177,12 @@ export const PaymentManager: React.FC = () => {
       // 3. Phân loại trạng thái ghế dựa trên đối soát
       g.tripInfo.seats = Array.from(allLabelsInHistory)
         .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
-        .map(label => {
-          if (activePaidLabels.has(label)) return { label, status: 'paid' as const };
-          if (activeBookedLabels.has(label)) return { label, status: 'booked' as const };
-          return { label, status: 'refunded' as const }; // Có trong lịch sử nhưng ko có trong đơn hiện tại = Đã hủy
+        .map((label) => {
+          if (activePaidLabels.has(label))
+            return { label, status: "paid" as const };
+          if (activeBookedLabels.has(label))
+            return { label, status: "booked" as const };
+          return { label, status: "refunded" as const }; // Có trong lịch sử nhưng ko có trong đơn hiện tại = Đã hủy
         });
     });
 
@@ -308,9 +310,13 @@ export const PaymentManager: React.FC = () => {
       const prevT = prevMap.get(key);
       const currT = currMap.get(key);
 
-      const pSeats = new Set(prevT ? (prevT.labels?.length ? prevT.labels : prevT.seats) : []);
-      const cSeats = new Set(currT ? (currT.labels?.length ? currT.labels : currT.seats) : []);
-      
+      const pSeats = new Set(
+        prevT ? (prevT.labels?.length ? prevT.labels : prevT.seats) : []
+      );
+      const cSeats = new Set(
+        currT ? (currT.labels?.length ? currT.labels : currT.seats) : []
+      );
+
       const meta = currT || prevT || {};
       const seatDiffs: any[] = [];
 
@@ -498,7 +504,7 @@ export const PaymentManager: React.FC = () => {
             onClick={fetchData}
             variant="outline"
             size="sm"
-            className="rounded-lg h-[40px] w-[200px] flex items-center justify-center bg-primary text-white hover:bg-primary/90 transition-all"
+            className="bg-red-400 text-white hover:text-white hover:bg-red-500 rounded-lg h-[40px] w-[200px] flex items-center justify-center transition-all"
           >
             <RotateCcw size={18} className="mr-2" />
             Làm mới dữ liệu
@@ -511,10 +517,10 @@ export const PaymentManager: React.FC = () => {
         <table className="w-full text-sm text-left">
           <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200">
             <tr>
-              <th className="py-3 w-[200px] text-center">Số điện thoại</th>
+              <th className="py-3 w-[250px] text-center">Số điện thoại</th>
               <th className="py-3">Số vé</th>
-              <th className="py-3 text-center w-[200px]">Giao dịch</th>
-              <th className="py-3 text-center w-[220px]">Cập nhật</th>
+              <th className="py-3 text-center w-[170px]">Giao dịch</th>
+              <th className="py-3 text-center w-[200px]">Cập nhật</th>
               <th className="py-3 text-right w-[170px] pr-6">Tổng thực thu</th>
               <th className="py-3 text-center w-[170px]">Chi tiết</th>
             </tr>
@@ -535,27 +541,33 @@ export const PaymentManager: React.FC = () => {
                   key={group.bookingId}
                   className="hover:bg-slate-50/80 transition-colors group "
                 >
-                  <td className="py-2">
+                  <td className="py-3">
                     <div className="flex items-center justify-center text-center font-bold text-slate-700">
                       <Phone size={12} className="inline mr-1.5" />
                       {formatPhoneNumber(group.passengerPhone)}
                       {group.bookingId === "orphaned" && " (Đã xóa)"}
                     </div>
                   </td>
-                  <td className="py-2">
+                  <td className="py-3">
                     <div className="flex flex-col gap-1">
-                      <div className="flex flex-wrap gap-1 mt-1.5">
+                      <div className="flex flex-wrap gap-2">
                         {group.tripInfo.seats.map((s, i) => {
                           let badgeClass = "";
-                          if (s.status === 'refunded') {
-                            badgeClass = "bg-slate-50 text-slate-600 border-slate-200 line-through decoration-slate-400 opacity-60";
-                          } else if (s.status === 'paid') {
-                            badgeClass = "bg-blue-50 text-blue-600 border-blue-200 font-black shadow-sm";
+                          if (s.status === "refunded") {
+                            badgeClass =
+                              "bg-white hover:bg-white text-slate-500 border-slate-500 font-semibold line-through decoration-slate-400 opacity-60";
+                          } else if (s.status === "paid") {
+                            badgeClass =
+                              "bg-white hover:bg-white text-slate-500 border-slate-500 font-semibold";
                           } else {
-                            badgeClass = "bg-orange-50 text-orange-600 border-orange-200 font-bold shadow-sm";
+                            badgeClass =
+                              "bg-orange-50 hover:bg-orange-50 text-orange-600 border-orange-200 font-bold shadow-sm";
                           }
                           return (
-                            <Badge key={i} className={`text-xs px-3 h-6 border ${badgeClass}`}>
+                            <Badge
+                              key={i}
+                              className={`text-xs px-2 h-6 border ${badgeClass}`}
+                            >
                               {s.label}
                             </Badge>
                           );
@@ -563,13 +575,13 @@ export const PaymentManager: React.FC = () => {
                       </div>
                     </div>
                   </td>
-                  <td className="py-2 text-center">
+                  <td className="py-3 text-center">
                     <Badge className="bg-slate-100 text-slate-600 border-slate-200 text-[10px] px-2 font-black">
                       {group.payments.length} Giao dịch
                     </Badge>
                   </td>
 
-                  <td className="py-2 text-center">
+                  <td className="py-3 text-center">
                     <div className="flex items-center justify-center">
                       <Clock1
                         size={13}
@@ -589,14 +601,14 @@ export const PaymentManager: React.FC = () => {
                       </span>
                     </div>
                   </td>
-                  <td className="py-2 text-right ">
+                  <td className="py-3 text-right ">
                     <span
                       className={`text-sm font-semibold tracking-tight text-green-600 pr-6`}
                     >
                       {group.totalCollected.toLocaleString("vi-VN")}
                     </span>
                   </td>
-                  <td className="py-2 text-center">
+                  <td className="py-3 text-center">
                     <a
                       onClick={() => setSelectedGroup(group)}
                       className="text-sm cursor-pointer flex items-center justify-center font-semibold mx-auto"
@@ -830,12 +842,15 @@ export const PaymentManager: React.FC = () => {
                                             (s: any, i: number) => {
                                               let badgeClass = "";
                                               if (s.status === "removed") {
-                                                badgeClass = "bg-slate-50 text-slate-600 border-slate-200 line-through decoration-slate-400 opacity-60";
+                                                badgeClass =
+                                                  "bg-slate-50 text-slate-600 border-slate-200 line-through decoration-slate-400 opacity-60";
                                               } else {
                                                 if (s.price > 0) {
-                                                  badgeClass = "bg-blue-50 text-blue-600 border-blue-200 font-black shadow-sm";
+                                                  badgeClass =
+                                                    "bg-blue-50 text-blue-600 border-blue-200 font-black shadow-sm";
                                                 } else {
-                                                  badgeClass = "bg-orange-50 text-orange-600 border-orange-200 font-bold shadow-sm";
+                                                  badgeClass =
+                                                    "bg-orange-50 text-orange-600 border-orange-200 font-bold shadow-sm";
                                                 }
                                               }
 
