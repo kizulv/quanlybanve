@@ -23,6 +23,7 @@ import {
   Clock1,
   Filter,
   CalendarDays,
+  CalendarRange,
 } from "lucide-react";
 import { useToast } from "./ui/Toast";
 import { Dialog } from "./ui/Dialog";
@@ -55,7 +56,10 @@ export const PaymentManager: React.FC = () => {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  
+  // Date Range State
+  const [startDate, setStartDate] = useState<Date | null>(null);
+  const [endDate, setEndDate] = useState<Date | null>(null);
 
   // Detail Modal State
   const [selectedGroup, setSelectedGroup] = useState<PaymentGroup | null>(null);
@@ -108,17 +112,44 @@ export const PaymentManager: React.FC = () => {
     return [];
   }
 
-  // --- FILTERED RAW DATA ---
+  // --- FILTERED RAW DATA BY RANGE ---
   const filteredPaymentsByDate = useMemo(() => {
-    if (!selectedDate) return payments;
-    return payments.filter((p) => isSameDay(new Date(p.timestamp), selectedDate));
-  }, [payments, selectedDate]);
+    return payments.filter((p) => {
+      const pDate = new Date(p.timestamp);
+      pDate.setHours(0, 0, 0, 0);
+
+      if (startDate) {
+        const s = new Date(startDate);
+        s.setHours(0, 0, 0, 0);
+        if (pDate < s) return false;
+      }
+      if (endDate) {
+        const e = new Date(endDate);
+        e.setHours(0, 0, 0, 0);
+        if (pDate > e) return false;
+      }
+      return true;
+    });
+  }, [payments, startDate, endDate]);
 
   const filteredBookingsByDate = useMemo(() => {
-    if (!selectedDate) return bookings;
-    // For financial reports, we usually look at bookings created on that day
-    return bookings.filter((b) => isSameDay(new Date(b.createdAt), selectedDate));
-  }, [bookings, selectedDate]);
+    return bookings.filter((b) => {
+      const bDate = new Date(b.createdAt);
+      bDate.setHours(0, 0, 0, 0);
+
+      if (startDate) {
+        const s = new Date(startDate);
+        s.setHours(0, 0, 0, 0);
+        if (bDate < s) return false;
+      }
+      if (endDate) {
+        const e = new Date(endDate);
+        e.setHours(0, 0, 0, 0);
+        if (bDate > e) return false;
+      }
+      return true;
+    });
+  }, [bookings, startDate, endDate]);
 
   // --- GROUPING LOGIC ---
   const groupedPayments = useMemo(() => {
@@ -156,7 +187,6 @@ export const PaymentManager: React.FC = () => {
     });
 
     Object.values(groups).forEach((g) => {
-      // 1. Tìm đơn hàng hiện tại để biết ghế nào CÒN HOẠT ĐỘNG
       const currentBooking = bookings.find((b) => b.id === g.bookingId);
       const activePaidLabels = new Set<string>();
       const activeBookedLabels = new Set<string>();
@@ -178,7 +208,6 @@ export const PaymentManager: React.FC = () => {
         });
       }
 
-      // 2. Thu thập TẤT CẢ ghế từng xuất hiện trong lịch sử
       const allLabelsInHistory = new Set<string>();
       g.payments.forEach((p) => {
         const pTrips = normalizeTrips(p.details);
@@ -188,7 +217,6 @@ export const PaymentManager: React.FC = () => {
         });
       });
 
-      // 3. Phân loại trạng thái ghế dựa trên đối soát
       g.tripInfo.seats = Array.from(allLabelsInHistory)
         .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
         .map((label) => {
@@ -395,6 +423,16 @@ export const PaymentManager: React.FC = () => {
     );
   }
 
+  const dateFilterDescription = useMemo(() => {
+    if (startDate && endDate) {
+      if (isSameDay(startDate, endDate)) return `Ngày ${startDate.toLocaleDateString("vi-VN")}`;
+      return `Từ ${startDate.toLocaleDateString("vi-VN")} đến ${endDate.toLocaleDateString("vi-VN")}`;
+    }
+    if (startDate) return `Từ ngày ${startDate.toLocaleDateString("vi-VN")}`;
+    if (endDate) return `Đến ngày ${endDate.toLocaleDateString("vi-VN")}`;
+    return "Toàn thời gian";
+  }, [startDate, endDate]);
+
   return (
     <div className="mx-auto space-y-6 animate-in fade-in duration-500">
       {/* STATS CARDS */}
@@ -407,10 +445,10 @@ export const PaymentManager: React.FC = () => {
               </div>
               <div>
                 <h3 className="font-bold text-slate-800">
-                  {selectedDate ? "Thống kê thu theo ngày" : "Tổng thu thanh toán"}
+                  {startDate || endDate ? "Doanh thu theo kỳ" : "Tổng thu thanh toán"}
                 </h3>
                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                  {selectedDate ? `Ngày ${selectedDate.toLocaleDateString("vi-VN")}` : "Dòng tiền thực nhận"}
+                  {dateFilterDescription}
                 </p>
               </div>
             </div>
@@ -451,10 +489,10 @@ export const PaymentManager: React.FC = () => {
               </div>
               <div>
                 <h3 className="font-bold text-slate-800">
-                  {selectedDate ? "Lượng vé trong ngày" : "Thống kê số lượng vé"}
+                  {startDate || endDate ? "Lượng vé theo kỳ" : "Thống kê số lượng vé"}
                 </h3>
                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                  {selectedDate ? "Vé tạo mới trong ngày" : "Chỉ đếm các vé chưa hủy"}
+                  {startDate || endDate ? "Vé tạo mới trong khoảng này" : "Chỉ đếm các vé chưa hủy"}
                 </p>
               </div>
             </div>
@@ -500,7 +538,7 @@ export const PaymentManager: React.FC = () => {
       </div>
 
       {/* SEARCH & FILTERS BAR */}
-      <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center">
+      <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center">
         {/* Search */}
         <div className="relative flex-1 group">
           <Search
@@ -509,52 +547,81 @@ export const PaymentManager: React.FC = () => {
           />
           <input
             className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary placeholder-slate-400 transition-all h-10"
-            placeholder="Tìm kiếm theo SĐT, Tên khách, Mã ghế..."
+            placeholder="Tìm theo SĐT, Tên, Mã ghế, Ghi chú..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
 
-        {/* Date Filter - Center */}
-        <div className="flex items-center gap-2">
-          <Popover
-            align="right"
-            trigger={
-              <Button
-                variant="outline"
-                className={`h-10 px-4 flex items-center gap-2 border-slate-200 hover:border-primary/50 hover:bg-slate-50 transition-all ${
-                  selectedDate ? "border-primary text-primary bg-primary/5 font-bold" : "text-slate-600"
-                }`}
-              >
-                <CalendarIcon size={18} />
-                <span className="text-sm">
-                  {selectedDate
-                    ? `Ngày: ${selectedDate.toLocaleDateString("vi-VN")}`
-                    : "Thống kê theo ngày"}
-                </span>
-                {selectedDate && (
-                  <div
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedDate(null);
-                    }}
-                    className="ml-1 p-0.5 rounded-full hover:bg-primary/20 transition-colors"
-                  >
-                    <X size={14} />
-                  </div>
-                )}
-              </Button>
-            }
-            content={(close) => (
-              <Calendar
-                selected={selectedDate || undefined}
-                onSelect={(date) => {
-                  setSelectedDate(date);
-                  close();
-                }}
-              />
-            )}
-          />
+        {/* Range Date Filter */}
+        <div className="flex flex-col sm:flex-row items-center gap-2 bg-white p-1 rounded-lg border border-slate-200 shadow-sm">
+          <div className="flex items-center gap-2 px-2 text-slate-400">
+             <CalendarRange size={16} />
+             <span className="text-[10px] font-black uppercase tracking-widest">Thời gian</span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <Popover
+              align="left"
+              trigger={
+                <Button
+                  variant="ghost"
+                  className={`h-8 px-2 text-xs font-semibold rounded-md border border-transparent hover:bg-slate-50 ${
+                    startDate ? "text-primary bg-primary/5 border-primary/20" : "text-slate-600"
+                  }`}
+                >
+                  {startDate ? startDate.toLocaleDateString("vi-VN") : "Từ ngày..."}
+                </Button>
+              }
+              content={(close) => (
+                <Calendar
+                  selected={startDate || undefined}
+                  onSelect={(date) => {
+                    setStartDate(date);
+                    close();
+                  }}
+                />
+              )}
+            />
+            
+            <ArrowRight size={14} className="text-slate-300" />
+
+            <Popover
+              align="right"
+              trigger={
+                <Button
+                  variant="ghost"
+                  className={`h-8 px-2 text-xs font-semibold rounded-md border border-transparent hover:bg-slate-50 ${
+                    endDate ? "text-primary bg-primary/5 border-primary/20" : "text-slate-600"
+                  }`}
+                >
+                  {endDate ? endDate.toLocaleDateString("vi-VN") : "Đến ngày..."}
+                </Button>
+              }
+              content={(close) => (
+                <Calendar
+                  selected={endDate || undefined}
+                  onSelect={(date) => {
+                    setEndDate(date);
+                    close();
+                  }}
+                />
+              )}
+            />
+          </div>
+
+          {(startDate || endDate) && (
+            <button
+              onClick={() => {
+                setStartDate(null);
+                setEndDate(null);
+              }}
+              className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-red-500 transition-colors"
+              title="Xóa bộ lọc ngày"
+            >
+              <X size={14} />
+            </button>
+          )}
         </div>
 
         {/* Refresh Data */}
@@ -588,9 +655,7 @@ export const PaymentManager: React.FC = () => {
                   colSpan={6}
                   className="p-16 text-center text-slate-400 font-medium italic"
                 >
-                  {selectedDate 
-                    ? `Không tìm thấy giao dịch nào trong ngày ${selectedDate.toLocaleDateString("vi-VN")}.`
-                    : "Không có dữ liệu thanh toán phù hợp."}
+                  Không tìm thấy dữ liệu phù hợp trong khoảng thời gian đã chọn.
                 </td>
               </tr>
             ) : (
