@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from "react";
 import { api } from "../lib/api";
 import { Badge } from "./ui/Badge";
@@ -96,7 +95,7 @@ export const PaymentManager: React.FC = () => {
           tripDate: details.tripDate,
           licensePlate: details.licensePlate,
           seats: details.seats || [],
-          tripId: details.tripId
+          tripId: details.tripId,
         },
       ];
     }
@@ -177,9 +176,9 @@ export const PaymentManager: React.FC = () => {
 
     bookings.forEach((b) => {
       if (b.status === "cancelled" || b.status === "hold") return;
-      
+
       b.items.forEach((item) => {
-        const isItemEnhanced = !!(item.isEnhanced);
+        const isItemEnhanced = !!item.isEnhanced;
         const itemBusType = item.busType || BusType.SLEEPER;
 
         if (item.tickets && item.tickets.length > 0) {
@@ -199,7 +198,7 @@ export const PaymentManager: React.FC = () => {
           });
         } else if (item.seatIds) {
           item.seatIds.forEach(() => {
-            if (b.status === 'payment') totalTickets++;
+            if (b.status === "payment") totalTickets++;
             else totalBooked++;
           });
         }
@@ -281,19 +280,21 @@ export const PaymentManager: React.FC = () => {
       const prevT = prevMap.get(key);
       const currT = currMap.get(key);
 
-      const pSeats = new Set(prevT ? (prevT.labels || prevT.seats || []) : []);
-      const cSeats = new Set(currT ? (currT.labels || currT.seats || []) : []);
+      const pSeats = new Set(prevT ? prevT.labels || prevT.seats || [] : []);
+      const cSeats = new Set(currT ? currT.labels || currT.seats || [] : []);
       const meta = currT || prevT || {};
       const seatDiffs: any[] = [];
 
       if (isIncremental) {
         // FIX logic: Nếu là giao dịch lẻ, trạng thái phụ thuộc vào loại p.type (payment hay refund)
-        const status = currPayment.type === 'refund' ? 'removed' : 'added';
+        const status = currPayment.type === "refund" ? "removed" : "added";
         cSeats.forEach((s) => {
           let price = 0;
           if (currT.tickets) {
             // Thử tìm giá theo label/seatId
-            const t = currT.tickets.find((tic: any) => (tic.label === s || tic.seatId === s));
+            const t = currT.tickets.find(
+              (tic: any) => tic.label === s || tic.seatId === s
+            );
             if (t) price = t.price;
           }
           seatDiffs.push({ id: s, status, price });
@@ -310,13 +311,17 @@ export const PaymentManager: React.FC = () => {
           let price = 0;
           if (status !== "removed" && currT) {
             if (currT.tickets) {
-              const t = currT.tickets.find((tic: any) => (tic.label === s || tic.seatId === s));
+              const t = currT.tickets.find(
+                (tic: any) => tic.label === s || tic.seatId === s
+              );
               if (t) price = t.price;
             }
           }
           if (status === "removed" && prevT) {
             if (prevT.tickets) {
-              const t = prevT.tickets.find((tic: any) => (tic.label === s || tic.seatId === s));
+              const t = prevT.tickets.find(
+                (tic: any) => tic.label === s || tic.seatId === s
+              );
               if (t) price = t.price;
             }
           }
@@ -400,9 +405,11 @@ export const PaymentManager: React.FC = () => {
                 <Ticket size={24} />
               </div>
               <div>
-                <h3 className="font-bold text-slate-800">Thống kê số lượng vé</h3>
+                <h3 className="font-bold text-slate-800">
+                  Thống kê số lượng vé
+                </h3>
                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                  Chỉ đếm các vé đã thu tiền (> 0đ)
+                  Chỉ đếm các vé đã thu tiền
                 </p>
               </div>
             </div>
@@ -718,7 +725,9 @@ export const PaymentManager: React.FC = () => {
                               </div>
                               {p.transactionType === "incremental" && (
                                 <Badge className="bg-indigo-50 text-indigo-700 border-indigo-200 text-[9px] font-black uppercase px-2 h-5">
-                                  {p.type === 'refund' ? 'Hoàn tiền lẻ' : 'Thanh toán lẻ'}
+                                  {p.type === "refund"
+                                    ? "Hoàn tiền lẻ"
+                                    : "Thanh toán lẻ"}
                                 </Badge>
                               )}
                             </div>
