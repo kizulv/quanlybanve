@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from "react";
 import { api } from "../lib/api";
 import { Badge } from "./ui/Badge";
@@ -23,7 +24,6 @@ import {
   Clock1,
   Filter,
   CalendarDays,
-  CalendarRange,
 } from "lucide-react";
 import { useToast } from "./ui/Toast";
 import { Dialog } from "./ui/Dialog";
@@ -56,10 +56,7 @@ export const PaymentManager: React.FC = () => {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  
-  // Date Range State
-  const [startDate, setStartDate] = useState<Date | null>(null);
-  const [endDate, setEndDate] = useState<Date | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
   // Detail Modal State
   const [selectedGroup, setSelectedGroup] = useState<PaymentGroup | null>(null);
@@ -112,58 +109,30 @@ export const PaymentManager: React.FC = () => {
     return [];
   }
 
-  // --- FILTERED RAW DATA BY RANGE ---
+  // --- FILTERED RAW DATA FOR STATS ONLY ---
   const filteredPaymentsByDate = useMemo(() => {
-    return payments.filter((p) => {
-      const pDate = new Date(p.timestamp);
-      pDate.setHours(0, 0, 0, 0);
-
-      if (startDate) {
-        const s = new Date(startDate);
-        s.setHours(0, 0, 0, 0);
-        if (pDate < s) return false;
-      }
-      if (endDate) {
-        const e = new Date(endDate);
-        e.setHours(0, 0, 0, 0);
-        if (pDate > e) return false;
-      }
-      return true;
-    });
-  }, [payments, startDate, endDate]);
+    if (!selectedDate) return payments;
+    return payments.filter((p) => isSameDay(new Date(p.timestamp), selectedDate));
+  }, [payments, selectedDate]);
 
   const filteredBookingsByDate = useMemo(() => {
-    return bookings.filter((b) => {
-      const bDate = new Date(b.createdAt);
-      bDate.setHours(0, 0, 0, 0);
+    if (!selectedDate) return bookings;
+    return bookings.filter((b) => isSameDay(new Date(b.createdAt), selectedDate));
+  }, [bookings, selectedDate]);
 
-      if (startDate) {
-        const s = new Date(startDate);
-        s.setHours(0, 0, 0, 0);
-        if (bDate < s) return false;
-      }
-      if (endDate) {
-        const e = new Date(endDate);
-        e.setHours(0, 0, 0, 0);
-        if (bDate > e) return false;
-      }
-      return true;
-    });
-  }, [bookings, startDate, endDate]);
-
-  // --- GROUPING LOGIC ---
-  const groupedPayments = useMemo(() => {
+  // --- GROUPING ALL DATA ---
+  const allGroupedPayments = useMemo(() => {
     const groups: Record<string, PaymentGroup> = {};
 
-    filteredPaymentsByDate.forEach((payment) => {
+    payments.forEach((payment) => {
       const booking = payment.bookingId;
-      const bKey = booking ? booking.id : "orphaned";
+      const bKey = booking ? (booking.id || booking._id) : "orphaned";
 
       if (!groups[bKey]) {
         groups[bKey] = {
           bookingId: bKey,
           bookingDisplayId:
-            bKey === "orphaned" ? "N/A" : bKey.slice(-6).toUpperCase(),
+            bKey === "orphaned" ? "N/A" : bKey.toString().slice(-6).toUpperCase(),
           passengerName: booking?.passenger?.name || "Khách lẻ / Đã xóa",
           passengerPhone: booking?.passenger?.phone || "N/A",
           tripInfo: {
@@ -187,6 +156,7 @@ export const PaymentManager: React.FC = () => {
     });
 
     Object.values(groups).forEach((g) => {
+      // 1. Tìm đơn hàng hiện tại để biết ghế nào CÒN HOẠT ĐỘNG
       const currentBooking = bookings.find((b) => b.id === g.bookingId);
       const activePaidLabels = new Set<string>();
       const activeBookedLabels = new Set<string>();
@@ -208,6 +178,7 @@ export const PaymentManager: React.FC = () => {
         });
       }
 
+      // 2. Thu thập TẤT CẢ ghế từng xuất hiện trong lịch sử
       const allLabelsInHistory = new Set<string>();
       g.payments.forEach((p) => {
         const pTrips = normalizeTrips(p.details);
@@ -217,6 +188,7 @@ export const PaymentManager: React.FC = () => {
         });
       });
 
+      // 3. Phân loại trạng thái ghế dựa trên đối soát
       g.tripInfo.seats = Array.from(allLabelsInHistory)
         .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
         .map((label) => {
@@ -231,7 +203,33 @@ export const PaymentManager: React.FC = () => {
     return Object.values(groups).sort(
       (a, b) => b.latestTransaction.getTime() - a.latestTransaction.getTime()
     );
-  }, [filteredPaymentsByDate, bookings]);
+  }, [payments, bookings]);
+
+  // --- FINAL FILTERING LOGIC ---
+  const filteredGroups = useMemo(() => {
+    const term = searchTerm.toLowerCase().trim();
+    
+    // Rule: Search box searches ALL data (bypasses date filter)
+    if (term) {
+      return allGroupedPayments.filter(
+        (g) =>
+          g.passengerPhone.includes(term) ||
+          g.passengerName.toLowerCase().includes(term) ||
+          g.bookingDisplayId.toLowerCase().includes(term) ||
+          g.tripInfo.seats.some((s) => s.label.toLowerCase().includes(term)) ||
+          g.payments.some((p) => (p.note || "").toLowerCase().includes(term))
+      );
+    }
+
+    // Rule: If no search term, respect date filter
+    if (selectedDate) {
+      return allGroupedPayments.filter((g) => 
+        isSameDay(new Date(g.latestTransaction), selectedDate)
+      );
+    }
+
+    return allGroupedPayments;
+  }, [allGroupedPayments, searchTerm, selectedDate]);
 
   // --- STRICT STATS CALCULATION ---
   const stats = useMemo(() => {
@@ -290,20 +288,6 @@ export const PaymentManager: React.FC = () => {
       totalBooked,
     };
   }, [filteredPaymentsByDate, filteredBookingsByDate]);
-
-  const filteredGroups = useMemo(() => {
-    if (!searchTerm.trim()) return groupedPayments;
-    const lower = searchTerm.toLowerCase();
-
-    return groupedPayments.filter(
-      (g) =>
-        g.passengerPhone.includes(lower) ||
-        g.passengerName.toLowerCase().includes(lower) ||
-        g.bookingDisplayId.toLowerCase().includes(lower) ||
-        g.tripInfo.seats.some((s) => s.label.toLowerCase().includes(lower)) ||
-        g.payments.some((p) => (p.note || "").toLowerCase().includes(lower))
-    );
-  }, [groupedPayments, searchTerm]);
 
   const startEditNote = (payment: any) => {
     setEditingPaymentId(payment.id);
@@ -423,16 +407,6 @@ export const PaymentManager: React.FC = () => {
     );
   }
 
-  const dateFilterDescription = useMemo(() => {
-    if (startDate && endDate) {
-      if (isSameDay(startDate, endDate)) return `Ngày ${startDate.toLocaleDateString("vi-VN")}`;
-      return `Từ ${startDate.toLocaleDateString("vi-VN")} đến ${endDate.toLocaleDateString("vi-VN")}`;
-    }
-    if (startDate) return `Từ ngày ${startDate.toLocaleDateString("vi-VN")}`;
-    if (endDate) return `Đến ngày ${endDate.toLocaleDateString("vi-VN")}`;
-    return "Toàn thời gian";
-  }, [startDate, endDate]);
-
   return (
     <div className="mx-auto space-y-6 animate-in fade-in duration-500">
       {/* STATS CARDS */}
@@ -445,10 +419,10 @@ export const PaymentManager: React.FC = () => {
               </div>
               <div>
                 <h3 className="font-bold text-slate-800">
-                  {startDate || endDate ? "Doanh thu theo kỳ" : "Tổng thu thanh toán"}
+                  {selectedDate ? "Thống kê thu theo ngày" : "Tổng thu thanh toán"}
                 </h3>
                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                  {dateFilterDescription}
+                  {selectedDate ? `Ngày ${selectedDate.toLocaleDateString("vi-VN")}` : "Dòng tiền thực nhận"}
                 </p>
               </div>
             </div>
@@ -489,10 +463,10 @@ export const PaymentManager: React.FC = () => {
               </div>
               <div>
                 <h3 className="font-bold text-slate-800">
-                  {startDate || endDate ? "Lượng vé theo kỳ" : "Thống kê số lượng vé"}
+                  {selectedDate ? "Lượng vé trong ngày" : "Thống kê số lượng vé"}
                 </h3>
                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                  {startDate || endDate ? "Vé tạo mới trong khoảng này" : "Chỉ đếm các vé chưa hủy"}
+                  {selectedDate ? "Vé tạo mới trong ngày" : "Chỉ đếm các vé chưa hủy"}
                 </p>
               </div>
             </div>
@@ -538,7 +512,7 @@ export const PaymentManager: React.FC = () => {
       </div>
 
       {/* SEARCH & FILTERS BAR */}
-      <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center">
+      <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center">
         {/* Search */}
         <div className="relative flex-1 group">
           <Search
@@ -547,81 +521,52 @@ export const PaymentManager: React.FC = () => {
           />
           <input
             className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary placeholder-slate-400 transition-all h-10"
-            placeholder="Tìm theo SĐT, Tên, Mã ghế, Ghi chú..."
+            placeholder="Tìm tất cả SĐT, Tên khách, Mã ghế... (Bỏ qua lọc ngày)"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
 
-        {/* Range Date Filter */}
-        <div className="flex flex-col sm:flex-row items-center gap-2 bg-white p-1 rounded-lg border border-slate-200 shadow-sm">
-          <div className="flex items-center gap-2 px-2 text-slate-400">
-             <CalendarRange size={16} />
-             <span className="text-[10px] font-black uppercase tracking-widest">Thời gian</span>
-          </div>
-
-          <div className="flex items-center gap-1.5">
-            <Popover
-              align="left"
-              trigger={
-                <Button
-                  variant="ghost"
-                  className={`h-8 px-2 text-xs font-semibold rounded-md border border-transparent hover:bg-slate-50 ${
-                    startDate ? "text-primary bg-primary/5 border-primary/20" : "text-slate-600"
-                  }`}
-                >
-                  {startDate ? startDate.toLocaleDateString("vi-VN") : "Từ ngày..."}
-                </Button>
-              }
-              content={(close) => (
-                <Calendar
-                  selected={startDate || undefined}
-                  onSelect={(date) => {
-                    setStartDate(date);
-                    close();
-                  }}
-                />
-              )}
-            />
-            
-            <ArrowRight size={14} className="text-slate-300" />
-
-            <Popover
-              align="right"
-              trigger={
-                <Button
-                  variant="ghost"
-                  className={`h-8 px-2 text-xs font-semibold rounded-md border border-transparent hover:bg-slate-50 ${
-                    endDate ? "text-primary bg-primary/5 border-primary/20" : "text-slate-600"
-                  }`}
-                >
-                  {endDate ? endDate.toLocaleDateString("vi-VN") : "Đến ngày..."}
-                </Button>
-              }
-              content={(close) => (
-                <Calendar
-                  selected={endDate || undefined}
-                  onSelect={(date) => {
-                    setEndDate(date);
-                    close();
-                  }}
-                />
-              )}
-            />
-          </div>
-
-          {(startDate || endDate) && (
-            <button
-              onClick={() => {
-                setStartDate(null);
-                setEndDate(null);
-              }}
-              className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-red-500 transition-colors"
-              title="Xóa bộ lọc ngày"
-            >
-              <X size={14} />
-            </button>
-          )}
+        {/* Date Filter - Center */}
+        <div className="flex items-center gap-2">
+          <Popover
+            align="right"
+            trigger={
+              <Button
+                variant="outline"
+                className={`h-10 px-4 flex items-center gap-2 border-slate-200 hover:border-primary/50 hover:bg-slate-50 transition-all ${
+                  selectedDate ? "border-primary text-primary bg-primary/5 font-bold" : "text-slate-600"
+                }`}
+              >
+                <CalendarIcon size={18} />
+                <span className="text-sm">
+                  {selectedDate
+                    ? `Ngày: ${selectedDate.toLocaleDateString("vi-VN")}`
+                    : "Lọc theo ngày"}
+                </span>
+                {selectedDate && (
+                  <div
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedDate(null);
+                    }}
+                    className="ml-1 p-0.5 rounded-full hover:bg-primary/20 transition-colors"
+                  >
+                    <X size={14} />
+                  </div>
+                )}
+              </Button>
+            }
+            content={(close) => (
+              <Calendar
+                selected={selectedDate || undefined}
+                onSelect={(date) => {
+                  setSelectedDate(date);
+                  close();
+                }}
+              />
+            )}
+          />
         </div>
 
         {/* Refresh Data */}
@@ -655,7 +600,11 @@ export const PaymentManager: React.FC = () => {
                   colSpan={6}
                   className="p-16 text-center text-slate-400 font-medium italic"
                 >
-                  Không tìm thấy dữ liệu phù hợp trong khoảng thời gian đã chọn.
+                  {searchTerm 
+                    ? `Không tìm thấy dữ liệu khớp với "${searchTerm}".`
+                    : selectedDate 
+                    ? `Không tìm thấy giao dịch nào trong ngày ${selectedDate.toLocaleDateString("vi-VN")}.`
+                    : "Không có dữ liệu thanh toán phù hợp."}
                 </td>
               </tr>
             ) : (
