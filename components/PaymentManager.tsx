@@ -165,11 +165,21 @@ export const PaymentManager: React.FC = () => {
           t.isEnhanced === true ||
           (t.route || "").toLowerCase().includes("tăng cường");
         
-        // Fallback nhận diện loại xe cho các bản ghi cũ thiếu busType
+        // Cải tiến fallback nhận diện loại xe
         let type = t.busType;
         if (!type) {
-            const hasCabinLabels = seats.some((s: string) => s.startsWith('A') || s.startsWith('B'));
-            type = hasCabinLabels ? BusType.CABIN : BusType.SLEEPER;
+            // Xe Giường đơn (SLEEPER) thường dùng số thuần túy hoặc tiền tố B1-, B2- cho bench.
+            // Xe Cabin (CABIN) luôn có ít nhất 1 ghế bắt đầu bằng 'A' hoặc 'B' (A1, B1...) theo quy tắc phòng.
+            // Tuy nhiên, để tránh nhầm Bench của Sleeper, ta kiểm tra số lượng ghế có tiền tố A.
+            const hasRoomA = seats.some((s: string) => s.startsWith('A'));
+            const onlyNumbers = seats.every((s: string) => /^\d+$/.test(s));
+            
+            if (hasRoomA) type = BusType.CABIN;
+            else if (onlyNumbers) type = BusType.SLEEPER;
+            else {
+                // Nếu có tiền tố B nhưng không có A -> Rất có thể là bench của Sleeper
+                type = BusType.SLEEPER;
+            }
         }
 
         seats.forEach((sId: string) => {
@@ -177,7 +187,6 @@ export const PaymentManager: React.FC = () => {
           if (p.type === "payment") {
             paidSeatMap.set(key, { type, isEnhanced });
           } else if (p.type === "refund") {
-            // Chỉ xóa khỏi map nếu bản ghi hoàn tiền là dành cho ghế này
             paidSeatMap.delete(key);
           }
         });
@@ -189,12 +198,14 @@ export const PaymentManager: React.FC = () => {
     let enhancedTickets = 0;
 
     paidSeatMap.forEach((val) => {
-      // Đếm theo loại xe
-      if (val.type === BusType.CABIN) cabinTickets++;
-      else sleeperTickets++;
-      
-      // Đếm theo chiều kích Tăng cường độc lập
-      if (val.isEnhanced) enhancedTickets++;
+      // Đếm Tăng cường như một chiều kích độc lập (Tổng số vé tăng cường bất kể loại xe)
+      if (val.isEnhanced) {
+          enhancedTickets++;
+      } else {
+          // Chỉ đếm vào xe cố định nếu không phải tăng cường
+          if (val.type === BusType.CABIN) cabinTickets++;
+          else sleeperTickets++;
+      }
     });
 
     // Vé BOOKED (Chưa trả tiền): Duyệt bookings, đếm seatId KHÔNG nằm trong paidSeatMap
@@ -284,11 +295,6 @@ export const PaymentManager: React.FC = () => {
     return [];
   }
 
-  /**
-   * Tính toán thay đổi giữa các phiên bản ghế.
-   * Cải tiến: Nếu giao dịch là 'incremental' (thanh toán lẻ), nó chỉ hiển thị ghế MỚI,
-   * không hiểu lầm là các ghế cũ bị xóa.
-   */
   function calculateDiff(prevTrips: any[], currPayment: any) {
     const currTrips = normalizeTrips(currPayment.details);
     const isIncremental = currPayment.transactionType === "incremental";
@@ -314,8 +320,6 @@ export const PaymentManager: React.FC = () => {
       const seatDiffs: any[] = [];
 
       if (isIncremental) {
-        // Thanh toán lẻ: Chỉ hiển thị các ghế có trong Curr là 'added'
-        // Không so sánh với Prev để tránh hiện 'removed'
         cSeats.forEach((s) => {
           let price = 0;
           if (currT.tickets) {
@@ -325,7 +329,6 @@ export const PaymentManager: React.FC = () => {
           seatDiffs.push({ id: s, status: "added", price });
         });
       } else {
-        // Giao dịch toàn phần: So sánh 2 tập hợp
         const allSeats = new Set([...pSeats, ...cSeats]);
         allSeats.forEach((s) => {
           const inPrev = pSeats.has(s);
@@ -445,7 +448,7 @@ export const PaymentManager: React.FC = () => {
           <div className="grid grid-cols-3 gap-3">
             <div className="bg-indigo-50/40 p-3 rounded-xl border border-indigo-100 flex flex-col items-center shadow-sm">
               <p className="text-[10px] font-bold text-indigo-400 uppercase mb-1.5">
-                Xe Phòng VIP
+                Phòng VIP (Cố định)
               </p>
               <p className="text-2xl font-black text-indigo-700">
                 {stats.cabinTickets}
@@ -453,7 +456,7 @@ export const PaymentManager: React.FC = () => {
             </div>
             <div className="bg-sky-50/40 p-3 rounded-xl border border-sky-100 flex flex-col items-center shadow-sm">
               <p className="text-[10px] font-bold text-sky-500 uppercase mb-1.5">
-                Giường đơn
+                G.Đơn (Cố định)
               </p>
               <p className="text-2xl font-black text-sky-700">
                 {stats.sleeperTickets}
@@ -461,7 +464,7 @@ export const PaymentManager: React.FC = () => {
             </div>
             <div className="bg-amber-50/40 p-3 rounded-xl border border-amber-100 flex flex-col items-center shadow-sm">
               <p className="text-[10px] font-bold text-amber-500 uppercase mb-1.5">
-                Tăng cường
+                Tăng cường (Tổng)
               </p>
               <p className="text-2xl font-black text-amber-700">
                 {stats.enhancedTickets}
@@ -598,7 +601,6 @@ export const PaymentManager: React.FC = () => {
         </table>
       </div>
 
-      {/* DETAIL MODAL (TIMELINE) */}
       <Dialog
         isOpen={!!selectedGroup}
         onClose={() => {

@@ -233,6 +233,22 @@ const processPaymentUpdate = async (booking, newPaymentState) => {
   if (transferDelta === 0 && cashDelta !== 0) method = "cash";
   else if (cashDelta === 0 && transferDelta !== 0) method = "transfer";
 
+  // Cải tiến: Luôn đảm bảo trip metadata đầy đủ nhất
+  const enrichedTrips = await Promise.all(booking.items.map(async (i) => {
+      const trip = await Trip.findById(i.tripId);
+      const route = trip ? await Route.findById(trip.routeId) : null;
+      return {
+        tripId: i.tripId,
+        route: i.route,
+        tripDate: i.tripDate,
+        licensePlate: i.licensePlate,
+        seats: i.seatIds,
+        tickets: i.tickets,
+        busType: i.busType || trip?.type || 'SLEEPER',
+        isEnhanced: i.isEnhanced || route?.isEnhanced || false
+      };
+  }));
+
   const paymentRecord = new Payment({
     bookingId: booking._id,
     totalAmount: totalDelta,
@@ -248,16 +264,7 @@ const processPaymentUpdate = async (booking, newPaymentState) => {
       tripDate: booking.items[0]?.tripDate,
       route: booking.items[0]?.route,
       licensePlate: booking.items[0]?.licensePlate,
-      trips: booking.items.map(i => ({
-        tripId: i.tripId,
-        route: i.route,
-        tripDate: i.tripDate,
-        licensePlate: i.licensePlate,
-        seats: i.seatIds,
-        tickets: i.tickets,
-        busType: i.busType,
-        isEnhanced: i.isEnhanced
-      }))
+      trips: enrichedTrips
     },
   });
   await paymentRecord.save();
@@ -404,7 +411,6 @@ app.post("/api/bookings", async (req, res) => {
     
     await logBookingAction(booking._id, "CREATE", `Tạo đơn hàng`, { trips: logTripDetails, totalTickets: calculatedTotalTickets });
     
-    // YÊU CẦU: Không tạo giao dịch payment nếu là trạng thái hold
     if (finalStatus !== 'hold' && (totalPaid > 0 || payment)) {
         await processPaymentUpdate(booking, payment);
     }
@@ -491,7 +497,6 @@ app.put("/api/bookings/:id", async (req, res) => {
     oldBooking.updatedAt = new Date().toISOString();
     await oldBooking.save();
     
-    // YÊU CẦU: Không tạo giao dịch payment nếu là trạng thái hold
     if (finalStatus !== 'hold') {
         await processPaymentUpdate(oldBooking, payment);
     }
@@ -752,7 +757,6 @@ app.patch("/api/bookings/:id/tickets/:seatId", async (req, res) => {
 
         const refundAmount = targetTicket.price || 0;
         
-        // YÊU CẦU: Chỉ tạo bản ghi hoàn tiền nếu đơn hàng không phải là Hold và có số tiền hoàn > 0
         if (refundAmount > 0 && booking.status !== 'hold') {
             const paymentRec = new Payment({
                 bookingId: booking._id,
@@ -846,11 +850,6 @@ app.post("/api/settings", async (req, res) => {
   try { const { key, value } = req.body; const setting = await Setting.findOneAndUpdate({ key }, { value }, { upsert: true, new: true }); res.json(setting.value); } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-/**
- * THUẬT TOÁN BẢO TRÌ NÂNG CẤP: LẤY BOOKING LÀM GỐC
- * Bổ sung ghi chú chi tiết từng thay đổi
- * CẬP NHẬT: Đối soát chi tiết từng ghế (Granular seat status check)
- */
 app.post("/api/maintenance/fix-seats", async (req, res) => {
   try {
     const allBookings = await Booking.find({ status: { $ne: 'cancelled' } });
@@ -859,9 +858,8 @@ app.post("/api/maintenance/fix-seats", async (req, res) => {
     let fixedCount = 0;
     let conflictCount = 0;
     let syncCount = 0;
-    const logs = []; // Danh sách chi tiết các ghế được sửa
+    const logs = [];
 
-    // 1. Map Booking Occupancy (Nguồn dữ liệu thật cho sơ đồ ghế)
     const bookingOccupancy = new Map();
     allBookings.forEach(b => {
         b.items.forEach(item => {
@@ -883,7 +881,6 @@ app.post("/api/maintenance/fix-seats", async (req, res) => {
         });
     });
 
-    // 2. Thực hiện sửa lỗi từng Chuyến xe
     for (const trip of allTrips) {
         let isModified = false;
         const tripId = trip._id.toString();
@@ -893,10 +890,8 @@ app.post("/api/maintenance/fix-seats", async (req, res) => {
             const key = `${tripId}_${s.id}`;
             const bookingsInSeat = bookingOccupancy.get(key) || [];
             
-            // LỖI 1: NHIỀU ĐƠN HÀNG TRÙNG GHẾ (CONFLICT)
             if (bookingsInSeat.length > 1) {
                 conflictCount++;
-                // Ưu tiên đơn có giá vé cao hơn hoặc cập nhật mới nhất
                 bookingsInSeat.sort((a, b) => {
                     return (b.ticketPrice - a.ticketPrice) || (new Date(b.updatedAt) - new Date(a.updatedAt));
                 });
@@ -930,20 +925,13 @@ app.post("/api/maintenance/fix-seats", async (req, res) => {
                 });
             }
 
-            // LỖI 2: ĐỒNG BỘ TRẠNG THÁI GHẾ TRÊN SƠ ĐỒ
             const activeBooking = bookingsInSeat[0];
 
             if (activeBooking) {
-                // QUY TẶC PHÂN LOẠI MÀU (Trạng thái ghế):
-                // CẬP NHẬT THEO YÊU CẦU: Ưu tiên tiền vé lẻ để quyết định Xanh/Vàng
-                // Nếu tiền vé = 0 thì LUÔN là 'booked' (Vàng)
-                
                 let targetStatus = 'booked';
-                
                 if (activeBooking.bookingStatus === 'hold') {
                     targetStatus = 'held';
                 } else {
-                    // Nếu là đơn 'booking' hoặc 'payment', kiểm tra số tiền từng ghế
                     targetStatus = activeBooking.ticketPrice > 0 ? 'sold' : 'booked';
                 }
 
@@ -960,7 +948,6 @@ app.post("/api/maintenance/fix-seats", async (req, res) => {
                     return { ...s, status: targetStatus };
                 }
             } else {
-                // GIẢI PHÓNG GHẾ MA
                 if (s.status !== 'available') {
                     isModified = true;
                     fixedCount++;
@@ -990,21 +977,14 @@ app.post("/api/maintenance/fix-seats", async (req, res) => {
   }
 });
 
-/**
- * CÔNG CỤ BẢO TRÌ DÒNG TIỀN (PAYMENT CLEANUP)
- * Lọc và xóa bỏ các giao dịch thanh toán gắn với đơn hàng trạng thái 'Hold'
- */
 app.post("/api/maintenance/fix-payments", async (req, res) => {
   try {
     const logs = [];
     let deletedCount = 0;
-
-    // Lấy tất cả payments và populate booking status
     const allPayments = await Payment.find().populate('bookingId');
 
     for (const payment of allPayments) {
       if (payment.bookingId && payment.bookingId.status === 'hold') {
-        // Phát hiện thanh toán gắn với đơn Hold -> Xóa
         await Payment.findByIdAndDelete(payment._id);
         deletedCount++;
         logs.push({
@@ -1015,7 +995,6 @@ app.post("/api/maintenance/fix-payments", async (req, res) => {
           details: `Giao dịch ${payment.totalAmount.toLocaleString()}đ bị xóa vì đơn hàng đang ở trạng thái HOLD.`
         });
       } else if (!payment.bookingId) {
-        // Trường hợp đơn hàng đã bị xóa hẳn khỏi DB nhưng Payment vẫn còn (Orphaned)
         await Payment.findByIdAndDelete(payment._id);
         deletedCount++;
         logs.push({
