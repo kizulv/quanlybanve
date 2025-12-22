@@ -39,7 +39,7 @@ interface PaymentGroup {
   tripInfo: {
     route: string;
     date: string;
-    seats: { label: string; isPaid: boolean }[];
+    seats: { label: string; status: 'paid' | 'booked' | 'refunded' }[];
   };
   payments: any[];
   totalCollected: number;
@@ -96,6 +96,7 @@ export const PaymentManager: React.FC = () => {
           tripDate: details.tripDate,
           licensePlate: details.licensePlate,
           seats: details.seats || [],
+          labels: details.labels || [],
           tripId: details.tripId,
         },
       ];
@@ -139,45 +140,48 @@ export const PaymentManager: React.FC = () => {
     });
 
     Object.values(groups).forEach((g) => {
-      // Find current booking state to determine seat status (Paid/Booked)
+      // 1. Tìm đơn hàng hiện tại để biết ghế nào CÒN HOẠT ĐỘNG
       const currentBooking = bookings.find(b => b.id === g.bookingId);
-      const paidSeatLabels = new Set<string>();
-      const bookedSeatLabels = new Set<string>();
+      const activePaidLabels = new Set<string>();
+      const activeBookedLabels = new Set<string>();
 
-      if (currentBooking) {
+      if (currentBooking && currentBooking.status !== 'cancelled') {
         currentBooking.items.forEach(item => {
-          item.tickets?.forEach(ticket => {
-            if (ticket.price > 0) paidSeatLabels.add(ticket.seatId); // Assuming label matches seatId here or used as label
-            else bookedSeatLabels.add(ticket.seatId);
-          });
-          // Fallback if no tickets detail
-          if (!item.tickets && item.seatIds) {
+          if (item.tickets && item.tickets.length > 0) {
+            item.tickets.forEach(ticket => {
+              // Cần ánh xạ seatId sang label nếu database lưu seatId
+              // Trong hệ thống này thường seatId và label tương đồng trong snapshot
+              if (ticket.price > 0) activePaidLabels.add(ticket.seatId);
+              else activeBookedLabels.add(ticket.seatId);
+            });
+          } else {
+            // Fallback
             item.seatIds.forEach(sid => {
-              if (currentBooking.status === 'payment') paidSeatLabels.add(sid);
-              else bookedSeatLabels.add(sid);
+              if (currentBooking.status === 'payment') activePaidLabels.add(sid);
+              else activeBookedLabels.add(sid);
             });
           }
         });
       }
 
-      // Collect all labels from payments history too
+      // 2. Thu thập TẤT CẢ ghế từng xuất hiện trong lịch sử
       const allLabelsInHistory = new Set<string>();
       g.payments.forEach((p) => {
         const pTrips = normalizeTrips(p.details);
         pTrips.forEach((t: any) => {
-          const seatIdentities = t.labels || t.seats || [];
-          seatIdentities.forEach((s: string) => allLabelsInHistory.add(s));
+          const labels = t.labels && t.labels.length > 0 ? t.labels : t.seats;
+          if (labels) labels.forEach((l: string) => allLabelsInHistory.add(l));
         });
       });
 
-      // Map unique labels to current status
+      // 3. Phân loại trạng thái ghế dựa trên đối soát
       g.tripInfo.seats = Array.from(allLabelsInHistory)
         .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
-        .map(label => ({
-          label,
-          // Seat is considered paid if it's currently in a paid ticket
-          isPaid: paidSeatLabels.has(label)
-        }));
+        .map(label => {
+          if (activePaidLabels.has(label)) return { label, status: 'paid' as const };
+          if (activeBookedLabels.has(label)) return { label, status: 'booked' as const };
+          return { label, status: 'refunded' as const }; // Có trong lịch sử nhưng ko có trong đơn hiện tại = Đã hủy
+        });
     });
 
     return Object.values(groups).sort(
@@ -187,7 +191,6 @@ export const PaymentManager: React.FC = () => {
 
   // --- STRICT STATS CALCULATION ---
   const stats = useMemo(() => {
-    // 1. Dòng tiền thực tế
     let cashTotal = 0;
     let transferTotal = 0;
     payments.forEach((p) => {
@@ -195,7 +198,6 @@ export const PaymentManager: React.FC = () => {
       transferTotal += p.transferAmount || 0;
     });
 
-    // 2. Thống kê số lượng vé
     let cabinTickets = 0;
     let sleeperTickets = 0;
     let enhancedTickets = 0;
@@ -245,7 +247,6 @@ export const PaymentManager: React.FC = () => {
     };
   }, [payments, bookings]);
 
-  // --- FILTER LOGIC ---
   const filteredGroups = useMemo(() => {
     if (!searchTerm.trim()) return groupedPayments;
     const lower = searchTerm.toLowerCase();
@@ -260,7 +261,6 @@ export const PaymentManager: React.FC = () => {
     );
   }, [groupedPayments, searchTerm]);
 
-  // --- HANDLERS ---
   const startEditNote = (payment: any) => {
     setEditingPaymentId(payment.id);
     setEditNote(payment.note || "");
@@ -308,18 +308,17 @@ export const PaymentManager: React.FC = () => {
       const prevT = prevMap.get(key);
       const currT = currMap.get(key);
 
-      const pSeats = new Set(prevT ? prevT.labels || prevT.seats || [] : []);
-      const cSeats = new Set(currT ? currT.labels || currT.seats || [] : []);
+      const pSeats = new Set(prevT ? (prevT.labels?.length ? prevT.labels : prevT.seats) : []);
+      const cSeats = new Set(currT ? (currT.labels?.length ? currT.labels : currT.seats) : []);
+      
       const meta = currT || prevT || {};
       const seatDiffs: any[] = [];
 
       if (isIncremental) {
-        // FIX logic: Nếu là giao dịch lẻ, trạng thái phụ thuộc vào loại p.type (payment hay refund)
         const status = currPayment.type === "refund" ? "removed" : "added";
         cSeats.forEach((s) => {
           let price = 0;
           if (currT.tickets) {
-            // Thử tìm giá theo label/seatId
             const t = currT.tickets.find(
               (tic: any) => tic.label === s || tic.seatId === s
             );
@@ -380,7 +379,6 @@ export const PaymentManager: React.FC = () => {
     <div className="mx-auto space-y-6 animate-in fade-in duration-500">
       {/* STATS CARDS */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* DOANH THU THỰC TẾ */}
         <div className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm flex flex-col justify-between">
           <div className="flex justify-between items-center mb-6">
             <div className="flex items-center gap-3">
@@ -425,7 +423,6 @@ export const PaymentManager: React.FC = () => {
           </div>
         </div>
 
-        {/* THỐNG KÊ VÉ ĐÃ THU */}
         <div className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm flex flex-col justify-between">
           <div className="flex justify-between items-center mb-6">
             <div className="flex items-center gap-3">
@@ -437,7 +434,7 @@ export const PaymentManager: React.FC = () => {
                   Thống kê số lượng vé
                 </h3>
                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                  Chỉ đếm các vé đã thu tiền
+                  Chỉ đếm các vé chưa hủy
                 </p>
               </div>
             </div>
@@ -548,18 +545,21 @@ export const PaymentManager: React.FC = () => {
                   <td className="py-2">
                     <div className="flex flex-col gap-1">
                       <div className="flex flex-wrap gap-1 mt-1.5">
-                        {group.tripInfo.seats.map((s, i) => (
-                          <Badge
-                            key={i}
-                            className={`text-xs font-black px-3 h-6 border shadow-sm ${
-                              s.isPaid 
-                                ? "bg-blue-50 text-blue-600 border-blue-200" 
-                                : "bg-orange-50 text-orange-600 border-orange-200"
-                            }`}
-                          >
-                            {s.label}
-                          </Badge>
-                        ))}
+                        {group.tripInfo.seats.map((s, i) => {
+                          let badgeClass = "";
+                          if (s.status === 'refunded') {
+                            badgeClass = "bg-slate-50 text-slate-600 border-slate-200 line-through decoration-slate-400 opacity-60";
+                          } else if (s.status === 'paid') {
+                            badgeClass = "bg-blue-50 text-blue-600 border-blue-200 font-black shadow-sm";
+                          } else {
+                            badgeClass = "bg-orange-50 text-orange-600 border-orange-200 font-bold shadow-sm";
+                          }
+                          return (
+                            <Badge key={i} className={`text-xs px-3 h-6 border ${badgeClass}`}>
+                              {s.label}
+                            </Badge>
+                          );
+                        })}
                       </div>
                     </div>
                   </td>
@@ -830,9 +830,8 @@ export const PaymentManager: React.FC = () => {
                                             (s: any, i: number) => {
                                               let badgeClass = "";
                                               if (s.status === "removed") {
-                                                badgeClass = "bg-slate-50 text-slate-500 border-slate-200 line-through opacity-70";
+                                                badgeClass = "bg-slate-50 text-slate-600 border-slate-200 line-through decoration-slate-400 opacity-60";
                                               } else {
-                                                // added or kept
                                                 if (s.price > 0) {
                                                   badgeClass = "bg-blue-50 text-blue-600 border-blue-200 font-black shadow-sm";
                                                 } else {
