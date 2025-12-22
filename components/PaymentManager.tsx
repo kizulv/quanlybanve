@@ -464,19 +464,19 @@ export const PaymentManager: React.FC = () => {
 
           <div className="grid grid-cols-2 gap-4">
             <div className="bg-slate-50/80 p-4 rounded-xl border border-slate-100">
-              <p className="text-[10px] font-bold text-slate-400 uppercase mb-1.5 flex items-center gap-1.5">
+              <div className="text-[10px] font-bold text-slate-400 uppercase mb-1.5 flex items-center gap-1.5">
                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>{" "}
                 Tiền mặt
-              </p>
+              </div>
               <p className="text-lg font-black text-slate-800 tracking-tight">
                 {stats.cashTotal.toLocaleString("vi-VN")} đ
               </p>
             </div>
             <div className="bg-slate-50/80 p-4 rounded-xl border border-slate-100">
-              <p className="text-[10px] font-bold text-slate-400 uppercase mb-1.5 flex items-center gap-1.5">
+              <div className="text-[10px] font-bold text-slate-400 uppercase mb-1.5 flex items-center gap-1.5">
                 <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>{" "}
                 Chuyển khoản
-              </p>
+              </div>
               <p className="text-lg font-black text-slate-800 tracking-tight">
                 {stats.transferTotal.toLocaleString("vi-VN")} đ
               </p>
