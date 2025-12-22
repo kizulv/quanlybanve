@@ -233,6 +233,9 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
   const isBooked = seat.status === SeatStatus.BOOKED;
   const isHeld = seat.status === SeatStatus.HELD;
 
+  // Cột bên phải chỉ hiển thị khi vé ở trạng thái BOOKED (để thu tiền lẻ)
+  const showRightPanel = isBooked;
+
   return (
     <Dialog
       isOpen={isOpen}
@@ -241,15 +244,15 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
         isSold ? "Đã thanh toán" : isBooked ? "Đã đặt vé" : "Đang giữ"
       }`}
       className={`${
-        isSold ? "max-w-md" : "max-w-3xl"
+        !showRightPanel ? "max-w-md" : "max-w-3xl"
       } bg-indigo-950 text-white border-indigo-900 rounded-xl overflow-hidden transition-all duration-300`}
       headerClassName="h-[40px] bg-gradient-to-r from-indigo-950 via-indigo-900 to-indigo-950 border-indigo-900 text-white"
     >
-      <div className="flex flex-col md:flex-row h-full md:h-[290px]">
+      <div className="flex flex-col md:flex-row h-full md:h-[300px]">
         {/* LEFT: Customer Info */}
         <div
           className={`flex-1 overflow-y-auto p-4 ${
-            !isSold ? "border-r border-indigo-900/50" : ""
+            showRightPanel ? "border-r border-indigo-900/50" : ""
           } bg-indigo-950 space-y-4`}
         >
           <div className="space-y-3">
@@ -375,17 +378,41 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
             </div>
           </div>
 
-          <Button
-            onClick={handleSaveOnly}
-            disabled={isSaving}
-            className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold h-9 text-sm border border-indigo-700 shadow-sm"
-          >
-            <Save size={14} className="mr-2" /> Cập nhật thông tin
-          </Button>
+          <div className="flex gap-2 pt-2">
+            <Button
+              onClick={handleSaveOnly}
+              disabled={isSaving}
+              className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold h-9 text-xs border border-indigo-700 shadow-sm"
+            >
+              <Save size={14} className="mr-1" /> Cập nhật
+            </Button>
+            
+            {/* Nếu là vé HOLD, hiển thị nút Hủy ngay tại bảng điều khiển chính */}
+            {isHeld && (
+              <Button
+                onClick={handleRefundSeat}
+                disabled={isSaving}
+                className="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold h-9 text-xs border border-red-700 shadow-sm"
+              >
+                <Trash2 size={14} className="mr-1" /> Hủy giữ chỗ
+              </Button>
+            )}
+            
+            {/* Có thể thêm nút Hủy vé cho cả vé BOOKED ở đây nếu cần */}
+            {isBooked && (
+                <Button
+                    onClick={handleRefundSeat}
+                    disabled={isSaving}
+                    className="flex-1 bg-red-900/40 hover:bg-red-800 text-red-100 font-bold h-9 text-xs border border-red-900 shadow-sm"
+                >
+                    <Trash2 size={14} className="mr-1" /> Hủy vé
+                </Button>
+            )}
+          </div>
         </div>
 
-        {/* RIGHT: Financial Actions / Cancel Actions */}
-        {!isSold && (
+        {/* RIGHT: Financial Actions (Chỉ hiển thị cho vé BOOKED để thu tiền) */}
+        {showRightPanel && (
           <div className="w-full md:w-[280px] bg-indigo-900/20 p-4 flex flex-col gap-4 border-t md:border-t-0 md:border-l border-indigo-900/50 shadow-xl overflow-y-auto animate-in fade-in duration-300">
             <div className="bg-indigo-900/50 rounded-lg p-3 border border-indigo-800 space-y-3 shadow-inner mt-2">
               <div className="flex items-center gap-2 text-indigo-400 text-[10px] font-black uppercase tracking-widest">
@@ -397,85 +424,60 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
               </div>
             </div>
 
-            {isBooked && (
-              <div className="space-y-3 animate-in fade-in slide-in-from-right-2 duration-300 mt-[2px]">
-                <div className="text-[10px] font-black text-indigo-400 uppercase tracking-widest px-1 flex items-center gap-2">
-                  <CreditCard size={12} className="text-emerald-400" /> Thu tiền
-                  lẻ ghế này
-                </div>
-
-                <div className="space-y-2">
-                  <div className="relative group">
-                    <div className="absolute left-2.5 top-2 text-indigo-500 group-focus-within:text-green-500 transition-colors">
-                      <DollarSign size={14} />
-                    </div>
-                    <input
-                      title="Số tiền thu bằng tiền mặt"
-                      name="paidCash"
-                      className="w-full pl-8 pr-10 py-1.5 bg-indigo-950 border border-indigo-800 rounded text-right font-bold text-xs text-white focus:border-green-500 outline-none transition-all"
-                      value={paymentInput.paidCash.toLocaleString("vi-VN")}
-                      onChange={handleMoneyChange}
-                    />
-                    <span className="absolute right-2.5 top-2 text-[9px] font-black text-indigo-700">
-                      TM
-                    </span>
-                  </div>
-                  <div className="relative group">
-                    <div className="absolute left-2.5 top-2 text-indigo-500 group-focus-within:text-blue-500 transition-colors">
-                      <CreditCard size={14} />
-                    </div>
-                    <input
-                      title="Số tiền thu bằng chuyển khoản"
-                      name="paidTransfer"
-                      className="w-full pl-8 pr-10 py-1.5 bg-indigo-950 border border-indigo-800 rounded text-right font-bold text-xs text-white focus:border-blue-500 outline-none transition-all"
-                      value={paymentInput.paidTransfer.toLocaleString("vi-VN")}
-                      onChange={handleMoneyChange}
-                    />
-                    <span className="absolute right-2.5 top-2 text-[9px] font-black text-indigo-700">
-                      CK
-                    </span>
-                  </div>
-                </div>
-
-                <Button
-                  onClick={handlePaySeat}
-                  disabled={
-                    isSaving ||
-                    paymentInput.paidCash + paymentInput.paidTransfer === 0
-                  }
-                  className="w-full bg-green-600 hover:bg-green-500 text-white font-black uppercase text-[10px] h-9 shadow-lg shadow-green-900/20 border border-green-700"
-                >
-                  {isSaving ? (
-                    <Loader2 className="animate-spin mr-2" size={14} />
-                  ) : (
-                    <CheckCircle2 size={14} className="mr-2" />
-                  )}
-                  Xác nhận thu tiền
-                </Button>
+            <div className="space-y-3 animate-in fade-in slide-in-from-right-2 duration-300 mt-[2px]">
+              <div className="text-[10px] font-black text-indigo-400 uppercase tracking-widest px-1 flex items-center gap-2">
+                <CreditCard size={12} className="text-emerald-400" /> Thu tiền lẻ ghế này
               </div>
-            )}
 
-            {isHeld && (
-              <div className="space-y-4 animate-in fade-in slide-in-from-right-2 duration-300 mt-2">
-                <div className="bg-purple-900/30 p-3 rounded-lg border border-purple-800/50 flex items-start gap-2">
-                   <AlertTriangle size={16} className="text-purple-400 shrink-0 mt-0.5" />
-                   <p className="text-[10px] text-purple-300 italic">Ghế đang được giữ chỗ. Bạn có thể cập nhật thông tin khách hoặc hủy lệnh giữ chỗ này.</p>
+              <div className="space-y-2">
+                <div className="relative group">
+                  <div className="absolute left-2.5 top-2 text-indigo-500 group-focus-within:text-green-500 transition-colors">
+                    <DollarSign size={14} />
+                  </div>
+                  <input
+                    title="Số tiền thu bằng tiền mặt"
+                    name="paidCash"
+                    className="w-full pl-8 pr-10 py-1.5 bg-indigo-950 border border-indigo-800 rounded text-right font-bold text-xs text-white focus:border-green-500 outline-none transition-all"
+                    value={paymentInput.paidCash.toLocaleString("vi-VN")}
+                    onChange={handleMoneyChange}
+                  />
+                  <span className="absolute right-2.5 top-2 text-[9px] font-black text-indigo-700">
+                    TM
+                  </span>
                 </div>
-
-                <Button
-                  onClick={handleRefundSeat}
-                  disabled={isSaving}
-                  className="w-full bg-red-600 hover:bg-red-500 text-white font-black uppercase text-[10px] h-9 shadow-lg shadow-red-900/20 border border-red-700"
-                >
-                  {isSaving ? (
-                    <Loader2 className="animate-spin mr-2" size={14} />
-                  ) : (
-                    <Trash2 size={14} className="mr-2" />
-                  )}
-                  Hủy giữ chỗ
-                </Button>
+                <div className="relative group">
+                  <div className="absolute left-2.5 top-2 text-indigo-500 group-focus-within:text-blue-500 transition-colors">
+                    <CreditCard size={14} />
+                  </div>
+                  <input
+                    title="Số tiền thu bằng chuyển khoản"
+                    name="paidTransfer"
+                    className="w-full pl-8 pr-10 py-1.5 bg-indigo-950 border border-indigo-800 rounded text-right font-bold text-xs text-white focus:border-blue-500 outline-none transition-all"
+                    value={paymentInput.paidTransfer.toLocaleString("vi-VN")}
+                    onChange={handleMoneyChange}
+                  />
+                  <span className="absolute right-2.5 top-2 text-[9px] font-black text-indigo-700">
+                    CK
+                  </span>
+                </div>
               </div>
-            )}
+
+              <Button
+                onClick={handlePaySeat}
+                disabled={
+                  isSaving ||
+                  paymentInput.paidCash + paymentInput.paidTransfer === 0
+                }
+                className="w-full bg-green-600 hover:bg-green-500 text-white font-black uppercase text-[10px] h-9 shadow-lg shadow-green-900/20 border border-green-700"
+              >
+                {isSaving ? (
+                  <Loader2 className="animate-spin mr-2" size={14} />
+                ) : (
+                  <CheckCircle2 size={14} className="mr-2" />
+                )}
+                Xác nhận thu tiền
+              </Button>
+            </div>
           </div>
         )}
       </div>
