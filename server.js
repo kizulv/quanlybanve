@@ -152,6 +152,7 @@ const paymentSchema = new mongoose.Schema(
     performedBy: String,
     details: {
       seats: [String],
+      labels: [String], // NEW: Store human readable labels
       tripDate: String,
       route: String,
       licensePlate: String,
@@ -237,13 +238,24 @@ const processPaymentUpdate = async (booking, newPaymentState) => {
   const enrichedTrips = await Promise.all(booking.items.map(async (i) => {
       const trip = await Trip.findById(i.tripId);
       const route = trip ? await Route.findById(trip.routeId) : null;
+      
+      // Thu thập nhãn ghế cho báo cáo chính xác
+      const seatLabels = i.seatIds.map(sid => {
+          const seat = trip?.seats?.find(s => s.id === sid);
+          return seat ? seat.label : sid;
+      });
+
       return {
         tripId: i.tripId,
         route: i.route,
         tripDate: i.tripDate,
         licensePlate: i.licensePlate,
         seats: i.seatIds,
-        tickets: i.tickets,
+        labels: seatLabels, // Store labels!
+        tickets: i.tickets.map(t => {
+            const seat = trip?.seats?.find(s => s.id === t.seatId);
+            return { ...t.toObject(), label: seat ? seat.label : t.seatId };
+        }),
         busType: i.busType || trip?.type || 'SLEEPER',
         isEnhanced: i.isEnhanced || route?.isEnhanced || false
       };
@@ -261,6 +273,7 @@ const processPaymentUpdate = async (booking, newPaymentState) => {
     timestamp: new Date(),
     details: {
       seats: booking.items.flatMap(i => i.seatIds),
+      labels: enrichedTrips.flatMap(et => et.labels),
       tripDate: booking.items[0]?.tripDate,
       route: booking.items[0]?.route,
       licensePlate: booking.items[0]?.licensePlate,
@@ -702,8 +715,11 @@ app.patch("/api/bookings/:id/tickets/:seatId", async (req, res) => {
     if (phone) booking.passenger.phone = phone;
     if (name) booking.passenger.name = name;
 
+    const trip = await Trip.findById(targetItem.tripId);
+    const targetSeat = trip?.seats?.find(s => s.id === seatId);
+    const label = targetSeat ? targetSeat.label : seatId;
+
     if (action === 'PAY' && payment) {
-        const trip = await Trip.findById(targetItem.tripId);
         if (trip) {
             trip.seats = trip.seats.map(s => s.id === seatId ? { ...s, status: 'sold' } : s);
             trip.markModified("seats");
@@ -721,10 +737,11 @@ app.patch("/api/bookings/:id/tickets/:seatId", async (req, res) => {
             type: 'payment',
             transactionType: 'incremental', 
             method: (payment.paidCash && payment.paidTransfer) ? 'mixed' : (payment.paidCash ? 'cash' : 'transfer'),
-            note: `Thanh toán lẻ ghế ${seatId}`,
+            note: `Thanh toán lẻ ghế ${label}`,
             timestamp: new Date(),
             details: {
                 seats: [seatId],
+                labels: [label],
                 tripDate: targetItem.tripDate,
                 route: targetItem.route,
                 licensePlate: targetItem.licensePlate,
@@ -734,7 +751,8 @@ app.patch("/api/bookings/:id/tickets/:seatId", async (req, res) => {
                     tripDate: targetItem.tripDate,
                     licensePlate: targetItem.licensePlate,
                     seats: [seatId],
-                    tickets: [targetTicket],
+                    labels: [label],
+                    tickets: [{ ...targetTicket.toObject(), label }],
                     busType: targetItem.busType,
                     isEnhanced: targetItem.isEnhanced
                 }]
@@ -744,11 +762,10 @@ app.patch("/api/bookings/:id/tickets/:seatId", async (req, res) => {
         
         targetItem.price = targetItem.tickets.reduce((sum, t) => sum + (t.price || 0), 0);
 
-        await logBookingAction(booking._id, "PAY_SEAT", `Thanh toán riêng cho ghế ${seatId}`, { seat: seatId, amount: paymentRec.totalAmount });
+        await logBookingAction(booking._id, "PAY_SEAT", `Thanh toán riêng cho ghế ${label}`, { seat: label, amount: paymentRec.totalAmount });
     }
 
     if (action === 'REFUND') {
-        const trip = await Trip.findById(targetItem.tripId);
         if (trip) {
             trip.seats = trip.seats.map(s => s.id === seatId ? { ...s, status: 'available' } : s);
             trip.markModified("seats");
@@ -766,10 +783,11 @@ app.patch("/api/bookings/:id/tickets/:seatId", async (req, res) => {
                 type: 'refund',
                 transactionType: 'incremental',
                 method: 'cash',
-                note: `Hoàn tiền & Hủy lẻ ghế ${seatId}`,
+                note: `Hoàn tiền & Hủy lẻ ghế ${label}`,
                 timestamp: new Date(),
                 details: {
                     seats: [seatId],
+                    labels: [label],
                     tripDate: targetItem.tripDate,
                     route: targetItem.route,
                     licensePlate: targetItem.licensePlate,
@@ -779,7 +797,8 @@ app.patch("/api/bookings/:id/tickets/:seatId", async (req, res) => {
                         tripDate: targetItem.tripDate,
                         licensePlate: targetItem.licensePlate,
                         seats: [seatId],
-                        tickets: [targetTicket],
+                        labels: [label],
+                        tickets: [{ ...targetTicket.toObject(), label }],
                         busType: targetItem.busType,
                         isEnhanced: targetItem.isEnhanced
                     }]
@@ -797,7 +816,7 @@ app.patch("/api/bookings/:id/tickets/:seatId", async (req, res) => {
         
         if (booking.totalTickets === 0) booking.status = 'cancelled';
 
-        await logBookingAction(booking._id, "REFUND_SEAT", `Hoàn vé lẻ ghế ${seatId}`, { seat: seatId, amount: refundAmount });
+        await logBookingAction(booking._id, "REFUND_SEAT", `Hoàn vé lẻ ghế ${label}`, { seat: label, amount: refundAmount });
     }
 
     booking.markModified("items");

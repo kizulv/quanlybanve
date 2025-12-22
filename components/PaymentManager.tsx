@@ -143,7 +143,9 @@ export const PaymentManager: React.FC = () => {
       g.payments.forEach((p) => {
         const pTrips = normalizeTrips(p.details);
         pTrips.forEach((t: any) => {
-          if (t.seats) t.seats.forEach((s: string) => allSeats.add(s));
+          // Ưu tiên hiển thị labels nếu backend đã hỗ trợ, nếu không dùng seats (ID)
+          const seatIdentities = t.labels || t.seats || [];
+          seatIdentities.forEach((s: string) => allSeats.add(s));
         });
       });
       g.tripInfo.seats = Array.from(allSeats).sort((a, b) =>
@@ -158,103 +160,49 @@ export const PaymentManager: React.FC = () => {
 
   // --- STRICT STATS CALCULATION ---
   const stats = useMemo(() => {
+    // 1. Dòng tiền thực tế
     let cashTotal = 0;
     let transferTotal = 0;
-    
-    // 1. Dòng tiền thực tế từ bảng thanh toán
     payments.forEach((p) => {
       cashTotal += p.cashAmount || 0;
       transferTotal += p.transferAmount || 0;
     });
 
-    /**
-     * 2. Thống kê vé ĐÃ THU TIỀN (Paid Seats)
-     * Quy tắc: Một ghế chỉ được tính là "Đã thu" nếu tổng thanh toán tích lũy cho nó là dương.
-     * Để đơn giản và chính xác, chúng ta duyệt qua tất cả giao dịch theo thời gian.
-     */
-    const paidSeatMap = new Map<string, { type: BusType; isEnhanced: boolean }>();
-
-    // Sắp xếp thanh toán theo thời gian tăng dần để rebuild trạng thái cuối cùng của từng ghế
-    const sortedPayments = [...payments].sort((a, b) => 
-      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-    );
-
-    sortedPayments.forEach((p) => {
-      const trips = normalizeTrips(p.details);
-      
-      trips.forEach((t: any) => {
-        const isEnhanced = !!(t.isEnhanced || (t.route || "").toLowerCase().includes("tăng cường"));
-        
-        // Xác định loại xe (fallback nếu thiếu busType)
-        let type = t.busType;
-        if (!type) {
-            const seats = t.seats || [];
-            const hasRoomPrefix = seats.some((s: string) => /^[A|B]\d+$/.test(s));
-            type = hasRoomPrefix ? BusType.CABIN : BusType.SLEEPER;
-        }
-
-        if (p.type === "payment") {
-            // Nếu có chi tiết từng vé (tickets), kiểm tra giá từng ghế
-            if (t.tickets && t.tickets.length > 0) {
-                t.tickets.forEach((ticket: any) => {
-                    const key = `${t.tripId}_${ticket.seatId}`;
-                    if (ticket.price > 0) {
-                        paidSeatMap.set(key, { type, isEnhanced });
-                    } else {
-                        // Nếu giá là 0 (đặt chỗ nhưng chưa thu), không tính vào "Đã thu"
-                        paidSeatMap.delete(key);
-                    }
-                });
-            } else if (t.seats) {
-                // Snapshot cũ không có tickets, dựa vào amount của record
-                t.seats.forEach((sId: string) => {
-                    const key = `${t.tripId || p.details.tripId}_${sId}`;
-                    if (p.amount > 0) paidSeatMap.set(key, { type, isEnhanced });
-                    else if (p.amount < 0) paidSeatMap.delete(key);
-                });
-            }
-        } else if (p.type === "refund") {
-            // Xóa ghế khỏi danh sách đã thu nếu bị hoàn tiền
-            const sList = t.seats || t.seatIds || [];
-            sList.forEach((sId: string) => {
-                const key = `${t.tripId || p.details.tripId}_${sId}`;
-                paidSeatMap.delete(key);
-            });
-        }
-      });
-    });
-
+    // 2. Thống kê số lượng vé
     let cabinTickets = 0;
     let sleeperTickets = 0;
     let enhancedTickets = 0;
-
-    paidSeatMap.forEach((val) => {
-      // Phân loại loại trừ lẫn nhau (Mutually Exclusive)
-      // Ưu tiên 1: Tăng cường
-      if (val.isEnhanced) {
-        enhancedTickets++;
-      } 
-      // Ưu tiên 2: Cabin (Xe phòng 22)
-      else if (val.type === BusType.CABIN) {
-        cabinTickets++;
-      } 
-      // Ưu tiên 3: Sleeper (Xe giường 41)
-      else {
-        sleeperTickets++;
-      }
-    });
-
-    // 3. Tính vé CHƯA THU (Booked): Bookings hợp lệ mà ghế KHÔNG nằm trong paidSeatMap
     let totalBooked = 0;
+    let totalTickets = 0;
+
     bookings.forEach((b) => {
       if (b.status === "cancelled" || b.status === "hold") return;
+      
       b.items.forEach((item) => {
-        item.seatIds.forEach((sId) => {
-          const key = `${item.tripId}_${sId}`;
-          if (!paidSeatMap.has(key)) {
-            totalBooked++;
-          }
-        });
+        const isItemEnhanced = !!(item.isEnhanced);
+        const itemBusType = item.busType || BusType.SLEEPER;
+
+        if (item.tickets && item.tickets.length > 0) {
+          item.tickets.forEach((ticket) => {
+            if (ticket.price > 0) {
+              totalTickets++;
+              if (isItemEnhanced) {
+                enhancedTickets++;
+              } else if (itemBusType === BusType.CABIN) {
+                cabinTickets++;
+              } else {
+                sleeperTickets++;
+              }
+            } else {
+              totalBooked++;
+            }
+          });
+        } else if (item.seatIds) {
+          item.seatIds.forEach(() => {
+            if (b.status === 'payment') totalTickets++;
+            else totalBooked++;
+          });
+        }
       });
     });
 
@@ -265,7 +213,7 @@ export const PaymentManager: React.FC = () => {
       cabinTickets,
       sleeperTickets,
       enhancedTickets,
-      totalTickets: paidSeatMap.size,
+      totalTickets,
       totalBooked,
     };
   }, [payments, bookings]);
@@ -333,19 +281,22 @@ export const PaymentManager: React.FC = () => {
       const prevT = prevMap.get(key);
       const currT = currMap.get(key);
 
-      const pSeats = new Set(prevT ? prevT.seats || [] : []);
-      const cSeats = new Set(currT ? currT.seats || [] : []);
+      const pSeats = new Set(prevT ? (prevT.labels || prevT.seats || []) : []);
+      const cSeats = new Set(currT ? (currT.labels || currT.seats || []) : []);
       const meta = currT || prevT || {};
       const seatDiffs: any[] = [];
 
       if (isIncremental) {
+        // FIX logic: Nếu là giao dịch lẻ, trạng thái phụ thuộc vào loại p.type (payment hay refund)
+        const status = currPayment.type === 'refund' ? 'removed' : 'added';
         cSeats.forEach((s) => {
           let price = 0;
           if (currT.tickets) {
-            const t = currT.tickets.find((tic: any) => tic.seatId === s);
+            // Thử tìm giá theo label/seatId
+            const t = currT.tickets.find((tic: any) => (tic.label === s || tic.seatId === s));
             if (t) price = t.price;
           }
-          seatDiffs.push({ id: s, status: "added", price });
+          seatDiffs.push({ id: s, status, price });
         });
       } else {
         const allSeats = new Set([...pSeats, ...cSeats]);
@@ -359,13 +310,13 @@ export const PaymentManager: React.FC = () => {
           let price = 0;
           if (status !== "removed" && currT) {
             if (currT.tickets) {
-              const t = currT.tickets.find((tic: any) => tic.seatId === s);
+              const t = currT.tickets.find((tic: any) => (tic.label === s || tic.seatId === s));
               if (t) price = t.price;
             }
           }
           if (status === "removed" && prevT) {
             if (prevT.tickets) {
-              const t = prevT.tickets.find((tic: any) => tic.seatId === s);
+              const t = prevT.tickets.find((tic: any) => (tic.label === s || tic.seatId === s));
               if (t) price = t.price;
             }
           }
@@ -451,7 +402,7 @@ export const PaymentManager: React.FC = () => {
               <div>
                 <h3 className="font-bold text-slate-800">Thống kê số lượng vé</h3>
                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                  Chỉ đếm các vé đã thu tiền
+                  Chỉ đếm các vé đã thu tiền (> 0đ)
                 </p>
               </div>
             </div>
@@ -517,8 +468,8 @@ export const PaymentManager: React.FC = () => {
             size="sm"
             className="rounded-lg h-[40px] w-[200px] flex items-center justify-center bg-primary text-white hover:bg-primary/90 transition-all"
           >
-            <RotateCcw size={18} />
-            &nbsp;Làm mới dữ liệu
+            <RotateCcw size={18} className="mr-2" />
+            Làm mới dữ liệu
           </Button>
         </div>
       </div>
@@ -767,7 +718,7 @@ export const PaymentManager: React.FC = () => {
                               </div>
                               {p.transactionType === "incremental" && (
                                 <Badge className="bg-indigo-50 text-indigo-700 border-indigo-200 text-[9px] font-black uppercase px-2 h-5">
-                                  Thanh toán lẻ
+                                  {p.type === 'refund' ? 'Hoàn tiền lẻ' : 'Thanh toán lẻ'}
                                 </Badge>
                               )}
                             </div>

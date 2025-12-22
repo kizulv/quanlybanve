@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from "react";
 import {
   Seat,
@@ -425,36 +426,57 @@ export const BookingForm: React.FC<BookingFormProps> = ({
 
   const handleConfirmAction = () => {
     if (editingBooking) {
+      // FIX logic: Dùng label thay vì ID để so sánh, vì ID có thể là S-1 trong khi Label là 1
+      // Lấy danh sách label hiện tại của đơn hàng cũ từ tickets
       const oldTripMap = new Map<string, string[]>(
-        editingBooking.items.map((item) => [item.tripId, item.seatIds])
+        editingBooking.items.map((item) => {
+            // Nếu có tickets, ưu tiên lấy labels (thường ID chính là Label nếu được chuẩn hóa)
+            // Trong hệ thống này, item.seatIds chứa ID thực của ghế
+            return [item.tripId, item.seatIds];
+        })
       );
+      
       const newTripMap = new Map<string, string[]>(
         selectionBasket.map((item) => [
           item.trip.id,
-          item.seats.map((s) => s.label),
+          item.seats.map((s) => s.id), // Luôn dùng s.id để so sánh chính xác với đơn cũ
         ])
       );
+      
       const allTripIds = new Set([...oldTripMap.keys(), ...newTripMap.keys()]);
       const diffTrips: TripDiffItem[] = [];
 
       allTripIds.forEach((tripId) => {
-        const oldSeats = oldTripMap.get(tripId) || [];
-        const newSeats = newTripMap.get(tripId) || [];
-        const added = newSeats.filter((s) => !oldSeats.includes(s));
-        const removed = oldSeats.filter((s) => !newSeats.includes(s));
-        const kept = oldSeats.filter((s) => newSeats.includes(s));
-        if (added.length || removed.length || kept.length) {
+        const oldIds = oldTripMap.get(tripId) || [];
+        const newIds = newTripMap.get(tripId) || [];
+        
+        const addedIds = newIds.filter((s) => !oldIds.includes(s));
+        const removedIds = oldIds.filter((s) => !newIds.includes(s));
+        const keptIds = oldIds.filter((s) => newIds.includes(s));
+
+        if (addedIds.length || removedIds.length || keptIds.length) {
           const basketItem = selectionBasket.find((i) => i.trip.id === tripId);
           const oldItem = editingBooking.items.find((i) => i.tripId === tripId);
+          const tripObj = trips.find(t => t.id === tripId);
+
+          // Ánh xạ ID -> Label để hiển thị cho người dùng
+          const getLabel = (id: string) => {
+              if (tripObj) {
+                  const s = tripObj.seats.find(st => st.id === id);
+                  if (s) return s.label;
+              }
+              return id; // Fallback
+          };
+
           diffTrips.push({
             route: basketItem?.trip.route || oldItem?.route || "",
             date: new Date(
               basketItem?.trip.departureTime || oldItem?.tripDate || ""
             ),
             seats: [
-              ...kept.map((l) => ({ label: l, status: "kept" as const })),
-              ...removed.map((l) => ({ label: l, status: "removed" as const })),
-              ...added.map((l) => ({ label: l, status: "added" as const })),
+              ...keptIds.map((id) => ({ label: getLabel(id), status: "kept" as const })),
+              ...removedIds.map((id) => ({ label: getLabel(id), status: "removed" as const })),
+              ...addedIds.map((id) => ({ label: getLabel(id), status: "added" as const })),
             ].sort((a, b) =>
               a.label.localeCompare(b.label, undefined, { numeric: true })
             ),
@@ -939,7 +961,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
                         {t.seats.map((s, si) => (
                           <span
                             key={si}
-                            className={`px-2 py-1 rounded text-[11px] ${
+                            className={`px-2 py-1 rounded text-[11px] font-bold ${
                               s.status === "added"
                                 ? "bg-green-100 text-green-700"
                                 : s.status === "removed"
