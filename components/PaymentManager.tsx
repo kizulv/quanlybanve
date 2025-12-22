@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from "react";
 import { api } from "../lib/api";
 import { Badge } from "./ui/Badge";
@@ -38,7 +39,7 @@ interface PaymentGroup {
   tripInfo: {
     route: string;
     date: string;
-    seats: string[];
+    seats: { label: string; isPaid: boolean }[];
   };
   payments: any[];
   totalCollected: number;
@@ -138,24 +139,51 @@ export const PaymentManager: React.FC = () => {
     });
 
     Object.values(groups).forEach((g) => {
-      const allSeats = new Set<string>();
+      // Find current booking state to determine seat status (Paid/Booked)
+      const currentBooking = bookings.find(b => b.id === g.bookingId);
+      const paidSeatLabels = new Set<string>();
+      const bookedSeatLabels = new Set<string>();
+
+      if (currentBooking) {
+        currentBooking.items.forEach(item => {
+          item.tickets?.forEach(ticket => {
+            if (ticket.price > 0) paidSeatLabels.add(ticket.seatId); // Assuming label matches seatId here or used as label
+            else bookedSeatLabels.add(ticket.seatId);
+          });
+          // Fallback if no tickets detail
+          if (!item.tickets && item.seatIds) {
+            item.seatIds.forEach(sid => {
+              if (currentBooking.status === 'payment') paidSeatLabels.add(sid);
+              else bookedSeatLabels.add(sid);
+            });
+          }
+        });
+      }
+
+      // Collect all labels from payments history too
+      const allLabelsInHistory = new Set<string>();
       g.payments.forEach((p) => {
         const pTrips = normalizeTrips(p.details);
         pTrips.forEach((t: any) => {
-          // Ưu tiên hiển thị labels nếu backend đã hỗ trợ, nếu không dùng seats (ID)
           const seatIdentities = t.labels || t.seats || [];
-          seatIdentities.forEach((s: string) => allSeats.add(s));
+          seatIdentities.forEach((s: string) => allLabelsInHistory.add(s));
         });
       });
-      g.tripInfo.seats = Array.from(allSeats).sort((a, b) =>
-        a.localeCompare(b, undefined, { numeric: true })
-      );
+
+      // Map unique labels to current status
+      g.tripInfo.seats = Array.from(allLabelsInHistory)
+        .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+        .map(label => ({
+          label,
+          // Seat is considered paid if it's currently in a paid ticket
+          isPaid: paidSeatLabels.has(label)
+        }));
     });
 
     return Object.values(groups).sort(
       (a, b) => b.latestTransaction.getTime() - a.latestTransaction.getTime()
     );
-  }, [payments]);
+  }, [payments, bookings]);
 
   // --- STRICT STATS CALCULATION ---
   const stats = useMemo(() => {
@@ -227,7 +255,7 @@ export const PaymentManager: React.FC = () => {
         g.passengerPhone.includes(lower) ||
         g.passengerName.toLowerCase().includes(lower) ||
         g.bookingDisplayId.toLowerCase().includes(lower) ||
-        g.tripInfo.seats.some((s) => s.toLowerCase().includes(lower)) ||
+        g.tripInfo.seats.some((s) => s.label.toLowerCase().includes(lower)) ||
         g.payments.some((p) => (p.note || "").toLowerCase().includes(lower))
     );
   }, [groupedPayments, searchTerm]);
@@ -523,9 +551,13 @@ export const PaymentManager: React.FC = () => {
                         {group.tripInfo.seats.map((s, i) => (
                           <Badge
                             key={i}
-                            className="text-xs font-black px-3 h-6 bg-slate-100 text-slate-600 border-slate-200"
+                            className={`text-xs font-black px-3 h-6 border shadow-sm ${
+                              s.isPaid 
+                                ? "bg-blue-50 text-blue-600 border-blue-200" 
+                                : "bg-orange-50 text-orange-600 border-orange-200"
+                            }`}
                           >
-                            {s}
+                            {s.label}
                           </Badge>
                         ))}
                       </div>
@@ -796,27 +828,31 @@ export const PaymentManager: React.FC = () => {
                                         {t.diffSeats &&
                                           t.diffSeats.map(
                                             (s: any, i: number) => {
-                                              let badgeClass =
-                                                "bg-white text-slate-600 border-slate-200";
-                                              if (s.status === "added")
-                                                badgeClass =
-                                                  "bg-emerald-50 text-emerald-700 border-emerald-300 ring-2 ring-emerald-500/10 font-black";
-                                              if (s.status === "removed")
-                                                badgeClass =
-                                                  "bg-red-50 text-red-400 border-red-200 line-through decoration-red-300 opacity-60";
+                                              let badgeClass = "";
+                                              if (s.status === "removed") {
+                                                badgeClass = "bg-slate-50 text-slate-500 border-slate-200 line-through opacity-70";
+                                              } else {
+                                                // added or kept
+                                                if (s.price > 0) {
+                                                  badgeClass = "bg-blue-50 text-blue-600 border-blue-200 font-black shadow-sm";
+                                                } else {
+                                                  badgeClass = "bg-orange-50 text-orange-600 border-orange-200 font-bold shadow-sm";
+                                                }
+                                              }
+
                                               return (
                                                 <Badge
                                                   key={i}
                                                   variant="outline"
-                                                  className={`${badgeClass} px-2 py-0.5 text-[10px] flex items-center gap-1.5 rounded-lg shadow-xs`}
+                                                  className={`${badgeClass} px-2 py-0.5 text-[10px] flex items-center gap-1.5 rounded-lg`}
                                                 >
                                                   {s.id}
                                                   {s.price > 0 && (
                                                     <span
                                                       className={`font-bold border-l pl-1.5 ml-0.5 ${
                                                         s.status === "removed"
-                                                          ? "border-red-200 text-red-300"
-                                                          : "border-slate-100 text-slate-400"
+                                                          ? "border-slate-200 text-slate-300"
+                                                          : "border-blue-100 text-blue-400"
                                                       }`}
                                                     >
                                                       {s.price.toLocaleString(
