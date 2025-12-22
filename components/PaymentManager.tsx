@@ -42,7 +42,7 @@ interface PaymentGroup {
     seats: string[];
   };
   payments: any[];
-  totalCollected: number; // Sum of amounts (positive and negative)
+  totalCollected: number;
   latestTransaction: Date;
 }
 
@@ -56,7 +56,7 @@ export const PaymentManager: React.FC = () => {
   // Detail Modal State
   const [selectedGroup, setSelectedGroup] = useState<PaymentGroup | null>(null);
 
-  // Edit Note State (Inside Detail Modal)
+  // Edit Note State
   const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
   const [editNote, setEditNote] = useState("");
 
@@ -103,7 +103,7 @@ export const PaymentManager: React.FC = () => {
           tripInfo: {
             route: payment.details?.route || "N/A",
             date: payment.details?.tripDate || "",
-            seats: [], // Sẽ tổng hợp bên dưới
+            seats: [],
           },
           payments: [],
           totalCollected: 0,
@@ -120,7 +120,6 @@ export const PaymentManager: React.FC = () => {
       }
     });
 
-    // Tổng hợp ghế từ tất cả payment trong group
     Object.values(groups).forEach((g) => {
       const allSeats = new Set<string>();
       g.payments.forEach((p) => {
@@ -141,7 +140,7 @@ export const PaymentManager: React.FC = () => {
     );
   }, [payments]);
 
-  // --- ACCURATE STATS CALCULATION ---
+  // --- STRICT STATS CALCULATION (PRICE > 0 ONLY) ---
   const stats = useMemo(() => {
     // 1. Dòng tiền thực tế
     let cashTotal = 0;
@@ -151,45 +150,68 @@ export const PaymentManager: React.FC = () => {
       transferTotal += p.transferAmount || 0;
     });
 
-    // 2. Thống kê vé dựa trên nguồn tin cậy nhất
+    /**
+     * 2. Thống kê vé ĐÃ THU TIỀN (Paid Seats)
+     * Quy tắc: Một ghế được coi là "Đã thu" nếu giao dịch gần nhất của nó có Price > 0
+     */
     const paidSeatMap = new Map<
       string,
       { type: BusType; isEnhanced: boolean }
     >();
 
-    payments.forEach((p) => {
+    // Sắp xếp payments theo thời gian tăng dần để snapshot cuối cùng là chính xác nhất
+    const sortedPayments = [...payments].sort((a, b) => 
+      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    );
+
+    sortedPayments.forEach((p) => {
       if (!p.details?.trips) return;
+      
       p.details.trips.forEach((t: any) => {
-        const seats = t.seats || [];
         const isEnhanced =
           t.isEnhanced === true ||
           (t.route || "").toLowerCase().includes("tăng cường");
         
-        // Cải tiến fallback nhận diện loại xe
+        // Fallback bus type detection
         let type = t.busType;
         if (!type) {
-            // Xe Giường đơn (SLEEPER) thường dùng số thuần túy hoặc tiền tố B1-, B2- cho bench.
-            // Xe Cabin (CABIN) luôn có ít nhất 1 ghế bắt đầu bằng 'A' hoặc 'B' (A1, B1...) theo quy tắc phòng.
-            // Tuy nhiên, để tránh nhầm Bench của Sleeper, ta kiểm tra số lượng ghế có tiền tố A.
+            const seats = t.seats || [];
             const hasRoomA = seats.some((s: string) => s.startsWith('A'));
-            const onlyNumbers = seats.every((s: string) => /^\d+$/.test(s));
-            
-            if (hasRoomA) type = BusType.CABIN;
-            else if (onlyNumbers) type = BusType.SLEEPER;
-            else {
-                // Nếu có tiền tố B nhưng không có A -> Rất có thể là bench của Sleeper
-                type = BusType.SLEEPER;
-            }
+            type = hasRoomA ? BusType.CABIN : BusType.SLEEPER;
         }
 
-        seats.forEach((sId: string) => {
-          const key = `${t.tripId}_${sId}`;
-          if (p.type === "payment") {
-            paidSeatMap.set(key, { type, isEnhanced });
-          } else if (p.type === "refund") {
-            paidSeatMap.delete(key);
-          }
-        });
+        if (p.type === "payment") {
+            // Duyệt từng ghế trong giao dịch
+            if (t.tickets && t.tickets.length > 0) {
+                t.tickets.forEach((ticket: any) => {
+                    const key = `${t.tripId}_${ticket.seatId}`;
+                    // YÊU CẦU: Chỉ đếm nếu giá vé > 0
+                    if (ticket.price > 0) {
+                        paidSeatMap.set(key, { type, isEnhanced });
+                    } else {
+                        // Nếu giá vé = 0 (ví dụ: cập nhật lại đơn nhưng chưa thu tiền ghế này)
+                        // thì xóa khỏi danh sách "Đã thu"
+                        paidSeatMap.delete(key);
+                    }
+                });
+            } else if (t.seats) {
+                // Fallback cho dữ liệu cũ không có mảng tickets chi tiết
+                // Nếu p.amount > 0 thì tạm coi là tất cả ghế trong đó đã thu (chia đều)
+                t.seats.forEach((sId: string) => {
+                    const key = `${t.tripId}_${sId}`;
+                    if (p.totalAmount > 0) paidSeatMap.set(key, { type, isEnhanced });
+                    else if (p.totalAmount < 0) paidSeatMap.delete(key);
+                });
+            }
+        } else if (p.type === "refund") {
+            // Giao dịch hoàn tiền: Xóa các ghế tương ứng khỏi danh sách đã thu
+            if (t.seats) {
+                t.seats.forEach((sId: string) => {
+                    const key = `${t.tripId}_${sId}`;
+                    paidSeatMap.delete(key);
+                });
+            }
+        }
       });
     });
 
@@ -198,17 +220,16 @@ export const PaymentManager: React.FC = () => {
     let enhancedTickets = 0;
 
     paidSeatMap.forEach((val) => {
-      // Đếm Tăng cường như một chiều kích độc lập (Tổng số vé tăng cường bất kể loại xe)
-      if (val.isEnhanced) {
-          enhancedTickets++;
-      } else {
-          // Chỉ đếm vào xe cố định nếu không phải tăng cường
-          if (val.type === BusType.CABIN) cabinTickets++;
-          else sleeperTickets++;
-      }
+      // Đếm theo loại xe
+      if (val.type === BusType.CABIN) cabinTickets++;
+      else sleeperTickets++;
+      
+      // Đếm theo tính chất Tăng cường (độc lập)
+      if (val.isEnhanced) enhancedTickets++;
     });
 
-    // Vé BOOKED (Chưa trả tiền): Duyệt bookings, đếm seatId KHÔNG nằm trong paidSeatMap
+    // Vé BOOKED (Chưa thu tiền):
+    // Là tất cả các ghế trong Bookings (trừ Hold/Cancel) mà KHÔNG nằm trong paidSeatMap
     let totalBooked = 0;
     bookings.forEach((b) => {
       if (b.status === "cancelled" || b.status === "hold") return;
@@ -298,12 +319,10 @@ export const PaymentManager: React.FC = () => {
   function calculateDiff(prevTrips: any[], currPayment: any) {
     const currTrips = normalizeTrips(currPayment.details);
     const isIncremental = currPayment.transactionType === "incremental";
-
     const getTripKey = (t: any) => `${t.route}-${t.tripDate}`;
 
     const prevMap = new Map();
     prevTrips.forEach((t) => prevMap.set(getTripKey(t), t));
-
     const currMap = new Map();
     currTrips.forEach((t) => currMap.set(getTripKey(t), t));
 
@@ -375,7 +394,9 @@ export const PaymentManager: React.FC = () => {
 
   return (
     <div className="mx-auto space-y-6 animate-in fade-in duration-500">
+      {/* STATS CARDS */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* DOANH THU THỰC TẾ */}
         <div className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm flex flex-col justify-between">
           <div className="flex justify-between items-center mb-6">
             <div className="flex items-center gap-3">
@@ -387,7 +408,7 @@ export const PaymentManager: React.FC = () => {
                   Tổng thu thanh toán
                 </h3>
                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                  Thực thu dòng tiền
+                  Dòng tiền thực nhận
                 </p>
               </div>
             </div>
@@ -420,6 +441,7 @@ export const PaymentManager: React.FC = () => {
           </div>
         </div>
 
+        {/* THỐNG KÊ VÉ ĐÃ THU */}
         <div className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm flex flex-col justify-between">
           <div className="flex justify-between items-center mb-6">
             <div className="flex items-center gap-3">
@@ -427,9 +449,9 @@ export const PaymentManager: React.FC = () => {
                 <Ticket size={24} />
               </div>
               <div>
-                <h3 className="font-bold text-slate-800">Trạng thái vé</h3>
+                <h3 className="font-bold text-slate-800">Thống kê số lượng vé</h3>
                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                  Dựa trên dữ liệu thanh toán thực tế
+                  Chỉ đếm các vé đã thu tiền (> 0đ)
                 </p>
               </div>
             </div>
@@ -448,7 +470,7 @@ export const PaymentManager: React.FC = () => {
           <div className="grid grid-cols-3 gap-3">
             <div className="bg-indigo-50/40 p-3 rounded-xl border border-indigo-100 flex flex-col items-center shadow-sm">
               <p className="text-[10px] font-bold text-indigo-400 uppercase mb-1.5">
-                Phòng VIP (Cố định)
+                Xe Phòng VIP
               </p>
               <p className="text-2xl font-black text-indigo-700">
                 {stats.cabinTickets}
@@ -456,7 +478,7 @@ export const PaymentManager: React.FC = () => {
             </div>
             <div className="bg-sky-50/40 p-3 rounded-xl border border-sky-100 flex flex-col items-center shadow-sm">
               <p className="text-[10px] font-bold text-sky-500 uppercase mb-1.5">
-                G.Đơn (Cố định)
+                Xe Thường
               </p>
               <p className="text-2xl font-black text-sky-700">
                 {stats.sleeperTickets}
@@ -464,7 +486,7 @@ export const PaymentManager: React.FC = () => {
             </div>
             <div className="bg-amber-50/40 p-3 rounded-xl border border-amber-100 flex flex-col items-center shadow-sm">
               <p className="text-[10px] font-bold text-amber-500 uppercase mb-1.5">
-                Tăng cường (Tổng)
+                Tăng cường
               </p>
               <p className="text-2xl font-black text-amber-700">
                 {stats.enhancedTickets}
@@ -474,6 +496,7 @@ export const PaymentManager: React.FC = () => {
         </div>
       </div>
 
+      {/* SEARCH BAR */}
       <div className="flex gap-4 items-center">
         <div className="relative flex-1 group">
           <Search
@@ -482,7 +505,7 @@ export const PaymentManager: React.FC = () => {
           />
           <input
             className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary placeholder-slate-400 transition-all h-10"
-            placeholder="Tìm kiếm theo SĐT, Tên khách, Mã ghế hoặc nội dung ghi chú..."
+            placeholder="Tìm kiếm theo SĐT, Tên khách, Mã ghế..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -492,17 +515,15 @@ export const PaymentManager: React.FC = () => {
             onClick={fetchData}
             variant="outline"
             size="sm"
-            className="rounded-lg h-[40px] w-[200px] flex items-center justify-center bg-primary text-primary hover:bg-primary hover:text-white transition-all"
+            className="rounded-lg h-[40px] w-[200px] flex items-center justify-center bg-primary text-white hover:bg-primary/90 transition-all"
           >
-            <RotateCcw
-              size={18}
-              className="text-white group-focus-within:text-primary transition-colors mr-2"
-            />
-            Làm mới
+            <RotateCcw size={18} className="mr-2" />
+            Làm mới dữ liệu
           </Button>
         </div>
       </div>
 
+      {/* DATA TABLE */}
       <div className="bg-white rounded-lg border border-slate-200 overflow-hidden shadow-sm">
         <table className="w-full text-sm text-left">
           <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200">
@@ -535,7 +556,7 @@ export const PaymentManager: React.FC = () => {
                     <div className="flex items-center justify-center text-center font-bold text-slate-700">
                       <Phone size={12} className="inline mr-1.5" />
                       {formatPhoneNumber(group.passengerPhone)}
-                      {group.bookingId === "orphaned" && "Đã xóa"}
+                      {group.bookingId === "orphaned" && " (Đã xóa)"}
                     </div>
                   </td>
                   <td className="py-2">
