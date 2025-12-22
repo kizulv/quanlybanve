@@ -671,7 +671,7 @@ export const PaymentManager: React.FC = () => {
                     </div>
                   </td>
                   <td className="py-3 text-center">
-                    <Badge className="bg-slate-100 text-slate-600 border-slate-200 text-[10px] px-2 font-black">
+                    <Badge className="bg-slate-100 hover:bg-slate-200 text-slate-600 border-slate-200 text-[10px] px-2 font-black">
                       {group.payments.length} Giao dịch
                     </Badge>
                   </td>
@@ -681,16 +681,16 @@ export const PaymentManager: React.FC = () => {
                         size={13}
                         className="inline mr-1.5 text-slate-400"
                       />
-                      <span className="text-sm text-slate-400">
+                      <span className="text-xs text-slate-400">
                         {group.latestTransaction.toLocaleTimeString("vi-VN", {
                           hour: "2-digit",
                           minute: "2-digit",
                         })}
                       </span>
-                      <span className="text-sm text-slate-400">
+                      <span className="text-xs text-slate-400">
                         &nbsp;ngày&nbsp;
                       </span>
-                      <span className="text-sm text-slate-400">
+                      <span className="text-xs text-slate-400">
                         {group.latestTransaction.toLocaleDateString("vi-VN")}
                       </span>
                     </div>
@@ -721,240 +721,214 @@ export const PaymentManager: React.FC = () => {
           setSelectedGroup(null);
           setEditingPaymentId(null);
         }}
-        title="Lịch sử giao dịch chi tiết"
-        className="max-w-2xl rounded-lg"
+        title="Lịch sử thanh toán"
+        className="max-w-[700px]"
+        headerClassName="px-4 h-[40px] border-b flex items-center justify-between shrink-0 rounded-t-xl bg-gradient-to-r from-indigo-950 via-indigo-900 to-indigo-950 text-white text-sm font-semibold"
       >
         {selectedGroup && (
-          <div className="space-y-6 max-h-[75vh] overflow-y-auto px-4 py-2">
-            <div className="bg-slate-50 p-5 rounded-lg border border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 sticky top-0 z-20 shadow-sm">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary border border-primary/20 shadow-sm">
-                  <User size={24} />
-                </div>
-                <div>
-                  <h3 className="font-black text-slate-900 text-lg leading-tight">
-                    {selectedGroup.passengerName}
-                  </h3>
-                  <div className="flex items-center gap-3 text-xs text-slate-500 mt-1.5 font-bold">
-                    <span className="flex items-center gap-1.5 bg-white px-2 py-0.5 rounded-lg border border-slate-200">
-                      <Phone size={12} className="text-primary" />{" "}
-                      {selectedGroup.passengerPhone}
-                    </span>
-                    <span className="text-slate-300">|</span>
-                    <span className="bg-white px-2 py-0.5 rounded-lg border border-slate-200">
-                      #{selectedGroup.bookingId.slice(-6).toUpperCase()}
-                    </span>
-                  </div>
-                </div>
+          <div className="space-y-5 max-h-[75vh] overflow-y-auto">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 sticky top-0 z-20 bg-white px-4 border-b border-slate-200 shadow-sm py-1">
+              <div className="flex items-center gap-1">
+                <Phone size={16} className="text-slate-600 mr-1 pr-0" />{" "}
+                <span className="text-lg font-semibold text-slate-900">
+                  {formatPhoneNumber(selectedGroup.passengerPhone)}
+                </span>
               </div>
-              <div className="text-right bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-center min-w-[140px]">
-                <div className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-0.5">
-                  Tổng thực thu
-                </div>
-                <div
-                  className={`text-xl font-black ${
-                    selectedGroup.totalCollected >= 0
-                      ? "text-emerald-600"
-                      : "text-red-600"
-                  }`}
-                >
+              <div className="text-right py-2.5 flex items-center justify-center min-w-[140px]">
+                <span className="ml-2 text-lg font-bold tracking-tight">
+                  Tổng thực thu:
+                </span>
+                <span className="ml-2 text-lg font-bold text-green-700 tracking-tight">
                   {selectedGroup.totalCollected.toLocaleString("vi-VN")} đ
-                </div>
+                </span>
               </div>
             </div>
+            <div className="px-4">
+              <div className="relative border-l-2 border-slate-200 ml-2 space-y-5 py-4">
+                {[...selectedGroup.payments]
+                  .sort(
+                    (a, b) =>
+                      new Date(a.timestamp).getTime() -
+                      new Date(b.timestamp).getTime()
+                  )
+                  .map((p, idx, arr) => {
+                    const isPositive = p.amount >= 0;
+                    const isCash = p.method === "cash";
+                    const prevP = idx > 0 ? arr[idx - 1] : null;
+                    const prevTrips = prevP
+                      ? normalizeTrips(prevP.details)
+                      : [];
+                    const diffResult = calculateDiff(prevTrips, p);
 
-            <div className="relative border-l-2 border-slate-200 ml-6 space-y-10 py-4">
-              {[...selectedGroup.payments]
-                .sort(
-                  (a, b) =>
-                    new Date(a.timestamp).getTime() -
-                    new Date(b.timestamp).getTime()
-                )
-                .map((p, idx, arr) => {
-                  const isPositive = p.amount >= 0;
-                  const isCash = p.method === "cash";
-                  const prevP = idx > 0 ? arr[idx - 1] : null;
-                  const prevTrips = prevP ? normalizeTrips(prevP.details) : [];
-                  const diffResult = calculateDiff(prevTrips, p);
-
-                  return (
-                    <div
-                      key={p.id}
-                      className="relative pl-8 animate-in slide-in-from-left duration-300"
-                    >
+                    return (
                       <div
-                        className={`absolute -left-[11px] top-1 w-5 h-5 rounded-full border-4 border-white shadow-md flex items-center justify-center ${
-                          isPositive ? "bg-emerald-500" : "bg-red-500"
-                        }`}
+                        key={p.id}
+                        className="relative pl-6 animate-in slide-in-from-left duration-300"
                       >
-                        <div className="w-1.5 h-1.5 rounded-full bg-white"></div>
-                      </div>
-                      <div className="flex flex-col gap-3">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <span
-                              className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border shadow-sm ${
-                                isPositive
-                                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                  : "bg-red-50 text-red-700 border-red-200"
-                              }`}
-                            >
-                              {isPositive ? "Thanh toán" : "Hoàn tiền"}
-                            </span>
-                            <span className="text-[11px] text-slate-400 font-bold flex items-center gap-1">
-                              <Clock size={11} />{" "}
-                              {new Date(p.timestamp).toLocaleString("vi-VN")}
-                            </span>
-                          </div>
-                          <div
-                            className={`text-xl font-black ${
-                              isPositive ? "text-emerald-600" : "text-red-600"
-                            } tracking-tight`}
-                          >
-                            {isPositive ? "+" : ""}
-                            {p.amount.toLocaleString("vi-VN")} đ
-                          </div>
+                        <div
+                          className={`absolute -left-[11px] top-1 w-5 h-5 rounded-full border-4 border-white shadow-md flex items-center justify-center ${
+                            isPositive ? "bg-emerald-500" : "bg-red-500"
+                          }`}
+                        >
+                          <div className="w-1.5 h-1.5 rounded-full bg-white"></div>
                         </div>
-
-                        <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm hover:shadow-md transition-all group/card relative overflow-hidden">
-                          <div className="flex justify-between items-center mb-4 pb-3 border-b border-slate-100">
-                            <div className="flex items-center gap-3">
-                              <div
-                                className={`w-9 h-9 rounded-xl flex items-center justify-center shadow-sm ${
-                                  isCash
-                                    ? "bg-emerald-50 text-emerald-600"
-                                    : "bg-blue-50 text-blue-600"
+                        <div className="flex flex-col gap-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border shadow-sm ${
+                                  isPositive
+                                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                    : "bg-red-50 text-red-700 border-red-200"
                                 }`}
                               >
+                                {isPositive ? "Thanh toán" : "Hoàn tiền"}
+                              </span>
+                              <span className="text-[11px] text-slate-400 flex items-center gap-1">
+                                <Clock size={11} />{" "}
+                                {new Date(p.timestamp).toLocaleString("vi-VN")}
+                              </span>
+                            </div>
+                            <div
+                              className={`flex items-center text-lg font-black tracking-tight`}
+                            >
+                              {" "}
+                              <div className="flex items-center w-10 h-6 justify-center bg-green-700 border border-slate-200 rounded">
                                 {isCash ? (
-                                  <DollarSign size={18} />
+                                  <DollarSign
+                                    size={14}
+                                    className="text-yellow-400"
+                                    title="Tiền mặt"
+                                  />
                                 ) : (
-                                  <CreditCard size={18} />
+                                  <CreditCard
+                                    size={14}
+                                    className="text-yellow-400"
+                                    title="Tài khoản"
+                                  />
                                 )}
                               </div>
-                              <div>
-                                <div className="text-[10px] text-slate-400 font-black uppercase tracking-wider leading-none mb-1">
-                                  Phương thức
-                                </div>
-                                <div className="text-xs font-black text-slate-700">
-                                  {isCash
-                                    ? "Tiền mặt"
-                                    : p.method === "transfer"
-                                    ? "Chuyển khoản"
-                                    : "Hỗn hợp"}
-                                </div>
-                              </div>
+                              <span
+                                className={`text-sm ${
+                                  isPositive
+                                    ? "text-emerald-600"
+                                    : "text-red-600"
+                                } ml-2`}
+                              >
+                                {p.amount.toLocaleString("vi-VN")} đ
+                              </span>
                             </div>
                           </div>
 
-                          {diffResult.length > 0 ? (
-                            <div className="space-y-3 mb-4">
-                              {diffResult.map((t: any, tripIdx: number) => (
-                                <div
-                                  key={tripIdx}
-                                  className="bg-slate-50/50 p-3 rounded-xl border border-slate-100 text-xs"
-                                >
-                                  <div className="flex items-center gap-2 mb-2 pb-2 border-b border-slate-100/50">
-                                    <MapPin
-                                      size={13}
-                                      className="text-primary"
-                                    />
-                                    <span className="font-black text-slate-800 tracking-tight">
-                                      {t.route}
-                                    </span>
-                                    {t.isEnhanced && (
-                                      <Badge className="ml-auto bg-amber-50 text-amber-700 border-amber-200 text-[9px] font-black uppercase px-1.5 h-4">
-                                        <Zap
-                                          size={9}
-                                          className="mr-0.5 fill-amber-700"
-                                        />{" "}
-                                        Tăng cường
-                                      </Badge>
-                                    )}
+                          <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm hover:shadow-md transition-all group/card relative overflow-hidden">
+                            {diffResult.length > 0 ? (
+                              <div className="space-y-3 mb-4">
+                                {diffResult.map((t: any, tripIdx: number) => (
+                                  <div key={tripIdx} className="text-sm">
+                                    <div className="flex items-center gap-2 mb-4">
+                                      <MapPin
+                                        size={13}
+                                        className="text-slate-600"
+                                      />
+                                      <span className="font-black text-slate-800 tracking-tight">
+                                        {t.route}
+                                      </span>
+                                      {t.isEnhanced && (
+                                        <Badge className="flex items-center bg-amber-50 text-amber-700 border-amber-200 text-[9px] font-black uppercase px-1.5 h-5">
+                                          <Zap
+                                            size={9}
+                                            className="mr-0.5 fill-amber-700"
+                                          />{" "}
+                                          Tăng cường
+                                        </Badge>
+                                      )}
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                      {t.diffSeats?.map((s: any, i: number) => (
+                                        <Badge
+                                          key={i}
+                                          variant="outline"
+                                          className={`${
+                                            s.status === "removed"
+                                              ? "text-slate-600 border-slate-200 line-through opacity-60"
+                                              : "text-slate-600 border-slate-200 font-black shadow-sm"
+                                          } px-2 py-0.5 text-[10px] flex items-center gap-1.5 rounded-lg`}
+                                        >
+                                          {s.id}{" "}
+                                          {s.price > 0 && (
+                                            <span className="border-l pl-1.5 ml-0.5 border-slate-500 text-slate-400">
+                                              {s.price.toLocaleString("vi-VN")}
+                                            </span>
+                                          )}
+                                        </Badge>
+                                      ))}
+                                    </div>
                                   </div>
-                                  <div className="flex flex-wrap gap-2">
-                                    {t.diffSeats?.map((s: any, i: number) => (
-                                      <Badge
-                                        key={i}
-                                        variant="outline"
-                                        className={`${
-                                          s.status === "removed"
-                                            ? "bg-slate-50 text-slate-600 border-slate-200 line-through opacity-60"
-                                            : "bg-blue-50 text-blue-600 border-blue-200 font-black shadow-sm"
-                                        } px-2 py-0.5 text-[10px] flex items-center gap-1.5 rounded-lg`}
-                                      >
-                                        {s.id}{" "}
-                                        {s.price > 0 && (
-                                          <span className="font-bold border-l pl-1.5 ml-0.5 border-blue-100 text-blue-400">
-                                            {s.price.toLocaleString("vi-VN")}
-                                          </span>
-                                        )}
-                                      </Badge>
-                                    ))}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <div className="text-center py-4 bg-slate-50/50 rounded-xl border border-dashed border-slate-200 text-[11px] italic text-slate-400 mb-4">
-                              Snapshot giao dịch không có thông tin chi tiết.
-                            </div>
-                          )}
-
-                          <div className="bg-slate-50/80 p-3 rounded-xl border border-slate-100 text-xs text-slate-600 flex items-center group/note relative transition-all hover:bg-white">
-                            {editingPaymentId === p.id ? (
-                              <div className="flex gap-2 w-full animate-in fade-in zoom-in-95">
-                                <input
-                                  className="flex-1 bg-white border border-primary/50 rounded-xl px-3 py-1.5 outline-none text-xs font-medium"
-                                  value={editNote}
-                                  onChange={(e) => setEditNote(e.target.value)}
-                                  onKeyDown={(e) =>
-                                    e.key === "Enter" && saveEditNote()
-                                  }
-                                  autoFocus
-                                  placeholder="Nhập ghi chú..."
-                                />
-                                <button
-                                  title="Lưu ghi chú"
-                                  onClick={saveEditNote}
-                                  className="bg-emerald-600 text-white p-2 rounded-xl shadow-md"
-                                >
-                                  <Check size={14} />
-                                </button>
-                                <button
-                                  title="Hủy"
-                                  onClick={() => setEditingPaymentId(null)}
-                                  className="bg-slate-200 text-slate-600 p-2 rounded-xl"
-                                >
-                                  <X size={14} />
-                                </button>
+                                ))}
                               </div>
                             ) : (
-                              <div className="w-full flex justify-between items-start gap-4">
-                                <span
-                                  className={`flex-1 ${
-                                    !p.note
-                                      ? "italic text-slate-400"
-                                      : "font-semibold text-slate-700"
-                                  }`}
-                                >
-                                  {p.note || "(Không có ghi chú)"}
-                                </span>
-                                <button
-                                  title="Chỉnh sửa ghi chú"
-                                  onClick={() => startEditNote(p)}
-                                  className="opacity-0 group-hover/note:opacity-100 p-1.5 text-primary bg-white border border-primary/10 rounded-lg transition-all"
-                                >
-                                  <Edit2 size={12} />
-                                </button>
+                              <div className="text-center py-4 bg-slate-50/50 rounded-xl border border-dashed border-slate-200 text-[11px] italic text-slate-400 mb-4">
+                                Snapshot giao dịch không có thông tin chi tiết.
                               </div>
                             )}
+
+                            <div className="bg-slate-50/80 p-3 rounded-md border border-slate-100 text-xs text-slate-600 flex items-center group/note relative transition-all hover:bg-white">
+                              {editingPaymentId === p.id ? (
+                                <div className="flex gap-2 w-full animate-in fade-in zoom-in-95">
+                                  <input
+                                    className="flex-1 bg-white border border-primary/50 rounded-md px-3 py-1.5 outline-none text-xs font-medium"
+                                    value={editNote}
+                                    onChange={(e) =>
+                                      setEditNote(e.target.value)
+                                    }
+                                    onKeyDown={(e) =>
+                                      e.key === "Enter" && saveEditNote()
+                                    }
+                                    autoFocus
+                                    placeholder="Nhập ghi chú..."
+                                  />
+                                  <button
+                                    title="Lưu ghi chú"
+                                    onClick={saveEditNote}
+                                    className="bg-emerald-600 text-white p-2 rounded-md shadow-md"
+                                  >
+                                    <Check size={14} />
+                                  </button>
+                                  <button
+                                    title="Hủy"
+                                    onClick={() => setEditingPaymentId(null)}
+                                    className="bg-slate-200 text-slate-600 p-2 rounded-md"
+                                  >
+                                    <X size={14} />
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="w-full flex justify-between items-start gap-4">
+                                  <span
+                                    className={`flex-1 ${
+                                      !p.note
+                                        ? "italic text-slate-400"
+                                        : "font-semibold text-slate-700"
+                                    }`}
+                                  >
+                                    {p.note || "(Không có ghi chú)"}
+                                  </span>
+                                  <button
+                                    title="Chỉnh sửa ghi chú"
+                                    onClick={() => startEditNote(p)}
+                                    className="opacity-0 group-hover/note:opacity-100 p-1.5 text-primary bg-white border border-primary/10 rounded-lg transition-all"
+                                  >
+                                    <Edit2 size={12} />
+                                  </button>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+              </div>
             </div>
           </div>
         )}
