@@ -451,7 +451,7 @@ export const PaymentManager: React.FC = () => {
               <div>
                 <h3 className="font-bold text-slate-800">Thống kê số lượng vé</h3>
                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                  Chỉ đếm các vé đã thu tiền (> 0đ)
+                  Chỉ đếm các vé đã thu tiền
                 </p>
               </div>
             </div>
