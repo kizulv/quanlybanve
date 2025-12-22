@@ -15,6 +15,7 @@ interface CalendarProps {
   className?: string;
   shutdownRange?: { start: string; end: string };
   peakDays?: string[];
+  highlightDays?: string[]; // Thêm prop này: mảng các chuỗi "YYYY-MM-DD"
 }
 
 export const Calendar: React.FC<CalendarProps> = ({
@@ -24,6 +25,7 @@ export const Calendar: React.FC<CalendarProps> = ({
   className = "",
   shutdownRange,
   peakDays = [],
+  highlightDays = [],
 }) => {
   const initialViewDate = mode === "range" 
     ? (selected as DateRange)?.from || new Date() 
@@ -90,6 +92,13 @@ export const Calendar: React.FC<CalendarProps> = ({
     return peakDays.includes(dateStr);
   };
 
+  const isHighlighted = (date: Date) => {
+    const dateStr = `${date.getFullYear()}-${String(
+      date.getMonth() + 1
+    ).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    return highlightDays.includes(dateStr);
+  };
+
   const handleDateClick = (e: React.MouseEvent, day: number) => {
     e.stopPropagation();
     const newDate = new Date(year, month, day);
@@ -102,7 +111,6 @@ export const Calendar: React.FC<CalendarProps> = ({
         if (!range.from || (range.from && range.to)) {
           onSelect({ from: newDate, to: undefined });
         } else {
-          // Nếu nhấn vào ngày trước ngày from, đảo ngược lại
           if (newDate < range.from) {
             onSelect({ from: newDate, to: range.from });
           } else {
@@ -128,13 +136,11 @@ export const Calendar: React.FC<CalendarProps> = ({
       const currentDate = new Date(year, month, day);
       const isToday = new Date().toDateString() === currentDate.toDateString();
 
-      // Check selected status
       let isSelected = false;
       let isStart = false;
       let isEnd = false;
       let isInRange = false;
 
-      // Fixed: Declared 'range' outside of the 'if' block so it is available in the subsequent template usage.
       const range = mode === "range" ? (selected as DateRange) : undefined;
 
       if (mode === "range" && range) {
@@ -158,6 +164,7 @@ export const Calendar: React.FC<CalendarProps> = ({
       const lunarText = showMonth ? `${lunarDay}/${lunarMonth}` : lunarDay.toString();
       const isShutdown = isShutdownDay(currentDate);
       const isPeak = isPeakDay(currentDate);
+      const hasData = isHighlighted(currentDate);
 
       let bgClass = "hover:bg-slate-100 text-slate-900";
       let borderClass = "border-transparent";
@@ -202,6 +209,12 @@ export const Calendar: React.FC<CalendarProps> = ({
           >
             {isShutdown ? "Nghỉ Tết" : lunarText}
           </span>
+          
+          {/* Chấm đỏ báo hiệu có dữ liệu */}
+          {hasData && !isShutdown && (
+            <div className={`absolute bottom-1 w-1 h-1 rounded-full ${isSelected ? "bg-white" : "bg-red-500 shadow-[0_0_2px_rgba(239,68,68,0.5)]"}`}></div>
+          )}
+
           {isShutdown && (
             <div className="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none">
               <Ban size={28} className="text-red-500" />
@@ -259,13 +272,11 @@ export const Calendar: React.FC<CalendarProps> = ({
       </div>
       <div className="mt-3 pt-3 border-t border-slate-100 flex justify-center gap-4 text-[10px] text-slate-500">
         <div className="flex items-center gap-1.5">
+          <div className="w-2 h-2 rounded-full bg-red-500"></div> Có giao dịch
+        </div>
+        <div className="flex items-center gap-1.5">
           <div className="w-2.5 h-2.5 rounded-sm bg-primary"></div> Chọn
         </div>
-        {mode === "range" && (
-           <div className="flex items-center gap-1.5">
-            <div className="w-2.5 h-2.5 rounded-sm bg-primary/10"></div> Trong khoảng
-          </div>
-        )}
         <div className="flex items-center gap-1.5">
           <div className="w-2.5 h-2.5 rounded-sm bg-orange-100 border border-orange-200"></div> Cao điểm
         </div>

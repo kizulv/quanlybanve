@@ -57,7 +57,6 @@ export const PaymentManager: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   
-  // Update state to handle Range
   const [dateRange, setDateRange] = useState<DateRange>({ 
     from: undefined, 
     to: undefined 
@@ -92,6 +91,17 @@ export const PaymentManager: React.FC = () => {
     fetchData();
   }, []);
 
+  // Tính toán các ngày có giao dịch để hiển thị chấm đỏ trên lịch
+  const paymentDates = useMemo(() => {
+    const dates = new Set<string>();
+    payments.forEach(p => {
+      const d = new Date(p.timestamp);
+      const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      dates.add(dateStr);
+    });
+    return Array.from(dates);
+  }, [payments]);
+
   function normalizeTrips(details: any) {
     if (!details) return [];
     if (details.trips && Array.isArray(details.trips)) return details.trips;
@@ -110,7 +120,6 @@ export const PaymentManager: React.FC = () => {
     return [];
   }
 
-  // --- FILTERED RAW DATA FOR STATS BASED ON RANGE ---
   const filteredPaymentsByDate = useMemo(() => {
     if (!dateRange.from) return payments;
     
@@ -139,7 +148,6 @@ export const PaymentManager: React.FC = () => {
     });
   }, [bookings, dateRange]);
 
-  // --- GROUPING ALL DATA ---
   const allGroupedPayments = useMemo(() => {
     const groups: Record<string, PaymentGroup> = {};
 
@@ -221,7 +229,6 @@ export const PaymentManager: React.FC = () => {
     );
   }, [payments, bookings]);
 
-  // --- FINAL FILTERING LOGIC ---
   const filteredGroups = useMemo(() => {
     const term = searchTerm.toLowerCase().trim();
     
@@ -536,6 +543,7 @@ export const PaymentManager: React.FC = () => {
               <Calendar
                 mode="range"
                 selected={dateRange}
+                highlightDays={paymentDates}
                 onSelect={(range) => {
                   setDateRange(range);
                   if (range.from && range.to) close();
