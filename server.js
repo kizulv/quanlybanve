@@ -254,7 +254,9 @@ const processPaymentUpdate = async (booking, newPaymentState) => {
         tripDate: i.tripDate,
         licensePlate: i.licensePlate,
         seats: i.seatIds,
-        tickets: i.tickets
+        tickets: i.tickets,
+        busType: i.busType,
+        isEnhanced: i.isEnhanced
       }))
     },
   });
@@ -441,6 +443,10 @@ app.put("/api/bookings/:id", async (req, res) => {
     for (const item of items) {
       const trip = await Trip.findById(item.tripId);
       if (!trip) continue;
+      
+      const route = await Route.findById(trip.routeId);
+      const isEnhanced = route?.isEnhanced || trip.name?.toLowerCase().includes("tăng cường") || trip.route?.toLowerCase().includes("tăng cường");
+
       const tickets = item.tickets || item.seats.map((s) => ({
         seatId: s.id, 
         price: finalStatus === 'payment' ? s.price : 0, 
@@ -454,7 +460,15 @@ app.put("/api/bookings/:id", async (req, res) => {
       calculatedTotalTickets += seatIds.length;
 
       bookingItems.push({
-        tripId: trip.id, tripDate: trip.departureTime, route: trip.route, licensePlate: trip.licensePlate, seatIds, tickets, price: itemPrice, busType: trip.type
+        tripId: trip.id, 
+        tripDate: trip.departureTime, 
+        route: trip.route, 
+        licensePlate: trip.licensePlate, 
+        seatIds, 
+        tickets, 
+        price: itemPrice, 
+        busType: trip.type,
+        isEnhanced: isEnhanced
       });
     }
 
@@ -715,7 +729,9 @@ app.patch("/api/bookings/:id/tickets/:seatId", async (req, res) => {
                     tripDate: targetItem.tripDate,
                     licensePlate: targetItem.licensePlate,
                     seats: [seatId],
-                    tickets: [targetTicket]
+                    tickets: [targetTicket],
+                    busType: targetItem.busType,
+                    isEnhanced: targetItem.isEnhanced
                 }]
             }
         });
@@ -759,7 +775,9 @@ app.patch("/api/bookings/:id/tickets/:seatId", async (req, res) => {
                         tripDate: targetItem.tripDate,
                         licensePlate: targetItem.licensePlate,
                         seats: [seatId],
-                        tickets: [targetTicket]
+                        tickets: [targetTicket],
+                        busType: targetItem.busType,
+                        isEnhanced: targetItem.isEnhanced
                     }]
                 }
             });
@@ -916,7 +934,7 @@ app.post("/api/maintenance/fix-seats", async (req, res) => {
             const activeBooking = bookingsInSeat[0];
 
             if (activeBooking) {
-                // QUY TẮC PHÂN LOẠI MÀU (Trạng thái ghế):
+                // QUY TẶC PHÂN LOẠI MÀU (Trạng thái ghế):
                 // CẬP NHẬT THEO YÊU CẦU: Ưu tiên tiền vé lẻ để quyết định Xanh/Vàng
                 // Nếu tiền vé = 0 thì LUÔN là 'booked' (Vàng)
                 

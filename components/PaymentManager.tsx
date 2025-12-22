@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from "react";
 import { api } from "../lib/api";
 import { Badge } from "./ui/Badge";
@@ -163,15 +164,20 @@ export const PaymentManager: React.FC = () => {
         const isEnhanced =
           t.isEnhanced === true ||
           (t.route || "").toLowerCase().includes("tăng cường");
-        const type =
-          t.busType === BusType.CABIN ? BusType.CABIN : BusType.SLEEPER;
+        
+        // Fallback nhận diện loại xe cho các bản ghi cũ thiếu busType
+        let type = t.busType;
+        if (!type) {
+            const hasCabinLabels = seats.some((s: string) => s.startsWith('A') || s.startsWith('B'));
+            type = hasCabinLabels ? BusType.CABIN : BusType.SLEEPER;
+        }
 
         seats.forEach((sId: string) => {
           const key = `${t.tripId}_${sId}`;
           if (p.type === "payment") {
             paidSeatMap.set(key, { type, isEnhanced });
           } else if (p.type === "refund") {
-            // Chỉ xóa khỏi map nếu số tiền hoàn đủ cho ghế này
+            // Chỉ xóa khỏi map nếu bản ghi hoàn tiền là dành cho ghế này
             paidSeatMap.delete(key);
           }
         });
@@ -183,9 +189,12 @@ export const PaymentManager: React.FC = () => {
     let enhancedTickets = 0;
 
     paidSeatMap.forEach((val) => {
-      if (val.isEnhanced) enhancedTickets++;
-      else if (val.type === BusType.CABIN) cabinTickets++;
+      // Đếm theo loại xe
+      if (val.type === BusType.CABIN) cabinTickets++;
       else sleeperTickets++;
+      
+      // Đếm theo chiều kích Tăng cường độc lập
+      if (val.isEnhanced) enhancedTickets++;
     });
 
     // Vé BOOKED (Chưa trả tiền): Duyệt bookings, đếm seatId KHÔNG nằm trong paidSeatMap
@@ -436,7 +445,7 @@ export const PaymentManager: React.FC = () => {
           <div className="grid grid-cols-3 gap-3">
             <div className="bg-indigo-50/40 p-3 rounded-xl border border-indigo-100 flex flex-col items-center shadow-sm">
               <p className="text-[10px] font-bold text-indigo-400 uppercase mb-1.5">
-                Xe Phòng
+                Xe Phòng VIP
               </p>
               <p className="text-2xl font-black text-indigo-700">
                 {stats.cabinTickets}
@@ -444,7 +453,7 @@ export const PaymentManager: React.FC = () => {
             </div>
             <div className="bg-sky-50/40 p-3 rounded-xl border border-sky-100 flex flex-col items-center shadow-sm">
               <p className="text-[10px] font-bold text-sky-500 uppercase mb-1.5">
-                Xe Thường
+                Giường đơn
               </p>
               <p className="text-2xl font-black text-sky-700">
                 {stats.sleeperTickets}
@@ -520,7 +529,8 @@ export const PaymentManager: React.FC = () => {
                   className="hover:bg-slate-50/80 transition-colors group "
                 >
                   <td className="py-2">
-                    <div className="text-center font-bold text-slate-700">
+                    <div className="flex items-center justify-center text-center font-bold text-slate-700">
+                      <Phone size={12} className="inline mr-1.5" />
                       {formatPhoneNumber(group.passengerPhone)}
                       {group.bookingId === "orphaned" && "Đã xóa"}
                     </div>
