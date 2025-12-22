@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from "react";
 import { ChevronLeft, ChevronRight, Ban } from "lucide-react";
 import { getLunarDate, isSameDay } from "../../utils/dateUtils";
@@ -27,10 +26,11 @@ export const Calendar: React.FC<CalendarProps> = ({
   peakDays = [],
   highlightDays = [],
 }) => {
-  const initialViewDate = mode === "range" 
-    ? (selected as DateRange)?.from || new Date() 
-    : (selected as Date) || new Date();
-    
+  const initialViewDate =
+    mode === "range"
+      ? (selected as DateRange)?.from || new Date()
+      : (selected as Date) || new Date();
+
   const [viewDate, setViewDate] = useState(initialViewDate);
 
   const daysInMonth = (year: number, month: number) =>
@@ -58,7 +58,7 @@ export const Calendar: React.FC<CalendarProps> = ({
     if (startLunar.year !== endLunar.year) {
       text += ` - ${endLunar.month}/${endLunar.year}`;
     } else {
-      text += ` - ${endLunar.month}`;
+      text += ` - ${endLunar.month}/${endLunar.year}`;
     }
     return text;
   }, [year, month]);
@@ -107,7 +107,10 @@ export const Calendar: React.FC<CalendarProps> = ({
 
     if (onSelect) {
       if (mode === "range") {
-        const range = (selected as DateRange) || { from: undefined, to: undefined };
+        const range = (selected as DateRange) || {
+          from: undefined,
+          to: undefined,
+        };
         if (!range.from || (range.from && range.to)) {
           onSelect({ from: newDate, to: undefined });
         } else {
@@ -156,12 +159,15 @@ export const Calendar: React.FC<CalendarProps> = ({
           isInRange = currentDate > range.from && currentDate < range.to;
         }
       } else {
-        isSelected = selected instanceof Date && isSameDay(currentDate, selected);
+        isSelected =
+          selected instanceof Date && isSameDay(currentDate, selected);
       }
 
       const { day: lunarDay, month: lunarMonth } = getLunarDate(currentDate);
       const showMonth = lunarDay === 1 || lunarDay === 15 || isSelected;
-      const lunarText = showMonth ? `${lunarDay}/${lunarMonth}` : lunarDay.toString();
+      const lunarText = showMonth
+        ? `${lunarDay}/${lunarMonth}`
+        : lunarDay.toString();
       const isShutdown = isShutdownDay(currentDate);
       const isPeak = isPeakDay(currentDate);
       const hasData = isHighlighted(currentDate);
@@ -195,24 +201,48 @@ export const Calendar: React.FC<CalendarProps> = ({
             ${bgClass}
             ${borderClass}
             ${textClass}
-            ${mode === "range" && !isInRange ? "rounded-md" : (mode === "single" ? "rounded-md" : "")}
+            ${
+              mode === "range" && !isInRange
+                ? "rounded-md"
+                : mode === "single"
+                ? "rounded-md"
+                : ""
+            }
             ${isStart && range?.to ? "rounded-r-none rounded-l-md" : ""}
             ${isEnd ? "rounded-l-none rounded-r-md" : ""}
           `}
         >
-          <span className={`text-sm leading-none z-10 ${isSelected ? "font-bold" : ""}`}>
+          <span
+            className={`text-sm leading-none z-10 ${
+              isSelected ? "font-bold" : ""
+            }`}
+          >
             {day}
           </span>
           <span
             className={`text-[0.6rem] leading-tight mt-0.5 z-10 whitespace-nowrap 
-            ${isSelected ? "text-primary-foreground/80" : isShutdown ? "text-red-500 font-bold" : showMonth ? "text-slate-500 font-medium" : "text-slate-400"}`}
+            ${
+              isSelected
+                ? "text-primary-foreground/80"
+                : isShutdown
+                ? "text-red-500 font-bold"
+                : showMonth
+                ? "text-slate-500 font-medium"
+                : "text-slate-400"
+            }`}
           >
             {isShutdown ? "Nghỉ Tết" : lunarText}
           </span>
-          
+
           {/* Chấm đỏ báo hiệu có dữ liệu */}
           {hasData && !isShutdown && (
-            <div className={`absolute bottom-1 w-1 h-1 rounded-full ${isSelected ? "bg-white" : "bg-red-500 shadow-[0_0_2px_rgba(239,68,68,0.5)]"}`}></div>
+            <div
+              className={`absolute bottom-1 w-1 h-1 rounded-full ${
+                isSelected
+                  ? "bg-white"
+                  : "bg-red-500 shadow-[0_0_2px_rgba(239,68,68,0.5)]"
+              }`}
+            ></div>
           )}
 
           {isShutdown && (
@@ -262,7 +292,10 @@ export const Calendar: React.FC<CalendarProps> = ({
       </div>
       <div className="grid grid-cols-7 gap-1 mb-2">
         {["CN", "T2", "T3", "T4", "T5", "T6", "T7"].map((day) => (
-          <div key={day} className="text-[0.75rem] font-medium text-center text-slate-500 py-1">
+          <div
+            key={day}
+            className="text-[0.75rem] font-medium text-center text-slate-500 py-1"
+          >
             {day}
           </div>
         ))}
@@ -278,7 +311,8 @@ export const Calendar: React.FC<CalendarProps> = ({
           <div className="w-2.5 h-2.5 rounded-sm bg-primary"></div> Chọn
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="w-2.5 h-2.5 rounded-sm bg-orange-100 border border-orange-200"></div> Cao điểm
+          <div className="w-2.5 h-2.5 rounded-sm bg-orange-100 border border-orange-200"></div>{" "}
+          Cao điểm
         </div>
       </div>
     </div>
