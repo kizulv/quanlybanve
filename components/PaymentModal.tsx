@@ -1,13 +1,12 @@
-
 import React, { useState, useMemo, useEffect } from "react";
 import { Dialog } from "./ui/Dialog";
 import { Button } from "./ui/Button";
-import { 
-  CheckCircle2, 
-  DollarSign, 
-  CreditCard, 
-  Calendar, 
-  MapPin, 
+import {
+  CheckCircle2,
+  DollarSign,
+  CreditCard,
+  Calendar,
+  MapPin,
   Bus,
   Ticket,
   ArrowRight,
@@ -17,7 +16,7 @@ import {
   RotateCcw,
   History,
   TrendingUp,
-  AlertCircle
+  AlertCircle,
 } from "lucide-react";
 import { BusTrip, Seat, Booking } from "../types";
 import { formatLunarDate } from "../utils/dateUtils";
@@ -28,10 +27,11 @@ interface PaymentItem {
   tripName: string;
   tripDate: string;
   route: string;
+  licensePlate: string;
   seats: Seat[];
   pickup: string;
   dropoff: string;
-  basePrice: number; 
+  basePrice: number;
 }
 
 interface SeatOverride {
@@ -43,7 +43,11 @@ interface SeatOverride {
 interface PaymentModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (finalTotal: number, seatOverrides: Record<string, SeatOverride>, noteSuffix?: string) => void;
+  onConfirm: (
+    finalTotal: number,
+    seatOverrides: Record<string, SeatOverride>,
+    noteSuffix?: string
+  ) => void;
   selectionBasket: { trip: BusTrip; seats: Seat[] }[];
   editingBooking?: Booking | null;
   bookingForm: { pickup: string; dropoff: string };
@@ -67,131 +71,194 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   isProcessing = false,
   initialOverrides = {},
 }) => {
-  const [seatOverrides, setSeatOverrides] = useState<Record<string, SeatOverride>>({});
+  const [seatOverrides, setSeatOverrides] = useState<
+    Record<string, SeatOverride>
+  >({});
 
   const items: PaymentItem[] = useMemo(() => {
     if (selectionBasket.length > 0) {
-      return selectionBasket.map(item => ({
+      return selectionBasket.map((item) => ({
         tripId: item.trip.id,
         tripName: item.trip.name,
         tripDate: item.trip.departureTime,
         route: item.trip.route,
+        licensePlate: item.trip.licensePlate,
         seats: item.seats,
         pickup: bookingForm.pickup || "",
         dropoff: bookingForm.dropoff || "",
-        basePrice: item.trip.basePrice || 0
+        basePrice: item.trip.basePrice || 0,
       }));
     }
     return [];
   }, [selectionBasket, bookingForm]);
 
-  const getSeatValues = (tripId: string, seat: Seat, defaultPickup: string, defaultDropoff: string, tripBasePrice: number) => {
+  const getSeatValues = (
+    tripId: string,
+    seat: Seat,
+    defaultPickup: string,
+    defaultDropoff: string,
+    tripBasePrice: number
+  ) => {
     const key = `${tripId}_${seat.id}`;
     const override = seatOverrides[key];
-    
-    let displayPrice = override?.price !== undefined ? override.price : seat.price;
+
+    let displayPrice =
+      override?.price !== undefined ? override.price : seat.price;
     if (displayPrice === 0) {
-        displayPrice = tripBasePrice;
+      displayPrice = tripBasePrice;
     }
 
     return {
       price: displayPrice,
       pickup: override?.pickup !== undefined ? override.pickup : defaultPickup,
-      dropoff: override?.dropoff !== undefined ? override.dropoff : defaultDropoff,
-      isPriceChanged: override?.price !== undefined && override.price !== seat.price
+      dropoff:
+        override?.dropoff !== undefined ? override.dropoff : defaultDropoff,
+      isPriceChanged:
+        override?.price !== undefined && override.price !== seat.price,
     };
   };
 
   const { totalOriginal, finalTotal } = useMemo(() => {
     let original = 0;
     let final = 0;
-    items.forEach(trip => {
-      trip.seats.forEach(seat => {
+    items.forEach((trip) => {
+      trip.seats.forEach((seat) => {
         original += seat.price;
-        const { price } = getSeatValues(trip.tripId, seat, trip.pickup, trip.dropoff, trip.basePrice);
+        const { price } = getSeatValues(
+          trip.tripId,
+          seat,
+          trip.pickup,
+          trip.dropoff,
+          trip.basePrice
+        );
         final += price;
       });
     });
     return { totalOriginal: original, finalTotal: final };
   }, [items, seatOverrides]);
 
-  const previouslyPaid = editingBooking ? ((editingBooking.payment?.paidCash || 0) + (editingBooking.payment?.paidTransfer || 0)) : 0;
-  const diffFromPrevious = finalTotal - previouslyPaid; 
+  const previouslyPaid = editingBooking
+    ? (editingBooking.payment?.paidCash || 0) +
+      (editingBooking.payment?.paidTransfer || 0)
+    : 0;
+  const diffFromPrevious = finalTotal - previouslyPaid;
   const currentInputTotal = paidCash + paidTransfer;
   const remainingBalance = finalTotal - currentInputTotal;
 
   const getActionInfo = () => {
-      if (isProcessing) return { text: "Đang xử lý...", colorClass: "bg-slate-600 border-slate-700" };
-      
-      if (editingBooking) {
-          if (remainingBalance === 0) return { text: "Cập nhật đơn hàng", colorClass: "bg-blue-600 hover:bg-blue-500 border-blue-700 text-white" };
-          return { text: "Xác nhận & Lưu", colorClass: "bg-indigo-600 hover:bg-indigo-500 border-indigo-700 text-white" };
-      }
+    if (isProcessing)
+      return {
+        text: "Đang xử lý...",
+        colorClass: "bg-slate-600 border-slate-700",
+      };
 
-      if (remainingBalance <= 0) return { text: "Xác nhận thanh toán", colorClass: "bg-green-600 hover:bg-green-500 border-green-700 text-white" };
-      return { text: "Lưu công nợ", colorClass: "bg-yellow-500 hover:bg-yellow-400 text-indigo-950 border-yellow-600" };
+    if (editingBooking) {
+      if (remainingBalance === 0)
+        return {
+          text: "Cập nhật đơn hàng",
+          colorClass:
+            "bg-blue-600 hover:bg-blue-500 border-blue-700 text-white",
+        };
+      return {
+        text: "Xác nhận & Lưu",
+        colorClass:
+          "bg-indigo-600 hover:bg-indigo-500 border-indigo-700 text-white",
+      };
+    }
+
+    if (remainingBalance <= 0)
+      return {
+        text: "Xác nhận thanh toán",
+        colorClass:
+          "bg-indigo-600 hover:bg-indigo-500 border-indigo-700 text-white",
+      };
+    return {
+      text: "Lưu công nợ",
+      colorClass:
+        "bg-yellow-500 hover:bg-yellow-400 text-indigo-950 border-yellow-600",
+    };
   };
 
   const actionInfo = getActionInfo();
 
-  const handleOverrideChange = (tripId: string, seatId: string, field: keyof SeatOverride, value: string) => {
+  const handleOverrideChange = (
+    tripId: string,
+    seatId: string,
+    field: keyof SeatOverride,
+    value: string
+  ) => {
     const key = `${tripId}_${seatId}`;
-    setSeatOverrides(prev => {
+    setSeatOverrides((prev) => {
       const current = prev[key] || {};
       let newValue: string | number = value;
-      if (field === 'price') {
-        newValue = parseInt(value.replace(/\D/g, '') || '0', 10);
+      if (field === "price") {
+        newValue = parseInt(value.replace(/\D/g, "") || "0", 10);
       }
       return { ...prev, [key]: { ...current, [field]: newValue } };
     });
   };
 
-  const handleLocationBlur = (tripId: string, seatId: string, field: 'pickup' | 'dropoff', value: string) => {
-      const standardized = getStandardizedLocation(value);
-      if (standardized !== value) {
-          handleOverrideChange(tripId, seatId, field, standardized);
-      }
+  const handleLocationBlur = (
+    tripId: string,
+    seatId: string,
+    field: "pickup" | "dropoff",
+    value: string
+  ) => {
+    const standardized = getStandardizedLocation(value);
+    if (standardized !== value) {
+      handleOverrideChange(tripId, seatId, field, standardized);
+    }
   };
 
-  const handleQuickSettle = (method: 'cash' | 'transfer') => {
-      const gap = remainingBalance; 
-      const currentVal = method === 'cash' ? paidCash : paidTransfer;
-      const newVal = currentVal + gap;
-      const event = {
-          target: {
-              name: method === 'cash' ? 'paidCash' : 'paidTransfer',
-              value: newVal.toString()
-          }
-      } as React.ChangeEvent<HTMLInputElement>;
-      onMoneyChange(event);
+  const handleQuickSettle = (method: "cash" | "transfer") => {
+    const gap = remainingBalance;
+    const currentVal = method === "cash" ? paidCash : paidTransfer;
+    const newVal = currentVal + gap;
+    const event = {
+      target: {
+        name: method === "cash" ? "paidCash" : "paidTransfer",
+        value: newVal.toString(),
+      },
+    } as React.ChangeEvent<HTMLInputElement>;
+    onMoneyChange(event);
   };
 
   const handleConfirmClick = () => {
-      let noteSuffix = "";
-      if (remainingBalance > 0) {
-          noteSuffix = `(Cần thu thêm: ${remainingBalance.toLocaleString('vi-VN')}đ)`;
-      } else if (remainingBalance < 0) {
-          noteSuffix = `(Cần hoàn lại: ${Math.abs(remainingBalance).toLocaleString('vi-VN')}đ)`;
-      }
+    let noteSuffix = "";
+    if (remainingBalance > 0) {
+      noteSuffix = `(Cần thu thêm: ${remainingBalance.toLocaleString(
+        "vi-VN"
+      )}đ)`;
+    } else if (remainingBalance < 0) {
+      noteSuffix = `(Cần hoàn lại: ${Math.abs(remainingBalance).toLocaleString(
+        "vi-VN"
+      )}đ)`;
+    }
 
-      const finalOverrides: Record<string, SeatOverride> = { ...seatOverrides };
-      items.forEach(trip => {
-          trip.seats.forEach(seat => {
-              const key = `${trip.tripId}_${seat.id}`;
-              const { price } = getSeatValues(trip.tripId, seat, trip.pickup, trip.dropoff, trip.basePrice);
-              if (!finalOverrides[key]) finalOverrides[key] = {};
-              finalOverrides[key].price = price;
-          });
+    const finalOverrides: Record<string, SeatOverride> = { ...seatOverrides };
+    items.forEach((trip) => {
+      trip.seats.forEach((seat) => {
+        const key = `${trip.tripId}_${seat.id}`;
+        const { price } = getSeatValues(
+          trip.tripId,
+          seat,
+          trip.pickup,
+          trip.dropoff,
+          trip.basePrice
+        );
+        if (!finalOverrides[key]) finalOverrides[key] = {};
+        finalOverrides[key].price = price;
       });
+    });
 
-      onConfirm(finalTotal, finalOverrides, noteSuffix);
+    onConfirm(finalTotal, finalOverrides, noteSuffix);
   };
 
   useEffect(() => {
     if (isOpen) {
-        setSeatOverrides(initialOverrides);
+      setSeatOverrides(initialOverrides);
     } else {
-        setSeatOverrides({});
+      setSeatOverrides({});
     }
   }, [isOpen, initialOverrides]);
 
@@ -202,85 +269,157 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       title={editingBooking ? "Cập nhật thanh toán" : "Thanh toán & Xuất vé"}
       className="max-w-5xl bg-indigo-950 text-white border-indigo-900"
       headerClassName="bg-indigo-950 border-indigo-900 text-white"
-      footer={null} 
+      footer={null}
     >
       <div className="flex flex-col md:flex-row h-full md:h-[600px]">
-        <div className="flex-1 overflow-y-auto p-4 border-r border-indigo-900 bg-indigo-950/50">
+        <div className="flex-1 overflow-y-auto p-4 bg-indigo-950/50">
           {items.length === 0 && (
-             <div className="text-center py-10 text-indigo-400 italic text-sm">Không có dữ liệu vé.</div>
+            <div className="text-center py-10 text-indigo-400 italic text-sm">
+              Không có dữ liệu vé.
+            </div>
           )}
 
           <div className="space-y-4">
             {items.map((trip) => {
               const tripDate = new Date(trip.tripDate);
               return (
-                <div key={trip.tripId} className="bg-indigo-900/40 rounded-lg border border-indigo-800 overflow-hidden">
+                <div
+                  key={trip.tripId}
+                  className="bg-indigo-900/40 rounded-lg border border-indigo-800 overflow-hidden"
+                >
                   <div className="bg-indigo-900/60 px-3 py-2 border-b border-indigo-800 flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                       <Bus size={14} className="text-indigo-400" />
-                      <span className="font-bold text-xs text-white">{trip.route}</span>
-                      <span className="text-[10px] text-indigo-300 hidden sm:inline">({trip.tripName})</span>
+                      <span className="font-bold text-xs text-white">
+                        {trip.route}
+                      </span>
+                      <span className="text-[10px] text-indigo-300 hidden sm:inline">
+                        ({trip.licensePlate || "Chưa có biển số"})
+                      </span>
                     </div>
                     <div className="flex items-center gap-2 text-[10px] text-indigo-300">
                       <Calendar size={12} />
-                      <span>{tripDate.getDate()}/{tripDate.getMonth()+1}</span>
-                      <span>({formatLunarDate(tripDate).replace(' Âm Lịch', '')})</span>
+                      <span>
+                        Ngày {tripDate.getDate()}/{tripDate.getMonth() + 1}/
+                        {tripDate.getFullYear()} - {formatLunarDate(tripDate)}
+                      </span>
                     </div>
                   </div>
 
                   <div className="p-2 space-y-2">
                     {trip.seats.map((seat) => {
-                      const { price, pickup, dropoff, isPriceChanged } = getSeatValues(trip.tripId, seat, trip.pickup, trip.dropoff, trip.basePrice);
+                      const { price, pickup, dropoff, isPriceChanged } =
+                        getSeatValues(
+                          trip.tripId,
+                          seat,
+                          trip.pickup,
+                          trip.dropoff,
+                          trip.basePrice
+                        );
                       return (
-                        <div key={seat.id} className="flex flex-col sm:flex-row gap-2 items-start sm:items-center bg-indigo-950/50 p-2 rounded border border-indigo-900/50 hover:border-indigo-700 transition-colors">
-                            <div className="shrink-0">
-                                <span className="inline-flex items-center justify-center w-8 h-7 bg-indigo-800 text-white font-bold text-xs rounded border border-indigo-700 shadow-sm">
-                                    {seat.label}
-                                </span>
-                            </div>
+                        <div
+                          key={seat.id}
+                          className="flex flex-col sm:flex-row gap-2 items-start sm:items-center bg-indigo-950/50 p-2 rounded border border-indigo-900/50 hover:border-indigo-700 transition-colors"
+                        >
+                          <div className="shrink-0">
+                            <span className="inline-flex items-center justify-center w-12 h-[24.5px] bg-indigo-800 text-white font-bold text-xs rounded border border-indigo-700 shadow-sm">
+                              {seat.label}
+                            </span>
+                          </div>
 
-                            <div className="flex-1 grid grid-cols-2 gap-2 w-full">
-                                <div className="relative group">
-                                    <div className="absolute left-2 top-1.5 pointer-events-none">
-                                        <MapPin size={10} className="text-indigo-400 group-focus-within:text-yellow-400 transition-colors" />
-                                    </div>
-                                    <input 
-                                        type="text"
-                                        className="w-full pl-6 pr-2 py-1 text-[11px] bg-indigo-950 border border-indigo-800 rounded focus:border-yellow-400 focus:outline-none text-white placeholder-indigo-500/50 transition-colors"
-                                        placeholder="Điểm đón"
-                                        value={pickup}
-                                        onChange={(e) => handleOverrideChange(trip.tripId, seat.id, 'pickup', e.target.value)}
-                                        onBlur={(e) => handleLocationBlur(trip.tripId, seat.id, 'pickup', e.target.value)}
-                                    />
-                                </div>
-
-                                <div className="relative group">
-                                    <div className="absolute left-2 top-1.5 pointer-events-none">
-                                        <Locate size={10} className="text-indigo-400 group-focus-within:text-yellow-400 transition-colors" />
-                                    </div>
-                                    <input 
-                                        type="text"
-                                        className="w-full pl-6 pr-2 py-1 text-[11px] bg-indigo-950 border border-indigo-800 rounded focus:border-yellow-400 focus:outline-none text-white placeholder-indigo-500/50 transition-colors"
-                                        placeholder="Điểm trả"
-                                        value={dropoff}
-                                        onChange={(e) => handleOverrideChange(trip.tripId, seat.id, 'dropoff', e.target.value)}
-                                        onBlur={(e) => handleLocationBlur(trip.tripId, seat.id, 'dropoff', e.target.value)}
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="w-full sm:w-28 relative shrink-0">
-                                <input 
-                                    type="text"
-                                    className={`w-full text-right font-bold text-xs bg-indigo-950 border rounded px-2 py-1 focus:outline-none transition-colors
-                                        ${(isPriceChanged || seat.price === 0) ? 'text-yellow-400 border-yellow-500/50 ring-1 ring-yellow-500/20' : 'text-white border-indigo-800'}
-                                    `}
-                                    value={price.toLocaleString('vi-VN')}
-                                    onChange={(e) => handleOverrideChange(trip.tripId, seat.id, 'price', e.target.value)}
+                          <div className="flex-1 grid grid-cols-2 gap-2 w-full">
+                            <div className="relative group">
+                              <div className="absolute left-2 top-[9px] pointer-events-none">
+                                <MapPin
+                                  size={10}
+                                  className="text-indigo-400 group-focus-within:text-yellow-400 transition-colors"
                                 />
-                                <span className="absolute right-8 top-1.5 text-[10px] text-indigo-500 pointer-events-none hidden sm:block">đ</span>
-                                {(isPriceChanged || seat.price === 0) && <div className="absolute top-1 right-1 w-1.5 h-1.5 bg-yellow-400 rounded-full animate-pulse shadow-sm"></div>}
+                              </div>
+                              <input
+                                type="text"
+                                className="w-full pl-6 pr-2 py-1 text-[11px] bg-indigo-950 border border-indigo-800 rounded focus:border-yellow-400 focus:outline-none text-white placeholder-indigo-500/50 transition-colors"
+                                placeholder="Điểm đón"
+                                value={pickup}
+                                onChange={(e) =>
+                                  handleOverrideChange(
+                                    trip.tripId,
+                                    seat.id,
+                                    "pickup",
+                                    e.target.value
+                                  )
+                                }
+                                onBlur={(e) =>
+                                  handleLocationBlur(
+                                    trip.tripId,
+                                    seat.id,
+                                    "pickup",
+                                    e.target.value
+                                  )
+                                }
+                              />
                             </div>
+
+                            <div className="relative group">
+                              <div className="absolute left-2 top-[9px] pointer-events-none">
+                                <Locate
+                                  size={10}
+                                  className="text-indigo-400 group-focus-within:text-yellow-400 transition-colors"
+                                />
+                              </div>
+                              <input
+                                type="text"
+                                className="w-full pl-6 pr-2 py-1 text-[11px] bg-indigo-950 border border-indigo-800 rounded focus:border-yellow-400 focus:outline-none text-white placeholder-indigo-500/50 transition-colors "
+                                placeholder="Điểm trả"
+                                value={dropoff}
+                                onChange={(e) =>
+                                  handleOverrideChange(
+                                    trip.tripId,
+                                    seat.id,
+                                    "dropoff",
+                                    e.target.value
+                                  )
+                                }
+                                onBlur={(e) =>
+                                  handleLocationBlur(
+                                    trip.tripId,
+                                    seat.id,
+                                    "dropoff",
+                                    e.target.value
+                                  )
+                                }
+                              />
+                            </div>
+                          </div>
+
+                          <div className="w-full sm:w-28 relative shrink-0">
+                            <input
+                              title="Giá vé"
+                              type="text"
+                              className={`w-full text-right font-bold text-xs bg-indigo-950 border rounded px-2 py-1 pr-3 focus:outline-none transition-colors ${
+                                isPriceChanged || seat.price === 0
+                                  ? "text-yellow-400 border-yellow-500/50 ring-1 ring-yellow-500/20"
+                                  : "text-white border-indigo-800"
+                              }`}
+                              value={price.toLocaleString("vi-VN")}
+                              onChange={(e) =>
+                                handleOverrideChange(
+                                  trip.tripId,
+                                  seat.id,
+                                  "price",
+                                  e.target.value
+                                )
+                              }
+                            />
+                            <span
+                              className={`absolute right-1 top-[7px] text-[10px] pointer-events-none hidden sm:block  ${
+                                isPriceChanged || seat.price === 0
+                                  ? "text-yellow-400 font-semibold"
+                                  : "text-white"
+                              }`}
+                            >
+                              đ
+                            </span>
+                          </div>
                         </div>
                       );
                     })}
@@ -291,107 +430,176 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           </div>
         </div>
 
-        <div className="w-full md:w-[360px] bg-indigo-900/20 p-5 flex flex-col gap-4 shrink-0 border-t md:border-t-0 md:border-l border-indigo-900 shadow-xl overflow-y-auto">
-           <div className="bg-indigo-900/50 rounded-xl p-5 border border-indigo-800 shadow-inner space-y-3">
-              <div className="flex items-center gap-2 mb-2 text-indigo-300 text-xs font-bold uppercase tracking-wider">
-                  <Calculator size={14} /> Tổng thanh toán
-              </div>
-              
-              {editingBooking && (
-                  <div className="space-y-2 pb-3 border-b border-indigo-800/50">
-                      <div className="flex justify-between items-center text-xs">
-                          <span className="text-indigo-400 flex items-center gap-1"><History size={12}/> Tổng tiền cũ:</span>
-                          <span className="text-indigo-300 decoration-slate-500 line-through decoration-1">{previouslyPaid.toLocaleString('vi-VN')} đ</span>
-                      </div>
-                      <div className="flex justify-between items-center text-xs">
-                          <span className="text-yellow-500 flex items-center gap-1"><TrendingUp size={12}/> Tổng tiền mới:</span>
-                          <span className="font-bold text-yellow-400">{finalTotal.toLocaleString('vi-VN')} đ</span>
-                      </div>
-                  </div>
-              )}
-              
-              <div className="flex justify-between items-end">
-                 <span className="text-xs text-indigo-400 font-medium">Cần thanh toán</span>
-                 <span className="text-3xl font-bold text-yellow-400 tracking-tight">{finalTotal.toLocaleString('vi-VN')} <span className="text-sm font-normal text-yellow-400/70">đ</span></span>
-              </div>
-           </div>
+        <div className="w-full md:w-[360px] bg-indigo-900/20 p-4 flex flex-col gap-4 shrink-0 border-t md:border-t-0 border-indigo-900 shadow-xl overflow-y-auto">
+          <div className="bg-indigo-900/50 rounded-xl p-4 border border-indigo-800 shadow-inner space-y-3">
+            <div className="flex items-center gap-2 mb-2 text-indigo-300 text-xs font-bold uppercase tracking-wider">
+              <Calculator size={14} /> Tổng thanh toán
+            </div>
 
-           {editingBooking && diffFromPrevious !== 0 && (
-               <div className={`p-4 rounded-xl border shadow-sm animate-in fade-in slide-in-from-top-2 flex flex-col gap-3
-                   ${diffFromPrevious > 0 
-                       ? 'bg-amber-950/40 border-amber-700/50 text-amber-100' 
-                       : 'bg-blue-950/40 border-blue-700/50 text-blue-100'
+            {editingBooking && (
+              <div className="space-y-2 pb-3 border-b border-indigo-800/50">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-indigo-400 flex items-center gap-1">
+                    <History size={12} /> Tổng tiền cũ:
+                  </span>
+                  <span className="text-indigo-300 decoration-slate-500 line-through decoration-1">
+                    {previouslyPaid.toLocaleString("vi-VN")} đ
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-yellow-500 flex items-center gap-1">
+                    <TrendingUp size={12} /> Tổng tiền mới:
+                  </span>
+                  <span className="font-bold text-yellow-400">
+                    {finalTotal.toLocaleString("vi-VN")} đ
+                  </span>
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-between items-end">
+              <span className="text-xs text-indigo-400 font-medium">
+                Cần thanh toán
+              </span>
+              <span className="text-3xl font-bold text-yellow-400 tracking-tight">
+                {finalTotal.toLocaleString("vi-VN")}{" "}
+                <span className="text-sm font-normal text-yellow-400/70">
+                  đ
+                </span>
+              </span>
+            </div>
+          </div>
+
+          {editingBooking && diffFromPrevious !== 0 && (
+            <div
+              className={`p-4 rounded-xl border shadow-sm animate-in fade-in slide-in-from-top-2 flex flex-col gap-3
+                   ${
+                     diffFromPrevious > 0
+                       ? "bg-amber-950/40 border-amber-700/50 text-amber-100"
+                       : "bg-blue-950/40 border-blue-700/50 text-blue-100"
                    }
-               `}>
-                   <div className="flex items-start gap-3">
-                       <div className={`p-2 rounded-full shrink-0 ${diffFromPrevious > 0 ? 'bg-amber-500/20 text-amber-400' : 'bg-blue-500/20 text-blue-400'}`}>
-                           {diffFromPrevious > 0 ? <AlertCircle size={20}/> : <RotateCcw size={20}/>}
-                       </div>
-                       <div>
-                           <h4 className="font-bold text-sm">
-                               {diffFromPrevious > 0 ? 'Cần thu thêm' : 'Cần hoàn lại'}
-                           </h4>
-                           <div className="text-2xl font-bold mt-1">
-                               {Math.abs(diffFromPrevious).toLocaleString('vi-VN')} <span className="text-xs font-normal opacity-70">đ</span>
-                           </div>
-                       </div>
-                   </div>
-                   
-                   {remainingBalance !== 0 && (
-                       <div className="grid grid-cols-2 gap-2 mt-1">
-                           <button onClick={() => handleQuickSettle('cash')} className="text-[10px] font-bold py-2 px-2 rounded border transition-colors flex items-center justify-center gap-1 bg-white/10 hover:bg-white/20">
-                               <DollarSign size={10}/> {diffFromPrevious > 0 ? 'Thu TM' : 'Hoàn TM'}
-                           </button>
-                           <button onClick={() => handleQuickSettle('transfer')} className="text-[10px] font-bold py-2 px-2 rounded border transition-colors flex items-center justify-center gap-1 bg-white/10 hover:bg-white/20">
-                               <CreditCard size={10}/> {diffFromPrevious > 0 ? 'Thu CK' : 'Hoàn CK'}
-                           </button>
-                       </div>
-                   )}
-               </div>
-           )}
-
-           <div className="space-y-3 pt-2">
-                 <div className="text-xs font-bold text-indigo-400 uppercase tracking-wider mb-2">Thanh toán hiện tại</div>
-                 <div className="relative group">
-                    <div className="absolute top-2 left-3 text-indigo-400 pointer-events-none group-focus-within:text-green-500">
-                        <DollarSign size={16} />
-                    </div>
-                    <input type="text" name="paidCash" value={paidCash.toLocaleString("vi-VN")} onChange={onMoneyChange} className="w-full pl-9 pr-12 py-2 bg-indigo-950 border border-indigo-800 rounded text-right font-bold text-sm text-white focus:border-green-500 focus:outline-none transition-colors" placeholder="0" />
-                    <span className="absolute top-2.5 right-3 text-[10px] text-indigo-500 pointer-events-none font-bold">TM</span>
-                 </div>
-                 <div className="relative group">
-                    <div className="absolute top-2 left-3 text-indigo-400 pointer-events-none group-focus-within:text-blue-500">
-                        <CreditCard size={16} />
-                    </div>
-                    <input type="text" name="paidTransfer" value={paidTransfer.toLocaleString("vi-VN")} onChange={onMoneyChange} className="w-full pl-9 pr-12 py-2 bg-indigo-950 border border-indigo-800 rounded text-right font-bold text-sm text-white focus:border-blue-500 focus:outline-none transition-colors" placeholder="0" />
-                     <span className="absolute top-2.5 right-3 text-[10px] text-indigo-500 pointer-events-none font-bold">CK</span>
-                 </div>
-           </div>
-
-           {remainingBalance > 0 ? (
-                  <div className="p-2 rounded bg-red-950/30 border border-red-900/50 text-right text-xs text-red-400 font-bold flex justify-between items-center">
-                      <span>Đang thiếu:</span>
-                      <span>{remainingBalance.toLocaleString('vi-VN')} đ</span>
+               `}
+            >
+              <div className="flex items-start gap-3">
+                <div
+                  className={`p-2 rounded-full shrink-0 ${
+                    diffFromPrevious > 0
+                      ? "bg-amber-500/20 text-amber-400"
+                      : "bg-blue-500/20 text-blue-400"
+                  }`}
+                >
+                  {diffFromPrevious > 0 ? (
+                    <AlertCircle size={20} />
+                  ) : (
+                    <RotateCcw size={20} />
+                  )}
+                </div>
+                <div>
+                  <h4 className="font-bold text-sm">
+                    {diffFromPrevious > 0 ? "Cần thu thêm" : "Cần hoàn lại"}
+                  </h4>
+                  <div className="text-2xl font-bold mt-1">
+                    {Math.abs(diffFromPrevious).toLocaleString("vi-VN")}{" "}
+                    <span className="text-xs font-normal opacity-70">đ</span>
                   </div>
-              ) : remainingBalance < 0 ? (
-                  <div className="p-2 rounded bg-blue-950/30 border border-blue-900/50 text-right text-xs text-blue-400 font-bold flex justify-between items-center">
-                      <span className="flex items-center gap-1"><RotateCcw size={12}/> Đang dư:</span>
-                      <span>{Math.abs(remainingBalance).toLocaleString('vi-VN')} đ</span>
-                  </div>
-              ) : (
-                  <div className="p-2 rounded bg-green-950/30 border border-green-900/50 text-right text-xs text-green-400 font-bold flex justify-center items-center gap-2">
-                      <CheckCircle2 size={14}/> Đã khớp thanh toán
-                  </div>
-           )}
+                </div>
+              </div>
 
-           <div className="mt-auto space-y-3 pt-2">
-              <Button onClick={handleConfirmClick} disabled={isProcessing} className={`w-full h-11 font-bold text-sm shadow-lg transition-all ${actionInfo.colorClass}`}>
-                {actionInfo.text}
-              </Button>
-              <Button variant="outline" onClick={onClose} className="w-full border-indigo-800 text-indigo-300 hover:bg-indigo-900 hover:text-white bg-transparent h-10 text-xs">
-                Hủy bỏ
-              </Button>
-           </div>
+              {remainingBalance !== 0 && (
+                <div className="grid grid-cols-2 gap-2 mt-1">
+                  <button
+                    onClick={() => handleQuickSettle("cash")}
+                    className="text-[10px] font-bold py-2 px-2 rounded border transition-colors flex items-center justify-center gap-1 bg-white/10 hover:bg-white/20"
+                  >
+                    <DollarSign size={10} />{" "}
+                    {diffFromPrevious > 0 ? "Thu TM" : "Hoàn TM"}
+                  </button>
+                  <button
+                    onClick={() => handleQuickSettle("transfer")}
+                    className="text-[10px] font-bold py-2 px-2 rounded border transition-colors flex items-center justify-center gap-1 bg-white/10 hover:bg-white/20"
+                  >
+                    <CreditCard size={10} />{" "}
+                    {diffFromPrevious > 0 ? "Thu CK" : "Hoàn CK"}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="space-y-3 pt-2">
+            <div className="text-xs font-bold text-indigo-400 uppercase tracking-wider mb-2">
+              Thanh toán hiện tại
+            </div>
+            <div className="relative group">
+              <div className="absolute top-2 left-3 text-indigo-400 pointer-events-none group-focus-within:text-green-500">
+                <DollarSign size={16} />
+              </div>
+              <input
+                type="text"
+                name="paidCash"
+                value={paidCash.toLocaleString("vi-VN")}
+                onChange={onMoneyChange}
+                className="w-full pl-9 pr-12 py-2 bg-indigo-950 border border-indigo-800 rounded text-right font-bold text-sm text-white focus:border-green-500 focus:outline-none transition-colors"
+                placeholder="0"
+              />
+              <span className="absolute top-2.5 right-3 text-[10px] text-indigo-500 pointer-events-none font-bold">
+                TM
+              </span>
+            </div>
+            <div className="relative group">
+              <div className="absolute top-2 left-3 text-indigo-400 pointer-events-none group-focus-within:text-blue-500">
+                <CreditCard size={16} />
+              </div>
+              <input
+                type="text"
+                name="paidTransfer"
+                value={paidTransfer.toLocaleString("vi-VN")}
+                onChange={onMoneyChange}
+                className="w-full pl-9 pr-12 py-2 bg-indigo-950 border border-indigo-800 rounded text-right font-bold text-sm text-white focus:border-blue-500 focus:outline-none transition-colors"
+                placeholder="0"
+              />
+              <span className="absolute top-2.5 right-3 text-[10px] text-indigo-500 pointer-events-none font-bold">
+                CK
+              </span>
+            </div>
+          </div>
+
+          {remainingBalance > 0 ? (
+            <div className="p-2 rounded bg-red-950/30 border border-red-900/50 text-right text-xs text-red-400 font-bold flex justify-between items-center">
+              <span>Đang thiếu:</span>
+              <span>{remainingBalance.toLocaleString("vi-VN")} đ</span>
+            </div>
+          ) : remainingBalance < 0 ? (
+            <div className="p-2 rounded bg-blue-950/30 border border-blue-900/50 text-right text-xs text-blue-400 font-bold flex justify-between items-center">
+              <span className="flex items-center gap-1">
+                <RotateCcw size={12} /> Đang dư:
+              </span>
+              <span>
+                {Math.abs(remainingBalance).toLocaleString("vi-VN")} đ
+              </span>
+            </div>
+          ) : (
+            <div className="p-2 rounded bg-green-950/30 border border-green-900/50 text-right text-xs text-green-400 font-bold flex justify-center items-center gap-2">
+              <CheckCircle2 size={14} /> Đã khớp thanh toán
+            </div>
+          )}
+
+          <div className="mt-auto space-y-3 pt-2">
+            <Button
+              onClick={handleConfirmClick}
+              disabled={isProcessing}
+              className={`w-full h-10 font-bold text-sm shadow-lg transition-all ${actionInfo.colorClass}`}
+            >
+              {actionInfo.text}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={onClose}
+              className="w-full border-indigo-800 text-indigo-300 hover:bg-indigo-900 hover:text-white bg-transparent h-10 text-xs"
+            >
+              Hủy bỏ
+            </Button>
+          </div>
         </div>
       </div>
     </Dialog>

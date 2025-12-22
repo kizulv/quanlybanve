@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from "react";
 import { Users, Search, X, Calculator } from "lucide-react";
 import { Booking, BusTrip } from "../types";
@@ -50,8 +49,8 @@ export const ManifestList: React.FC<ManifestListProps> = ({
           <Users size={14} className="text-slate-400" />
           <span>Danh sách khách ({tripBookings.length})</span>
         </div>
-        <ManifestPrint 
-          selectedTrip={selectedTrip} 
+        <ManifestPrint
+          selectedTrip={selectedTrip}
           manifest={filteredManifest}
         />
       </div>
@@ -100,13 +99,14 @@ export const ManifestList: React.FC<ManifestListProps> = ({
             const totalPaid =
               (booking.payment?.paidCash || 0) +
               (booking.payment?.paidTransfer || 0);
-            
-            const timeStr = new Date(
-              booking.createdAt
-            ).toLocaleTimeString("vi-VN", {
-              hour: "2-digit",
-              minute: "2-digit",
-            });
+
+            const timeStr = new Date(booking.createdAt).toLocaleTimeString(
+              "vi-VN",
+              {
+                hour: "2-digit",
+                minute: "2-digit",
+              }
+            );
 
             const tripItem = booking.items.find(
               (i) => i.tripId === selectedTrip?.id
@@ -121,7 +121,11 @@ export const ManifestList: React.FC<ManifestListProps> = ({
                 id={`booking-item-${booking.id}`}
                 onClick={() => onSelectBooking(booking)}
                 className={`px-3 py-2 border-b border-slate-100 cursor-pointer hover:bg-slate-50 transition-colors ${
-                  tripCollected === 0 && booking.status !== 'hold' ? "bg-yellow-50/30" : (booking.status === 'hold' ? "bg-purple-50/30" : "")
+                  tripCollected === 0 && booking.status !== "hold"
+                    ? "bg-yellow-50/30"
+                    : booking.status === "hold"
+                    ? "bg-purple-50/30"
+                    : ""
                 } ${
                   isHighlighted
                     ? "bg-indigo-50 ring-2 ring-indigo-500 z-10"
@@ -131,16 +135,12 @@ export const ManifestList: React.FC<ManifestListProps> = ({
                 <div className="flex justify-between items-center mb-1.5">
                   <span
                     className={`text-xs font-bold ${
-                      isHighlighted
-                        ? "text-indigo-600"
-                        : "text-slate-800"
+                      isHighlighted ? "text-indigo-600" : "text-slate-800"
                     }`}
                   >
                     {booking.passenger.phone}
                   </span>
-                  <span className="text-[10px] text-slate-400">
-                    {timeStr}
-                  </span>
+                  <span className="text-[10px] text-slate-400">{timeStr}</span>
                 </div>
                 <div className="flex justify-between items-start gap-2">
                   <div className="flex gap-1 text-[11px] text-slate-600 font-medium flex-wrap">
@@ -155,13 +155,16 @@ export const ManifestList: React.FC<ManifestListProps> = ({
                   </div>
                   <div
                     className={`text-xs font-black whitespace-nowrap ${
-                      tripCollected > 0 ? "text-green-600" : (booking.status === 'hold' ? "text-purple-600" : "text-amber-600")
+                      tripCollected > 0
+                        ? "text-green-600"
+                        : booking.status === "hold"
+                        ? "text-purple-600"
+                        : "text-amber-600"
                     }`}
                   >
-                    {tripCollected === 0 
-                        ? "Chưa thu tiền" 
-                        : tripCollected.toLocaleString("vi-VN")
-                    }
+                    {tripCollected === 0
+                      ? "Đã đặt vé"
+                      : tripCollected.toLocaleString("vi-VN")}
                   </div>
                 </div>
               </div>

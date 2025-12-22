@@ -490,12 +490,12 @@ export const Layout: React.FC<LayoutProps> = ({
                                         {trip.route}
                                       </span>
                                       {trip.isEnhanced && (
-                                        <span className="shrink-0 inline-flex items-center text-[9px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200 shadow-sm ml-auto md:ml-0">
+                                        <span className="shrink-0 inline-flex items-center text-[9px] font-bold bg-amber-100 text-amber-700 px-1.5 rounded border border-amber-200 shadow-sm ml-auto md:ml-0">
                                           <Zap
                                             size={9}
                                             className="mr-0.5 fill-amber-700"
                                           />
-                                          TC{" "}
+                                          Tăng cường{" "}
                                           {trip.enhancedIndex > 0
                                             ? `#${trip.enhancedIndex}`
                                             : ""}
