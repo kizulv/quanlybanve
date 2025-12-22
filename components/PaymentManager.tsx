@@ -4,7 +4,7 @@ import { Badge } from "./ui/Badge";
 import { Button } from "./ui/Button";
 import {
   DollarSign,
-  Calendar,
+  Calendar as CalendarIcon,
   Search,
   Edit2,
   ArrowRight,
@@ -21,10 +21,14 @@ import {
   Ticket,
   RotateCcw,
   Clock1,
+  Filter,
+  CalendarDays,
 } from "lucide-react";
 import { useToast } from "./ui/Toast";
 import { Dialog } from "./ui/Dialog";
-import { formatLunarDate } from "../utils/dateUtils";
+import { Popover } from "./ui/Popover";
+import { Calendar } from "./ui/Calendar";
+import { formatLunarDate, isSameDay } from "../utils/dateUtils";
 import { Booking, BusTrip, BusType } from "../types";
 import { Loader2 } from "lucide-react";
 import { formatPhoneNumber } from "../utils/formatters";
@@ -51,6 +55,7 @@ export const PaymentManager: React.FC = () => {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
   // Detail Modal State
   const [selectedGroup, setSelectedGroup] = useState<PaymentGroup | null>(null);
@@ -103,11 +108,23 @@ export const PaymentManager: React.FC = () => {
     return [];
   }
 
+  // --- FILTERED RAW DATA ---
+  const filteredPaymentsByDate = useMemo(() => {
+    if (!selectedDate) return payments;
+    return payments.filter((p) => isSameDay(new Date(p.timestamp), selectedDate));
+  }, [payments, selectedDate]);
+
+  const filteredBookingsByDate = useMemo(() => {
+    if (!selectedDate) return bookings;
+    // For financial reports, we usually look at bookings created on that day
+    return bookings.filter((b) => isSameDay(new Date(b.createdAt), selectedDate));
+  }, [bookings, selectedDate]);
+
   // --- GROUPING LOGIC ---
   const groupedPayments = useMemo(() => {
     const groups: Record<string, PaymentGroup> = {};
 
-    payments.forEach((payment) => {
+    filteredPaymentsByDate.forEach((payment) => {
       const booking = payment.bookingId;
       const bKey = booking ? booking.id : "orphaned";
 
@@ -148,13 +165,10 @@ export const PaymentManager: React.FC = () => {
         currentBooking.items.forEach((item) => {
           if (item.tickets && item.tickets.length > 0) {
             item.tickets.forEach((ticket) => {
-              // Cần ánh xạ seatId sang label nếu database lưu seatId
-              // Trong hệ thống này thường seatId và label tương đồng trong snapshot
               if (ticket.price > 0) activePaidLabels.add(ticket.seatId);
               else activeBookedLabels.add(ticket.seatId);
             });
           } else {
-            // Fallback
             item.seatIds.forEach((sid) => {
               if (currentBooking.status === "payment")
                 activePaidLabels.add(sid);
@@ -182,20 +196,20 @@ export const PaymentManager: React.FC = () => {
             return { label, status: "paid" as const };
           if (activeBookedLabels.has(label))
             return { label, status: "booked" as const };
-          return { label, status: "refunded" as const }; // Có trong lịch sử nhưng ko có trong đơn hiện tại = Đã hủy
+          return { label, status: "refunded" as const };
         });
     });
 
     return Object.values(groups).sort(
       (a, b) => b.latestTransaction.getTime() - a.latestTransaction.getTime()
     );
-  }, [payments, bookings]);
+  }, [filteredPaymentsByDate, bookings]);
 
   // --- STRICT STATS CALCULATION ---
   const stats = useMemo(() => {
     let cashTotal = 0;
     let transferTotal = 0;
-    payments.forEach((p) => {
+    filteredPaymentsByDate.forEach((p) => {
       cashTotal += p.cashAmount || 0;
       transferTotal += p.transferAmount || 0;
     });
@@ -206,7 +220,7 @@ export const PaymentManager: React.FC = () => {
     let totalBooked = 0;
     let totalTickets = 0;
 
-    bookings.forEach((b) => {
+    filteredBookingsByDate.forEach((b) => {
       if (b.status === "cancelled" || b.status === "hold") return;
 
       b.items.forEach((item) => {
@@ -247,7 +261,7 @@ export const PaymentManager: React.FC = () => {
       totalTickets,
       totalBooked,
     };
-  }, [payments, bookings]);
+  }, [filteredPaymentsByDate, filteredBookingsByDate]);
 
   const filteredGroups = useMemo(() => {
     if (!searchTerm.trim()) return groupedPayments;
@@ -393,10 +407,10 @@ export const PaymentManager: React.FC = () => {
               </div>
               <div>
                 <h3 className="font-bold text-slate-800">
-                  Tổng thu thanh toán
+                  {selectedDate ? "Thống kê thu theo ngày" : "Tổng thu thanh toán"}
                 </h3>
                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                  Dòng tiền thực nhận
+                  {selectedDate ? `Ngày ${selectedDate.toLocaleDateString("vi-VN")}` : "Dòng tiền thực nhận"}
                 </p>
               </div>
             </div>
@@ -437,10 +451,10 @@ export const PaymentManager: React.FC = () => {
               </div>
               <div>
                 <h3 className="font-bold text-slate-800">
-                  Thống kê số lượng vé
+                  {selectedDate ? "Lượng vé trong ngày" : "Thống kê số lượng vé"}
                 </h3>
                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                  Chỉ đếm các vé chưa hủy
+                  {selectedDate ? "Vé tạo mới trong ngày" : "Chỉ đếm các vé chưa hủy"}
                 </p>
               </div>
             </div>
@@ -485,12 +499,13 @@ export const PaymentManager: React.FC = () => {
         </div>
       </div>
 
-      {/* SEARCH BAR */}
-      <div className="flex gap-4 items-center">
+      {/* SEARCH & FILTERS BAR */}
+      <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center">
+        {/* Search */}
         <div className="relative flex-1 group">
           <Search
             size={18}
-            className="absolute left-3.5 top-2.5 text-slate-400 group-focus-within:text-primary transition-colors"
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors"
           />
           <input
             className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary placeholder-slate-400 transition-all h-10"
@@ -499,17 +514,58 @@ export const PaymentManager: React.FC = () => {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <div className="text-sm text-slate-500 font-medium">
-          <Button
-            onClick={fetchData}
-            variant="outline"
-            size="sm"
-            className="bg-red-400 text-white hover:text-white hover:bg-red-500 rounded-lg h-[40px] w-[200px] flex items-center justify-center transition-all"
-          >
-            <RotateCcw size={18} className="mr-2" />
-            Làm mới dữ liệu
-          </Button>
+
+        {/* Date Filter - Center */}
+        <div className="flex items-center gap-2">
+          <Popover
+            align="right"
+            trigger={
+              <Button
+                variant="outline"
+                className={`h-10 px-4 flex items-center gap-2 border-slate-200 hover:border-primary/50 hover:bg-slate-50 transition-all ${
+                  selectedDate ? "border-primary text-primary bg-primary/5 font-bold" : "text-slate-600"
+                }`}
+              >
+                <CalendarIcon size={18} />
+                <span className="text-sm">
+                  {selectedDate
+                    ? `Ngày: ${selectedDate.toLocaleDateString("vi-VN")}`
+                    : "Thống kê theo ngày"}
+                </span>
+                {selectedDate && (
+                  <div
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedDate(null);
+                    }}
+                    className="ml-1 p-0.5 rounded-full hover:bg-primary/20 transition-colors"
+                  >
+                    <X size={14} />
+                  </div>
+                )}
+              </Button>
+            }
+            content={(close) => (
+              <Calendar
+                selected={selectedDate || undefined}
+                onSelect={(date) => {
+                  setSelectedDate(date);
+                  close();
+                }}
+              />
+            )}
+          />
         </div>
+
+        {/* Refresh Data */}
+        <Button
+          onClick={fetchData}
+          variant="outline"
+          className="bg-slate-900 text-white hover:text-white hover:bg-slate-800 rounded-lg h-10 px-6 flex items-center justify-center transition-all shadow-sm border-none"
+        >
+          <RotateCcw size={18} className="mr-2" />
+          Làm mới
+        </Button>
       </div>
 
       {/* DATA TABLE */}
@@ -532,7 +588,9 @@ export const PaymentManager: React.FC = () => {
                   colSpan={6}
                   className="p-16 text-center text-slate-400 font-medium italic"
                 >
-                  Không có dữ liệu thanh toán phù hợp.
+                  {selectedDate 
+                    ? `Không tìm thấy giao dịch nào trong ngày ${selectedDate.toLocaleDateString("vi-VN")}.`
+                    : "Không có dữ liệu thanh toán phù hợp."}
                 </td>
               </tr>
             ) : (
@@ -809,7 +867,7 @@ export const PaymentManager: React.FC = () => {
                                       </div>
                                       <div className="flex justify-between items-center text-[10px] text-slate-500 font-bold mb-2 uppercase tracking-wide">
                                         <div className="flex items-center gap-1.5">
-                                          <Calendar
+                                          <CalendarIcon
                                             size={12}
                                             className="text-slate-400"
                                           />
