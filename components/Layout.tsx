@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from "react";
 import {
   Calendar as CalendarIcon,
@@ -12,7 +11,7 @@ import {
   Zap,
   Bus,
   BadgeDollarSign,
-  ArrowLeftRight
+  ArrowLeftRight,
 } from "lucide-react";
 import { Button } from "./ui/Button";
 import { Popover } from "./ui/Popover";
@@ -75,7 +74,7 @@ export const Layout: React.FC<LayoutProps> = ({
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const data = await api.settings.get('schedule_settings');
+        const data = await api.settings.get("schedule_settings");
         if (data) {
           setScheduleSettings(data);
         }
@@ -88,7 +87,6 @@ export const Layout: React.FC<LayoutProps> = ({
 
   const navItems = [
     { id: "sales", icon: <Bus size={20} />, label: "Bán vé" },
-    { id: "tickets", icon: <Ticket size={20} />, label: "Danh sách vé" },
     { id: "schedule", icon: <CalendarIcon size={20} />, label: "Lịch trình" },
     { id: "finance", icon: <BadgeDollarSign size={20} />, label: "Tài chính" },
   ];
@@ -97,10 +95,6 @@ export const Layout: React.FC<LayoutProps> = ({
     sales: {
       title: "Bán vé",
       description: "Quản lý bán vé và sơ đồ ghế trực quan",
-    },
-    tickets: {
-      title: "Danh sách vé",
-      description: "Tra cứu và quản lý lịch sử đặt vé",
     },
     schedule: {
       title: "Lịch trình",
@@ -117,7 +111,7 @@ export const Layout: React.FC<LayoutProps> = ({
   };
 
   const currentInfo = pageInfo[activeTab] || {
-    title: "VinaBus",
+    title: "Quản lý bán vé",
     description: "",
   };
 
@@ -239,9 +233,7 @@ export const Layout: React.FC<LayoutProps> = ({
             className="peer appearance-none absolute inset-0 w-full h-full cursor-pointer"
             checked={selectedDirection === "outbound"}
             onChange={(e) =>
-              onDirectionChange(
-                e.target.checked ? "outbound" : "inbound"
-              )
+              onDirectionChange(e.target.checked ? "outbound" : "inbound")
             }
           />
           {selectedDirection === "outbound" && (
@@ -254,9 +246,7 @@ export const Layout: React.FC<LayoutProps> = ({
         </div>
         <span
           className={`text-xs md:text-sm font-medium whitespace-nowrap ${
-            selectedDirection === "outbound"
-              ? "text-primary"
-              : "text-slate-600"
+            selectedDirection === "outbound" ? "text-primary" : "text-slate-600"
           }`}
         >
           {selectedDirection === "outbound" ? "Chiều đi" : "Chiều về"}
@@ -288,7 +278,7 @@ export const Layout: React.FC<LayoutProps> = ({
             V
           </div>
           <span className="font-bold text-xl tracking-tight text-slate-900 truncate">
-            VinaBus
+            Quản lý bán vé
           </span>
         </div>
 
@@ -338,7 +328,6 @@ export const Layout: React.FC<LayoutProps> = ({
       >
         {/* Header - Updated for 2 rows on mobile */}
         <header className="h-auto md:h-16 bg-white border-b border-slate-200 flex flex-col md:flex-row md:items-center justify-between sticky top-0 z-30 shadow-sm">
-          
           {/* Row 1: Menu + Title + Direction (Mobile Center) + Right Actions */}
           <div className="flex items-center justify-between h-16 px-4 md:px-8 w-full md:w-auto md:flex-1 min-w-0">
             <div className="flex items-center gap-2 md:gap-4 min-w-0">
@@ -365,23 +354,22 @@ export const Layout: React.FC<LayoutProps> = ({
 
             {/* Mobile-only center: Direction Toggle */}
             <div className="md:hidden flex-1 flex justify-center px-1">
-              {(activeTab === 'sales') && <DirectionToggle />}
+              {activeTab === "sales" && <DirectionToggle />}
             </div>
 
             {/* Mobile-only right: headerRight */}
-            <div className="md:hidden">
-              {headerRight}
-            </div>
+            <div className="md:hidden">{headerRight}</div>
           </div>
 
           {/* Row 2 (Mobile) / Middle (Desktop): Sales Filters */}
-          <div className={`
+          <div
+            className={`
             flex items-center gap-2 px-4 pb-3 md:pb-0 md:px-4 overflow-x-auto no-scrollbar justify-center md:justify-start
-            ${(activeTab === 'sales') ? 'flex' : 'hidden md:flex'}
-          `}>
-            {(activeTab === "sales") && (
+            ${activeTab === "sales" ? "flex" : "hidden md:flex"}
+          `}
+          >
+            {activeTab === "sales" && (
               <div className="flex items-center gap-2 md:gap-3 animate-in fade-in slide-in-from-right-4 duration-300 shrink-0">
-                
                 {/* 1. Direction Toggle (Desktop Only here) */}
                 <div className="hidden md:block">
                   <DirectionToggle />
@@ -420,13 +408,16 @@ export const Layout: React.FC<LayoutProps> = ({
                 />
 
                 {/* 3. Smart Trip Selector */}
-                {activeTab === 'sales' && (
+                {activeTab === "sales" && (
                   <Popover
                     align="right"
                     trigger={
                       <div className="flex items-center justify-between gap-3 h-9 px-2 md:px-3 border border-slate-200 rounded-md bg-white hover:bg-slate-50 hover:border-slate-300 transition-colors select-none cursor-pointer min-w-[140px] md:min-w-[200px] max-w-[240px] md:max-w-[340px]">
                         <div className="flex items-center gap-2 overflow-hidden">
-                          <MapPin size={16} className="text-slate-500 shrink-0" />
+                          <MapPin
+                            size={16}
+                            className="text-slate-500 shrink-0"
+                          />
                           {selectedTripDisplay ? (
                             <div className="flex items-center gap-2 min-w-0">
                               <span className="text-xs md:text-sm font-medium text-slate-900 truncate">
@@ -440,14 +431,20 @@ export const Layout: React.FC<LayoutProps> = ({
                             </span>
                           )}
                         </div>
-                        <ChevronDown size={14} className="text-slate-400 shrink-0" />
+                        <ChevronDown
+                          size={14}
+                          className="text-slate-400 shrink-0"
+                        />
                       </div>
                     }
                     content={(close) => (
                       <div className="w-[300px] md:w-[360px] max-h-[400px] overflow-y-auto bg-white rounded-lg border border-slate-200 shadow-xl p-1.5">
                         {tripOptions.length === 0 ? (
                           <div className="p-8 text-center text-slate-500">
-                            <BusFront size={24} className="mx-auto mb-2 opacity-20" />
+                            <BusFront
+                              size={24}
+                              className="mx-auto mb-2 opacity-20"
+                            />
                             <p className="text-sm">
                               Không có chuyến nào trong ngày này.
                             </p>
@@ -489,11 +486,19 @@ export const Layout: React.FC<LayoutProps> = ({
                                           : "text-slate-900"
                                       }`}
                                     >
-                                      <span className="truncate">{trip.route}</span>
+                                      <span className="truncate">
+                                        {trip.route}
+                                      </span>
                                       {trip.isEnhanced && (
                                         <span className="shrink-0 inline-flex items-center text-[9px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200 shadow-sm ml-auto md:ml-0">
-                                          <Zap size={9} className="mr-0.5 fill-amber-700" />
-                                          TC {trip.enhancedIndex > 0 ? `#${trip.enhancedIndex}` : ""}
+                                          <Zap
+                                            size={9}
+                                            className="mr-0.5 fill-amber-700"
+                                          />
+                                          TC{" "}
+                                          {trip.enhancedIndex > 0
+                                            ? `#${trip.enhancedIndex}`
+                                            : ""}
                                         </span>
                                       )}
                                     </div>
@@ -506,7 +511,10 @@ export const Layout: React.FC<LayoutProps> = ({
 
                                   {/* Checkmark */}
                                   {isSelected && (
-                                    <Check size={16} className="text-primary ml-auto" />
+                                    <Check
+                                      size={16}
+                                      className="text-primary ml-auto"
+                                    />
                                   )}
                                 </button>
                               );
