@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from "react";
 import { Dialog } from "./ui/Dialog";
 import { Button } from "./ui/Button";
@@ -48,10 +49,10 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
       setLoading(true);
       try {
         const data = await api.bookings.getHistory(id);
-        // Sắp xếp theo thứ tự thời gian GIẢM DẦN (Mới nhất lên đầu)
+        // Sắp xếp theo thứ tự thời gian TĂNG DẦN (Cũ nhất lên đầu)
         const sorted = [...data].sort(
           (a, b) =>
-            new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+            new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
         );
         setHistory(sorted);
       } catch (error) {
@@ -416,7 +417,7 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
             <div className="relative border-l-2 border-slate-200 ml-2 space-y-5 py-4 mb-4">
               {history.map((log, idx, arr) => {
                 const theme = getActionTheme(log.action);
-                const isLatest = idx === 0;
+                const isLatest = idx === arr.length - 1;
                 const colorClasses = {
                   emerald: "bg-emerald-500",
                   red: "bg-red-500",
