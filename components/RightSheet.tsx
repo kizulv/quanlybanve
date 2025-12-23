@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from "react";
 import {
   Sheet,
@@ -29,7 +28,7 @@ import {
   ArrowRightLeft,
   Trash2,
   // Added Info icon import to fix the error on line 489
-  Info
+  Info,
 } from "lucide-react";
 import { Badge } from "./ui/Badge";
 import { Booking, BusTrip, UndoAction } from "../types";
@@ -136,64 +135,79 @@ export const RightSheet: React.FC<RightSheetProps> = ({
     if (!lastUndoAction) return null;
 
     switch (lastUndoAction.type) {
-      case 'CREATED_BOOKING':
+      case "CREATED_BOOKING":
         return (
           <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 space-y-3">
-             <div className="flex items-center gap-2 text-emerald-700 font-black text-xs uppercase tracking-wider">
-                <PlusCircle size={14}/> Vừa tạo đơn hàng mới
-             </div>
-             <div className="flex flex-col gap-1.5">
-                <div className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                   <Phone size={14} className="text-slate-400"/> {lastUndoAction.phone}
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                   {lastUndoAction.seatLabels.map(l => (
-                     <Badge key={l} className="bg-emerald-100 text-emerald-700 border-emerald-200 text-[10px] px-1.5 h-4">{l}</Badge>
-                   ))}
-                </div>
-             </div>
-             <p className="text-[11px] text-emerald-600/80 font-medium italic border-t border-emerald-100 pt-2">
-                Hành động hoàn tác sẽ **XÓA** đơn hàng này và trả lại ghế trống.
-             </p>
+            <div className="flex items-center gap-2 text-emerald-700 font-black text-xs uppercase tracking-wider">
+              <PlusCircle size={14} /> Vừa tạo đơn hàng mới
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <div className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                <Phone size={14} className="text-slate-400" />{" "}
+                {lastUndoAction.phone}
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {lastUndoAction.seatLabels.map((l) => (
+                  <Badge
+                    key={l}
+                    className="bg-emerald-100 text-emerald-700 border-emerald-200 text-[10px] px-1.5 h-4"
+                  >
+                    {l}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+            <p className="text-[11px] text-emerald-600/80 font-medium italic border-t border-emerald-100 pt-2">
+              Hành động hoàn tác sẽ **XÓA** đơn hàng này và trả lại ghế trống.
+            </p>
           </div>
         );
-      case 'UPDATED_BOOKING':
+      case "UPDATED_BOOKING":
         return (
           <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 space-y-3">
-             <div className="flex items-center gap-2 text-blue-700 font-black text-xs uppercase tracking-wider">
-                <RefreshCw size={14}/> Vừa cập nhật đơn hàng
-             </div>
-             <div className="flex flex-col gap-1.5">
-                <div className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                   <Phone size={14} className="text-slate-400"/> {lastUndoAction.phone}
-                </div>
-                <div className="text-[11px] text-slate-500 font-medium">
-                   Mã đơn: <span className="font-mono font-bold">#{lastUndoAction.previousBooking.id.slice(-6).toUpperCase()}</span>
-                </div>
-             </div>
-             <p className="text-[11px] text-blue-600/80 font-medium italic border-t border-blue-100 pt-2">
-                Hành động hoàn tác sẽ khôi phục lại trạng thái (ghế/giá/điểm đón) **TRƯỚC KHI SỬA**.
-             </p>
+            <div className="flex items-center gap-2 text-blue-700 font-black text-xs uppercase tracking-wider">
+              <RefreshCw size={14} /> Vừa cập nhật đơn hàng
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <div className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                <Phone size={14} className="text-slate-400" />{" "}
+                {lastUndoAction.phone}
+              </div>
+              <div className="text-[11px] text-slate-500 font-medium">
+                Mã đơn:{" "}
+                <span className="font-mono font-bold">
+                  #{lastUndoAction.previousBooking.id.slice(-6).toUpperCase()}
+                </span>
+              </div>
+            </div>
+            <p className="text-[11px] text-blue-600/80 font-medium italic border-t border-blue-100 pt-2">
+              Hành động hoàn tác sẽ khôi phục lại trạng thái (ghế/giá/điểm đón)
+              **TRƯỚC KHI SỬA**.
+            </p>
           </div>
         );
-      case 'SWAPPED_SEATS':
+      case "SWAPPED_SEATS":
         return (
           <div className="bg-purple-50 border border-purple-100 rounded-xl p-4 space-y-3">
-             <div className="flex items-center gap-2 text-purple-700 font-black text-xs uppercase tracking-wider">
-                <ArrowRightLeft size={14}/> Vừa đổi chỗ ghế
-             </div>
-             <div className="flex items-center justify-center gap-4 py-1">
-                <div className="flex flex-col items-center gap-1">
-                  <span className="font-black text-slate-500 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-xs text-sm min-w-[45px] text-center">{lastUndoAction.label1}</span>
-                </div>
-                <ArrowRightLeft size={16} className="text-purple-400"/>
-                <div className="flex flex-col items-center gap-1">
-                  <span className="font-black text-purple-700 bg-white px-3 py-1.5 rounded-xl border border-purple-300 shadow-md text-sm min-w-[45px] text-center">{lastUndoAction.label2}</span>
-                </div>
-             </div>
-             <p className="text-[11px] text-purple-600/80 font-medium italic border-t border-purple-100 pt-2 text-center">
-                Hành động hoàn tác sẽ hoán đổi lại vị trí 2 ghế này.
-             </p>
+            <div className="flex items-center gap-2 text-purple-700 font-black text-xs uppercase tracking-wider">
+              <ArrowRightLeft size={14} /> Vừa đổi chỗ ghế
+            </div>
+            <div className="flex items-center justify-center gap-4 py-1">
+              <div className="flex flex-col items-center gap-1">
+                <span className="font-black text-slate-500 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-xs text-sm min-w-[45px] text-center">
+                  {lastUndoAction.label1}
+                </span>
+              </div>
+              <ArrowRightLeft size={16} className="text-purple-400" />
+              <div className="flex flex-col items-center gap-1">
+                <span className="font-black text-purple-700 bg-white px-3 py-1.5 rounded-xl border border-purple-300 shadow-md text-sm min-w-[45px] text-center">
+                  {lastUndoAction.label2}
+                </span>
+              </div>
+            </div>
+            <p className="text-[11px] text-purple-600/80 font-medium italic border-t border-purple-100 pt-2 text-center">
+              Hành động hoàn tác sẽ hoán đổi lại vị trí 2 ghế này.
+            </p>
           </div>
         );
       default:
@@ -360,8 +374,8 @@ export const RightSheet: React.FC<RightSheetProps> = ({
                                     </div>
                                   </div>
                                 </div>
-                                <div className="flex justify-between items-end gap-1">
-                                  <Badge className="text-slate-600 text-xs bg-slate-100 border-slate-200 px-1.5 h-5 text-center">
+                                <div className="flex flex-col justify-between items-end gap-1">
+                                  <Badge className="w-full flex items-center text-slate-600 text-xs bg-slate-100 border-slate-200 px-1 h-5 justify-center font-bold">
                                     {booking.totalTickets}
                                     {" vé"}
                                   </Badge>
@@ -371,7 +385,7 @@ export const RightSheet: React.FC<RightSheetProps> = ({
 
                               {booking.items.length === 0 && (
                                 <div className="text-[11px] text-slate-400 text-center py-2 bg-red-50/30 rounded-md border border-dashed border-red-100">
-                                  Đã hủy đơn hàng
+                                  Đã hủy
                                 </div>
                               )}
                               <div className="mb-3 flex flex-col gap-1">
@@ -445,9 +459,7 @@ export const RightSheet: React.FC<RightSheetProps> = ({
                                           {booking.totalPrice.toLocaleString(
                                             "vi-VN"
                                           )}{" "}
-                                          <span className="text-[10px] font-normal text-slate-500">
-                                            đ
-                                          </span>
+                                          <span className="text-[10px]">đ</span>
                                         </>
                                       ) : (
                                         <span className="text-amber-600 font-bold">
@@ -482,14 +494,20 @@ export const RightSheet: React.FC<RightSheetProps> = ({
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="text-slate-600 pt-4 text-sm leading-relaxed space-y-4">
-                <p className="font-medium">Bạn đang yêu cầu hủy bỏ tác vụ vừa thực hiện để khôi phục lại trạng thái dữ liệu trước đó.</p>
-                
+                <p className="font-medium">
+                  Bạn đang yêu cầu hủy bỏ tác vụ vừa thực hiện để khôi phục lại
+                  trạng thái dữ liệu trước đó.
+                </p>
+
                 {/* HIỂN THỊ CHI TIẾT HÀNH ĐỘNG SẮP HOÀN TÁC */}
                 {renderUndoSummary()}
 
                 <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 flex gap-2 items-start">
-                   <Info size={14} className="text-slate-400 mt-0.5 shrink-0"/>
-                   <span className="text-[11px] text-slate-500 italic">Lưu ý: Hành động hoàn tác là thao tác trực tiếp vào dữ liệu hệ thống và không thể rút lại sau khi xác nhận.</span>
+                  <Info size={14} className="text-slate-400 mt-0.5 shrink-0" />
+                  <span className="text-[11px] text-slate-500 italic">
+                    Lưu ý: Hành động hoàn tác là thao tác trực tiếp vào dữ liệu
+                    hệ thống và không thể rút lại sau khi xác nhận.
+                  </span>
                 </div>
               </div>
             </AlertDialogDescription>
