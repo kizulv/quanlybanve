@@ -744,7 +744,7 @@ export const PaymentManager: React.FC = () => {
               </div>
             </div>
             <div className="px-4">
-              <div className="relative border-l-2 border-slate-200 ml-2 space-y-5 py-4">
+              <div className="relative border-l-2 border-slate-200 ml-2 space-y-5 py-4 mb-4">
                 {[...selectedGroup.payments]
                   .sort(
                     (a, b) =>
@@ -766,7 +766,7 @@ export const PaymentManager: React.FC = () => {
                         className="relative pl-6 animate-in slide-in-from-left duration-300"
                       >
                         <div
-                          className={`absolute -left-[11px] top-1 w-5 h-5 rounded-full border-4 border-white shadow-md flex items-center justify-center ${
+                          className={`absolute -left-[11px] top-0 w-5 h-5 rounded-full border-4 border-white shadow-md flex items-center justify-center ${
                             isPositive ? "bg-emerald-500" : "bg-red-500"
                           }`}
                         >
@@ -830,8 +830,11 @@ export const PaymentManager: React.FC = () => {
                             {diffResult.length > 0 ? (
                               <div className="space-y-3 mb-4">
                                 {diffResult.map((t: any, tripIdx: number) => (
-                                  <div key={tripIdx} className="text-sm">
-                                    <div className="flex items-center gap-2 mb-4">
+                                  <div
+                                    key={tripIdx}
+                                    className="text-sm border-b border-slate-100 border-dashed last:border-b-0 pb-3 last:pb-0"
+                                  >
+                                    <div className="flex items-center gap-3 mb-3">
                                       <MapPin
                                         size={13}
                                         className="text-slate-600"
