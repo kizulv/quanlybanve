@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from "react";
 import { Dialog } from "./ui/Dialog";
 import { Button } from "./ui/Button";
@@ -95,9 +94,17 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
           label: "Khách hàng",
         };
       case "PAY_SEAT":
-        return { icon: <Banknote size={14} />, color: "green", label: "Thu tiền" };
+        return {
+          icon: <Banknote size={14} />,
+          color: "green",
+          label: "Thu tiền",
+        };
       case "REFUND_SEAT":
-        return { icon: <RotateCcw size={14} />, color: "red", label: "Hoàn vé" };
+        return {
+          icon: <RotateCcw size={14} />,
+          color: "red",
+          label: "Hoàn vé",
+        };
       default:
         return {
           icon: <FileClock size={14} />,
@@ -124,7 +131,12 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
     const details = log.details || {};
 
     // 1. TẠO MỚI HOẶC HỦY TOÀN BỘ ĐƠN
-    if ((log.action === "CREATE" || log.action === "DELETE" || log.action === "CANCEL") && details.trips) {
+    if (
+      (log.action === "CREATE" ||
+        log.action === "DELETE" ||
+        log.action === "CANCEL") &&
+      details.trips
+    ) {
       const isCancelled = log.action === "DELETE" || log.action === "CANCEL";
       return (
         <div className={`space-y-3 mb-4 ${isCancelled ? "opacity-60" : ""}`}>
@@ -134,15 +146,24 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
               className={`text-sm border-b border-slate-100 border-dashed last:border-b-0 pb-3 last:pb-0`}
             >
               <div className="flex items-center gap-3 mb-3">
-                <span className={`flex items-center font-black text-slate-800 ${isCancelled ? "line-through text-slate-400" : ""}`}>
+                <span
+                  className={`flex items-center font-black text-slate-800 ${
+                    isCancelled ? "line-through text-slate-400" : ""
+                  }`}
+                >
                   <MapPin size={13} className="text-slate-600 mr-1" />{" "}
                   {trip.route}
                 </span>
-                <span className="flex items-center text-xs text-slate-400 tracking-tight ">
-                  <CalendarIcon size={11} className="mr-1" /> {trip.tripDate}
-                </span>
-                <span className={`bg-yellow-200 border border-yellow-300 rounded-full flex items-center h-5 px-2 text-[10px] text-slate-900 tracking-widest font-semibold ${isCancelled ? "grayscale opacity-50" : ""}`}>
+                <span
+                  className={`bg-yellow-200 border border-yellow-300 rounded-full flex items-center h-5 px-2 text-[10px] text-slate-900 tracking-widest font-semibold ${
+                    isCancelled ? "grayscale opacity-50" : ""
+                  }`}
+                >
                   {trip.licensePlate}
+                </span>
+                <span className="flex items-center text-xs text-slate-400 tracking-tight ml-auto">
+                  <CalendarIcon size={11} className="mr-1 mb-[1px]" />{" "}
+                  {formatDate(trip.tripDate)}
                 </span>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -150,8 +171,8 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
                   <Badge
                     key={s}
                     className={`${
-                      isCancelled 
-                        ? "bg-red-50 text-red-400 border-red-100 line-through decoration-red-300" 
+                      isCancelled
+                        ? "bg-red-50 text-red-400 border-red-100 line-through decoration-red-300"
                         : "bg-emerald-50 text-emerald-700 border-emerald-200"
                     } text-[10px] font-black px-2 py-0.5 rounded-lg`}
                   >
@@ -168,62 +189,76 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
     // 2. CẬP NHẬT ĐƠN (GỘP CHUNG GHẾ CÒN LẠI VÀ GHẾ BỊ HỦY)
     if (log.action === "UPDATE" && details.changes) {
       return (
-        <div className="space-y-4 mt-2">
+        <div className="">
           {details.changes.map((change: any, idx: number) => {
             const hasKept = change.kept && change.kept.length > 0;
             const hasRemoved = change.removed && change.removed.length > 0;
             const hasAdded = change.added && change.added.length > 0;
 
             return (
-              <div key={idx} className="bg-blue-50/30 p-3 rounded-xl border border-blue-100 text-xs">
-                <div className="flex items-center gap-2 mb-3 pb-2 border-b border-blue-100">
-                  <MapPin size={12} className="text-blue-500" />
-                  <span className="font-black text-slate-800 tracking-tight">
-                    {change.route}
-                  </span>
-                  <span className="text-[10px] text-slate-400 font-bold ml-auto uppercase">
-                    {formatDate(change.date)}
-                  </span>
+              <div key={idx} className="space-y-3 mb-4">
+                <div className="text-sm border-b border-slate-100 border-dashed last:border-b-0 pb-3 last:pb-0">
+                  <div className="flex items-center gap-3 mb-3">
+                    <span className="flex items-center font-black text-slate-800">
+                      <MapPin size={12} className="mr-1" />
+                      {change.route}
+                    </span>
+                    <span className="flex items-center text-xs text-slate-400 tracking-tight ml-auto ">
+                      <CalendarIcon size={11} className="mr-1 mb-[1px]" />{" "}
+                      {formatDate(change.date)}
+                    </span>
+                  </div>
+
+                  {/* Khu vực hiển thị kết hợp Ghế còn + Ghế mất */}
+                  <div className="flex items-center mb-4">
+                    {(hasKept || hasRemoved) && (
+                      <div className="flex flex-wrap gap-2">
+                        {/* Hiển thị ghế được giữ lại */}
+                        {change.kept?.map((s: string) => (
+                          <Badge
+                            key={s}
+                            className="bg-green-50 text-slate-700 border-green-200 font-bold text-[10px] px-2 py-1 shadow-xs"
+                          >
+                            {s}
+                          </Badge>
+                        ))}
+                        {/* Hiển thị ghế bị xóa bằng gạch ngang */}
+                        <div className="flex items-center">
+                          {hasRemoved && (
+                            <span className="mx-4 text-slate-300"> - </span>
+                          )}
+                          <div className="flex flex-wrap gap-2">
+                            {change.removed?.map((s: string) => (
+                              <Badge
+                                key={s}
+                                className="bg-red-50 text-red-400 border-red-100 line-through decoration-red-300 font-bold text-[10px] px-2 py-1 opacity-70"
+                              >
+                                {s}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Khu vực hiển thị Ghế mới thêm */}
+                    {hasAdded && (
+                      <div className="flex items-center">
+                        <span className="mx-4 text-slate-300">+</span>
+                        <div className="flex flex-wrap gap-2">
+                          {change.added.map((s: string) => (
+                            <Badge
+                              key={s}
+                              className="bg-emerald-50 text-emerald-700 border-emerald-200 font-black text-[10px] px-2 py-1 shadow-sm ring-1 ring-emerald-500/10"
+                            >
+                              {s}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
-
-                {/* Khu vực hiển thị kết hợp Ghế còn + Ghế mất */}
-                {(hasKept || hasRemoved) && (
-                  <div className="mb-4">
-                    <div className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                       Vé đang có & Vé đã hủy
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {/* Hiển thị ghế được giữ lại */}
-                      {change.kept?.map((s: string) => (
-                        <Badge key={s} className="bg-white text-slate-700 border-slate-200 font-bold text-[10px] px-2 py-1 shadow-xs">
-                          {s}
-                        </Badge>
-                      ))}
-                      {/* Hiển thị ghế bị xóa bằng gạch ngang */}
-                      {change.removed?.map((s: string) => (
-                        <Badge key={s} className="bg-red-50 text-red-400 border-red-100 line-through decoration-red-300 font-bold text-[10px] px-2 py-1 opacity-70">
-                          {s}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Khu vực hiển thị Ghế mới thêm */}
-                {hasAdded && (
-                  <div className="pt-2 border-t border-blue-50">
-                    <div className="text-[9px] font-bold text-emerald-500 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                      <Plus size={10}/> Vừa thêm mới
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {change.added.map((s: string) => (
-                        <Badge key={s} className="bg-emerald-50 text-emerald-700 border-emerald-200 font-black text-[10px] px-2 py-1 shadow-sm ring-1 ring-emerald-500/10">
-                          {s}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
             );
           })}
@@ -234,36 +269,39 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
     // 3. ĐỔI CHỖ GHẾ
     if (log.action === "SWAP" && details.from && details.to) {
       return (
-        <div className="mt-2 bg-purple-50/50 p-4 rounded-xl border border-purple-100 text-xs">
-          <div className="flex items-center gap-2 mb-3 pb-2 border-b border-purple-100/50">
-            <MapPin size={12} className="text-purple-500" />
-            <span className="font-black text-purple-900 tracking-tight">
-              {details.route}
-            </span>
-          </div>
-          <div className="flex items-center justify-center gap-4 py-1">
-            <div className="flex flex-col items-center gap-1">
-              <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">
-                Từ ghế
+        <div className="space-y-3 mb-4">
+          <div className="text-sm border-b border-slate-100 border-dashed last:border-b-0 pb-3 last:pb-0">
+            <div className="flex items-center gap-2 mb-3 pb-2">
+              <span className="flex items-center font-black text-purple-900">
+                <MapPin size={12} className="text-purple-500 mr-1" />
+                {details.route}
               </span>
-              <span className="font-black text-slate-500 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-xs text-sm min-w-[45px] text-center">
-                {details.from}
-              </span>
+              <div className="flex items-center text-xs text-slate-400 tracking-tight ml-auto">
+                <CalendarIcon size={11} className="mr-1 mb-[1px]" />{" "}
+                {formatDate(details.date)}
+              </div>
             </div>
-            <div className="p-2 bg-purple-100 rounded-full text-purple-600 shadow-sm mt-4">
-              <ArrowRight size={14} className="animate-pulse" />
+            <div className="flex items-center justify-center gap-4 py-1">
+              <div className="flex flex-col items-center gap-1">
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">
+                  Từ ghế
+                </span>
+                <span className="font-black text-slate-500 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-xs text-sm min-w-[45px] text-center">
+                  {details.from}
+                </span>
+              </div>
+              <div className="p-2 bg-purple-100 rounded-full text-purple-600 shadow-sm mt-4">
+                <ArrowRight size={14} className="animate-pulse" />
+              </div>
+              <div className="flex flex-col items-center gap-1">
+                <span className="text-[9px] font-black text-purple-400 uppercase tracking-tighter">
+                  Sang ghế
+                </span>
+                <span className="font-black text-purple-700 bg-white px-3 py-1.5 rounded-xl border border-purple-300 shadow-md text-sm min-w-[45px] text-center">
+                  {details.to}
+                </span>
+              </div>
             </div>
-            <div className="flex flex-col items-center gap-1">
-              <span className="text-[9px] font-black text-purple-400 uppercase tracking-tighter">
-                Sang ghế
-              </span>
-              <span className="font-black text-purple-700 bg-white px-3 py-1.5 rounded-xl border border-purple-300 shadow-md text-sm min-w-[45px] text-center">
-                {details.to}
-              </span>
-            </div>
-          </div>
-          <div className="text-[10px] text-purple-400 font-bold mt-4 flex items-center justify-center gap-1">
-            <Calendar size={10} /> {formatDate(details.date)}
           </div>
         </div>
       );
@@ -271,43 +309,65 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
 
     // 4. ĐIỀU CHUYỂN XE (TRANSFER)
     if (log.action === "TRANSFER") {
-        return (
-            <div className="mt-2 bg-indigo-50/50 p-4 rounded-xl border border-indigo-100 text-xs">
-                <div className="flex items-center justify-between mb-3 pb-2 border-b border-indigo-100/50">
-                    <div className="flex items-center gap-2">
-                        <Truck size={14} className="text-indigo-500" />
-                        <span className="font-black text-indigo-900 uppercase">Điều chuyển xe</span>
-                    </div>
-                </div>
-                <div className="grid grid-cols-1 gap-4">
-                    <div className="flex items-center justify-between gap-4">
-                        <div className="flex-1 bg-white p-3 rounded-lg border border-slate-100 shadow-xs opacity-60">
-                             <div className="text-[9px] font-bold text-slate-400 uppercase mb-1">Xe gốc</div>
-                             <div className="font-bold text-slate-700 flex items-center gap-1.5"><Bus size={12}/> {details.fromPlate}</div>
-                             <div className="text-[10px] text-slate-400 truncate">{details.fromRoute}</div>
-                        </div>
-                        <div className="p-2 bg-indigo-100 rounded-full text-indigo-600 shadow-sm shrink-0">
-                            <ArrowRight size={16} className="animate-in slide-in-from-left-2 infinite duration-1000" />
-                        </div>
-                        <div className="flex-1 bg-white p-3 rounded-lg border border-indigo-200 shadow-sm">
-                             <div className="text-[9px] font-bold text-indigo-400 uppercase mb-1">Xe mới</div>
-                             <div className="font-black text-indigo-800 flex items-center gap-1.5"><Bus size={12}/> {details.toPlate}</div>
-                             <div className="text-[10px] text-indigo-600 truncate">{details.toRoute}</div>
-                        </div>
-                    </div>
-                    <div className="pt-2">
-                         <div className="text-[9px] font-bold text-slate-400 uppercase mb-2">Danh sách ghế điều chuyển</div>
-                         <div className="flex flex-wrap gap-1.5">
-                             {details.seats?.map((s: string) => (
-                                 <Badge key={s} className="bg-indigo-600 text-white border-transparent text-[10px] font-bold px-2 py-0.5">
-                                     {s}
-                                 </Badge>
-                             ))}
-                         </div>
-                    </div>
-                </div>
+      return (
+        <div className="mt-2 bg-indigo-50/50 p-4 rounded-xl border border-indigo-100 text-xs">
+          <div className="flex items-center justify-between mb-3 pb-2 border-b border-indigo-100/50">
+            <div className="flex items-center gap-2">
+              <Truck size={14} className="text-indigo-500" />
+              <span className="font-black text-indigo-900 uppercase">
+                Điều chuyển xe
+              </span>
             </div>
-        );
+          </div>
+          <div className="grid grid-cols-1 gap-4">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex-1 bg-white p-3 rounded-lg border border-slate-100 shadow-xs opacity-60">
+                <div className="text-[9px] font-bold text-slate-400 uppercase mb-1">
+                  Xe gốc
+                </div>
+                <div className="font-bold text-slate-700 flex items-center gap-1.5">
+                  <Bus size={12} /> {details.fromPlate}
+                </div>
+                <div className="text-[10px] text-slate-400 truncate">
+                  {details.fromRoute}
+                </div>
+              </div>
+              <div className="p-2 bg-indigo-100 rounded-full text-indigo-600 shadow-sm shrink-0">
+                <ArrowRight
+                  size={16}
+                  className="animate-in slide-in-from-left-2 infinite duration-1000"
+                />
+              </div>
+              <div className="flex-1 bg-white p-3 rounded-lg border border-indigo-200 shadow-sm">
+                <div className="text-[9px] font-bold text-indigo-400 uppercase mb-1">
+                  Xe mới
+                </div>
+                <div className="font-black text-indigo-800 flex items-center gap-1.5">
+                  <Bus size={12} /> {details.toPlate}
+                </div>
+                <div className="text-[10px] text-indigo-600 truncate">
+                  {details.toRoute}
+                </div>
+              </div>
+            </div>
+            <div className="pt-2">
+              <div className="text-[9px] font-bold text-slate-400 uppercase mb-2">
+                Danh sách ghế điều chuyển
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {details.seats?.map((s: string) => (
+                  <Badge
+                    key={s}
+                    className="bg-indigo-600 text-white border-transparent text-[10px] font-bold px-2 py-0.5"
+                  >
+                    {s}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
     }
 
     // 5. CẬP NHẬT THÔNG TIN KHÁCH HÀNG
@@ -348,22 +408,41 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
 
     // 6. THANH TOÁN HOẶC HOÀN VÉ LẺ
     if (log.action === "PAY_SEAT" || log.action === "REFUND_SEAT") {
-        const isRefund = log.action === "REFUND_SEAT";
-        return (
-            <div className={`mt-2 p-3 rounded-xl border ${isRefund ? "bg-red-50/50 border-red-100" : "bg-green-50/50 border-green-100"}`}>
-                <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-2">
-                        <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-lg ${isRefund ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"}`}>
-                            {details.seat || "Ghế lẻ"}
-                        </span>
-                        <span className={`text-sm font-black ${isRefund ? "text-red-600 line-through decoration-red-400" : "text-green-600"}`}>
-                            {isRefund ? "-" : "+"}{details.amount?.toLocaleString("vi-VN")} đ
-                        </span>
-                    </div>
-                    {isRefund && <AlertCircle size={14} className="text-red-400" />}
-                </div>
+      const isRefund = log.action === "REFUND_SEAT";
+      return (
+        <div
+          className={`mt-2 p-3 rounded-xl border ${
+            isRefund
+              ? "bg-red-50/50 border-red-100"
+              : "bg-green-50/50 border-green-100"
+          }`}
+        >
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-2">
+              <span
+                className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-lg ${
+                  isRefund
+                    ? "bg-red-100 text-red-700"
+                    : "bg-green-100 text-green-700"
+                }`}
+              >
+                {details.seat || "Ghế lẻ"}
+              </span>
+              <span
+                className={`text-sm font-black ${
+                  isRefund
+                    ? "text-red-600 line-through decoration-red-400"
+                    : "text-green-600"
+                }`}
+              >
+                {isRefund ? "-" : "+"}
+                {details.amount?.toLocaleString("vi-VN")} đ
+              </span>
             </div>
-        );
+            {isRefund && <AlertCircle size={14} className="text-red-400" />}
+          </div>
+        </div>
+      );
     }
 
     return null;
@@ -450,7 +529,9 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
                           ${
                             log.action === "CREATE"
                               ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                              : (log.action === "DELETE" || log.action === "CANCEL" || log.action === "REFUND_SEAT")
+                              : log.action === "DELETE" ||
+                                log.action === "CANCEL" ||
+                                log.action === "REFUND_SEAT"
                               ? "bg-red-50 text-red-700 border-red-200"
                               : log.action === "UPDATE"
                               ? "bg-blue-50 text-blue-700 border-blue-200"
