@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from "react";
 import { Dialog } from "./ui/Dialog";
 import { Button } from "./ui/Button";
@@ -48,10 +49,10 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
       setLoading(true);
       try {
         const data = await api.bookings.getHistory(id);
-        // Sắp xếp theo thứ tự thời gian TĂNG DẦN (Cũ nhất lên đầu)
+        // Sắp xếp theo thứ tự thời gian GIẢM DẦN (Mới nhất lên đầu)
         const sorted = [...data].sort(
           (a, b) =>
-            new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+            new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
         );
         setHistory(sorted);
       } catch (error) {
@@ -209,11 +210,9 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
                     </span>
                   </div>
 
-                  {/* Khu vực hiển thị kết hợp Ghế còn + Ghế mất */}
                   <div className="flex items-center mb-4">
                     {(hasKept || hasRemoved) && (
                       <div className="flex flex-wrap gap-2">
-                        {/* Hiển thị ghế được giữ lại */}
                         {change.kept?.map((s: string) => (
                           <Badge
                             key={s}
@@ -222,7 +221,6 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
                             {s}
                           </Badge>
                         ))}
-                        {/* Hiển thị ghế bị xóa bằng gạch ngang */}
                         <div className="flex items-center">
                           {hasRemoved && (
                             <span className="mx-4 text-slate-300"> - </span>
@@ -241,7 +239,6 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
                       </div>
                     )}
 
-                    {/* Khu vực hiển thị Ghế mới thêm */}
                     {hasAdded && (
                       <div className="flex items-center">
                         <span className="mx-4 text-slate-300">+</span>
@@ -370,81 +367,6 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
       );
     }
 
-    // 5. CẬP NHẬT THÔNG TIN KHÁCH HÀNG
-    if (log.action === "PASSENGER_UPDATE") {
-      return (
-        <div className="mt-2 text-xs bg-orange-50/50 p-4 rounded-xl border border-orange-100">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="bg-white p-2.5 rounded-lg border border-slate-100 shadow-xs opacity-60">
-              <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
-                Thông tin cũ
-              </div>
-              <div className="flex flex-col gap-1">
-                <div className="font-bold text-slate-600 flex items-center gap-1.5">
-                  <User size={10} /> {details.oldName || "---"}
-                </div>
-                <div className="text-slate-500 font-mono text-[10px] flex items-center gap-1.5">
-                  <Phone size={10} /> {details.oldPhone || "---"}
-                </div>
-              </div>
-            </div>
-            <div className="bg-white p-2.5 rounded-lg border border-orange-200 shadow-sm ring-2 ring-orange-500/5">
-              <div className="text-[9px] font-black text-orange-400 uppercase tracking-widest mb-1.5">
-                Thông tin mới
-              </div>
-              <div className="flex flex-col gap-1">
-                <div className="font-black text-orange-900 flex items-center gap-1.5">
-                  <User size={10} /> {details.newName || "---"}
-                </div>
-                <div className="text-orange-700 font-mono text-[10px] font-black flex items-center gap-1.5">
-                  <Phone size={10} /> {details.newPhone || "---"}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    // 6. THANH TOÁN HOẶC HOÀN VÉ LẺ
-    if (log.action === "PAY_SEAT" || log.action === "REFUND_SEAT") {
-      const isRefund = log.action === "REFUND_SEAT";
-      return (
-        <div
-          className={`mt-2 p-3 rounded-xl border ${
-            isRefund
-              ? "bg-red-50/50 border-red-100"
-              : "bg-green-50/50 border-green-100"
-          }`}
-        >
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-2">
-              <span
-                className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-lg ${
-                  isRefund
-                    ? "bg-red-100 text-red-700"
-                    : "bg-green-100 text-green-700"
-                }`}
-              >
-                {details.seat || "Ghế lẻ"}
-              </span>
-              <span
-                className={`text-sm font-black ${
-                  isRefund
-                    ? "text-red-600 line-through decoration-red-400"
-                    : "text-green-600"
-                }`}
-              >
-                {isRefund ? "-" : "+"}
-                {details.amount?.toLocaleString("vi-VN")} đ
-              </span>
-            </div>
-            {isRefund && <AlertCircle size={14} className="text-red-400" />}
-          </div>
-        </div>
-      );
-    }
-
     return null;
   };
 
@@ -495,7 +417,7 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
             <div className="relative border-l-2 border-slate-200 ml-2 space-y-5 py-4 mb-4">
               {history.map((log, idx, arr) => {
                 const theme = getActionTheme(log.action);
-                const isLatest = idx === 0; // History fetched sorted -1 by backend
+                const isLatest = idx === 0;
                 const colorClasses = {
                   emerald: "bg-emerald-500",
                   red: "bg-red-500",
@@ -512,7 +434,6 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
                     key={log.id}
                     className="relative pl-6 animate-in slide-in-from-left duration-300"
                   >
-                    {/* Timeline Dot */}
                     <div
                       className={`absolute -left-[11px] top-0 w-5 h-5 rounded-full border-4 border-white shadow-md flex items-center justify-center ${colorClasses} ${
                         isLatest ? "ring-4 ring-primary/10" : ""
@@ -555,20 +476,24 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
                       </div>
 
                       <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm hover:shadow-md transition-all group/card relative overflow-hidden">
-                        {renderDetails(log)}
-                        <div className="bg-slate-50/80 px-3 py-2 rounded-md border border-slate-100 text-xs text-slate-600 flex items-center group/note relative transition-all hover:bg-white">
-                          <div className="w-full flex justify-between items-center gap-4">
-                            <span
-                              className={`flex-1 ${
-                                !log.description
-                                  ? "italic text-slate-400"
-                                  : "font-semibold text-slate-700"
-                              }`}
-                            >
-                              {log.description || "(Không có ghi chú)"}
-                            </span>
-                          </div>
+                        {/* HIỂN THỊ MÔ TẢ CHI TIẾT (DESCRIPTION) LÊN TRƯỚC */}
+                        <div className="mb-3 p-3 bg-slate-50 border border-slate-100 rounded-lg">
+                           <p className={`text-xs font-bold leading-relaxed ${
+                             log.action === 'DELETE' || log.action === 'CANCEL' ? 'text-red-600' : 
+                             log.action === 'CREATE' ? 'text-emerald-700' : 'text-slate-800'
+                           }`}>
+                             {log.description || "(Không có mô tả chi tiết)"}
+                           </p>
                         </div>
+
+                        {renderDetails(log)}
+                        
+                        {/* Phần Details gốc (JSON) thu nhỏ lại hoặc ẩn đi nếu Description đã đầy đủ */}
+                        {!log.description && (
+                           <div className="text-[10px] text-slate-400 italic">
+                             Thông tin hệ thống đang được xử lý...
+                           </div>
+                        )}
                       </div>
                     </div>
                   </div>

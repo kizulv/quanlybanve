@@ -422,7 +422,11 @@ app.post("/api/bookings", async (req, res) => {
     const booking = new Booking({ passenger, items: bookingItems, status: finalStatus, createdAt: now, updatedAt: now, totalPrice: calculatedTotalPrice, totalTickets: calculatedTotalTickets });
     await booking.save();
     
-    await logBookingAction(booking._id, "CREATE", `Tạo đơn hàng`, { trips: logTripDetails, totalTickets: calculatedTotalTickets });
+    // TẠO DESCRIPTION CHI TIẾT
+    const routeSummary = bookingItems.map(i => i.route).join(", ");
+    const createDesc = `Tạo đơn hàng mới (${calculatedTotalTickets} vé) - Tuyến: ${routeSummary}`;
+    
+    await logBookingAction(booking._id, "CREATE", createDesc, { trips: logTripDetails, totalTickets: calculatedTotalTickets });
     
     if (finalStatus !== 'hold' && (totalPaid > 0 || payment)) {
         await processPaymentUpdate(booking, payment);
@@ -501,17 +505,16 @@ app.put("/api/bookings/:id", async (req, res) => {
       const currentSeats = new Set(seatIds);
       const removed = [...oldSeats].filter(s => !currentSeats.has(s));
       const added = [...currentSeats].filter(s => !oldSeats.has(s));
-      const kept = [...oldSeats].filter(s => currentSeats.has(s)); // NEW: Ghế được giữ lại
+      const kept = [...oldSeats].filter(s => currentSeats.has(s));
       
       if (removed.length > 0 || added.length > 0) {
-          // Chuyển đổi ID ghế sang Label để log cho dễ đọc
           const getLabel = (id) => trip.seats.find(s => s.id === id)?.label || id;
           changes.push({
               route: trip.route,
               date: trip.departureTime,
               removed: removed.map(getLabel),
               added: added.map(getLabel),
-              kept: kept.map(getLabel) // NEW: Log thêm thông tin ghế còn lại
+              kept: kept.map(getLabel)
           });
       }
     }
@@ -523,7 +526,7 @@ app.put("/api/bookings/:id", async (req, res) => {
             changes.push({
                 route: data.route,
                 date: data.date,
-                removed: [...data.seats], // Lúc này data.seats là ID, nên log id tạm thời
+                removed: [...data.seats],
                 added: [],
                 kept: []
             });
@@ -541,9 +544,35 @@ app.put("/api/bookings/:id", async (req, res) => {
       }
     }
 
-    // Ghi log cập nhật nếu có thay đổi ghế
+    // TẠO MÔ TẢ CHI TIẾT KHI CẬP NHẬT
+    let summaryParts = [];
     if (changes.length > 0) {
-        await logBookingAction(oldBooking._id, "UPDATE", "Cập nhật danh sách ghế", { changes });
+        const changeStr = changes.map(c => {
+            let part = "";
+            if (c.added.length > 0) part += `Thêm ${c.added.join(',')}`;
+            if (c.removed.length > 0) part += `${part ? '; ' : ''}Hủy ${c.removed.join(',')}`;
+            return `${c.route}: ${part}`;
+        }).join(" | ");
+        summaryParts.push(changeStr);
+    }
+    
+    if (oldBooking.status !== finalStatus) {
+        summaryParts.push(`Chuyển trạng thái: ${oldBooking.status.toUpperCase()} -> ${finalStatus.toUpperCase()}`);
+    }
+
+    const passengerChanged = 
+        oldBooking.passenger.phone !== passenger.phone || 
+        oldBooking.passenger.pickupPoint !== passenger.pickupPoint ||
+        oldBooking.passenger.dropoffPoint !== passenger.dropoffPoint;
+    
+    if (passengerChanged && summaryParts.length === 0) {
+        summaryParts.push("Cập nhật thông tin khách/điểm đón trả");
+    }
+
+    const summaryText = summaryParts.length > 0 ? summaryParts.join(" | ") : "Cập nhật thông tin đơn hàng";
+
+    if (changes.length > 0 || oldBooking.status !== finalStatus || passengerChanged) {
+        await logBookingAction(oldBooking._id, "UPDATE", summaryText, { changes });
     }
 
     oldBooking.passenger = passenger;
@@ -647,7 +676,10 @@ app.post("/api/bookings/swap", async (req, res) => {
     }
     const s1Obj = trip.seats.find(s => s.id === seatId1);
     const s2Obj = trip.seats.find(s => s.id === seatId2);
-    await logBookingAction(booking1._id, "SWAP", `Đổi ghế từ ${s1Obj.label} sang ${s2Obj.label}`, { from: s1Obj.label, to: s2Obj.label, route: trip.route, date: trip.departureTime });
+    
+    const swapDesc = `Đổi chỗ: Ghế ${s1Obj.label} -> Ghế ${s2Obj.label} (Xe ${trip.licensePlate})`;
+    await logBookingAction(booking1._id, "SWAP", swapDesc, { from: s1Obj.label, to: s2Obj.label, route: trip.route, date: trip.departureTime });
+    
     res.json({ bookings: await getBookingsWithPayment(), trips: await Trip.find() });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -719,11 +751,11 @@ app.post("/api/bookings/transfer", async (req, res) => {
     booking.markModified("items");
     await booking.save();
 
-    // Thu thập label ghế cho lịch sử
     const getLabelFromTrip = (trip, id) => trip.seats.find(s => s.id === id)?.label || id;
     const seatLabels = targetSeatIds.map(sid => getLabelFromTrip(toTrip, sid));
 
-    await logBookingAction(booking._id, "TRANSFER", `Điều phối ${targetSeatIds.length} ghế từ ${fromTrip.licensePlate} sang ${toTrip.licensePlate}`, {
+    const transferDesc = `Điều chuyển ${targetSeatIds.length} vé sang xe ${toTrip.licensePlate} (${toTrip.route})`;
+    await logBookingAction(booking._id, "TRANSFER", transferDesc, {
       fromPlate: fromTrip.licensePlate,
       toPlate: toTrip.licensePlate,
       fromRoute: fromTrip.route,
@@ -812,7 +844,7 @@ app.patch("/api/bookings/:id/tickets/:seatId", async (req, res) => {
         
         targetItem.price = targetItem.tickets.reduce((sum, t) => sum + (t.price || 0), 0);
 
-        await logBookingAction(booking._id, "PAY_SEAT", `Thanh toán riêng cho ghế ${label}`, { seat: label, amount: paymentRec.totalAmount });
+        await logBookingAction(booking._id, "PAY_SEAT", `Thu tiền lẻ cho ghế ${label} (${paidAmount.toLocaleString()}đ)`, { seat: label, amount: paymentRec.totalAmount });
     }
 
     if (action === 'REFUND') {
@@ -866,7 +898,7 @@ app.patch("/api/bookings/:id/tickets/:seatId", async (req, res) => {
         
         if (booking.totalTickets === 0) booking.status = 'cancelled';
 
-        await logBookingAction(booking._id, "REFUND_SEAT", `Hoàn vé lẻ ghế ${label}`, { seat: label, amount: refundAmount });
+        await logBookingAction(booking._id, "REFUND_SEAT", `Hoàn vé và hủy lẻ ghế ${label}`, { seat: label, amount: refundAmount });
     }
 
     booking.markModified("items");
@@ -885,8 +917,10 @@ app.delete("/api/bookings/:id", async (req, res) => {
     const booking = await Booking.findById(bookingId);
     if (!booking) return res.status(404).json({ error: "Booking not found" });
 
-    // Ghi log xóa đơn trước khi thực sự xóa dữ liệu
-    await logBookingAction(booking._id, "DELETE", "Hủy toàn bộ đơn hàng (Xóa khỏi danh sách)", {
+    // DESCRIPTION CHI TIẾT KHI XÓA
+    const delDesc = `Hủy toàn bộ đơn hàng (${booking.totalTickets} vé) - SĐT: ${booking.passenger.phone}`;
+
+    await logBookingAction(booking._id, "DELETE", delDesc, {
         trips: booking.items.map(i => ({ route: i.route, tripDate: i.tripDate, seats: i.seatIds, licensePlate: i.licensePlate })),
         totalTickets: booking.totalTickets
     });
@@ -899,8 +933,6 @@ app.delete("/api/bookings/:id", async (req, res) => {
         await trip.save();
       }
     }
-    // Chú ý: Trong môi trường thực tế, ta thường chỉ đổi status sang 'cancelled' thay vì delete hẳn record để giữ history.
-    // Ở đây ta xóa record nhưng các History record vẫn tồn tại trong DB với bookingId cũ.
     await Payment.deleteMany({ bookingId: booking._id });
     await Booking.findByIdAndDelete(bookingId);
     res.json({ success: true, trips: await Trip.find(), bookings: await getBookingsWithPayment() });
