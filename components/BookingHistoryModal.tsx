@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from "react";
 import { Dialog } from "./ui/Dialog";
 import { Button } from "./ui/Button";
@@ -22,6 +23,8 @@ import {
   Info,
   Zap,
   CalendarIcon,
+  Banknote,
+  RotateCcw,
 } from "lucide-react";
 import { Badge } from "./ui/Badge";
 
@@ -67,7 +70,8 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
       case "CREATE":
         return { icon: <Plus size={14} />, color: "emerald", label: "Tạo đơn" };
       case "DELETE":
-        return { icon: <Trash2 size={14} />, color: "red", label: "Hủy vé" };
+      case "CANCEL":
+        return { icon: <Trash2 size={14} />, color: "red", label: "Hủy đơn" };
       case "UPDATE":
         return { icon: <Edit size={14} />, color: "blue", label: "Cập nhật" };
       case "SWAP":
@@ -82,6 +86,10 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
           color: "orange",
           label: "Khách hàng",
         };
+      case "PAY_SEAT":
+        return { icon: <Banknote size={14} />, color: "green", label: "Thu tiền" };
+      case "REFUND_SEAT":
+        return { icon: <RotateCcw size={14} />, color: "red", label: "Hoàn vé" };
       default:
         return {
           icon: <FileClock size={14} />,
@@ -107,38 +115,37 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
   const renderDetails = (log: BookingHistory) => {
     const details = log.details || {};
 
-    if (log.action === "CREATE" && details.trips) {
+    // 1. TẠO MỚI HOẶC HỦY TOÀN BỘ ĐƠN
+    if ((log.action === "CREATE" || log.action === "DELETE" || log.action === "CANCEL") && details.trips) {
+      const isCancelled = log.action === "DELETE" || log.action === "CANCEL";
       return (
-        <div className="space-y-3 mb-4">
+        <div className={`space-y-3 mb-4 ${isCancelled ? "opacity-60" : ""}`}>
           {details.trips.map((trip: any, idx: number) => (
             <div
               key={idx}
-              className="text-sm border-b border-slate-100 border-dashed last:border-b-0 pb-3 last:pb-0"
+              className={`text-sm border-b border-slate-100 border-dashed last:border-b-0 pb-3 last:pb-0`}
             >
               <div className="flex items-center gap-3 mb-3">
-                <span className="flex items-center font-black text-slate-800">
+                <span className={`flex items-center font-black text-slate-800 ${isCancelled ? "line-through text-slate-400" : ""}`}>
                   <MapPin size={13} className="text-slate-600 mr-1" />{" "}
                   {trip.route}
                 </span>
                 <span className="flex items-center text-xs text-slate-400 tracking-tight ">
                   <CalendarIcon size={11} className="mr-1" /> {trip.tripDate}
                 </span>
-                <span className="bg-yellow-200 border border-yellow-300 rounded-full flex items-center h-5 px-2 text-[10px] text-slate-900 tracking-widest font-semibold">
+                <span className={`bg-yellow-200 border border-yellow-300 rounded-full flex items-center h-5 px-2 text-[10px] text-slate-900 tracking-widest font-semibold ${isCancelled ? "grayscale opacity-50" : ""}`}>
                   {trip.licensePlate}
                 </span>
-
-                {trip.isEnhanced && (
-                  <Badge className="flex items-center bg-amber-50 text-amber-700 border-amber-200 text-[9px] font-black uppercase px-1.5 h-5">
-                    <Zap size={9} className="mr-0.5 fill-amber-700" /> Tăng
-                    cường
-                  </Badge>
-                )}
               </div>
               <div className="flex flex-wrap gap-2">
                 {trip.seats.map((s: string) => (
                   <Badge
                     key={s}
-                    className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-black px-2 py-0.5 rounded-lg"
+                    className={`${
+                      isCancelled 
+                        ? "bg-red-50 text-red-400 border-red-100 line-through" 
+                        : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                    } text-[10px] font-black px-2 py-0.5 rounded-lg`}
                   >
                     {s}
                   </Badge>
@@ -150,6 +157,7 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
       );
     }
 
+    // 2. CẬP NHẬT ĐƠN (HÀNH ĐỘNG SỬA VÉ)
     if (log.action === "UPDATE" && details.changes) {
       return (
         <div className="space-y-2 mt-2">
@@ -211,6 +219,7 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
       );
     }
 
+    // 3. ĐỔI CHỖ GHẾ
     if (log.action === "SWAP" && details.from && details.to) {
       return (
         <div className="mt-2 bg-purple-50/50 p-4 rounded-xl border border-purple-100 text-xs">
@@ -248,6 +257,7 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
       );
     }
 
+    // 4. CẬP NHẬT THÔNG TIN KHÁCH HÀNG
     if (log.action === "PASSENGER_UPDATE") {
       return (
         <div className="mt-2 text-xs bg-orange-50/50 p-4 rounded-xl border border-orange-100">
@@ -281,6 +291,26 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
           </div>
         </div>
       );
+    }
+
+    // 5. THANH TOÁN HOẶC HOÀN VÉ LẺ (HỖ TRỢ HIỂN THỊ DẤU GẠCH NGANG CHO GHẾ HOÀN)
+    if (log.action === "PAY_SEAT" || log.action === "REFUND_SEAT") {
+        const isRefund = log.action === "REFUND_SEAT";
+        return (
+            <div className={`mt-2 p-3 rounded-xl border ${isRefund ? "bg-red-50/50 border-red-100" : "bg-green-50/50 border-green-100"}`}>
+                <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                        <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-lg ${isRefund ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"}`}>
+                            {details.seat || "Ghế lẻ"}
+                        </span>
+                        <span className={`text-sm font-black ${isRefund ? "text-red-600 line-through" : "text-green-600"}`}>
+                            {isRefund ? "-" : "+"}{details.amount?.toLocaleString("vi-VN")} đ
+                        </span>
+                    </div>
+                    {isRefund && <AlertCircle size={14} className="text-red-400" />}
+                </div>
+            </div>
+        );
     }
 
     return null;
@@ -341,6 +371,7 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
                   purple: "bg-purple-500",
                   orange: "bg-orange-500",
                   slate: "bg-slate-500",
+                  green: "bg-green-600",
                 }[theme.color];
 
                 return (
@@ -365,13 +396,15 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
                           ${
                             log.action === "CREATE"
                               ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                              : log.action === "DELETE"
+                              : (log.action === "DELETE" || log.action === "CANCEL" || log.action === "REFUND_SEAT")
                               ? "bg-red-50 text-red-700 border-red-200"
                               : log.action === "UPDATE"
                               ? "bg-blue-50 text-blue-700 border-blue-200"
                               : log.action === "SWAP"
                               ? "bg-purple-50 text-purple-700 border-purple-200"
-                              : "bg-orange-50 text-orange-700 border-orange-200"
+                              : log.action === "PASSENGER_UPDATE"
+                              ? "bg-orange-50 text-orange-700 border-orange-200"
+                              : "bg-green-50 text-green-700 border-green-200"
                           }`}
                           >
                             {theme.icon}

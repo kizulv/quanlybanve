@@ -75,7 +75,8 @@ export interface Booking {
 export interface BookingHistory {
   id: string;
   bookingId: string;
-  action: 'CREATE' | 'UPDATE' | 'CANCEL' | 'SWAP' | 'PASSENGER_UPDATE' | 'DELETE';
+  // Added missing actions 'TRANSFER' | 'PAY_SEAT' | 'REFUND_SEAT' to match backend implementation
+  action: 'CREATE' | 'UPDATE' | 'CANCEL' | 'SWAP' | 'PASSENGER_UPDATE' | 'DELETE' | 'TRANSFER' | 'PAY_SEAT' | 'REFUND_SEAT';
   description: string;
   details?: any;
   timestamp: string;

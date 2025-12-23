@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from "react";
 import { api } from "../lib/api";
 import { Badge } from "./ui/Badge";
@@ -796,19 +797,19 @@ export const PaymentManager: React.FC = () => {
                               <div className="flex items-center px-2 h-5 justify-center bg-green-50 border border-green-100 rounded">
                                 {isCash ? (
                                   <span className="flex items-center text-amber-600 text-[10px] font-semibold">
+                                    {/* Fix: Remove unsupported 'title' prop from Lucide icon to avoid TS error */}
                                     <DollarSign
                                       size={10}
                                       className="text-amber-600 mr-1"
-                                      title="Tiền mặt"
                                     />
                                     Tiền mặt
                                   </span>
                                 ) : (
                                   <span className="flex items-center text-amber-600 text-[10px] font-semibold">
+                                    {/* Fix: Remove unsupported 'title' prop from Lucide icon to avoid TS error */}
                                     <CreditCard
                                       size={10}
                                       className="text-amber-600 mr-1"
-                                      title="Chuyển khoản"
                                     />
                                     Chuyển khoản
                                   </span>
