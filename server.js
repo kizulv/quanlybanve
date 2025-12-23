@@ -501,6 +501,7 @@ app.put("/api/bookings/:id", async (req, res) => {
       const currentSeats = new Set(seatIds);
       const removed = [...oldSeats].filter(s => !currentSeats.has(s));
       const added = [...currentSeats].filter(s => !oldSeats.has(s));
+      const kept = [...oldSeats].filter(s => currentSeats.has(s)); // NEW: Ghế được giữ lại
       
       if (removed.length > 0 || added.length > 0) {
           // Chuyển đổi ID ghế sang Label để log cho dễ đọc
@@ -509,7 +510,8 @@ app.put("/api/bookings/:id", async (req, res) => {
               route: trip.route,
               date: trip.departureTime,
               removed: removed.map(getLabel),
-              added: added.map(getLabel)
+              added: added.map(getLabel),
+              kept: kept.map(getLabel) // NEW: Log thêm thông tin ghế còn lại
           });
       }
     }
@@ -522,7 +524,8 @@ app.put("/api/bookings/:id", async (req, res) => {
                 route: data.route,
                 date: data.date,
                 removed: [...data.seats], // Lúc này data.seats là ID, nên log id tạm thời
-                added: []
+                added: [],
+                kept: []
             });
         }
     }
@@ -716,10 +719,16 @@ app.post("/api/bookings/transfer", async (req, res) => {
     booking.markModified("items");
     await booking.save();
 
+    // Thu thập label ghế cho lịch sử
+    const getLabelFromTrip = (trip, id) => trip.seats.find(s => s.id === id)?.label || id;
+    const seatLabels = targetSeatIds.map(sid => getLabelFromTrip(toTrip, sid));
+
     await logBookingAction(booking._id, "TRANSFER", `Điều phối ${targetSeatIds.length} ghế từ ${fromTrip.licensePlate} sang ${toTrip.licensePlate}`, {
-      from: fromTrip.licensePlate,
-      to: toTrip.licensePlate,
-      seats: targetSeatIds
+      fromPlate: fromTrip.licensePlate,
+      toPlate: toTrip.licensePlate,
+      fromRoute: fromTrip.route,
+      toRoute: toTrip.route,
+      seats: seatLabels
     });
 
     res.json({ success: true });

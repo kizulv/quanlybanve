@@ -25,6 +25,8 @@ import {
   CalendarIcon,
   Banknote,
   RotateCcw,
+  Truck,
+  Bus,
 } from "lucide-react";
 import { Badge } from "./ui/Badge";
 
@@ -79,6 +81,12 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
           icon: <ArrowRightLeft size={14} />,
           color: "purple",
           label: "Đổi chỗ",
+        };
+      case "TRANSFER":
+        return {
+          icon: <Truck size={14} />,
+          color: "indigo",
+          label: "Điều chuyển",
         };
       case "PASSENGER_UPDATE":
         return {
@@ -157,64 +165,68 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
       );
     }
 
-    // 2. CẬP NHẬT ĐƠN (HÀNH ĐỘNG SỬA VÉ: THÊM GHẾ/HỦY GHẾ)
+    // 2. CẬP NHẬT ĐƠN (GỘP CHUNG GHẾ CÒN LẠI VÀ GHẾ BỊ HỦY)
     if (log.action === "UPDATE" && details.changes) {
       return (
-        <div className="space-y-2 mt-2">
-          {details.changes.map((change: any, idx: number) => (
-            <div
-              key={idx}
-              className="bg-blue-50/30 p-3 rounded-xl border border-blue-100 text-xs"
-            >
-              <div className="flex items-center gap-2 mb-2 pb-2 border-b border-blue-50">
-                <MapPin size={12} className="text-blue-500" />
-                <span className="font-black text-slate-800 tracking-tight">
-                  {change.route}
-                </span>
-              </div>
-              <div className="text-[10px] text-slate-400 font-bold mb-3 flex items-center gap-1 uppercase">
-                <Calendar size={10} /> {formatDate(change.date)}
-              </div>
+        <div className="space-y-4 mt-2">
+          {details.changes.map((change: any, idx: number) => {
+            const hasKept = change.kept && change.kept.length > 0;
+            const hasRemoved = change.removed && change.removed.length > 0;
+            const hasAdded = change.added && change.added.length > 0;
 
-              <div className="space-y-2">
-                {change.added && change.added.length > 0 && (
-                  <div className="flex items-start gap-3">
-                    <span className="text-[10px] font-black uppercase text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded min-w-[45px] text-center">
-                      Thêm
-                    </span>
-                    <div className="flex flex-wrap gap-1.5">
+            return (
+              <div key={idx} className="bg-blue-50/30 p-3 rounded-xl border border-blue-100 text-xs">
+                <div className="flex items-center gap-2 mb-3 pb-2 border-b border-blue-100">
+                  <MapPin size={12} className="text-blue-500" />
+                  <span className="font-black text-slate-800 tracking-tight">
+                    {change.route}
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-bold ml-auto uppercase">
+                    {formatDate(change.date)}
+                  </span>
+                </div>
+
+                {/* Khu vực hiển thị kết hợp Ghế còn + Ghế mất */}
+                {(hasKept || hasRemoved) && (
+                  <div className="mb-4">
+                    <div className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                       Vé đang có & Vé đã hủy
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {/* Hiển thị ghế được giữ lại */}
+                      {change.kept?.map((s: string) => (
+                        <Badge key={s} className="bg-white text-slate-700 border-slate-200 font-bold text-[10px] px-2 py-1 shadow-xs">
+                          {s}
+                        </Badge>
+                      ))}
+                      {/* Hiển thị ghế bị xóa bằng gạch ngang */}
+                      {change.removed?.map((s: string) => (
+                        <Badge key={s} className="bg-red-50 text-red-400 border-red-100 line-through decoration-red-300 font-bold text-[10px] px-2 py-1 opacity-70">
+                          {s}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Khu vực hiển thị Ghế mới thêm */}
+                {hasAdded && (
+                  <div className="pt-2 border-t border-blue-50">
+                    <div className="text-[9px] font-bold text-emerald-500 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                      <Plus size={10}/> Vừa thêm mới
+                    </div>
+                    <div className="flex flex-wrap gap-2">
                       {change.added.map((s: string) => (
-                        <span
-                          key={s}
-                          className="bg-white text-emerald-700 px-2 py-0.5 rounded-lg border border-emerald-200 font-black text-[11px] shadow-xs"
-                        >
+                        <Badge key={s} className="bg-emerald-50 text-emerald-700 border-emerald-200 font-black text-[10px] px-2 py-1 shadow-sm ring-1 ring-emerald-500/10">
                           {s}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {change.removed && change.removed.length > 0 && (
-                  <div className="flex items-start gap-3">
-                    <span className="text-[10px] font-black uppercase text-red-600 bg-red-50 px-1.5 py-0.5 rounded min-w-[45px] text-center">
-                      Hủy
-                    </span>
-                    <div className="flex flex-wrap gap-1.5">
-                      {change.removed.map((s: string) => (
-                        <span
-                          key={s}
-                          className="bg-white text-red-400 px-2 py-0.5 rounded-lg border border-red-200 line-through decoration-red-300 font-bold text-[11px] opacity-70 shadow-xs"
-                        >
-                          {s}
-                        </span>
+                        </Badge>
                       ))}
                     </div>
                   </div>
                 )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       );
     }
@@ -257,7 +269,48 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
       );
     }
 
-    // 4. CẬP NHẬT THÔNG TIN KHÁCH HÀNG
+    // 4. ĐIỀU CHUYỂN XE (TRANSFER)
+    if (log.action === "TRANSFER") {
+        return (
+            <div className="mt-2 bg-indigo-50/50 p-4 rounded-xl border border-indigo-100 text-xs">
+                <div className="flex items-center justify-between mb-3 pb-2 border-b border-indigo-100/50">
+                    <div className="flex items-center gap-2">
+                        <Truck size={14} className="text-indigo-500" />
+                        <span className="font-black text-indigo-900 uppercase">Điều chuyển xe</span>
+                    </div>
+                </div>
+                <div className="grid grid-cols-1 gap-4">
+                    <div className="flex items-center justify-between gap-4">
+                        <div className="flex-1 bg-white p-3 rounded-lg border border-slate-100 shadow-xs opacity-60">
+                             <div className="text-[9px] font-bold text-slate-400 uppercase mb-1">Xe gốc</div>
+                             <div className="font-bold text-slate-700 flex items-center gap-1.5"><Bus size={12}/> {details.fromPlate}</div>
+                             <div className="text-[10px] text-slate-400 truncate">{details.fromRoute}</div>
+                        </div>
+                        <div className="p-2 bg-indigo-100 rounded-full text-indigo-600 shadow-sm shrink-0">
+                            <ArrowRight size={16} className="animate-in slide-in-from-left-2 infinite duration-1000" />
+                        </div>
+                        <div className="flex-1 bg-white p-3 rounded-lg border border-indigo-200 shadow-sm">
+                             <div className="text-[9px] font-bold text-indigo-400 uppercase mb-1">Xe mới</div>
+                             <div className="font-black text-indigo-800 flex items-center gap-1.5"><Bus size={12}/> {details.toPlate}</div>
+                             <div className="text-[10px] text-indigo-600 truncate">{details.toRoute}</div>
+                        </div>
+                    </div>
+                    <div className="pt-2">
+                         <div className="text-[9px] font-bold text-slate-400 uppercase mb-2">Danh sách ghế điều chuyển</div>
+                         <div className="flex flex-wrap gap-1.5">
+                             {details.seats?.map((s: string) => (
+                                 <Badge key={s} className="bg-indigo-600 text-white border-transparent text-[10px] font-bold px-2 py-0.5">
+                                     {s}
+                                 </Badge>
+                             ))}
+                         </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // 5. CẬP NHẬT THÔNG TIN KHÁCH HÀNG
     if (log.action === "PASSENGER_UPDATE") {
       return (
         <div className="mt-2 text-xs bg-orange-50/50 p-4 rounded-xl border border-orange-100">
@@ -293,7 +346,7 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
       );
     }
 
-    // 5. THANH TOÁN HOẶC HOÀN VÉ LẺ (HỖ TRỢ HIỂN THỊ DẤU GẠCH NGANG CHO GHẾ HOÀN)
+    // 6. THANH TOÁN HOẶC HOÀN VÉ LẺ
     if (log.action === "PAY_SEAT" || log.action === "REFUND_SEAT") {
         const isRefund = log.action === "REFUND_SEAT";
         return (
@@ -372,6 +425,7 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
                   orange: "bg-orange-500",
                   slate: "bg-slate-500",
                   green: "bg-green-600",
+                  indigo: "bg-indigo-600",
                 }[theme.color];
 
                 return (
@@ -402,6 +456,8 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
                               ? "bg-blue-50 text-blue-700 border-blue-200"
                               : log.action === "SWAP"
                               ? "bg-purple-50 text-purple-700 border-purple-200"
+                              : log.action === "TRANSFER"
+                              ? "bg-indigo-50 text-indigo-700 border-indigo-200"
                               : log.action === "PASSENGER_UPDATE"
                               ? "bg-orange-50 text-orange-700 border-orange-200"
                               : "bg-green-50 text-green-700 border-green-200"
