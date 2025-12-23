@@ -793,19 +793,25 @@ export const PaymentManager: React.FC = () => {
                               className={`flex items-center text-lg font-black tracking-tight`}
                             >
                               {" "}
-                              <div className="flex items-center w-10 h-6 justify-center bg-green-50 border border-green-100 rounded">
+                              <div className="flex items-center px-2 h-5 justify-center bg-green-50 border border-green-100 rounded">
                                 {isCash ? (
-                                  <DollarSign
-                                    size={14}
-                                    className="text-green-600"
-                                    title="Tiền mặt"
-                                  />
+                                  <span className="flex items-center text-amber-600 text-[10px] font-semibold">
+                                    <DollarSign
+                                      size={10}
+                                      className="text-amber-600 mr-1"
+                                      title="Tiền mặt"
+                                    />
+                                    Tiền mặt
+                                  </span>
                                 ) : (
-                                  <CreditCard
-                                    size={14}
-                                    className="text-green-600"
-                                    title="Tài khoản"
-                                  />
+                                  <span className="flex items-center text-amber-600 text-[10px] font-semibold">
+                                    <CreditCard
+                                      size={10}
+                                      className="text-amber-600 mr-1"
+                                      title="Chuyển khoản"
+                                    />
+                                    Chuyển khoản
+                                  </span>
                                 )}
                               </div>
                               <span
@@ -833,6 +839,9 @@ export const PaymentManager: React.FC = () => {
                                       <span className="font-black text-slate-800 tracking-tight">
                                         {t.route}
                                       </span>
+                                      <span className="bg-yellow-200 border border-yellow-300 rounded-full flex items-center h-5 px-2 text-[10px] text-slate-900 tracking-widest font-semibold">
+                                        {t.licensePlate}
+                                      </span>
                                       {t.isEnhanced && (
                                         <Badge className="flex items-center bg-amber-50 text-amber-700 border-amber-200 text-[9px] font-black uppercase px-1.5 h-5">
                                           <Zap
@@ -843,6 +852,7 @@ export const PaymentManager: React.FC = () => {
                                         </Badge>
                                       )}
                                     </div>
+
                                     <div className="flex flex-wrap gap-2">
                                       {t.diffSeats?.map((s: any, i: number) => (
                                         <Badge
@@ -850,13 +860,13 @@ export const PaymentManager: React.FC = () => {
                                           variant="outline"
                                           className={`${
                                             s.status === "removed"
-                                              ? "text-slate-600 border-slate-200 line-through opacity-60"
-                                              : "text-slate-600 border-slate-200 font-black shadow-sm"
+                                              ? "text-slate-600 border-slate-200 line-through opacity-60 shadow-sm"
+                                              : "text-slate-600 border-slate-200 shadow-sm"
                                           } px-2 py-0.5 text-[10px] flex items-center gap-1.5 rounded-lg`}
                                         >
                                           {s.id}{" "}
                                           {s.price > 0 && (
-                                            <span className="border-l pl-1.5 ml-0.5 border-slate-500 text-slate-400">
+                                            <span className="border-l pl-1.5 ml-0.5 border-slate-500 text-slate-400 font-normal text-xs">
                                               {s.price.toLocaleString("vi-VN")}
                                             </span>
                                           )}
@@ -872,7 +882,7 @@ export const PaymentManager: React.FC = () => {
                               </div>
                             )}
 
-                            <div className="bg-slate-50/80 p-3 rounded-md border border-slate-100 text-xs text-slate-600 flex items-center group/note relative transition-all hover:bg-white">
+                            <div className="bg-slate-50/80 px-3 py-2 rounded-md border border-slate-100 text-xs text-slate-600 flex items-center group/note relative transition-all hover:bg-white">
                               {editingPaymentId === p.id ? (
                                 <div className="flex gap-2 w-full animate-in fade-in zoom-in-95">
                                   <input
@@ -903,7 +913,7 @@ export const PaymentManager: React.FC = () => {
                                   </button>
                                 </div>
                               ) : (
-                                <div className="w-full flex justify-between items-start gap-4">
+                                <div className="w-full flex justify-between items-center gap-4">
                                   <span
                                     className={`flex-1 ${
                                       !p.note
