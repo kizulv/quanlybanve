@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from "react";
 import { Dialog } from "./ui/Dialog";
 import { Button } from "./ui/Button";
@@ -222,7 +221,7 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
                           </Badge>
                         ))}
                         <div className="flex items-center">
-                          {hasRemoved && (
+                          {hasRemoved && hasKept && (
                             <span className="mx-4 text-slate-300"> - </span>
                           )}
                           <div className="flex flex-wrap gap-2">
@@ -476,23 +475,20 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
                       </div>
 
                       <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm hover:shadow-md transition-all group/card relative overflow-hidden">
-                        {/* HIỂN THỊ MÔ TẢ CHI TIẾT (DESCRIPTION) LÊN TRƯỚC */}
-                        <div className="mb-3 p-3 bg-slate-50 border border-slate-100 rounded-lg">
-                           <p className={`text-xs font-bold leading-relaxed ${
-                             log.action === 'DELETE' || log.action === 'CANCEL' ? 'text-red-600' : 
-                             log.action === 'CREATE' ? 'text-emerald-700' : 'text-slate-800'
-                           }`}>
-                             {log.description || "(Không có mô tả chi tiết)"}
-                           </p>
+                        {renderDetails(log)}
+                        <div className="p-3 bg-slate-50 border border-slate-100 rounded-lg">
+                          <p
+                            className={`text-xs leading-relaxed text-slate-700`}
+                          >
+                            {log.description || "(Không có mô tả chi tiết)"}
+                          </p>
                         </div>
 
-                        {renderDetails(log)}
-                        
                         {/* Phần Details gốc (JSON) thu nhỏ lại hoặc ẩn đi nếu Description đã đầy đủ */}
                         {!log.description && (
-                           <div className="text-[10px] text-slate-400 italic">
-                             Thông tin hệ thống đang được xử lý...
-                           </div>
+                          <div className="text-[10px] text-slate-400 italic">
+                            Thông tin hệ thống đang được xử lý...
+                          </div>
                         )}
                       </div>
                     </div>
