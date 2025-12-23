@@ -835,16 +835,24 @@ export const PaymentManager: React.FC = () => {
                                     className="text-sm border-b border-slate-100 border-dashed last:border-b-0 pb-3 last:pb-0"
                                   >
                                     <div className="flex items-center gap-3 mb-3">
-                                      <MapPin
-                                        size={13}
-                                        className="text-slate-600"
-                                      />
-                                      <span className="font-black text-slate-800 tracking-tight">
+                                      <span className="flex items-center font-black text-slate-800">
+                                        <MapPin
+                                          size={13}
+                                          className="text-slate-600 mr-1"
+                                        />{" "}
                                         {t.route}
+                                      </span>
+                                      <span className="flex items-center text-xs text-slate-400 tracking-tight ">
+                                        <CalendarIcon
+                                          size={11}
+                                          className="mr-1"
+                                        />{" "}
+                                        {t.tripDate}
                                       </span>
                                       <span className="bg-yellow-200 border border-yellow-300 rounded-full flex items-center h-5 px-2 text-[10px] text-slate-900 tracking-widest font-semibold">
                                         {t.licensePlate}
                                       </span>
+
                                       {t.isEnhanced && (
                                         <Badge className="flex items-center bg-amber-50 text-amber-700 border-amber-200 text-[9px] font-black uppercase px-1.5 h-5">
                                           <Zap
