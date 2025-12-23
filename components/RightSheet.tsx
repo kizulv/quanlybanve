@@ -218,7 +218,7 @@ export const RightSheet: React.FC<RightSheetProps> = ({
   const renderStatusBadge = (status: string) => {
     if (status === "cancelled") {
       return (
-        <Badge className="bg-red-50 text-red-600 border-red-100 text-[10px] px-1.5 h-5">
+        <Badge className="bg-red-50 hover:bg-red-50 text-red-600 border-red-100 text-[10px] px-1.5 h-5">
           Hủy vé
         </Badge>
       );
@@ -226,14 +226,14 @@ export const RightSheet: React.FC<RightSheetProps> = ({
     // Logic hiển thị: payment (hoặc đã trả đủ tiền) -> Mua vé, booking -> Đặt vé
     if (status === "payment") {
       return (
-        <Badge className="bg-green-50 text-green-600 border-green-100 text-[10px] px-1.5 h-5">
+        <Badge className="bg-green-50 hover:bg-green-50 text-green-600 border-green-100 text-[10px] px-1.5 h-5">
           Mua vé
         </Badge>
       );
     }
     if (status === "booking") {
       return (
-        <Badge className="bg-amber-50 text-amber-600 border-amber-100 text-[10px] px-1.5 h-5">
+        <Badge className="bg-amber-50 hover:bg-amber-50 text-amber-600 border-amber-100 text-[10px] px-1.5 h-5">
           Đặt vé
         </Badge>
       );
@@ -375,7 +375,7 @@ export const RightSheet: React.FC<RightSheetProps> = ({
                                   </div>
                                 </div>
                                 <div className="flex flex-col justify-between items-end gap-1">
-                                  <Badge className="w-full flex items-center text-slate-600 text-xs bg-slate-100 border-slate-200 px-1 h-5 justify-center font-bold">
+                                  <Badge className="w-full flex items-center text-slate-600 text-xs bg-slate-100 hover:bg-slate-100 border-slate-200 px-1 h-5 justify-center font-bold">
                                     {booking.totalTickets}
                                     {" vé"}
                                   </Badge>

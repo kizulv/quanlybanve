@@ -793,17 +793,17 @@ export const PaymentManager: React.FC = () => {
                               className={`flex items-center text-lg font-black tracking-tight`}
                             >
                               {" "}
-                              <div className="flex items-center w-10 h-6 justify-center bg-green-700 border border-slate-200 rounded">
+                              <div className="flex items-center w-10 h-6 justify-center bg-green-50 border border-green-100 rounded">
                                 {isCash ? (
                                   <DollarSign
                                     size={14}
-                                    className="text-yellow-400"
+                                    className="text-green-600"
                                     title="Tiền mặt"
                                   />
                                 ) : (
                                   <CreditCard
                                     size={14}
-                                    className="text-yellow-400"
+                                    className="text-green-600"
                                     title="Tài khoản"
                                   />
                                 )}
