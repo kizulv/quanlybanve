@@ -143,7 +143,7 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
                     key={s}
                     className={`${
                       isCancelled 
-                        ? "bg-red-50 text-red-400 border-red-100 line-through" 
+                        ? "bg-red-50 text-red-400 border-red-100 line-through decoration-red-300" 
                         : "bg-emerald-50 text-emerald-700 border-emerald-200"
                     } text-[10px] font-black px-2 py-0.5 rounded-lg`}
                   >
@@ -157,7 +157,7 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
       );
     }
 
-    // 2. CẬP NHẬT ĐƠN (HÀNH ĐỘNG SỬA VÉ)
+    // 2. CẬP NHẬT ĐƠN (HÀNH ĐỘNG SỬA VÉ: THÊM GHẾ/HỦY GHẾ)
     if (log.action === "UPDATE" && details.changes) {
       return (
         <div className="space-y-2 mt-2">
@@ -198,7 +198,7 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
                 {change.removed && change.removed.length > 0 && (
                   <div className="flex items-start gap-3">
                     <span className="text-[10px] font-black uppercase text-red-600 bg-red-50 px-1.5 py-0.5 rounded min-w-[45px] text-center">
-                      Bỏ
+                      Hủy
                     </span>
                     <div className="flex flex-wrap gap-1.5">
                       {change.removed.map((s: string) => (
@@ -303,7 +303,7 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
                         <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-lg ${isRefund ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"}`}>
                             {details.seat || "Ghế lẻ"}
                         </span>
-                        <span className={`text-sm font-black ${isRefund ? "text-red-600 line-through" : "text-green-600"}`}>
+                        <span className={`text-sm font-black ${isRefund ? "text-red-600 line-through decoration-red-400" : "text-green-600"}`}>
                             {isRefund ? "-" : "+"}{details.amount?.toLocaleString("vi-VN")} đ
                         </span>
                     </div>
@@ -320,7 +320,7 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
     <Dialog
       isOpen={isOpen}
       onClose={onClose}
-      title="Lịch sử đặt vé"
+      title="Lịch sử hoạt động"
       className="max-w-[700px]"
       headerClassName="px-4 h-[40px] border-b flex items-center justify-between shrink-0 rounded-t-xl bg-gradient-to-r from-indigo-950 via-indigo-900 to-indigo-950 text-white text-sm font-semibold"
     >
@@ -335,7 +335,7 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
             </div>
             <div className="text-right py-2.5 flex items-center justify-center min-w-[140px]">
               <span className="ml-2 text-lg font-bold tracking-tight">
-                Tổng số vé:
+                Tổng số vé hiện tại:
               </span>
               <span className="ml-2 text-lg font-bold text-green-700 tracking-tight">
                 {booking.totalTickets} vé
@@ -347,7 +347,7 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
         {loading ? (
           <div className="flex flex-col items-center justify-center py-16 text-slate-400">
             <Loader2 className="animate-spin mb-4" size={48} />
-            <p className="font-medium">Đang tải lịch sử hoạt động...</p>
+            <p className="font-medium">Đang tải lịch sử...</p>
           </div>
         ) : history.length === 0 ? (
           <div className="text-center py-20 text-slate-400 animate-in fade-in duration-500">
@@ -363,7 +363,7 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
             <div className="relative border-l-2 border-slate-200 ml-2 space-y-5 py-4 mb-4">
               {history.map((log, idx, arr) => {
                 const theme = getActionTheme(log.action);
-                const isLatest = idx === arr.length - 1;
+                const isLatest = idx === 0; // History fetched sorted -1 by backend
                 const colorClasses = {
                   emerald: "bg-emerald-500",
                   red: "bg-red-500",

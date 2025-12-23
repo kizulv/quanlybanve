@@ -442,7 +442,11 @@ app.put("/api/bookings/:id", async (req, res) => {
     const oldBooking = await Booking.findById(bookingId);
     if (!oldBooking) return res.status(404).json({ error: "Booking not found" });
 
-    // Release old seats
+    // Thu thập danh sách ghế cũ để so sánh
+    const oldSeatMap = new Map();
+    oldBooking.items.forEach(i => oldSeatMap.set(i.tripId, { seats: new Set(i.seatIds), route: i.route, date: i.tripDate }));
+
+    // Release old seats in trips
     for (const oldItem of oldBooking.items) {
       const trip = await Trip.findById(oldItem.tripId);
       if (trip) {
@@ -455,6 +459,7 @@ app.put("/api/bookings/:id", async (req, res) => {
     let calculatedTotalPrice = 0;
     let calculatedTotalTickets = 0;
     const bookingItems = [];
+    const changes = [];
 
     const totalPaid = (payment?.paidCash || 0) + (payment?.paidTransfer || 0);
     const finalStatus = requestedStatus || (totalPaid > 0 ? "payment" : "booking");
@@ -489,6 +494,37 @@ app.put("/api/bookings/:id", async (req, res) => {
         busType: trip.type,
         isEnhanced: isEnhanced
       });
+
+      // So sánh ghế thêm/bớt cho trip này
+      const oldTripData = oldSeatMap.get(trip.id);
+      const oldSeats = oldTripData ? oldTripData.seats : new Set();
+      const currentSeats = new Set(seatIds);
+      const removed = [...oldSeats].filter(s => !currentSeats.has(s));
+      const added = [...currentSeats].filter(s => !oldSeats.has(s));
+      
+      if (removed.length > 0 || added.length > 0) {
+          // Chuyển đổi ID ghế sang Label để log cho dễ đọc
+          const getLabel = (id) => trip.seats.find(s => s.id === id)?.label || id;
+          changes.push({
+              route: trip.route,
+              date: trip.departureTime,
+              removed: removed.map(getLabel),
+              added: added.map(getLabel)
+          });
+      }
+    }
+
+    // Kiểm tra xem có trip nào bị xóa hoàn toàn không
+    const currentTripIds = new Set(bookingItems.map(i => i.tripId));
+    for (const [tripId, data] of oldSeatMap.entries()) {
+        if (!currentTripIds.has(tripId)) {
+            changes.push({
+                route: data.route,
+                date: data.date,
+                removed: [...data.seats], // Lúc này data.seats là ID, nên log id tạm thời
+                added: []
+            });
+        }
     }
 
     const targetSeatStatus = finalStatus === "payment" ? "sold" : finalStatus === "hold" ? "held" : "booked";
@@ -500,6 +536,11 @@ app.put("/api/bookings/:id", async (req, res) => {
         trip.markModified("seats");
         await trip.save();
       }
+    }
+
+    // Ghi log cập nhật nếu có thay đổi ghế
+    if (changes.length > 0) {
+        await logBookingAction(oldBooking._id, "UPDATE", "Cập nhật danh sách ghế", { changes });
     }
 
     oldBooking.passenger = passenger;
@@ -834,6 +875,13 @@ app.delete("/api/bookings/:id", async (req, res) => {
     const bookingId = req.params.id;
     const booking = await Booking.findById(bookingId);
     if (!booking) return res.status(404).json({ error: "Booking not found" });
+
+    // Ghi log xóa đơn trước khi thực sự xóa dữ liệu
+    await logBookingAction(booking._id, "DELETE", "Hủy toàn bộ đơn hàng (Xóa khỏi danh sách)", {
+        trips: booking.items.map(i => ({ route: i.route, tripDate: i.tripDate, seats: i.seatIds, licensePlate: i.licensePlate })),
+        totalTickets: booking.totalTickets
+    });
+
     for (const item of booking.items) {
       const trip = await Trip.findById(item.tripId);
       if (trip) {
@@ -842,6 +890,8 @@ app.delete("/api/bookings/:id", async (req, res) => {
         await trip.save();
       }
     }
+    // Chú ý: Trong môi trường thực tế, ta thường chỉ đổi status sang 'cancelled' thay vì delete hẳn record để giữ history.
+    // Ở đây ta xóa record nhưng các History record vẫn tồn tại trong DB với bookingId cũ.
     await Payment.deleteMany({ bookingId: booking._id });
     await Booking.findByIdAndDelete(bookingId);
     res.json({ success: true, trips: await Trip.find(), bookings: await getBookingsWithPayment() });
