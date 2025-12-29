@@ -321,7 +321,6 @@ export const BookingForm: React.FC<BookingFormProps> = ({
         ]);
       }
 
-      setIsPaymentModalOpen(false);
       setBookingForm({ phone: "", pickup: "", dropoff: "", note: "" });
       toast({
         type: "success",
@@ -334,6 +333,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
         title: "Lỗi",
         message: "Có lỗi xảy ra khi tạo đơn.",
       });
+      throw e;
     }
   };
 
@@ -416,8 +416,6 @@ export const BookingForm: React.FC<BookingFormProps> = ({
           },
         ]);
 
-      setIsPaymentModalOpen(false);
-      setEditingBooking(null);
       toast({
         type: "success",
         title: "Thành công",
@@ -425,6 +423,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
       });
     } catch (e) {
       toast({ type: "error", title: "Lỗi", message: "Cập nhật thất bại." });
+      throw e;
     }
   };
 
@@ -527,7 +526,6 @@ export const BookingForm: React.FC<BookingFormProps> = ({
       (s, i) => s + i.seats.reduce((ss, seat) => ss + seat.price, 0),
       0
     );
-    // FIX: Set defaults to 0 as requested by user
     setModalPaymentInput({ paidCash: 0, paidTransfer: 0 });
     setPendingPaymentContext({ type: "new", totalPrice: total });
     setIsPaymentModalOpen(true);
@@ -553,8 +551,6 @@ export const BookingForm: React.FC<BookingFormProps> = ({
       bookingIds: [editingBooking.id],
       totalPrice: totalBasketPrice,
     });
-    // For editing, we might want to keep current payments but the user said default to 0
-    // I'll keep the current behavior for edits (showing paid amount) unless it's strictly 0 requested for edits too
     setIsPaymentModalOpen(true);
   };
 
@@ -596,6 +592,8 @@ export const BookingForm: React.FC<BookingFormProps> = ({
         {},
         noteSuffix
       );
+      // Đóng modal chính sau khi lưu thành công cho các mode không in phiếu
+      setEditingBooking(null);
     } else {
       const overrides: Record<string, SeatOverride> = {};
       editingBooking.items.forEach((i) =>
