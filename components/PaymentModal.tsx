@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from "react";
 import { Dialog } from "./ui/Dialog";
 import { Button } from "./ui/Button";
@@ -269,6 +270,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             paidTransfer={paidTransfer}
             finalTotal={finalTotal}
             getSeatValues={getSeatValues}
+            bookingId={editingBooking?.id}
           />
           <Button
             onClick={handleConfirmClick}

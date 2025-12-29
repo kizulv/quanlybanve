@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from "react";
 import {
   Calendar as CalendarIcon,
@@ -12,6 +13,8 @@ import {
   Bus,
   BadgeDollarSign,
   ArrowLeftRight,
+  QrCode,
+  Search
 } from "lucide-react";
 import { Button } from "./ui/Button";
 import { Popover } from "./ui/Popover";
@@ -89,6 +92,7 @@ export const Layout: React.FC<LayoutProps> = ({
     { id: "sales", icon: <Bus size={20} />, label: "Bán vé" },
     { id: "schedule", icon: <CalendarIcon size={20} />, label: "Lịch trình" },
     { id: "finance", icon: <BadgeDollarSign size={20} />, label: "Tài chính" },
+    { id: "order-info", icon: <Search size={20} />, label: "Tra cứu vé" },
   ];
 
   const pageInfo: Record<string, { title: string; description: string }> = {
@@ -103,6 +107,10 @@ export const Layout: React.FC<LayoutProps> = ({
     finance: {
       title: "Tài chính",
       description: "Quản lý doanh thu và lịch sử thanh toán",
+    },
+    "order-info": {
+      title: "Tra cứu vé",
+      description: "Xem chi tiết thông tin đơn hàng qua mã hoặc QR",
     },
     settings: {
       title: "Cài đặt hệ thống",

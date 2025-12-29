@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Printer } from "lucide-react";
 import { Button } from "./ui/Button";
@@ -12,6 +13,7 @@ interface BookingPrintProps {
   finalTotal: number;
   getSeatValues: (tripId: string, seat: any, pickup: string, dropoff: string, basePrice: number) => any;
   disabled?: boolean;
+  bookingId?: string; // ID để tạo QR
 }
 
 export const BookingPrint: React.FC<BookingPrintProps> = ({
@@ -22,6 +24,7 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
   finalTotal,
   getSeatValues,
   disabled = false,
+  bookingId
 }) => {
   const handlePrintReceipt = () => {
     const printWindow = window.open("", "_blank");
@@ -45,13 +48,21 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
       `;
     }).join("");
 
+    // Tạo URL tra cứu đơn hàng cho mã QR
+    const baseUrl = window.location.origin + window.location.pathname;
+    const qrData = `${baseUrl}?bookingId=${bookingId || ''}`;
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(qrData)}`;
+
     printWindow.document.write(`
       <html>
         <head>
           <title>Phiếu thu tạm tính - ${bookingForm.phone}</title>
           <style>
             body { font-family: sans-serif; padding: 20px; color: #333; line-height: 1.5; }
-            .header { text-align: center; border-bottom: 2px solid #000; margin-bottom: 20px; padding-bottom: 10px; }
+            .header { text-align: center; border-bottom: 2px solid #000; margin-bottom: 20px; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+            .header-info { text-align: left; }
+            .header-qr { text-align: right; }
+            .qr-label { font-size: 8px; font-weight: bold; margin-top: 4px; text-transform: uppercase; display: block; }
             .footer { margin-top: 30px; text-align: center; font-size: 12px; font-style: italic; }
             .total-box { background: #f9f9f9; padding: 15px; border: 1px solid #ddd; margin-top: 20px; }
             @media print { .no-print { display: none; } }
@@ -59,8 +70,15 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
         </head>
         <body>
           <div class="header">
-            <h2>PHIẾU THU TẠM TÍNH</h2>
-            <p>SĐT Khách: ${bookingForm.phone || "---"}</p>
+            <div class="header-info">
+              <h2 style="margin: 0 0 10px 0;">PHIẾU THU TẠM TÍNH</h2>
+              <p style="margin: 5px 0;"><strong>SĐT Khách:</strong> ${bookingForm.phone || "---"}</p>
+              <p style="margin: 5px 0;"><strong>Mã đơn:</strong> #${(bookingId || '').slice(-6).toUpperCase()}</p>
+            </div>
+            <div class="header-qr">
+              <img src="${qrUrl}" width="100" height="100" />
+              <span class="qr-label">Quét để xem vé</span>
+            </div>
           </div>
           ${bookingDetails}
           <div class="total-box">
@@ -73,7 +91,7 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
             <p>Thời gian in: ${new Date().toLocaleString('vi-VN')}</p>
           </div>
           <div class="no-print" style="margin-top: 20px; text-align: center;">
-            <button onclick="window.print()" style="padding: 10px 20px; cursor: pointer; background: #000; color: #fff; border: none; border-radius: 5px;">In phiếu này</button>
+            <button onclick="window.print()" style="padding: 10px 20px; cursor: pointer; background: #000; color: #fff; border: none; border-radius: 5px; font-weight: bold;">In phiếu ngay</button>
           </div>
         </body>
       </html>

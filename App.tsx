@@ -5,6 +5,7 @@ import { SeatMap } from "./components/SeatMap";
 import { SettingsView } from "./components/SettingsView";
 import { ScheduleView } from "./components/ScheduleView";
 import { PaymentManager } from "./components/PaymentManager";
+import { OrderInformation } from "./OrderInformation";
 import { ToastProvider, useToast } from "./components/ui/Toast";
 import { RightSheet } from "./components/RightSheet";
 import { BookingForm } from "./components/BookingForm";
@@ -50,6 +51,14 @@ function AppContent() {
   // Filters
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedDirection, setSelectedDirection] = useState<"outbound" | "inbound">("outbound");
+
+  // -- DEEP LINKING --
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('bookingId')) {
+      setActiveTab("order-info");
+    }
+  }, []);
 
   // -- DATA FETCHING --
   const refreshData = async () => {
@@ -198,6 +207,7 @@ function AppContent() {
       {activeTab === "finance" && <PaymentManager />}
       {activeTab === "schedule" && <ScheduleView trips={trips} routes={routes} buses={buses} onAddTrip={async (d, t) => { await api.trips.create(t as any); refreshData(); }} onUpdateTrip={async (id, t) => { await api.trips.update(id, t); refreshData(); }} onDeleteTrip={async (id) => { await api.trips.delete(id); refreshData(); }} onUpdateBus={async (id, u) => { await api.buses.update(id, u); refreshData(); }} />}
       {activeTab === "settings" && <SettingsView routes={routes} setRoutes={setRoutes} buses={buses} setBuses={setBuses} trips={trips} setTrips={setTrips} onDataChange={refreshData} />}
+      {activeTab === "order-info" && <OrderInformation />}
 
       <SeatDetailModal isOpen={!!seatDetailModal} onClose={() => setSeatDetailModal(null)} booking={seatDetailModal?.booking || null} seat={seatDetailModal?.seat || null} bookings={bookings} onSave={async (p, extra) => {
         if (!seatDetailModal) return;
