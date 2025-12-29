@@ -42,6 +42,7 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
       const baseUrl = window.location.origin + window.location.pathname;
       const qrData = `${baseUrl}?bookingId=${bookingId || ''}`;
       const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(qrData)}&color=0-0-0&bgcolor=ffffff`;
+      const departureTimeOnly = trip.tripDate.split(" ")[1] || "";
 
       const renderLien = (title: string) => `
         <div class="lien-container">
@@ -57,8 +58,8 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
             <div class="info-main">
               <div class="row">
                 <div class="cell">
-                  <div class="label">MÃ ĐƠN HÀNG:</div>
-                  <div class="value">#${(bookingId || '').slice(-6).toUpperCase()}</div>
+                  <div class="label">GIỜ KHỞI HÀNH (DỰ KIẾN):</div>
+                  <div class="value">${departureTimeOnly}</div>
                 </div>
                 <div class="cell">
                   <div class="label">SĐT KHÁCH:</div>
@@ -87,7 +88,7 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
             
             <div class="info-aside">
               <div class="qr-box">
-                <img src="${qrUrl}" width="70" height="70" />
+                <img src="${qrUrl}" width="65" height="65" />
               </div>
               <div class="total-box">
                  <div class="total-label">TỔNG THU</div>
@@ -105,17 +106,21 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
 
       return `
         <div class="a5-page">
-          <!-- Guides -->
-          <div class="v-line"><span class="scissor">✂</span></div>
-          <div class="h-line"><span class="scissor">✂</span></div>
-
+          <!-- Hàng trên: 2 liên -->
           <div class="top-row">
             ${renderLien('LIÊN KHÁCH HÀNG')}
+            <div class="v-line-shim"></div>
             ${renderLien('LIÊN SOÁT VÉ')}
           </div>
+          
+          <!-- Hàng dưới: 1 liên -->
           <div class="bottom-row">
             ${renderLien('LIÊN ĐỐI SOÁT')}
           </div>
+
+          <!-- Đường cắt tuyệt đối để không chiếm diện tích box -->
+          <div class="guide-v"><span class="scissor">✂</span></div>
+          <div class="guide-h"><span class="scissor">✂</span></div>
         </div>
       `;
     }).join("");
@@ -123,16 +128,14 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
     printWindow.document.write(`
       <html>
         <head>
-          <title>PhieuVe_VINABUS</title>
+          <title>InPhieu_VINABUS</title>
           <style>
             @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
             
-            * { box-sizing: border-box; -webkit-print-color-adjust: exact; border-radius: 0 !important; }
+            * { box-sizing: border-box; -webkit-print-color-adjust: exact; border-radius: 0 !important; margin: 0; padding: 0; }
             
             body { 
               font-family: 'Inter', sans-serif; 
-              margin: 0; 
-              padding: 0; 
               background: #fff;
               color: #000;
             }
@@ -143,8 +146,7 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
             }
 
             @media print {
-              .no-print { display: none !important; }
-              body { background: white; }
+              .no-print-bar { display: none !important; }
               .a5-page { page-break-after: always; }
             }
 
@@ -154,56 +156,57 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
               position: relative;
               overflow: hidden;
               background: #fff;
-              padding: 2mm;
+              padding: 5mm; /* Lề an toàn xung quanh */
             }
 
-            /* Hàng trên: 2 liên */
             .top-row {
               display: flex;
               justify-content: space-between;
-              height: 72mm;
               width: 100%;
+              margin-bottom: 8mm; /* Khoảng cách để cắt hàng ngang */
             }
 
-            /* Hàng dưới: 1 liên giữa */
             .bottom-row {
               display: flex;
               justify-content: center;
-              height: 72mm;
               width: 100%;
-              margin-top: 2mm;
             }
 
-            /* Đường cắt */
-            .v-line {
+            .v-line-shim {
+              width: 4mm; /* Khoảng trống ở giữa 2 liên trên */
+            }
+
+            /* Hướng dẫn cắt vẽ tuyệt đối */
+            .guide-v {
               position: absolute;
               left: 50%;
-              top: 2mm;
-              height: 70mm;
+              top: 5mm;
+              height: 64mm;
               border-left: 1pt dashed #000;
-              z-index: 10;
+              z-index: 50;
             }
-            .h-line {
+            .guide-h {
               position: absolute;
-              top: 74mm;
-              left: 2mm;
-              right: 2mm;
+              top: 73mm; /* Nằm giữa 2 hàng */
+              left: 5mm;
+              right: 5mm;
               border-top: 1pt dashed #000;
-              z-index: 10;
+              z-index: 50;
             }
             .scissor {
               position: absolute;
-              font-size: 12px;
+              font-size: 11px;
               background: #fff;
               padding: 0 2px;
+              line-height: 1;
             }
-            .v-line .scissor { top: 50%; left: -6px; transform: translateY(-50%); }
-            .h-line .scissor { left: 50%; top: -8px; transform: translateX(-50%); }
+            .guide-v .scissor { top: 50%; left: -6px; transform: translateY(-50%); }
+            .guide-h .scissor { left: 50%; top: -6px; transform: translateX(-50%); }
 
-            /* Container của mỗi liên */
+            /* Container của mỗi liên - Thu nhỏ chiều cao */
             .lien-container {
-              width: 102mm;
-              height: 70mm;
+              width: 98mm;
+              height: 64mm; 
               border: 1.5pt solid #000;
               padding: 2.5mm;
               display: flex;
@@ -215,14 +218,14 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
               display: flex;
               justify-content: space-between;
               align-items: flex-start;
-              border-bottom: 2pt solid #000;
+              border-bottom: 1.8pt solid #000;
               padding-bottom: 1mm;
-              margin-bottom: 2mm;
+              margin-bottom: 1.5mm;
             }
 
-            .brand-name { font-size: 18px; font-weight: 900; line-height: 1; letter-spacing: 0.5px; }
-            .print-time { font-size: 8px; margin-top: 1px; font-weight: 500; }
-            .tag-side { font-size: 10px; font-weight: 800; text-transform: uppercase; border: 1.5pt solid #000; padding: 2px 6px; }
+            .brand-name { font-size: 16px; font-weight: 900; line-height: 1; letter-spacing: 0.5px; }
+            .print-time { font-size: 8px; margin-top: 1px; }
+            .tag-side { font-size: 10px; font-weight: 800; text-transform: uppercase; border: 1.5pt solid #000; padding: 1px 5px; }
 
             .lien-body {
               flex: 1;
@@ -231,64 +234,63 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
               overflow: hidden;
             }
 
-            .info-main { flex: 1; display: flex; flex-direction: column; gap: 1.5mm; }
-            .info-aside { width: 32mm; display: flex; flex-direction: column; align-items: center; justify-content: space-between; border-left: 1pt dashed #000; padding-left: 2mm; }
+            .info-main { flex: 1; display: flex; flex-direction: column; gap: 1.2mm; }
+            .info-aside { width: 30mm; display: flex; flex-direction: column; align-items: center; justify-content: space-between; border-left: 1pt dashed #000; padding-left: 2mm; }
 
             .row { display: flex; gap: 2mm; }
-            .full { width: 100%; flex-direction: column; gap: 0.5mm; }
+            .full { width: 100%; flex-direction: column; }
             .cell { flex: 1; }
 
-            .label { font-size: 8px; font-weight: 800; color: #000; margin-bottom: 0.5mm; text-transform: uppercase; }
-            .value { font-size: 11px; font-weight: 700; line-height: 1.1; }
+            .label { font-size: 7.5px; font-weight: 800; margin-bottom: 0.5px; text-transform: uppercase; }
+            .value { font-size: 10.5px; font-weight: 700; line-height: 1; }
             
-            .route-val { font-size: 11px; font-weight: 800; }
-            .route-val span { font-weight: 900; font-size: 14px; margin-right: 2px; }
+            .route-val { font-size: 10.5px; font-weight: 800; margin-top: 1px; }
+            .route-val span { font-weight: 900; font-size: 13px; margin-right: 2px; }
             
-            .seat-val { font-size: 16px; font-weight: 900; border-top: 1pt solid #000; padding-top: 1mm; margin-top: 0.5mm; }
+            .seat-val { font-size: 15px; font-weight: 900; border-top: 1pt solid #000; padding-top: 0.5mm; margin-top: 0.5mm; line-height: 1.1; }
 
-            .qr-box { border: 1pt solid #000; padding: 1mm; background: #fff; line-height: 0; }
-            .total-box { width: 100%; text-align: center; border: 1.5pt solid #000; padding: 1mm 0; margin-top: 1mm; }
-            .total-label { font-size: 8px; font-weight: 900; }
-            .total-price { font-size: 15px; font-weight: 900; }
+            .qr-box { border: 1pt solid #000; padding: 0.5mm; background: #fff; line-height: 0; }
+            .total-box { width: 100%; text-align: center; border: 1.2pt solid #000; padding: 1mm 0; margin-top: 1mm; }
+            .total-label { font-size: 7.5px; font-weight: 900; }
+            .total-price { font-size: 14px; font-weight: 900; }
 
             .lien-footer {
-              margin-top: 1.5mm;
+              margin-top: 1.2mm;
               border-top: 1.5pt solid #000;
-              padding-top: 1.5mm;
+              padding-top: 1.2mm;
               display: flex;
               justify-content: space-between;
               align-items: center;
-              font-size: 8.5px;
+              font-size: 8px;
               font-weight: 800;
             }
-            .footer-right { font-style: italic; }
 
-            /* Thanh điều khiển */
+            /* UI Toolbar */
             .no-print-bar {
-              background: #111;
+              background: #000;
               color: #fff;
               padding: 12px;
               text-align: center;
               position: sticky;
               top: 0;
               z-index: 1000;
+              border-bottom: 1pt solid #333;
             }
             .print-btn {
               background: #fff;
               color: #000;
               border: none;
-              padding: 8px 40px;
+              padding: 8px 50px;
               font-weight: 900;
               font-size: 14px;
               cursor: pointer;
             }
-            .print-btn:hover { background: #ccc; }
           </style>
         </head>
         <body>
-          <div class="no-print no-print-bar">
-            <button class="print-btn" onclick="window.print()">BẮT ĐẦU IN (A5 LANDSCAPE)</button>
-            <p style="margin-top: 8px; font-size: 11px;">Chọn khổ giấy <b>A5</b> • Chiều <b>Landscape</b> • Tỷ lệ <b>100%</b></p>
+          <div class="no-print-bar">
+            <button class="print-btn" onclick="window.print()">XÁC NHẬN IN PHIẾU (A5)</button>
+            <p style="margin-top: 6px; font-size: 11px;">Cài đặt: <b>Khổ A5</b> • <b>Ngang (Landscape)</b> • <b>Tỷ lệ 100%</b></p>
           </div>
           ${pagesHtml}
         </body>
