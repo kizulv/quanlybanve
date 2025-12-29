@@ -34,7 +34,8 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
   disabled = false,
   bookingId,
 }) => {
-  const [format, setFormat] = useState<PrintFormat>("A5_LANDSCAPE");
+  // Mặc định chọn khổ A4 đứng
+  const [format, setFormat] = useState<PrintFormat>("A4_PORTRAIT");
 
   const handlePrintReceipt = async () => {
     const printWindow = window.open("", "_blank");
@@ -229,33 +230,33 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
   };
 
   return (
-    <div className="flex items-center gap-2">
-      <div className="flex p-0.5 bg-indigo-950/40 border border-indigo-800/60 rounded-lg">
+    <div className="flex items-center gap-2 h-11">
+      <div className="flex p-1 bg-indigo-950/40 border border-indigo-800/60 rounded-lg h-full">
         <button
           onClick={() => setFormat("A5_LANDSCAPE")}
           disabled={disabled}
-          className={`flex items-center gap-1.5 py-1 px-3 rounded-md transition-all ${
+          className={`flex items-center gap-2 px-4 rounded-md transition-all h-full ${
             format === "A5_LANDSCAPE" 
               ? "bg-indigo-600 text-white shadow-sm ring-1 ring-indigo-400/30" 
               : "text-indigo-400 hover:text-indigo-200 hover:bg-indigo-900/30"
           }`}
           title="In khổ A5 ngang"
         >
-          <Layout size={12} className={format === "A5_LANDSCAPE" ? "text-white" : "text-indigo-500"} />
-          <span className="text-[10px] font-black uppercase tracking-tight">A5 Ngang</span>
+          <Layout size={14} className={format === "A5_LANDSCAPE" ? "text-white" : "text-indigo-500"} />
+          <span className="text-[11px] font-black uppercase tracking-tight">A5 Ngang</span>
         </button>
         <button
           onClick={() => setFormat("A4_PORTRAIT")}
           disabled={disabled}
-          className={`flex items-center gap-1.5 py-1 px-3 rounded-md transition-all ${
+          className={`flex items-center gap-2 px-4 rounded-md transition-all h-full ${
             format === "A4_PORTRAIT" 
               ? "bg-indigo-600 text-white shadow-sm ring-1 ring-indigo-400/30" 
               : "text-indigo-400 hover:text-indigo-200 hover:bg-indigo-900/30"
           }`}
           title="In khổ A4 đứng"
         >
-          <FileText size={12} className={format === "A4_PORTRAIT" ? "text-white" : "text-indigo-500"} />
-          <span className="text-[10px] font-black uppercase tracking-tight">A4 Đứng</span>
+          <FileText size={14} className={format === "A4_PORTRAIT" ? "text-white" : "text-indigo-500"} />
+          <span className="text-[11px] font-black uppercase tracking-tight">A4 Đứng</span>
         </button>
       </div>
       
@@ -263,9 +264,9 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
         variant="outline"
         disabled={disabled}
         onClick={handlePrintReceipt}
-        className="border-indigo-700 text-indigo-100 hover:bg-indigo-800 bg-indigo-900/40 h-10 px-6 text-xs font-bold flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg shadow-indigo-900/20"
+        className="border-indigo-700 text-indigo-100 hover:bg-indigo-800 bg-indigo-900/40 h-full px-8 text-xs font-bold flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg shadow-indigo-900/20"
       >
-        <Printer size={16} />
+        <Printer size={18} />
         In phiếu
       </Button>
     </div>
