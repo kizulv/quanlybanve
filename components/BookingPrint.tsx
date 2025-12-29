@@ -43,8 +43,9 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
       const qrData = `${baseUrl}?bookingId=${bookingId || ''}`;
       const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=60x60&data=${encodeURIComponent(qrData)}`;
 
-      const renderLien = (title: string) => `
-        <div class="lien-container">
+      const renderLien = (title: string, customClass: string = "") => `
+        <div class="lien-container ${customClass}">
+          <div class="print-time-stamp">In lúc: ${nowStr}</div>
           <div class="lien-header">
             <div class="brand">VINABUS</div>
             <div class="title">${title}</div>
@@ -65,18 +66,18 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
                 <span class="value">${trip.licensePlate}</span>
               </div>
               <div class="field">
-                <span class="label">Tuyến:</span>
+                <span class="label">Tuyến đường:</span>
                 <span class="value route-val">${trip.route}</span>
               </div>
             </div>
             
             <div class="col-right">
               <div class="field">
-                <span class="label">SĐT:</span>
+                <span class="label">SĐT Khách:</span>
                 <span class="value">${bookingForm.phone || "---"}</span>
               </div>
               <div class="field">
-                <span class="label">Ghế:</span>
+                <span class="label">Vị trí ghế:</span>
                 <span class="value seat-val">${seatLabels}</span>
               </div>
               <div class="qr-box">
@@ -90,19 +91,21 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
               T.Toán: <strong>${formatCurrency(finalTotal)}đ</strong> 
               <span class="pay-detail">(TM:${formatCurrency(paidCash)}|CK:${formatCurrency(paidTransfer)})</span>
             </div>
-            <div class="print-time">${nowStr}</div>
+            <div class="footer-note">Cảm ơn quý khách!</div>
           </div>
         </div>
       `;
 
       return `
-        <div class="page-a5-portrait">
-          <div class="liens-wrapper">
-            ${renderLien('LIÊN 1: KHÁCH HÀNG')}
-            <div class="cut-line">✂---------------------------------------------------</div>
-            ${renderLien('LIÊN 2: SOÁT VÉ')}
-            <div class="cut-line">✂---------------------------------------------------</div>
-            ${renderLien('LIÊN 3: ĐỐI SOÁT')}
+        <div class="page-a5-landscape">
+          <div class="liens-grid">
+            <div class="row-top">
+              ${renderLien('LIÊN KHÁCH HÀNG')}
+              ${renderLien('LIÊN SOÁT VÉ')}
+            </div>
+            <div class="row-bottom">
+              ${renderLien('LIÊN ĐỐI SOÁT', 'lien-bottom')}
+            </div>
           </div>
         </div>
       `;
@@ -111,7 +114,7 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
     printWindow.document.write(`
       <html>
         <head>
-          <title>In vé 85x55 - #${(bookingId || '').slice(-6).toUpperCase()}</title>
+          <title>In vé A5 - #${(bookingId || '').slice(-6).toUpperCase()}</title>
           <style>
             @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
             
@@ -125,107 +128,125 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
             }
 
             @page { 
-              size: A5 portrait; 
+              size: A5 landscape; 
               margin: 0; 
             }
 
             @media print {
               body { background: white; }
               .no-print { display: none; }
-              .page-a5-portrait { 
+              .page-a5-landscape { 
                 page-break-after: always;
-                width: 148mm;
-                height: 210mm;
+                width: 210mm;
+                height: 148mm;
               }
             }
 
-            .page-a5-portrait {
+            .page-a5-landscape {
               background: white;
-              width: 148mm;
-              height: 210mm;
+              width: 210mm;
+              height: 148mm;
               margin: 0 auto;
               box-sizing: border-box;
               display: flex;
-              flex-direction: column;
-              padding: 10mm 0;
+              align-items: center;
+              justify-content: center;
+              padding: 5mm;
             }
 
-            .liens-wrapper {
+            .liens-grid {
               display: flex;
               flex-direction: column;
+              gap: 8mm;
+              width: 100%;
               align-items: center;
-              gap: 4mm;
+            }
+
+            .row-top {
+              display: flex;
+              gap: 10mm;
+              justify-content: center;
+              width: 100%;
+            }
+
+            .row-bottom {
+              display: flex;
+              justify-content: center;
+              width: 100%;
             }
 
             .lien-container {
               width: 85mm;
               height: 55mm;
-              border: 0.5pt solid #000;
-              padding: 2mm 3mm;
+              border: 0.8pt solid #000;
+              padding: 2.5mm 3.5mm;
               box-sizing: border-box;
               display: flex;
               flex-direction: column;
               position: relative;
               background: #fff;
+              border-radius: 2px;
             }
 
-            .cut-line {
-              font-size: 8px;
-              color: #94a3b8;
-              width: 120mm;
-              text-align: center;
-              margin: 1mm 0;
+            .print-time-stamp {
+              position: absolute;
+              top: 0.5mm;
+              right: 3.5mm;
+              font-size: 6px;
+              color: #64748b;
+              font-style: italic;
             }
 
             .lien-header {
               display: flex;
               justify-content: space-between;
-              align-items: center;
-              border-bottom: 0.8pt solid #000;
+              align-items: flex-end;
+              border-bottom: 1pt solid #000;
               padding-bottom: 1mm;
-              margin-bottom: 1.5mm;
+              margin-bottom: 2mm;
             }
 
             .brand { font-size: 11px; font-weight: 800; color: #1e40af; letter-spacing: 0.5px; }
-            .title { font-size: 8px; font-weight: 700; color: #475569; }
+            .title { font-size: 8px; font-weight: 700; color: #475569; text-transform: uppercase; }
 
             .lien-body {
               flex: 1;
               display: flex;
-              gap: 2mm;
+              gap: 3mm;
             }
 
-            .col-left { flex: 1.3; display: flex; flex-direction: column; gap: 0.8mm; }
-            .col-right { flex: 1; display: flex; flex-direction: column; gap: 0.8mm; align-items: flex-end; }
+            .col-left { flex: 1.4; display: flex; flex-direction: column; gap: 1mm; }
+            .col-right { flex: 1; display: flex; flex-direction: column; gap: 1mm; align-items: flex-end; }
 
             .field { display: flex; flex-direction: column; line-height: 1.1; }
-            .label { font-size: 6.5px; color: #64748b; text-transform: uppercase; font-weight: 600; }
+            .label { font-size: 6.5px; color: #64748b; text-transform: uppercase; font-weight: 600; margin-bottom: 0.2mm; }
             .value { font-size: 9px; font-weight: 700; color: #000; }
             
             .route-val { font-size: 9.5px; color: #1e40af; }
-            .seat-val { font-size: 10px; color: #b91c1c; }
+            .seat-val { font-size: 10.5px; color: #b91c1c; }
 
             .qr-box {
               margin-top: auto;
-              border: 0.2pt solid #e2e8f0;
+              border: 0.3pt solid #e2e8f0;
               padding: 0.5mm;
               background: #f8fafc;
+              line-height: 0;
             }
 
             .lien-footer {
-              margin-top: 1mm;
-              border-top: 0.5pt dashed #ccc;
+              margin-top: 1.5mm;
+              border-top: 0.5pt dashed #94a3b8;
               padding-top: 1mm;
               display: flex;
               justify-content: space-between;
-              align-items: flex-end;
+              align-items: center;
             }
 
             .payment-info { font-size: 8px; color: #000; }
             .payment-info strong { font-size: 10px; color: #b91c1c; }
             .pay-detail { font-size: 6.5px; color: #64748b; margin-left: 1mm; }
             
-            .print-time { font-size: 6.5px; color: #94a3b8; font-style: italic; }
+            .footer-note { font-size: 6.5px; color: #94a3b8; font-style: italic; }
 
             .no-print-bar {
               background: #0f172a;
@@ -251,8 +272,8 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
         </head>
         <body>
           <div class="no-print no-print-bar">
-            <button class="print-btn" onclick="window.print()">IN PHIẾU (KHỔ 85x55mm)</button>
-            <div style="margin-top: 5px; font-size: 11px; opacity: 0.7;">Máy in A5 Portrait • 3 liên/trang</div>
+            <button class="print-btn" onclick="window.print()">BẮT ĐẦU IN (A5 NGANG)</button>
+            <div style="margin-top: 5px; font-size: 11px; opacity: 0.7;">Khổ 85x55mm | Bố cục 2 trên - 1 dưới</div>
           </div>
           ${pagesHtml}
         </body>
