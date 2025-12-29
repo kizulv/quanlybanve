@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Printer } from "lucide-react";
 import { Button } from "./ui/Button";
@@ -53,14 +52,26 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
         )}&color=0-0-0&bgcolor=ffffff`;
         const departureTimeOnly = trip.tripDate.split(" ")[1] || "";
 
+        // Tính tổng tiền cho riêng chuyến xe này dựa trên danh sách ghế
+        const tripTotal = trip.seats.reduce((sum: number, seat: any) => {
+          const vals = getSeatValues(
+            trip.tripId,
+            seat,
+            trip.pickup,
+            trip.dropoff,
+            trip.basePrice
+          );
+          return sum + (vals.price || 0);
+        }, 0);
+
         const renderLien = (title: string) => `
         <div class="w-[98mm] h-[64mm] border-[1.5pt] border-black p-[2.5mm] flex flex-col bg-white rounded-none">
           <div class="flex justify-between items-start border-b-[1.8pt] border-black pb-[1mm] mb-[1.5mm] rounded-none">
             <div class="flex flex-col">
-              <div class="text-[10px] font-bold">CÔNG TY VINABUS</div>
-              <div class="text-[20px] mt-1 font-black leading-none tracking-[0.5px]">PHIẾU VÉ</div>
+              <div class="text-[10px] font-bold">CÔNG TY TNHH MTV LÊ DŨNG</div>
+              <div class="text-[20px] mt-1 font-black leading-none tracking-[0.5px]">PHIẾU ĐẶT VÉ</div>
             </div>
-            <div class="text-[10px] font-black uppercase border-[1.5pt] border-black px-[5px] py-[1px] rounded-none">${title}</div>
+            <div class="text-[10px] uppercase border-[1.5pt] border-black text-center py-[8px] w-[115px] rounded-none">${title}</div>
           </div>
           
           <div class="flex-1 flex gap-[2mm] overflow-hidden">
@@ -108,10 +119,10 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
               <div class="border-2 border-black p-1 bg-white leading-none rounded-none">
                 <img src="${qrUrl}" width="65" height="65" />
               </div>
-              <div class="w-full text-center border-[1.2pt] border-black py-[1mm] mt-[1mm] rounded-none">
-                 <div class="text-[7.5px] font-black">TỔNG THU</div>
+              <div class="w-full text-center border-[1.5pt] border-black w-[110px] py-[1mm] mt-[1mm] rounded-none">
+                 <div class="text-[7.5px] font-black">TỔNG THANH TOÁN</div>
                  <div class="text-[14px] font-black">${formatCurrency(
-                   finalTotal
+                   tripTotal
                  )}đ</div>
                  <div class="text-[6px]">TM ${formatCurrency(
                    paidCash
@@ -120,9 +131,11 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
             </div>
           </div>
 
-          <div class="mt-[1.2mm] border-t-[1.5pt] border-black pt-[1.2mm] flex justify-between items-center text-[8px] rounded-none">
+          <div class="mt-[1.2mm] border-t-[1.5pt] border-black pt-[1.2mm] flex justify-between items-center text-sm rounded-none">
             <div class="text-[8px] italic">Ngày in: ${nowStr}</div>
-            <div class="font-black">SĐT XE: ${trip.busPhoneNumber || '---'}</div>
+            <div class="font-black">
+            Liên hệ:
+            ${trip.busPhoneNumber || "---"}</div>
           </div>
         </div>
       `;
