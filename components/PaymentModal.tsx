@@ -15,6 +15,7 @@ import {
   History,
   TrendingUp,
   AlertCircle,
+  Printer,
 } from "lucide-react";
 import { BusTrip, Seat, Booking } from "../types";
 import { formatLunarDate } from "../utils/dateUtils";
@@ -49,7 +50,8 @@ interface PaymentModalProps {
   ) => void;
   selectionBasket: { trip: BusTrip; seats: Seat[] }[];
   editingBooking?: Booking | null;
-  bookingForm: { pickup: string; dropoff: string };
+  // Fixed error: Property 'phone' does not exist on type '{ pickup: string; dropoff: string; }' by adding phone and note to the bookingForm type definition
+  bookingForm: { phone: string; pickup: string; dropoff: string; note: string };
   paidCash: number;
   paidTransfer: number;
   onMoneyChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -208,12 +210,68 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     onMoneyChange(event);
   };
 
+  const handlePrintReceipt = () => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+
+    const bookingDetails = items.map(trip => {
+      const seatList = trip.seats.map(s => {
+        const { price, pickup, dropoff } = getSeatValues(trip.tripId, s, trip.pickup, trip.dropoff, trip.basePrice);
+        return `<li>Ghế ${s.label}: ${formatCurrency(price)}đ (${pickup} → ${dropoff})</li>`;
+      }).join("");
+
+      return `
+        <div style="margin-bottom: 20px; border-bottom: 1px dashed #ccc; padding-bottom: 10px;">
+          <p><strong>Chuyến:</strong> ${trip.route}</p>
+          <p><strong>Ngày đi:</strong> ${new Date(trip.tripDate).toLocaleDateString('vi-VN')} - ${formatLunarDate(new Date(trip.tripDate))}</p>
+          <p><strong>Biển số:</strong> ${trip.licensePlate}</p>
+          <ul style="list-style: none; padding-left: 10px; font-size: 14px;">
+            ${seatList}
+          </ul>
+        </div>
+      `;
+    }).join("");
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Phiếu thu tạm tính</title>
+          <style>
+            body { font-family: sans-serif; padding: 20px; color: #333; line-height: 1.5; }
+            .header { text-align: center; border-bottom: 2px solid #000; margin-bottom: 20px; padding-bottom: 10px; }
+            .footer { margin-top: 30px; text-align: center; font-size: 12px; font-style: italic; }
+            .total-box { background: #f9f9f9; padding: 15px; border: 1px solid #ddd; margin-top: 20px; }
+            @media print { .no-print { display: none; } }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h2>PHIẾU THU TẠM TÍNH</h2>
+            <p>SĐT Khách: ${bookingForm.phone || "---"}</p>
+          </div>
+          ${bookingDetails}
+          <div class="total-box">
+            <p><strong>Tổng tiền:</strong> ${formatCurrency(finalTotal)} đ</p>
+            <p><strong>Tiền mặt:</strong> ${formatCurrency(paidCash)} đ</p>
+            <p><strong>Chuyển khoản:</strong> ${formatCurrency(paidTransfer)} đ</p>
+          </div>
+          <div class="footer">
+            <p>Cảm ơn quý khách đã sử dụng dịch vụ!</p>
+            <p>Thời gian in: ${new Date().toLocaleString('vi-VN')}</p>
+          </div>
+          <div class="no-print" style="margin-top: 20px; text-align: center;">
+            <button onclick="window.print()" style="padding: 10px 20px; cursor: pointer; background: #000; color: #fff; border: none; border-radius: 5px;">In phiếu này</button>
+          </div>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   const handleConfirmClick = () => {
     if (!isBalanceMatched) return;
 
     let noteSuffix = "";
-    // Note: Since button is disabled until matched, these suffixes might not be needed
-    // but we keep the logic for edge cases or future changes
     if (remainingBalance > 0) {
       noteSuffix = `(Cần thu thêm: ${formatCurrency(remainingBalance)}đ)`;
     } else if (remainingBalance < 0) {
@@ -554,21 +612,31 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             </div>
           </div>
 
-          <div className="mt-auto space-y-3 pt-2">
-            <Button
-              onClick={handleConfirmClick}
-              disabled={isProcessing || !isBalanceMatched}
-              className={`w-full h-10 font-bold text-sm shadow-lg transition-all ${actionInfo.colorClass}`}
-            >
-              {actionInfo.text}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={onClose}
-              className="w-full border-indigo-800 text-indigo-300 hover:bg-indigo-900 hover:text-white bg-transparent h-10 text-xs"
-            >
-              Hủy bỏ
-            </Button>
+          <div className="mt-auto pt-4 border-t border-indigo-900/50">
+            <div className="flex flex-row gap-2">
+              <Button
+                variant="outline"
+                onClick={onClose}
+                className="flex-1 border-indigo-800 text-indigo-300 hover:bg-indigo-900 hover:text-white bg-transparent h-11 text-xs font-bold"
+              >
+                Hủy bỏ
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handlePrintReceipt}
+                className="flex-1 border-indigo-700 text-indigo-100 hover:bg-indigo-800 bg-indigo-900/40 h-11 text-xs font-bold flex items-center justify-center gap-2"
+              >
+                <Printer size={16} />
+                In phiếu
+              </Button>
+              <Button
+                onClick={handleConfirmClick}
+                disabled={isProcessing || !isBalanceMatched}
+                className={`flex-1 h-11 font-bold text-sm shadow-lg transition-all ${actionInfo.colorClass}`}
+              >
+                {actionInfo.text}
+              </Button>
+            </div>
           </div>
         </div>
       </div>
