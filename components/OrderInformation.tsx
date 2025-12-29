@@ -17,14 +17,16 @@ const SeatMapPreview: React.FC<{ trip: BusTrip; bookedSeatIds: string[] }> = ({ 
   const isCabin = trip.type === BusType.CABIN;
   const seats = trip.seats || [];
   
-  const renderSeat = (seat: Seat) => {
+  const renderSeat = (seat: Seat | undefined) => {
+    if (!seat) return <div className={`${isCabin ? "h-11 w-10 sm:w-12" : "h-9 w-9 sm:w-11"} rounded-md border border-dashed border-slate-200 bg-slate-50/50`} />;
+    
     const isBooked = bookedSeatIds.includes(seat.id);
     return (
       <div 
         key={seat.id}
         className={`
           relative flex items-center justify-center border transition-all duration-200 rounded-md shadow-sm
-          ${isCabin ? "h-11 w-11 sm:w-16 text-[10px]" : "h-9 w-9 sm:w-11 text-[10px]"}
+          ${isCabin ? "h-11 w-10 sm:w-12 text-[10px]" : "h-9 w-9 sm:w-11 text-[10px]"}
           ${isBooked ? "bg-blue-600 border-blue-700 text-white font-black ring-2 ring-blue-100" : "bg-slate-200 border-slate-300 text-slate-500 font-bold"}
         `}
         title={`${seat.label} ${isBooked ? '(Ghế của bạn)' : ''}`}
@@ -35,29 +37,43 @@ const SeatMapPreview: React.FC<{ trip: BusTrip; bookedSeatIds: string[] }> = ({ 
   };
 
   if (isCabin) {
-    // Cabin layout: 22 phòng - Hiển thị theo Tầng 1 và Tầng 2
+    // Cabin layout: 22 phòng - Chia 2 dãy chính B và A
     const regularSeats = seats.filter(s => !s.isFloorSeat && (s.row ?? 0) < 90);
     const benchSeats = seats.filter(s => !s.isFloorSeat && (s.row ?? 0) >= 90);
     const rows = Array.from(new Set(regularSeats.map(s => s.row ?? 0))).sort((a, b) => a - b);
 
     return (
       <div className="flex flex-col items-center gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200 w-full overflow-hidden shadow-inner">
-        <div className="grid grid-cols-2 gap-3 sm:gap-6 w-full">
-          {[1, 2].map(f => (
-            <div key={`floor-${f}`} className="flex flex-col items-center">
-              <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Tầng {f}</div>
-              <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
-                {rows.map(r => (
-                  <React.Fragment key={`row-${f}-${r}`}>
-                    {[0, 1].map(c => {
-                      const s = regularSeats.find(st => st.row === r && st.col === c && st.floor === f);
-                      return s ? renderSeat(s) : <div key={`empty-${f}-${r}-${c}`} className="h-11 w-11 sm:w-16" />;
-                    })}
-                  </React.Fragment>
-                ))}
-              </div>
+        <div className="grid grid-cols-2 gap-4 sm:gap-8 w-full">
+          {/* Cột Dãy B: Chứa cả Tầng 1 và Tầng 2 */}
+          <div className="flex flex-col items-center">
+            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Dãy B</div>
+            <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
+              <div className="text-[8px] font-bold text-slate-300 text-center uppercase mb-1">T1</div>
+              <div className="text-[8px] font-bold text-slate-300 text-center uppercase mb-1">T2</div>
+              {rows.map(r => (
+                <React.Fragment key={`row-b-${r}`}>
+                  {renderSeat(regularSeats.find(s => s.row === r && s.col === 0 && s.floor === 1))}
+                  {renderSeat(regularSeats.find(s => s.row === r && s.col === 0 && s.floor === 2))}
+                </React.Fragment>
+              ))}
             </div>
-          ))}
+          </div>
+
+          {/* Cột Dãy A: Chứa cả Tầng 1 và Tầng 2 */}
+          <div className="flex flex-col items-center">
+            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Dãy A</div>
+            <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
+              <div className="text-[8px] font-bold text-slate-300 text-center uppercase mb-1">T1</div>
+              <div className="text-[8px] font-bold text-slate-300 text-center uppercase mb-1">T2</div>
+              {rows.map(r => (
+                <React.Fragment key={`row-a-${r}`}>
+                  {renderSeat(regularSeats.find(s => s.row === r && s.col === 1 && s.floor === 1))}
+                  {renderSeat(regularSeats.find(s => s.row === r && s.col === 1 && s.floor === 2))}
+                </React.Fragment>
+              ))}
+            </div>
+          </div>
         </div>
 
         {benchSeats.length > 0 && (
