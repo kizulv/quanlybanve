@@ -18,7 +18,11 @@ import {
 } from "lucide-react";
 import { BusTrip, Seat, Booking, Bus as BusTypeData } from "../types";
 import { formatLunarDate } from "../utils/dateUtils";
-import { getStandardizedLocation, formatCurrency, parseCurrency } from "../utils/formatters";
+import {
+  getStandardizedLocation,
+  formatCurrency,
+  parseCurrency,
+} from "../utils/formatters";
 import { CurrencyInput } from "./ui/CurrencyInput";
 import { BookingPrint } from "./BookingPrint";
 
@@ -81,7 +85,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const items: PaymentItem[] = useMemo(() => {
     if (selectionBasket.length > 0) {
       return selectionBasket.map((item) => {
-        const busObj = buses.find(b => b.plate === item.trip.licensePlate);
+        const busObj = buses.find((b) => b.plate === item.trip.licensePlate);
         return {
           tripId: item.trip.id,
           tripName: item.trip.name,
@@ -162,13 +166,15 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     if (!isBalanceMatched) {
       return {
         text: "Hoàn tất",
-        colorClass: "bg-slate-600 border-slate-700 text-slate-400 cursor-not-allowed",
+        colorClass:
+          "bg-slate-600 border-slate-700 text-slate-400 cursor-not-allowed ",
       };
     }
 
     return {
       text: "Hoàn tất",
-      colorClass: "bg-indigo-600 hover:bg-indigo-500 border-indigo-700 text-white shadow-indigo-500/20",
+      colorClass:
+        "bg-indigo-600 hover:bg-indigo-500 border-indigo-700 text-white shadow-indigo-500/20",
     };
   };
 
@@ -223,7 +229,9 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     if (remainingBalance > 0) {
       noteSuffix = `(Cần thu thêm: ${formatCurrency(remainingBalance)}đ)`;
     } else if (remainingBalance < 0) {
-      noteSuffix = `(Cần hoàn lại: ${formatCurrency(Math.abs(remainingBalance))}đ)`;
+      noteSuffix = `(Cần hoàn lại: ${formatCurrency(
+        Math.abs(remainingBalance)
+      )}đ)`;
     }
 
     const finalOverrides: Record<string, SeatOverride> = { ...seatOverrides };
@@ -261,24 +269,24 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       className="max-w-5xl bg-indigo-950 text-white border-indigo-900"
       headerClassName="bg-indigo-950 border-indigo-900 text-white"
       footer={
-        <div className="flex flex-row justify-between items-center w-full px-4 py-2">
+        <div className="flex flex-row justify-between items-center w-full">
           <div className="flex gap-3">
             <Button
               variant="outline"
               onClick={onClose}
-              className="border-indigo-800 text-indigo-300 hover:bg-indigo-900 hover:text-white bg-transparent h-11 px-6 text-sm font-bold min-w-[120px]"
+              className="border-indigo-800 text-indigo-300 hover:bg-indigo-900 hover:text-white bg-transparent h-10 px-6 text-xs font-bold min-w-[120px]"
             >
               Hủy bỏ
             </Button>
             <Button
               onClick={handleConfirmClick}
               disabled={isProcessing || !isBalanceMatched}
-              className={`h-11 px-8 font-bold text-sm shadow-lg transition-all min-w-[140px] ${actionInfo.colorClass}`}
+              className={`h-10 px-8 font-bold text-xs shadow-lg transition-all min-w-[140px] ${actionInfo.colorClass}`}
             >
               {actionInfo.text}
             </Button>
           </div>
-          
+
           <BookingPrint
             items={items}
             bookingForm={bookingForm}
