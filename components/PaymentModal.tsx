@@ -35,6 +35,7 @@ interface PaymentItem {
   tripDate: string;
   route: string;
   licensePlate: string;
+  busPhoneNumber: string;
   seats: Seat[];
   pickup: string;
   dropoff: string;
@@ -84,6 +85,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         tripDate: item.trip.departureTime,
         route: item.trip.route,
         licensePlate: item.trip.licensePlate,
+        busPhoneNumber: (item.trip as any).phoneNumber || "---",
         seats: item.seats,
         pickup: bookingForm.pickup || "",
         dropoff: bookingForm.dropoff || "",

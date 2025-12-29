@@ -57,8 +57,8 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
         <div class="w-[98mm] h-[64mm] border-[1.5pt] border-black p-[2.5mm] flex flex-col bg-white rounded-none">
           <div class="flex justify-between items-start border-b-[1.8pt] border-black pb-[1mm] mb-[1.5mm] rounded-none">
             <div class="flex flex-col">
-              <div class="text-[16px] font-black leading-none tracking-[0.5px]">VINABUS</div>
-              <div class="text-[8px] mt-[1px]">Ngày in: ${nowStr}</div>
+              <div class="text-[10px]">CÔNG TY TNHH MTV LÊ DŨNG</div>
+              <div class="text-[20px] mt-1 font-black leading-none tracking-[0.5px]">PHIẾU ĐẶT VÉ</div>
             </div>
             <div class="text-[10px] font-black uppercase border-[1.5pt] border-black px-[5px] py-[1px] rounded-none">${title}</div>
           </div>
@@ -67,58 +67,68 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
             <div class="flex-1 flex flex-col gap-[1.2mm]">
               <div class="flex gap-[2mm]">
                 <div class="flex-1">
-                  <div class="text-[7.5px] font-black uppercase mb-[0.5px]">SĐT KHÁCH:</div>
-                  <div class="text-[10.5px] font-bold leading-none">${bookingForm.phone || "---"}</div>
+                  <div class="text-[7.5px] uppercase mb-[0.5px]">SĐT KHÁCH:</div>
+                  <div class="text-[10.5px] font-bold leading-none">${
+                    bookingForm.phone || "---"
+                  }</div>
                 </div>
                 <div class="flex-1">
-                  <div class="text-[7.5px] font-black uppercase mb-[0.5px]">BIỂN SỐ XE:</div>
-                  <div class="text-[10.5px] font-bold leading-none">${trip.licensePlate}</div>
+                  <div class="text-[7.5px] uppercase mb-[0.5px]">BIỂN SỐ XE:</div>
+                  <div class="text-[10.5px] font-bold leading-none">${
+                    trip.licensePlate
+                  }</div>
                 </div>
               </div>
               <div class="flex gap-[2mm]">
                 <div class="flex-1">
-                  <div class="text-[7.5px] font-black uppercase mb-[0.5px]">NGÀY ĐI:</div>
-                  <div class="text-[10.5px] font-bold leading-none">${new Date(trip.tripDate).toLocaleDateString("vi-VN")}</div>
+                  <div class="text-[7.5px] uppercase mb-[0.5px]">NGÀY ĐI:</div>
+                  <div class="text-[10.5px] font-bold leading-none">${new Date(
+                    trip.tripDate
+                  ).toLocaleDateString("vi-VN")}</div>
                 </div>
                 <div class="flex-1">
-                  <div class="text-[7.5px] font-black uppercase mb-[0.5px]">XUẤT BẾN (DỰ KIẾN):</div>
+                  <div class="text-[7.5px] uppercase mb-[0.5px]">XUẤT BẾN (DỰ KIẾN):</div>
                   <div class="text-[10.5px] font-bold leading-none">${departureTimeOnly}</div>
                 </div>
               </div>
-              <div class="w-full flex flex-col">
-                <div class="text-[7.5px] font-black uppercase mb-[0.5px]">TUYẾN ĐƯỜNG:</div>
-                <div class="text-[10.5px] font-black uppercase mt-[1px] border-l-[3pt] border-black pl-[2mm] leading-none">
+              <div class="w-full">
+                <span class="text-base font-black uppercase mt-2 leading-none">
                   ${trip.route}
-                </div>
+                </span>
               </div>
               <div class="w-full flex flex-col">
-                <div class="text-[7.5px] font-black uppercase mb-[0.5px]">VỊ TRÍ GHẾ:</div>
-                <div class="text-[15px] font-black border-t-[1pt] border-black pt-[0.5mm] mt-[0.5mm] leading-[1.1] rounded-none">
+                <div class="text-[7.5px] uppercase border-t-[1pt] border-black pt-1 mt-1 mb-[0.5px]">VỊ TRÍ GHẾ:</div>
+                <div class="text-[15px] font-black rounded-none">
                   ${seatLabels}
                 </div>
               </div>
             </div>
             
             <div class="w-[30mm] flex flex-col items-center justify-between border-l-[1pt] border-dashed border-black pl-[2mm]">
-              <div class="border-[1pt] border-black p-[0.5mm] bg-white leading-none rounded-none">
+              <div class="border-2 border-black p-1 bg-white leading-none rounded-none">
                 <img src="${qrUrl}" width="65" height="65" />
               </div>
               <div class="w-full text-center border-[1.2pt] border-black py-[1mm] mt-[1mm] rounded-none">
                  <div class="text-[7.5px] font-black">TỔNG THU</div>
-                 <div class="text-[14px] font-black">${formatCurrency(finalTotal)}đ</div>
+                 <div class="text-[14px] font-black">${formatCurrency(
+                   finalTotal
+                 )}đ</div>
+                 <div class="text-[6px]">TM ${formatCurrency(
+                   paidCash
+                 )} | CK ${formatCurrency(paidTransfer)}</div>
               </div>
             </div>
           </div>
 
-          <div class="mt-[1.2mm] border-t-[1.5pt] border-black pt-[1.2mm] flex justify-between items-center text-[8px] font-black rounded-none">
-            <div>Thanh toán: TM ${formatCurrency(paidCash)} | CK ${formatCurrency(paidTransfer)}</div>
-            <div class="italic">CHÚC QUÝ KHÁCH THƯỢNG LỘ BÌNH AN!</div>
+          <div class="mt-[1.2mm] border-t-[1.5pt] border-black pt-[1.2mm] flex justify-between items-center text-[8px] rounded-none">
+            <div class="text-[8px] italic">Ngày in: ${nowStr}</div>
+            <div class="font-black">SĐT XE: ${trip.busPhoneNumber || '---'}</div>
           </div>
         </div>
       `;
 
         return `
-        <div class="w-[210mm] h-[148mm] relative overflow-hidden bg-white p-[5mm] flex flex-col print:break-after-page">
+        <div class="w-[210mm] h-[147mm] relative overflow-hidden bg-white p-[5mm] flex flex-col print:break-after-page last:print:break-after-auto items-center">
           <!-- Hàng trên -->
           <div class="flex justify-between w-full mb-[8mm]">
             ${renderLien("LIÊN KHÁCH HÀNG")}
@@ -133,7 +143,7 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
 
           <!-- Đường cắt tuyệt đối -->
           <div class="absolute left-1/2 top-[5mm] h-[64mm] border-l-[1pt] border-dashed border-black z-50">
-            <span class="absolute top-1/2 left-[-6px] -translate-y-1/2 text-[11px] bg-white px-[2px] leading-none">✂</span>
+            <span class="absolute top-1/2 left-[-8.5px] -translate-y-1/2 text-[11px] bg-white px-[2px] leading-none">✂</span>
           </div>
           <div class="absolute top-[73mm] left-[5mm] right-[5mm] border-t-[1pt] border-dashed border-black z-50">
             <span class="absolute left-1/2 top-[-6px] -translate-x-1/2 text-[11px] bg-white px-[2px] leading-none">✂</span>
@@ -151,9 +161,12 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
           <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
           <style>
             @page { size: A5 landscape; margin: 0; }
-            * { -webkit-print-color-adjust: exact; border-radius: 0 !important; }
-            body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; }
-            @media print { .no-print { display: none !important; } }
+            * { -webkit-print-color-adjust: exact; border-radius: 0 !important; box-sizing: border-box; }
+            body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; background: white; }
+            @media print { 
+              .no-print { display: none !important; }
+              body, html { width: 210mm; height: 148mm; overflow: hidden; }
+            }
           </style>
         </head>
         <body class="bg-white text-black">
@@ -163,7 +176,7 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
             </button>
             <p class="mt-2 text-[11px]">Cài đặt in: Khổ <b>A5</b> • Hướng <b>Ngang (Landscape)</b> • Tỷ lệ <b>100%</b></p>
           </div>
-          <div class="flex flex-col items-center">
+          <div class="block">
             ${pagesHtml}
           </div>
         </body>
