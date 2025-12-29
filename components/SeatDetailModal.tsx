@@ -31,9 +31,9 @@ import {
   formatPhoneNumber,
   getStandardizedLocation,
   formatCurrency,
-  formatCurrencyInput,
   parseCurrency
 } from "../utils/formatters";
+import { CurrencyInput } from "./ui/CurrencyInput";
 
 interface SeatDetailModalProps {
   isOpen: boolean;
@@ -433,15 +433,12 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
                   <div className="absolute left-2.5 top-2 text-indigo-500 group-focus-within:text-green-500 transition-colors">
                     <DollarSign size={14} />
                   </div>
-                  <input
+                  <CurrencyInput
                     title="Số tiền thu bằng tiền mặt"
                     name="paidCash"
                     className="w-full pl-8 pr-10 py-1.5 bg-indigo-950 border border-indigo-800 rounded text-right font-bold text-xs text-white focus:border-green-500 outline-none transition-all"
-                    value={formatCurrency(paymentInput.paidCash)}
-                    onChange={(e) => {
-                      e.target.value = formatCurrencyInput(e.target.value);
-                      handleMoneyChange(e);
-                    }}
+                    value={paymentInput.paidCash}
+                    onChange={handleMoneyChange}
                   />
                   <span className="absolute right-2.5 top-2 text-[9px] font-black text-indigo-700">
                     TM
@@ -451,15 +448,12 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
                   <div className="absolute left-2.5 top-2 text-indigo-500 group-focus-within:text-blue-500 transition-colors">
                     <CreditCard size={14} />
                   </div>
-                  <input
+                  <CurrencyInput
                     title="Số tiền thu bằng chuyển khoản"
                     name="paidTransfer"
                     className="w-full pl-8 pr-10 py-1.5 bg-indigo-950 border border-indigo-800 rounded text-right font-bold text-xs text-white focus:border-blue-500 outline-none transition-all"
-                    value={formatCurrency(paymentInput.paidTransfer)}
-                    onChange={(e) => {
-                      e.target.value = formatCurrencyInput(e.target.value);
-                      handleMoneyChange(e);
-                    }}
+                    value={paymentInput.paidTransfer}
+                    onChange={handleMoneyChange}
                   />
                   <span className="absolute right-2.5 top-2 text-[9px] font-black text-indigo-700">
                     CK
@@ -471,7 +465,7 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
                 onClick={handlePaySeat}
                 disabled={
                   isSaving ||
-                  paymentInput.paidCash + paymentInput.paidTransfer === 0
+                  (paymentInput.paidCash + paymentInput.paidTransfer === 0)
                 }
                 className="w-full bg-green-600 hover:bg-green-500 text-white font-black uppercase text-[10px] h-9 shadow-lg shadow-green-900/20 border border-green-700"
               >

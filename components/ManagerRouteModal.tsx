@@ -3,7 +3,8 @@ import { Dialog } from "./ui/Dialog";
 import { Button } from "./ui/Button";
 import { Route } from "../types";
 import { MapPin, Save, Clock, Loader2, Banknote, AlertCircle, Zap, ArrowRightLeft, ArrowRight } from "lucide-react";
-import { formatCurrency, formatCurrencyInput, parseCurrency } from "../utils/formatters";
+import { formatCurrency, parseCurrency } from "../utils/formatters";
+import { CurrencyInput } from "./ui/CurrencyInput";
 
 interface ManagerRouteModalProps {
   isOpen: boolean;
@@ -86,10 +87,9 @@ export const ManagerRouteModal: React.FC<ManagerRouteModalProps> = ({
   }
 
   const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatCurrencyInput(e.target.value);
     setFormData((prev) => ({
       ...prev,
-      price: parseCurrency(formatted),
+      price: parseCurrency(e.target.value),
     }));
   };
 
@@ -214,10 +214,9 @@ export const ManagerRouteModal: React.FC<ManagerRouteModalProps> = ({
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
               <Banknote size={18} />
             </div>
-            <input
-              type="text"
+            <CurrencyInput
               name="price"
-              value={formatCurrency(formData.price)}
+              value={formData.price || 0}
               onChange={handlePriceChange}
               placeholder="0"
               className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none bg-white text-slate-900 shadow-sm font-bold"

@@ -47,27 +47,25 @@ export const getStandardizedLocation = (input: string): string => {
  * Định dạng số tiền để hiển thị (VD: 100.000)
  */
 export const formatCurrency = (amount: number | string | undefined | null): string => {
-  if (amount === undefined || amount === null) return "0";
-  const value = typeof amount === 'string' ? parseInt(amount.replace(/\D/g, "") || "0", 10) : amount;
-  return new Intl.NumberFormat("vi-VN").format(value);
+  if (amount === undefined || amount === null || amount === "") return "0";
+  const num = typeof amount === 'string' ? parseInt(amount.replace(/\D/g, "") || "0", 10) : amount;
+  return new Intl.NumberFormat("vi-VN").format(num);
 };
 
 /**
  * Phân tích chuỗi định dạng tiền tệ về số nguyên (VD: "100.000" -> 100000)
  */
-export const parseCurrency = (value: string): number => {
+export const parseCurrency = (value: string | number): number => {
+  if (typeof value === 'number') return value;
   if (!value) return 0;
   return parseInt(value.replace(/\D/g, "") || "0", 10);
 };
 
 /**
- * Định dạng mượt mà cho Input (dùng trong onChange)
- * Giúp người dùng gõ đến đâu hiển thị dấu chấm đến đó
+ * Định dạng mượt mà cho chuỗi số
  */
 export const formatCurrencyInput = (value: string): string => {
-  // Loại bỏ tất cả ký tự không phải số
   const digits = value.replace(/\D/g, "");
   if (!digits) return "";
-  // Thêm dấu chấm phân cách hàng nghìn
   return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 };

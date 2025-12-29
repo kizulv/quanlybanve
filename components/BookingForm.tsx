@@ -17,7 +17,6 @@ import {
   validatePhoneNumber,
   getStandardizedLocation,
   formatCurrency,
-  formatCurrencyInput,
   parseCurrency
 } from "../utils/formatters";
 import { api } from "../lib/api";
@@ -924,12 +923,11 @@ export const BookingForm: React.FC<BookingFormProps> = ({
         paidCash={modalPaymentInput.paidCash}
         paidTransfer={modalPaymentInput.paidTransfer}
         onMoneyChange={(e) => {
-          const formatted = formatCurrencyInput(e.target.value);
-          e.target.value = formatted;
+          const { name, value } = e.target;
           setModalPaymentInput((p) => ({
             ...p,
-            [e.target.name]: parseCurrency(formatted),
-          }))
+            [name]: parseCurrency(value),
+          }));
         }}
         initialOverrides={modalInitialOverrides}
       />

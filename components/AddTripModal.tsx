@@ -20,7 +20,8 @@ import {
   generateSleeperLayout,
 } from "../utils/generators";
 import { isSameDay } from "../utils/dateUtils";
-import { formatCurrency, formatCurrencyInput, parseCurrency } from "../utils/formatters";
+import { formatCurrency, parseCurrency } from "../utils/formatters";
+import { CurrencyInput } from "./ui/CurrencyInput";
 
 interface AddTripModalProps {
   isOpen: boolean;
@@ -231,16 +232,11 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
                 <input type="time" required className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none" value={time} onChange={(e) => setTime(e.target.value)} />
               </div>
               <div><label className="block text-sm font-medium text-slate-700 mb-1.5">Giá vé (VNĐ)</label>
-                <input 
-                  type="text" 
+                <CurrencyInput 
                   required 
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none font-bold" 
-                  value={formatCurrency(price)} 
-                  onChange={(e) => {
-                    const formatted = formatCurrencyInput(e.target.value);
-                    e.target.value = formatted;
-                    setPrice(parseCurrency(formatted));
-                  }} 
+                  value={price} 
+                  onChange={(e) => setPrice(parseCurrency(e.target.value))} 
                 />
               </div>
               <div className="mt-auto pt-4 border-t border-slate-100"><div className="flex items-start gap-2 text-xs text-slate-500 bg-slate-50 p-2 rounded border border-slate-100"><Info size={14} className="shrink-0 mt-0.5 text-slate-400" /><p>Hệ thống bảo toàn số ghế cũ dựa trên mã số ghế khi bạn thay đổi xe hoặc cập nhật thông tin.</p></div></div>

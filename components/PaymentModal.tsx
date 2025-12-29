@@ -7,7 +7,6 @@ import {
   CreditCard,
   Calendar,
   MapPin,
-  // Fix: Added missing 'Locate' icon import to resolve error on line 357
   Locate,
   Bus,
   Ticket,
@@ -19,7 +18,14 @@ import {
 } from "lucide-react";
 import { BusTrip, Seat, Booking } from "../types";
 import { formatLunarDate } from "../utils/dateUtils";
-import { getStandardizedLocation, formatCurrency, formatCurrencyInput, parseCurrency } from "../utils/formatters";
+import { getStandardizedLocation, formatCurrency, parseCurrency } from "../utils/formatters";
+import { CurrencyInput } from "./ui/CurrencyInput";
+
+interface SeatOverride {
+  price?: number;
+  pickup?: string;
+  dropoff?: string;
+}
 
 interface PaymentItem {
   tripId: string;
@@ -31,12 +37,6 @@ interface PaymentItem {
   pickup: string;
   dropoff: string;
   basePrice: number;
-}
-
-interface SeatOverride {
-  price?: number;
-  pickup?: string;
-  dropoff?: string;
 }
 
 interface PaymentModalProps {
@@ -387,21 +387,20 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                           </div>
 
                           <div className="w-full sm:w-28 relative shrink-0">
-                            <input
+                            <CurrencyInput
                               title="Giá vé"
-                              type="text"
                               className={`w-full text-right font-bold text-xs bg-indigo-950 border rounded px-2 py-1 pr-3 focus:outline-none transition-colors ${
                                 isPriceChanged || seat.price === 0
                                   ? "text-yellow-400 border-yellow-500/50 ring-1 ring-yellow-500/20"
                                   : "text-white border-indigo-800"
                               }`}
-                              value={formatCurrency(price)}
+                              value={price}
                               onChange={(e) =>
                                 handleOverrideChange(
                                   trip.tripId,
                                   seat.id,
                                   "price",
-                                  formatCurrencyInput(e.target.value)
+                                  e.target.value
                                 )
                               }
                             />
@@ -529,14 +528,10 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               <div className="absolute top-2 left-3 text-indigo-400 pointer-events-none group-focus-within:text-green-500">
                 <DollarSign size={16} />
               </div>
-              <input
-                type="text"
+              <CurrencyInput
                 name="paidCash"
-                value={formatCurrency(paidCash)}
-                onChange={(e) => {
-                  e.target.value = formatCurrencyInput(e.target.value);
-                  onMoneyChange(e);
-                }}
+                value={paidCash}
+                onChange={onMoneyChange}
                 className="w-full pl-9 pr-12 py-2 bg-indigo-950 border border-indigo-800 rounded text-right font-bold text-sm text-white focus:border-green-500 focus:outline-none transition-colors"
                 placeholder="0"
               />
@@ -548,14 +543,10 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               <div className="absolute top-2 left-3 text-indigo-400 pointer-events-none group-focus-within:text-blue-500">
                 <CreditCard size={16} />
               </div>
-              <input
-                type="text"
+              <CurrencyInput
                 name="paidTransfer"
-                value={formatCurrency(paidTransfer)}
-                onChange={(e) => {
-                  e.target.value = formatCurrencyInput(e.target.value);
-                  onMoneyChange(e);
-                }}
+                value={paidTransfer}
+                onChange={onMoneyChange}
                 className="w-full pl-9 pr-12 py-2 bg-indigo-950 border border-indigo-800 rounded text-right font-bold text-sm text-white focus:border-blue-500 focus:outline-none transition-colors"
                 placeholder="0"
               />
