@@ -241,8 +241,8 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
   };
 
   return (
-    <div className="flex items-center gap-2 h-11">
-      <div className="flex p-1 bg-indigo-950/40 border border-indigo-800/60 rounded-lg h-full">
+    <div className="flex items-center gap-2">
+      <div className="flex bg-indigo-950/40 border border-indigo-800/60 rounded-lg h-[36px]">
         <button
           onClick={() => setFormat("A5_LANDSCAPE")}
           disabled={disabled}
@@ -259,9 +259,7 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
               format === "A5_LANDSCAPE" ? "text-white" : "text-indigo-500"
             }
           />
-          <span className="text-[11px] font-black uppercase tracking-tight">
-            A5 Ngang
-          </span>
+          <span className="text-[11px] tracking-tight">A5 Ngang</span>
         </button>
         <button
           onClick={() => setFormat("A4_PORTRAIT")}
@@ -279,9 +277,7 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
               format === "A4_PORTRAIT" ? "text-white" : "text-indigo-500"
             }
           />
-          <span className="text-[11px] font-black uppercase tracking-tight">
-            A4 Đứng
-          </span>
+          <span className="text-[11px] tracking-tight">A4 Đứng</span>
         </button>
       </div>
 
@@ -289,7 +285,7 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
         variant="outline"
         disabled={disabled}
         onClick={handlePrintReceipt}
-        className="border-indigo-700 text-indigo-100 hover:bg-indigo-800 bg-indigo-900/40 h-10 px-8 text-xs font-bold flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg shadow-indigo-900/20"
+        className="border-indigo-700 text-indigo-100 hover:bg-indigo-600 hover:text-white bg-indigo-900/40 h-10 px-8 text-xs font-bold flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg shadow-indigo-900/20"
       >
         <Printer size={18} />
         In phiếu
