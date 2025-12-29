@@ -1,8 +1,9 @@
-import React from "react";
-import { Printer } from "lucide-react";
+import React, { useState } from "react";
+import { Printer, ChevronDown, FileText, Layout } from "lucide-react";
 import { Button } from "./ui/Button";
 import { formatCurrency } from "../utils/formatters";
 import { formatLunarDate } from "../utils/dateUtils";
+import { Popover } from "./ui/Popover";
 import QRCode from "qrcode";
 
 interface BookingPrintProps {
@@ -22,6 +23,8 @@ interface BookingPrintProps {
   bookingId?: string;
 }
 
+type PrintFormat = "A5_LANDSCAPE" | "A4_PORTRAIT";
+
 export const BookingPrint: React.FC<BookingPrintProps> = ({
   items,
   bookingForm,
@@ -32,7 +35,7 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
   disabled = false,
   bookingId,
 }) => {
-  const handlePrintReceipt = async () => {
+  const handlePrintReceipt = async (format: PrintFormat) => {
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
 
@@ -43,6 +46,14 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
       hour: "2-digit",
       minute: "2-digit",
     });
+
+    // Cấu hình theo khổ in
+    const isA4 = format === "A4_PORTRAIT";
+    const pageSizeCss = isA4 ? "A4 portrait" : "A5 landscape";
+    // Khổ A5 ngang là 210x148. Khổ A4 đứng là 210x297.
+    // Nếu in A4 đứng, ta vẫn giữ chiều rộng 210mm nhưng có thể cho chiều cao thoải mái hơn hoặc căn giữa.
+    const containerHeight = isA4 ? "min-h-[280mm]" : "h-[147mm]";
+    const contentMarginTop = isA4 ? "mt-[20mm]" : "mt-0";
 
     // Tạo các mã QR trước khi render HTML
     const qrDataUrls = await Promise.all(
@@ -164,25 +175,26 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
       `;
 
         return `
-        <div class="page-container w-[210mm] h-[147mm] relative overflow-hidden bg-white p-[5mm] flex flex-col items-center">
-          <!-- Hàng trên -->
-          <div class="flex justify-between w-full mb-[8mm]">
-            ${renderLien("LIÊN HÀNH KHÁCH")}
+        <div class="page-container w-[210mm] ${containerHeight} relative overflow-hidden bg-white p-[5mm] flex flex-col items-center">
+          <div class="${contentMarginTop} flex flex-col items-center w-full">
+            <!-- Hàng trên -->
+            <div class="flex justify-between w-full mb-[8mm]">
+              ${renderLien("LIÊN HÀNH KHÁCH")}
+              ${renderLien("LIÊN SOÁT VÉ")}
+            </div>
+            
+            <!-- Hàng dưới -->
+            <div class="flex justify-center w-full">
+              ${renderLien("LIÊN ĐỐI SOÁT")}
+            </div>
 
-            ${renderLien("LIÊN SOÁT VÉ")}
-          </div>
-          
-          <!-- Hàng dưới -->
-          <div class="flex justify-center w-full">
-            ${renderLien("LIÊN ĐỐI SOÁT")}
-          </div>
-
-          <!-- Đường cắt tuyệt đối -->
-          <div class="absolute left-[1/2-1pt] top-[5mm] h-[64mm] border-l-[1pt] border-dashed border-black z-50">
-            <span class="absolute top-1/2 left-[-7.5px] -translate-y-1/2 text-[11px] bg-white px-[2px] leading-none">✂</span>
-          </div>
-          <div class="absolute top-[73mm] left-[5mm] right-[5mm] border-t-[1pt] border-dashed border-black z-50">
-            <span class="absolute left-1/2 top-[-6px] -translate-x-1/2 text-[11px] bg-white px-[2px] leading-none">✂</span>
+            <!-- Đường cắt tuyệt đối tương đối với cụm nội dung -->
+            <div class="absolute left-[105mm] top-[5mm] h-[64mm] border-l-[1pt] border-dashed border-black z-50 ${isA4 ? 'translate-y-[20mm]' : ''}">
+              <span class="absolute top-1/2 left-[-7.5px] -translate-y-1/2 text-[11px] bg-white px-[2px] leading-none">✂</span>
+            </div>
+            <div class="absolute top-[73mm] left-[5mm] right-[5mm] border-t-[1pt] border-dashed border-black z-50 ${isA4 ? 'translate-y-[20mm]' : ''}">
+              <span class="absolute left-1/2 top-[-6px] -translate-x-1/2 text-[11px] bg-white px-[2px] leading-none">✂</span>
+            </div>
           </div>
         </div>
       `;
@@ -196,7 +208,7 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
           <script src="https://cdn.tailwindcss.com"></script>
           <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
           <style>
-            @page { size: A5 landscape; margin: 0; }
+            @page { size: ${pageSizeCss}; margin: 0; }
             * { -webkit-print-color-adjust: exact; border-radius: 0 !important; box-sizing: border-box; }
             body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; background: white; }
             
@@ -211,7 +223,7 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
               .no-print { display: none !important; }
               html, body { 
                 width: 210mm; 
-                height: auto; /* Cho phép mở rộng chiều cao để chứa nhiều trang */
+                height: auto;
                 overflow: visible; 
               }
             }
@@ -222,7 +234,7 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
             <button class="bg-white text-black font-black py-2 px-12 text-sm hover:bg-gray-200 transition-colors" onclick="window.print()">
               IN PHIẾU
             </button>
-            <p class="mt-2 text-[11px]">Cài đặt in: Khổ <b>A5</b> • Hướng <b>Ngang (Landscape)</b> • Tỷ lệ <b>100%</b></p>
+            <p class="mt-2 text-[11px]">Cài đặt in: Khổ <b>${isA4 ? 'A4' : 'A5'}</b> • Hướng <b>${isA4 ? 'Đứng (Portrait)' : 'Ngang (Landscape)'}</b> • Tỷ lệ <b>100%</b></p>
           </div>
           <div class="print-wrapper flex flex-col items-center justify-between">
             ${pagesHtml}
@@ -234,14 +246,56 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
   };
 
   return (
-    <Button
-      variant="outline"
-      onClick={handlePrintReceipt}
-      disabled={disabled}
-      className="border-indigo-700 text-indigo-100 hover:bg-indigo-800 bg-indigo-900/40 h-11 px-6 text-sm font-bold flex items-center justify-center gap-2 min-w-[120px]"
-    >
-      <Printer size={16} />
-      In phiếu
-    </Button>
+    <Popover
+      align="right"
+      trigger={
+        <Button
+          variant="outline"
+          disabled={disabled}
+          className="border-indigo-700 text-indigo-100 hover:bg-indigo-800 bg-indigo-900/40 h-11 px-4 text-sm font-bold flex items-center justify-center gap-2 min-w-[120px]"
+        >
+          <Printer size={16} />
+          In phiếu
+          <ChevronDown size={14} className="opacity-50" />
+        </Button>
+      }
+      content={(close) => (
+        <div className="w-56 bg-white rounded-lg shadow-xl border border-slate-200 p-1 flex flex-col gap-1 overflow-hidden z-[1001]">
+          <div className="px-3 py-2 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">
+            Chọn khổ giấy in
+          </div>
+          <button
+            onClick={() => {
+              handlePrintReceipt("A5_LANDSCAPE");
+              close();
+            }}
+            className="flex items-center gap-3 w-full p-3 text-left hover:bg-slate-50 rounded-md transition-colors group"
+          >
+            <div className="p-2 bg-blue-50 text-blue-600 rounded-lg group-hover:bg-blue-100">
+              <Layout size={18} />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-sm font-bold text-slate-900">A5 Nằm ngang</span>
+              <span className="text-[10px] text-slate-500">Khổ chuẩn (210 x 148 mm)</span>
+            </div>
+          </button>
+          <button
+            onClick={() => {
+              handlePrintReceipt("A4_PORTRAIT");
+              close();
+            }}
+            className="flex items-center gap-3 w-full p-3 text-left hover:bg-slate-50 rounded-md transition-colors group"
+          >
+            <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg group-hover:bg-indigo-100">
+              <FileText size={18} />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-sm font-bold text-slate-900">A4 Đứng</span>
+              <span className="text-[10px] text-slate-500">Khổ văn phòng (210 x 297 mm)</span>
+            </div>
+          </button>
+        </div>
+      )}
+    />
   );
 };
