@@ -1,8 +1,10 @@
+
 import React from "react";
 import { Printer } from "lucide-react";
 import { Button } from "./ui/Button";
 import { formatCurrency } from "../utils/formatters";
 import { formatLunarDate } from "../utils/dateUtils";
+import QRCode from "qrcode";
 
 interface BookingPrintProps {
   items: any[];
@@ -31,7 +33,7 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
   disabled = false,
   bookingId,
 }) => {
-  const handlePrintReceipt = () => {
+  const handlePrintReceipt = async () => {
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
 
@@ -43,14 +45,31 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
       minute: "2-digit",
     });
 
+    // Tạo các mã QR trước khi render HTML
+    const qrDataUrls = await Promise.all(
+      items.map(async (trip) => {
+        const baseUrl = window.location.origin + window.location.pathname;
+        const qrData = `${baseUrl}?bookingId=${bookingId || ""}`;
+        try {
+          return await QRCode.toDataURL(qrData, {
+            margin: 1,
+            width: 100,
+            color: {
+              dark: "#000000",
+              light: "#ffffff",
+            },
+          });
+        } catch (err) {
+          console.error("QR Generation error", err);
+          return "";
+        }
+      })
+    );
+
     const pagesHtml = items
       .map((trip, tripIndex) => {
         const seatLabels = trip.seats.map((s: any) => s.label).join(", ");
-        const baseUrl = window.location.origin + window.location.pathname;
-        const qrData = `${baseUrl}?bookingId=${bookingId || ""}`;
-        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(
-          qrData
-        )}&color=0-0-0&bgcolor=ffffff`;
+        const qrUrl = qrDataUrls[tripIndex];
         const departureTimeOnly = trip.tripDate.split(" ")[1] || "";
 
         // Tính tổng tiền cho riêng chuyến xe này dựa trên danh sách ghế
