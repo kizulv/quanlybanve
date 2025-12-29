@@ -35,36 +35,44 @@ const SeatMapPreview: React.FC<{ trip: BusTrip; bookedSeatIds: string[] }> = ({ 
   };
 
   if (isCabin) {
-    const rows = Array.from(new Set(seats.filter(s => !s.isFloorSeat).map(s => s.row ?? 0))).sort((a, b) => a - b);
+    // Cabin layout: Dãy B - Sàn - Dãy A
+    const regularSeats = seats.filter(s => !s.isFloorSeat);
     const floorSeats = seats.filter(s => s.isFloorSeat).sort((a, b) => (a.row ?? 0) - (b.row ?? 0));
+    
+    const colB = regularSeats.filter(s => s.col === 0);
+    const colA = regularSeats.filter(s => s.col === 1);
+    const rows = Array.from(new Set(regularSeats.map(s => s.row ?? 0))).sort((a, b) => a - b);
 
     return (
-      <div className="flex gap-2 justify-center bg-slate-50 p-2 rounded border border-slate-200">
-        <div className="flex flex-col gap-1 border-r border-slate-200 pr-2">
+      <div className="flex gap-4 justify-center bg-slate-50 p-3 rounded border border-slate-200">
+        {/* Dãy B (Trái) */}
+        <div className="flex flex-col gap-1.5">
           <div className="text-[8px] font-bold text-slate-400 text-center uppercase mb-1">Dãy B</div>
           {rows.map(r => (
             <div key={`row-b-${r}`} className="flex gap-1">
               {[1, 2].map(f => {
-                const s = seats.find(st => st.row === r && st.col === 0 && st.floor === f);
+                const s = colB.find(st => st.row === r && st.floor === f);
                 return s ? renderSeat(s) : <div key={`empty-b-${r}-${f}`} className="h-7 w-8" />;
               })}
             </div>
           ))}
         </div>
         
+        {/* Lối đi / Vé sàn */}
         {floorSeats.length > 0 && (
-          <div className="flex flex-col gap-1 border-r border-slate-200 pr-2">
+          <div className="flex flex-col gap-1.5 px-2 border-x border-slate-200">
             <div className="text-[8px] font-bold text-slate-400 text-center uppercase mb-1">Sàn</div>
             {floorSeats.map(s => renderSeat(s))}
           </div>
         )}
 
-        <div className="flex flex-col gap-1 pl-1">
+        {/* Dãy A (Phải) */}
+        <div className="flex flex-col gap-1.5">
           <div className="text-[8px] font-bold text-slate-400 text-center uppercase mb-1">Dãy A</div>
           {rows.map(r => (
             <div key={`row-a-${r}`} className="flex gap-1">
               {[1, 2].map(f => {
-                const s = seats.find(st => st.row === r && st.col === 1 && st.floor === f);
+                const s = colA.find(st => st.row === r && st.floor === f);
                 return s ? renderSeat(s) : <div key={`empty-a-${r}-${f}`} className="h-7 w-8" />;
               })}
             </div>
@@ -74,31 +82,42 @@ const SeatMapPreview: React.FC<{ trip: BusTrip; bookedSeatIds: string[] }> = ({ 
     );
   }
 
-  // Sleeper layout
-  const rows = Array.from(new Set(seats.filter(s => !s.isFloorSeat).map(s => s.row ?? 0))).sort((a, b) => a - b);
+  // Sleeper layout: 2 Tầng + Băng 5 + Vé sàn
+  const standardSeats = seats.filter(s => !s.isFloorSeat && (s.row ?? 0) < 6);
+  const benchSeats = seats.filter(s => !s.isFloorSeat && (s.row ?? 0) >= 6);
   const floorSeats = seats.filter(s => s.isFloorSeat).sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
+  const rows = [0, 1, 2, 3, 4, 5];
 
   return (
-    <div className="flex flex-col gap-3 bg-slate-50 p-2 rounded border border-slate-200">
-      <div className="flex gap-4 justify-center">
+    <div className="flex flex-col gap-4 bg-slate-50 p-3 rounded border border-slate-200">
+      <div className="flex gap-6 justify-center">
         {[1, 2].map(f => (
           <div key={`floor-${f}`} className="flex flex-col gap-1">
             <div className="text-[8px] font-bold text-slate-400 text-center uppercase mb-1">Tầng {f}</div>
-            {rows.map(r => (
-              <div key={`row-${f}-${r}`} className="flex gap-1">
-                {[0, 1, 2].map(c => {
-                  const s = seats.find(st => st.row === r && st.col === c && st.floor === f);
-                  return s ? renderSeat(s) : <div key={`empty-${f}-${r}-${c}`} className="h-6 w-7" />;
-                })}
-              </div>
-            ))}
+            {/* Standard Grid 3x6 */}
+            <div className="flex flex-col gap-1">
+              {rows.map(r => (
+                <div key={`row-${f}-${r}`} className="flex gap-1">
+                  {[0, 1, 2].map(c => {
+                    const s = standardSeats.find(st => st.row === r && st.col === c && st.floor === f);
+                    return s ? renderSeat(s) : <div key={`empty-${f}-${r}-${c}`} className="h-6 w-7" />;
+                  })}
+                </div>
+              ))}
+            </div>
+            {/* Băng 5 cuối (Nếu thuộc tầng này) */}
+            <div className="flex gap-1 mt-1 pt-1 border-t border-slate-200 border-dashed justify-center">
+              {benchSeats.filter(s => s.floor === f).sort((a,b) => (a.col ?? 0) - (b.col ?? 0)).map(s => renderSeat(s))}
+            </div>
           </div>
         ))}
       </div>
+
+      {/* Vé Sàn (Dưới cùng) */}
       {floorSeats.length > 0 && (
-        <div className="border-t border-slate-200 pt-2">
-          <div className="text-[8px] font-bold text-slate-400 text-center uppercase mb-1">Vé Sàn</div>
-          <div className="grid grid-cols-6 gap-1 justify-items-center">
+        <div className="border-t border-slate-200 pt-3">
+          <div className="text-[8px] font-bold text-slate-400 text-center uppercase mb-1.5">Vé Sàn (Nằm lối đi)</div>
+          <div className="grid grid-cols-6 gap-1 justify-items-center max-w-[200px] mx-auto">
             {floorSeats.map(s => renderSeat(s))}
           </div>
         </div>
@@ -421,8 +440,9 @@ export const OrderInformation: React.FC = () => {
                                 <div className="flex items-center gap-1.5"><div className="w-3 h-3 bg-slate-300 rounded-sm"></div> Ghế khác</div>
                               </div>
                               <div className="mt-6 p-4 bg-slate-50 rounded border border-slate-100 text-[11px] text-slate-500 leading-relaxed italic">
+                                <span className="font-bold text-slate-900 block mb-1">Ghi chú sơ đồ:</span>
                                 <Info size={14} className="inline mr-1 text-slate-400 mb-0.5" /> 
-                                Sơ đồ hiển thị vị trí tương đối trên xe. Ghế của bạn được đánh dấu màu xanh dương đậm.
+                                Sơ đồ hiển thị vị trí tương đối trên xe bao gồm các tầng, băng cuối và vé sàn (nếu có). Ghế của bạn được đánh dấu màu xanh dương đậm.
                               </div>
                             </div>
                           ) : (
