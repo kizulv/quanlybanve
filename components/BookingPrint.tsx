@@ -2,6 +2,7 @@ import React from "react";
 import { Printer } from "lucide-react";
 import { Button } from "./ui/Button";
 import { formatCurrency } from "../utils/formatters";
+import { formatLunarDate } from "../utils/dateUtils";
 
 interface BookingPrintProps {
   items: any[];
@@ -65,13 +66,16 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
         }, 0);
 
         const renderLien = (title: string) => `
-        <div class="w-[98mm] h-[64mm] border-[1.5pt] border-black p-[2.5mm] flex flex-col bg-white rounded-none">
+        <div class="w-[98mm] h-[64mm] border-[1.5pt] border-black p-[2.5mm] pb-[1.5mm] flex flex-col bg-white rounded-none">
           <div class="flex justify-between items-start border-b-[1.8pt] border-black pb-[1mm] mb-[1.5mm] rounded-none">
             <div class="flex flex-col">
               <div class="text-[10px] font-bold">CÔNG TY TNHH MTV LÊ DŨNG</div>
               <div class="text-[20px] mt-1 font-black leading-none tracking-[0.5px]">PHIẾU ĐẶT VÉ</div>
             </div>
-            <div class="text-[10px] uppercase border-[1.5pt] border-black text-center py-[8px] w-[115px] rounded-none">${title}</div>
+            <div class="flex flex-col w-[115px]">
+              <div class="text-[10px] uppercase border-[1.5pt] border-black text-center py-[2px]  rounded-none">${title}</div>
+               <div class="text-[8px] italic text-center mt-[3px]">Ngày in: ${nowStr}</div>
+            </div>
           </div>
           
           <div class="flex-1 flex gap-[2mm] overflow-hidden">
@@ -90,17 +94,13 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
                   }</div>
                 </div>
               </div>
-              <div class="flex gap-[2mm]">
-                <div class="flex-1">
-                  <div class="text-[7.5px] uppercase mb-[0.5px]">NGÀY ĐI:</div>
-                  <div class="text-[10.5px] font-bold leading-none">${new Date(
-                    trip.tripDate
-                  ).toLocaleDateString("vi-VN")}</div>
-                </div>
-                <div class="flex-1">
-                  <div class="text-[7.5px] uppercase mb-[0.5px]">XUẤT BẾN:</div>
-                  <div class="text-[10.5px] font-bold leading-none">${departureTimeOnly}</div>
-                </div>
+              <div class="my-[2px]">
+                <div class="text-[7.5px] uppercase mb-[1px]">NGÀY KHỞI HÀNH:</div>
+                <div class="text-[10.5px] font-bold leading-none">${new Date(
+                  trip.tripDate
+                ).toLocaleDateString("vi-VN")} 
+                ${" - "} 
+                ${"(" + formatLunarDate(new Date(trip.tripDate)) + ")"}</div>
               </div>
               <div class="w-full">
                 <span class="text-base font-black uppercase mt-2 leading-none">
@@ -119,12 +119,13 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
               <div class="border-2 border-black p-1 bg-white leading-none rounded-none">
                 <img src="${qrUrl}" width="65" height="65" />
               </div>
-              <div class="w-full text-center border-[1.5pt] border-black w-[110px] py-[1mm] mt-[1mm] rounded-none">
-                 <div class="text-[7.5px] font-black">TỔNG THANH TOÁN</div>
-                 <div class="text-[14px] font-black">${formatCurrency(
+              <div class="w-full text-center border-[1.5pt] border-black py-[1mm] mt-[1mm] rounded-none">
+                 <div class="text-[7.5px] font-black">GIÁ VÉ</div>
+                 <div class="text-[10px] font-black">${formatCurrency(
                    tripTotal
                  )}đ</div>
-                 <div class="text-[6px]">TM ${formatCurrency(
+                 <div class="text-[6px] font-semibold">Tổng thanh toán:</div>
+                 <div class="text-[7px] font-semibold">TM ${formatCurrency(
                    paidCash
                  )} | CK ${formatCurrency(paidTransfer)}</div>
               </div>
@@ -132,10 +133,14 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
           </div>
 
           <div class="mt-[1.2mm] border-t-[1.5pt] border-black pt-[1.2mm] flex justify-between items-center text-sm rounded-none">
-            <div class="text-[8px] italic">Ngày in: ${nowStr}</div>
-            <div class="font-black">
-            Liên hệ:
-            ${trip.busPhoneNumber || "---"}</div>
+            <div class="flex items-center justify-between">
+              <span class="font-black">Xuất bến: ${departureTimeOnly}</span>
+              <span class="ml-[3px] text-[9px] mt-[1.5px] italic">(Dự kiến)</span>
+            </div>
+            <div class="font-black flex items-center gap-1">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-top: 1px;"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l2.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+              ${trip.busPhoneNumber || "---"}
+            </div>
           </div>
         </div>
       `;
@@ -169,7 +174,7 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
     printWindow.document.write(`
       <html>
         <head>
-          <title>PhieuIn_VINABUS</title>
+          <title>${bookingForm.phone} - Phiếu in</title>
           <script src="https://cdn.tailwindcss.com"></script>
           <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
           <style>
