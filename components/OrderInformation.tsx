@@ -1,16 +1,24 @@
-import React, { useState, useEffect } from 'react';
-import { Search, Ticket, Calendar, MapPin, Phone, User, Clock, Bus, CheckCircle2, AlertCircle, ArrowLeft, QrCode } from 'lucide-react';
+
+import React, { useState, useEffect, useMemo } from 'react';
+import { 
+  Search, Ticket, Calendar, MapPin, Phone, User, Clock, Bus, 
+  CheckCircle2, AlertCircle, ArrowLeft, QrCode, FileClock, 
+  Loader2, Plus, Trash2, Edit, ArrowRightLeft, Truck, UserCog, 
+  Banknote, RotateCcw, Info, Zap, CalendarIcon, ArrowRight
+} from 'lucide-react';
 import { Button } from './ui/Button';
 import { Badge } from './ui/Badge';
 import { api } from '../lib/api';
-import { Booking } from '../types';
+import { Booking, BookingHistory } from '../types';
 import { formatCurrency } from '../utils/formatters';
 import { formatLunarDate } from '../utils/dateUtils';
 
 export const OrderInformation: React.FC = () => {
   const [searchId, setSearchId] = useState('');
   const [booking, setBooking] = useState<Booking | null>(null);
+  const [history, setHistory] = useState<BookingHistory[]>([]);
   const [loading, setLoading] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Xử lý khi quét QR code có tham số ?bookingId=...
@@ -22,15 +30,30 @@ export const OrderInformation: React.FC = () => {
     }
   }, []);
 
+  const fetchHistory = async (id: string) => {
+    setHistoryLoading(true);
+    try {
+      const data = await api.bookings.getHistory(id);
+      const sorted = [...data].sort(
+        (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+      );
+      setHistory(sorted);
+    } catch (error) {
+      console.error("Failed to load history", error);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
   const handleSearch = async (id: string = searchId) => {
     const cleanId = id.trim();
     if (!cleanId) return;
 
     setLoading(true);
     setError(null);
+    setHistory([]);
     try {
       const allBookings = await api.bookings.getAll();
-      // Tìm kiếm theo ID hoặc 6 ký tự cuối của ID hoặc Số điện thoại
       const found = allBookings.find((b: Booking) => 
         b.id === cleanId || 
         b.id.slice(-6).toUpperCase() === cleanId.toUpperCase() ||
@@ -39,6 +62,7 @@ export const OrderInformation: React.FC = () => {
 
       if (found) {
         setBooking(found);
+        await fetchHistory(found.id);
       } else {
         setError('Không tìm thấy thông tin vé. Vui lòng kiểm tra lại mã đơn hoặc số điện thoại.');
         setBooking(null);
@@ -60,19 +84,98 @@ export const OrderInformation: React.FC = () => {
     }
   };
 
+  const getActionTheme = (action: string) => {
+    switch (action) {
+      case "CREATE": return { icon: <Plus size={14} />, color: "emerald", label: "Tạo đơn" };
+      case "DELETE":
+      case "CANCEL": return { icon: <Trash2 size={14} />, color: "red", label: "Hủy đơn" };
+      case "UPDATE": return { icon: <Edit size={14} />, color: "blue", label: "Cập nhật" };
+      case "SWAP": return { icon: <ArrowRightLeft size={14} />, color: "purple", label: "Đổi chỗ" };
+      case "TRANSFER": return { icon: <Truck size={14} />, color: "indigo", label: "Điều chuyển" };
+      case "PASSENGER_UPDATE": return { icon: <UserCog size={14} />, color: "orange", label: "Khách hàng" };
+      case "PAY_SEAT": return { icon: <Banknote size={14} />, color: "green", label: "Thu tiền" };
+      case "REFUND_SEAT": return { icon: <RotateCcw size={14} />, color: "red", label: "Hoàn vé" };
+      default: return { icon: <FileClock size={14} />, color: "slate", label: "Hệ thống" };
+    }
+  };
+
+  const formatDate = (dateStr: string) => {
+    try {
+      const date = new Date(dateStr);
+      return date.toLocaleDateString("vi-VN") + " " + date.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+    } catch (e) { return dateStr; }
+  };
+
+  const renderLogDetails = (log: BookingHistory) => {
+    const details = log.details || {};
+    if ((log.action === "CREATE" || log.action === "DELETE" || log.action === "CANCEL") && details.trips) {
+      const isCancelled = log.action === "DELETE" || log.action === "CANCEL";
+      return (
+        <div className={`space-y-3 mb-4 ${isCancelled ? "opacity-60" : ""}`}>
+          {details.trips.map((trip: any, idx: number) => (
+            <div key={idx} className="text-sm border-b border-slate-100 border-dashed last:border-b-0 pb-3 last:pb-0">
+              <div className="flex items-center gap-3 mb-3">
+                <span className={`flex items-center font-black text-slate-800 ${isCancelled ? "line-through text-slate-400" : ""}`}>
+                  <MapPin size={13} className="text-slate-600 mr-1" /> {trip.route}
+                </span>
+                <span className="bg-yellow-200 border border-yellow-300 rounded-full flex items-center h-5 px-2 text-[10px] text-slate-900 font-semibold">{trip.licensePlate}</span>
+                <span className="flex items-center text-[11px] text-slate-400 tracking-tight ml-auto"><CalendarIcon size={11} className="mr-1" /> {formatDate(trip.tripDate)}</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {trip.seats.map((s: string) => (
+                  <Badge key={s} className={`${isCancelled ? "bg-red-50 text-red-400 border-red-100 line-through" : "bg-emerald-50 text-emerald-700 border-emerald-200"} text-[10px] font-black px-2 py-0.5`}>{s}</Badge>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+    if (log.action === "UPDATE" && details.changes) {
+      return (
+        <div className="space-y-3">
+          {details.changes.map((change: any, idx: number) => (
+            <div key={idx} className="text-sm border-b border-slate-100 border-dashed last:border-b-0 pb-3 last:pb-0">
+              <div className="flex items-center gap-3 mb-2">
+                <span className="flex items-center font-black text-slate-800"><MapPin size={12} className="mr-1" />{change.route}</span>
+                <span className="flex items-center text-[11px] text-slate-400 ml-auto"><CalendarIcon size={11} className="mr-1" />{formatDate(change.date)}</span>
+              </div>
+              <div className="flex flex-wrap gap-2 mb-2">
+                {change.kept?.map((s: string) => <Badge key={s} className="bg-slate-50 text-slate-600 border-slate-200 font-bold text-[10px] px-2">{s}</Badge>)}
+                {change.removed?.map((s: string) => <Badge key={s} className="bg-red-50 text-red-400 border-red-100 line-through font-bold text-[10px] px-2">{s}</Badge>)}
+                {change.added?.map((s: string) => <Badge key={s} className="bg-emerald-50 text-emerald-700 border-emerald-200 font-black text-[10px] px-2">{s}</Badge>)}
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+    if (log.action === "SWAP" && details.from && details.to) {
+      return (
+        <div className="text-sm border-b border-slate-100 border-dashed pb-3">
+          <div className="flex items-center gap-2 mb-2"><span className="font-black text-purple-900">{details.route}</span></div>
+          <div className="flex items-center justify-center gap-4">
+            <div className="flex flex-col items-center"><span className="text-[9px] font-black text-slate-400 uppercase">Từ</span><span className="font-black text-slate-500 bg-white px-3 py-1 rounded border border-slate-200 text-sm">{details.from}</span></div>
+            <ArrowRight size={14} className="text-purple-400 mt-4" />
+            <div className="flex flex-col items-center"><span className="text-[9px] font-black text-purple-400 uppercase">Sang</span><span className="font-black text-purple-700 bg-white px-3 py-1 rounded border border-purple-300 text-sm shadow-sm">{details.to}</span></div>
+          </div>
+        </div>
+      );
+    }
+    return null;
+  };
+
   return (
-    <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in duration-500">
+    <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in duration-500 pb-10">
+      {/* Search Header */}
       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
         <div className="flex items-center gap-3 mb-6">
-          <div className="p-2 bg-primary/10 rounded-lg text-primary">
-            <QrCode size={24} />
-          </div>
+          <div className="p-2 bg-primary/10 rounded-lg text-primary"><QrCode size={24} /></div>
           <div>
             <h2 className="text-xl font-bold text-slate-900">Tra cứu thông tin vé</h2>
             <p className="text-sm text-slate-500">Nhập mã đơn hàng hoặc số điện thoại để xem chi tiết</p>
           </div>
         </div>
-
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1 group">
             <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors" />
@@ -84,133 +187,159 @@ export const OrderInformation: React.FC = () => {
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
             />
           </div>
-          <Button 
-            onClick={() => handleSearch()} 
-            disabled={loading}
-            className="rounded-xl px-8 h-[46px]"
-          >
+          <Button onClick={() => handleSearch()} disabled={loading} className="rounded-xl px-8 h-[46px]">
+            {loading ? <Loader2 size={18} className="animate-spin mr-2" /> : null}
             {loading ? 'Đang kiểm tra...' : 'Tra cứu ngay'}
           </Button>
         </div>
-
-        {error && (
-          <div className="mt-4 p-4 bg-red-50 border border-red-100 rounded-xl flex items-center gap-3 text-red-600 text-sm animate-in slide-in-from-top-2">
-            <AlertCircle size={18} />
-            {error}
-          </div>
-        )}
+        {error && <div className="mt-4 p-4 bg-red-50 border border-red-100 rounded-xl flex items-center gap-3 text-red-600 text-sm animate-in slide-in-from-top-2"><AlertCircle size={18} />{error}</div>}
       </div>
 
       {booking && (
-        <div className="space-y-6 animate-in zoom-in-95 duration-300">
-          {/* Header Thông tin chung */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <Ticket className="text-primary" size={20} />
-                <span className="font-bold text-slate-700">Mã đơn: <span className="text-primary">#{booking.id.slice(-6).toUpperCase()}</span></span>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-6 animate-in zoom-in-95 duration-300">
+            {/* Booking Summary */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <Ticket className="text-primary" size={20} />
+                  <span className="font-bold text-slate-700">Mã đơn: <span className="text-primary">#{booking.id.slice(-6).toUpperCase()}</span></span>
+                </div>
+                {getStatusBadge(booking.status)}
               </div>
-              {getStatusBadge(booking.status)}
-            </div>
-            
-            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="space-y-4">
-                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                  <User size={14} /> Thông tin hành khách
-                </h3>
-                <div className="space-y-2">
-                  <div className="flex justify-between border-b border-slate-50 pb-2">
-                    <span className="text-slate-500">Họ tên:</span>
-                    <span className="font-bold text-slate-900">{booking.passenger.name || 'Khách lẻ'}</span>
-                  </div>
-                  <div className="flex justify-between border-b border-slate-50 pb-2">
-                    <span className="text-slate-500">Số điện thoại:</span>
-                    <span className="font-bold text-slate-900">{booking.passenger.phone}</span>
-                  </div>
-                  <div className="flex justify-between border-b border-slate-50 pb-2">
-                    <span className="text-slate-500">Ghi chú:</span>
-                    <span className="italic text-slate-600">{booking.passenger.note || '---'}</span>
+              <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-4">
+                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2"><User size={14} /> Thông tin hành khách</h3>
+                  <div className="space-y-2">
+                    <div className="flex justify-between border-b border-slate-50 pb-2"><span className="text-slate-500">Họ tên:</span><span className="font-bold text-slate-900">{booking.passenger.name || 'Khách lẻ'}</span></div>
+                    <div className="flex justify-between border-b border-slate-50 pb-2"><span className="text-slate-500">Số điện thoại:</span><span className="font-bold text-slate-900">{booking.passenger.phone}</span></div>
+                    <div className="flex justify-between border-b border-slate-50 pb-2"><span className="text-slate-500">Ghi chú:</span><span className="italic text-slate-600 text-sm text-right max-w-[150px]">{booking.passenger.note || '---'}</span></div>
                   </div>
                 </div>
-              </div>
-
-              <div className="space-y-4">
-                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                  <CheckCircle2 size={14} /> Thanh toán
-                </h3>
-                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-600">Tổng tiền vé:</span>
-                    <span className="text-lg font-bold text-slate-900">{formatCurrency(booking.totalPrice)} đ</span>
-                  </div>
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-slate-500">Đã trả (TM):</span>
-                    <span className="font-medium text-emerald-600">{formatCurrency(booking.payment?.paidCash || 0)} đ</span>
-                  </div>
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-slate-500">Đã trả (CK):</span>
-                    <span className="font-medium text-blue-600">{formatCurrency(booking.payment?.paidTransfer || 0)} đ</span>
+                <div className="space-y-4">
+                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2"><CheckCircle2 size={14} /> Thanh toán</h3>
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-3">
+                    <div className="flex justify-between items-center"><span className="text-slate-600">Tổng tiền vé:</span><span className="text-lg font-bold text-slate-900">{formatCurrency(booking.totalPrice)} đ</span></div>
+                    <div className="flex justify-between items-center text-sm"><span className="text-slate-500">Đã trả (TM):</span><span className="font-medium text-emerald-600">{formatCurrency(booking.payment?.paidCash || 0)} đ</span></div>
+                    <div className="flex justify-between items-center text-sm"><span className="text-slate-500">Đã trả (CK):</span><span className="font-medium text-blue-600">{formatCurrency(booking.payment?.paidTransfer || 0)} đ</span></div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Danh sách các chuyến */}
-          <div className="space-y-4">
-            <h3 className="font-bold text-slate-800 ml-1">Chi tiết hành trình ({booking.items.length})</h3>
-            {booking.items.map((item, idx) => {
-              const tripDate = new Date(item.tripDate);
-              return (
-                <div key={idx} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden group">
-                  <div className="p-6">
-                    <div className="flex flex-col md:flex-row justify-between gap-6">
-                      <div className="space-y-4 flex-1">
-                        <div className="flex items-center gap-3">
-                          <div className="w-12 h-12 bg-primary/5 rounded-xl flex items-center justify-center text-primary border border-primary/10">
-                            <Bus size={24} />
-                          </div>
-                          <div>
-                            <h4 className="text-lg font-bold text-slate-900">{item.route}</h4>
-                            <div className="flex items-center gap-4 text-sm text-slate-500 mt-1">
-                              <span className="flex items-center gap-1.5"><Calendar size={14} /> {tripDate.toLocaleDateString('vi-VN')}</span>
-                              <span className="flex items-center gap-1.5"><Clock size={14} /> {item.tripDate.split(' ')[1]}</span>
+            {/* Trips Detail */}
+            <div className="space-y-4">
+              <h3 className="font-bold text-slate-800 ml-1">Chi tiết hành trình ({booking.items.length})</h3>
+              {booking.items.map((item, idx) => {
+                const tripDate = new Date(item.tripDate);
+                return (
+                  <div key={idx} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden group">
+                    <div className="p-6">
+                      <div className="flex flex-col md:flex-row justify-between gap-6">
+                        <div className="space-y-4 flex-1">
+                          <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 bg-primary/5 rounded-xl flex items-center justify-center text-primary border border-primary/10"><Bus size={24} /></div>
+                            <div>
+                              <h4 className="text-lg font-bold text-slate-900">{item.route}</h4>
+                              <div className="flex items-center gap-4 text-sm text-slate-500 mt-1">
+                                <span className="flex items-center gap-1.5"><Calendar size={14} /> {tripDate.toLocaleDateString('vi-VN')}</span>
+                                <span className="flex items-center gap-1.5"><Clock size={14} /> {item.tripDate.split(' ')[1]}</span>
+                              </div>
                             </div>
                           </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl">
-                          <div className="space-y-1">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase">Biển số xe</span>
-                            <div className="font-bold text-slate-700">{item.licensePlate}</div>
-                          </div>
-                          <div className="space-y-1">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase">Loại xe</span>
-                            <div className="font-bold text-slate-700">{item.busType === 'CABIN' ? 'Phòng VIP' : 'Giường nằm'}</div>
+                          <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl">
+                            <div className="space-y-1"><span className="text-[10px] font-bold text-slate-400 uppercase">Biển số xe</span><div className="font-bold text-slate-700">{item.licensePlate}</div></div>
+                            <div className="space-y-1"><span className="text-[10px] font-bold text-slate-400 uppercase">Loại xe</span><div className="font-bold text-slate-700">{item.busType === 'CABIN' ? 'Phòng VIP' : 'Giường nằm'}</div></div>
                           </div>
                         </div>
-                      </div>
-
-                      <div className="md:w-64 space-y-3 border-t md:border-t-0 md:border-l border-slate-100 pt-4 md:pt-0 md:pl-6">
-                         <span className="text-[10px] font-bold text-slate-400 uppercase">Vị trí ghế đã chọn</span>
-                         <div className="flex flex-wrap gap-2">
-                           {item.tickets.map((t) => (
-                             <div key={t.seatId} className="flex flex-col items-center bg-white border border-slate-200 rounded-lg p-2 min-w-[80px] shadow-sm">
-                               <span className="text-sm font-black text-primary">{t.seatId}</span>
-                               <span className="text-[10px] text-slate-500 font-bold">{formatCurrency(t.price)} đ</span>
-                             </div>
-                           ))}
-                         </div>
-                         <div className="pt-2 text-[11px] text-slate-500 flex flex-col gap-1">
-                            <div className="flex items-center gap-1.5"><MapPin size={12} className="text-primary" /> {item.tickets[0]?.pickup || 'Đón tại văn phòng'}</div>
-                            <div className="flex items-center gap-1.5"><Clock size={12} className="text-slate-400" /> Vui lòng có mặt trước 15p</div>
-                         </div>
+                        <div className="md:w-64 space-y-3 border-t md:border-t-0 md:border-l border-slate-100 pt-4 md:pt-0 md:pl-6">
+                           <span className="text-[10px] font-bold text-slate-400 uppercase">Vị trí ghế đã chọn</span>
+                           <div className="flex flex-wrap gap-2">
+                             {item.tickets.map((t) => (
+                               <div key={t.seatId} className="flex flex-col items-center bg-white border border-slate-200 rounded-lg p-2 min-w-[80px] shadow-sm">
+                                 <span className="text-sm font-black text-primary">{t.seatId}</span>
+                                 <span className="text-[10px] text-slate-500 font-bold">{formatCurrency(t.price)} đ</span>
+                               </div>
+                             ))}
+                           </div>
+                           <div className="pt-2 text-[11px] text-slate-500 flex flex-col gap-1">
+                              <div className="flex items-center gap-1.5"><MapPin size={12} className="text-primary" /> {item.tickets[0]?.pickup || 'Đón tại văn phòng'}</div>
+                              <div className="flex items-center gap-1.5"><Clock size={12} className="text-slate-400" /> Vui lòng có mặt trước 15p</div>
+                           </div>
+                        </div>
                       </div>
                     </div>
                   </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Timeline History Section */}
+          <div className="space-y-4">
+            <h3 className="font-bold text-slate-800 flex items-center gap-2 ml-1">
+              <FileClock size={18} className="text-primary" /> Lịch sử hoạt động
+            </h3>
+            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm min-h-[400px]">
+              {historyLoading ? (
+                <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+                  <Loader2 className="animate-spin mb-3" size={32} />
+                  <p className="text-xs font-medium">Đang tải lịch sử...</p>
                 </div>
-              );
-            })}
+              ) : history.length === 0 ? (
+                <div className="text-center py-12 text-slate-400">
+                  <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-3 border border-dashed border-slate-200">
+                    <FileClock size={24} className="opacity-20" />
+                  </div>
+                  <p className="text-xs font-bold text-slate-500">Chưa có ghi nhận hoạt động</p>
+                </div>
+              ) : (
+                <div className="relative border-l-2 border-slate-100 ml-2 space-y-8 py-2">
+                  {history.map((log, idx) => {
+                    const theme = getActionTheme(log.action);
+                    const colorClasses = {
+                      emerald: "bg-emerald-500",
+                      red: "bg-red-500",
+                      blue: "bg-blue-500",
+                      purple: "bg-purple-500",
+                      orange: "bg-orange-500",
+                      slate: "bg-slate-500",
+                      green: "bg-green-600",
+                      indigo: "bg-indigo-600",
+                    }[theme.color];
+
+                    return (
+                      <div key={log.id} className="relative pl-6 animate-in slide-in-from-left duration-300">
+                        <div className={`absolute -left-[9px] top-0 w-4 h-4 rounded-full border-2 border-white shadow-sm flex items-center justify-center ${colorClasses}`}>
+                          <div className="w-1 h-1 rounded-full bg-white"></div>
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <div className="flex items-center justify-between">
+                            <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border flex items-center gap-1
+                              ${log.action === "CREATE" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
+                                log.action === "DELETE" || log.action === "CANCEL" || log.action === "REFUND_SEAT" ? "bg-red-50 text-red-700 border-red-200" :
+                                log.action === "UPDATE" ? "bg-blue-50 text-blue-700 border-blue-200" :
+                                log.action === "SWAP" ? "bg-purple-50 text-purple-700 border-purple-200" :
+                                log.action === "TRANSFER" ? "bg-indigo-50 text-indigo-700 border-indigo-200" :
+                                log.action === "PASSENGER_UPDATE" ? "bg-orange-50 text-orange-700 border-orange-200" :
+                                "bg-green-50 text-green-700 border-green-200"}
+                            `}>
+                              {theme.icon}
+                              {theme.label}
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-medium">{formatDate(log.timestamp)}</span>
+                          </div>
+                          <div className="bg-slate-50/50 p-3 rounded-xl border border-slate-100 hover:bg-white hover:shadow-md transition-all">
+                            {renderLogDetails(log)}
+                            <p className="text-[11px] leading-relaxed text-slate-600 mt-1 font-medium">{log.description}</p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
