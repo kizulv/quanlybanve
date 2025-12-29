@@ -36,55 +36,68 @@ const SeatMapPreview: React.FC<{ trip: BusTrip; bookedSeatIds: string[] }> = ({ 
 
   if (isCabin) {
     // Cabin layout: Dãy B - Dãy A (Đã loại bỏ vé sàn)
-    const regularSeats = seats.filter(s => !s.isFloorSeat);
+    const regularSeats = seats.filter(s => !s.isFloorSeat && (s.row ?? 0) < 90);
+    const benchSeats = seats.filter(s => !s.isFloorSeat && (s.row ?? 0) >= 90);
     
     const colB = regularSeats.filter(s => s.col === 0);
     const colA = regularSeats.filter(s => s.col === 1);
     const rows = Array.from(new Set(regularSeats.map(s => s.row ?? 0))).sort((a, b) => a - b);
 
     return (
-      <div className="flex gap-10 justify-center bg-slate-50 p-4 rounded border border-slate-200">
-        {/* Dãy B (Trái) */}
-        <div className="flex flex-col gap-1.5">
-          <div className="text-[8px] font-bold text-slate-400 text-center uppercase mb-1">Dãy B</div>
-          {rows.map(r => (
-            <div key={`row-b-${r}`} className="flex gap-1">
-              {[1, 2].map(f => {
-                const s = colB.find(st => st.row === r && st.floor === f);
-                return s ? renderSeat(s) : <div key={`empty-b-${r}-${f}`} className="h-7 w-8" />;
-              })}
-            </div>
-          ))}
+      <div className="flex flex-col items-center gap-4 bg-slate-50 p-4 rounded border border-slate-200">
+        <div className="flex gap-10 justify-center">
+          {/* Dãy B (Trái) */}
+          <div className="flex flex-col gap-1.5">
+            <div className="text-[8px] font-bold text-slate-400 text-center uppercase mb-1">Dãy B</div>
+            {rows.map(r => (
+              <div key={`row-b-${r}`} className="flex gap-1">
+                {[1, 2].map(f => {
+                  const s = colB.find(st => st.row === r && st.floor === f);
+                  return s ? renderSeat(s) : <div key={`empty-b-${r}-${f}`} className="h-7 w-8" />;
+                })}
+              </div>
+            ))}
+          </div>
+
+          {/* Dãy A (Phải) */}
+          <div className="flex flex-col gap-1.5">
+            <div className="text-[8px] font-bold text-slate-400 text-center uppercase mb-1">Dãy A</div>
+            {rows.map(r => (
+              <div key={`row-a-${r}`} className="flex gap-1">
+                {[1, 2].map(f => {
+                  const s = colA.find(st => st.row === r && st.floor === f);
+                  return s ? renderSeat(s) : <div key={`empty-a-${r}-${f}`} className="h-7 w-8" />;
+                })}
+              </div>
+            ))}
+          </div>
         </div>
 
-        {/* Dãy A (Phải) */}
-        <div className="flex flex-col gap-1.5">
-          <div className="text-[8px] font-bold text-slate-400 text-center uppercase mb-1">Dãy A</div>
-          {rows.map(r => (
-            <div key={`row-a-${r}`} className="flex gap-1">
-              {[1, 2].map(f => {
-                const s = colA.find(st => st.row === r && st.floor === f);
-                return s ? renderSeat(s) : <div key={`empty-a-${r}-${f}`} className="h-7 w-8" />;
-              })}
+        {/* Băng cuối (nếu có cho Cabin) */}
+        {benchSeats.length > 0 && (
+          <div className="pt-2 border-t border-slate-200 border-dashed w-full flex flex-col items-center gap-1">
+            <div className="text-[8px] font-bold text-slate-400 uppercase mb-1">Băng cuối</div>
+            <div className="flex gap-1 justify-center">
+              {benchSeats.sort((a,b) => (a.col ?? 0) - (b.col ?? 0)).map(s => renderSeat(s))}
             </div>
-          ))}
-        </div>
+          </div>
+        )}
       </div>
     );
   }
 
-  // Sleeper layout: 2 Tầng + Băng 5 (Đã loại bỏ vé sàn)
+  // Sleeper layout: 41 giường
   const standardSeats = seats.filter(s => !s.isFloorSeat && (s.row ?? 0) < 6);
   const benchSeats = seats.filter(s => !s.isFloorSeat && (s.row ?? 0) >= 6);
   const rows = [0, 1, 2, 3, 4, 5];
 
   return (
-    <div className="flex flex-col gap-4 bg-slate-50 p-4 rounded border border-slate-200">
-      <div className="flex gap-6 justify-center">
+    <div className="flex flex-col gap-6 bg-slate-50 p-4 rounded border border-slate-200">
+      {/* Phần ghế tiêu chuẩn của 2 tầng */}
+      <div className="flex gap-8 justify-center">
         {[1, 2].map(f => (
           <div key={`floor-${f}`} className="flex flex-col gap-1">
             <div className="text-[8px] font-bold text-slate-400 text-center uppercase mb-1">Tầng {f}</div>
-            {/* Standard Grid 3x6 */}
             <div className="flex flex-col gap-1">
               {rows.map(r => (
                 <div key={`row-${f}-${r}`} className="flex gap-1">
@@ -95,13 +108,30 @@ const SeatMapPreview: React.FC<{ trip: BusTrip; bookedSeatIds: string[] }> = ({ 
                 </div>
               ))}
             </div>
-            {/* Băng 5 cuối */}
-            <div className="flex gap-1 mt-1 pt-1 border-t border-slate-200 border-dashed justify-center">
-              {benchSeats.filter(s => s.floor === f).sort((a,b) => (a.col ?? 0) - (b.col ?? 0)).map(s => renderSeat(s))}
-            </div>
           </div>
         ))}
       </div>
+
+      {/* Phần Băng 5 - Hiển thị thành hàng bên dưới sơ đồ chính */}
+      {benchSeats.length > 0 && (
+        <div className="pt-3 border-t border-slate-200 border-dashed w-full flex flex-col items-center gap-3">
+          <div className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Băng 5 cuối xe</div>
+          <div className="flex flex-col gap-2">
+            {[1, 2].map(f => {
+              const floorBench = benchSeats.filter(s => s.floor === f).sort((a,b) => (a.col ?? 0) - (b.col ?? 0));
+              if (floorBench.length === 0) return null;
+              return (
+                <div key={`bench-row-${f}`} className="flex flex-col items-center gap-1">
+                  <div className="flex gap-1 justify-center">
+                    {floorBench.map(s => renderSeat(s))}
+                  </div>
+                  <div className="text-[7px] font-bold text-slate-300 uppercase">Tầng {f}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
