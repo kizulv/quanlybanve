@@ -3,7 +3,6 @@ import React from "react";
 import { Printer } from "lucide-react";
 import { Button } from "./ui/Button";
 import { formatCurrency } from "../utils/formatters";
-import { formatLunarDate } from "../utils/dateUtils";
 
 interface BookingPrintProps {
   items: any[];
@@ -38,83 +37,73 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
       minute: '2-digit'
     });
 
-    // Tạo nội dung cho từng chuyến (mỗi chuyến 1 trang A5 dọc, 3 liên xếp chồng)
     const pagesHtml = items.map((trip, tripIndex) => {
       const seatLabels = trip.seats.map((s: any) => s.label).join(", ");
-
-      // Tạo URL tra cứu đơn hàng cho mã QR
       const baseUrl = window.location.origin + window.location.pathname;
       const qrData = `${baseUrl}?bookingId=${bookingId || ''}`;
-      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(qrData)}`;
+      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=60x60&data=${encodeURIComponent(qrData)}`;
 
       const renderLien = (title: string) => `
         <div class="lien-container">
-          <div class="print-timestamp">Thời gian in: ${nowStr}</div>
-          
-          <div class="header">
-            <div class="brand-section">
-              <h1 class="brand-name">VinaBus Manager</h1>
-              <div class="lien-title">${title}</div>
-            </div>
-            <div class="qr-section">
-              <img src="${qrUrl}" width="60" height="60" />
-            </div>
+          <div class="lien-header">
+            <div class="brand">VINABUS</div>
+            <div class="title">${title}</div>
           </div>
-
-          <div class="info-grid">
-            <div class="info-column">
-              <div class="info-item">
+          
+          <div class="lien-body">
+            <div class="col-left">
+              <div class="field">
                 <span class="label">Mã đơn:</span>
                 <span class="value">#${(bookingId || '').slice(-6).toUpperCase()}</span>
               </div>
-              <div class="info-item">
-                <span class="label">Điện thoại:</span>
-                <span class="value">${bookingForm.phone || "---"}</span>
-              </div>
-              <div class="info-item route-box">
-                <span class="label">Tuyến đường:</span>
-                <span class="value highlight-text">${trip.route}</span>
-              </div>
-            </div>
-            
-            <div class="info-column border-left">
-              <div class="info-item">
+              <div class="field">
                 <span class="label">Ngày đi:</span>
                 <span class="value">${new Date(trip.tripDate).toLocaleDateString('vi-VN')}</span>
               </div>
-              <div class="info-item">
-                <span class="label">Biển số xe:</span>
+              <div class="field">
+                <span class="label">Biển số:</span>
                 <span class="value">${trip.licensePlate}</span>
               </div>
-              <div class="info-item">
-                <span class="label">Số ghế:</span>
-                <span class="value font-black text-blue-800">${seatLabels}</span>
+              <div class="field">
+                <span class="label">Tuyến:</span>
+                <span class="value route-val">${trip.route}</span>
+              </div>
+            </div>
+            
+            <div class="col-right">
+              <div class="field">
+                <span class="label">SĐT:</span>
+                <span class="value">${bookingForm.phone || "---"}</span>
+              </div>
+              <div class="field">
+                <span class="label">Ghế:</span>
+                <span class="value seat-val">${seatLabels}</span>
+              </div>
+              <div class="qr-box">
+                <img src="${qrUrl}" width="38" height="38" />
               </div>
             </div>
           </div>
 
-          <div class="footer-summary">
-            <div class="payment-details">
-              <div class="payment-row">
-                <span class="label">Thanh toán:</span>
-                <span class="value font-bold">${formatCurrency(finalTotal)} đ</span>
-              </div>
-              <div class="payment-sub">
-                (TM: ${formatCurrency(paidCash)} | CK: ${formatCurrency(paidTransfer)})
-              </div>
+          <div class="lien-footer">
+            <div class="payment-info">
+              T.Toán: <strong>${formatCurrency(finalTotal)}đ</strong> 
+              <span class="pay-detail">(TM:${formatCurrency(paidCash)}|CK:${formatCurrency(paidTransfer)})</span>
             </div>
-            <div class="thank-you">Cảm ơn quý khách đã tin tưởng VinaBus!</div>
+            <div class="print-time">${nowStr}</div>
           </div>
         </div>
       `;
 
       return `
         <div class="page-a5-portrait">
-          ${renderLien('LIÊN 1: KHÁCH HÀNG')}
-          <div class="page-divider"></div>
-          ${renderLien('LIÊN 2: SOÁT VÉ')}
-          <div class="page-divider"></div>
-          ${renderLien('LIÊN 3: ĐỐI SOÁT')}
+          <div class="liens-wrapper">
+            ${renderLien('LIÊN 1: KHÁCH HÀNG')}
+            <div class="cut-line">✂---------------------------------------------------</div>
+            ${renderLien('LIÊN 2: SOÁT VÉ')}
+            <div class="cut-line">✂---------------------------------------------------</div>
+            ${renderLien('LIÊN 3: ĐỐI SOÁT')}
+          </div>
         </div>
       `;
     }).join("");
@@ -122,15 +111,15 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
     printWindow.document.write(`
       <html>
         <head>
-          <title>In vé 3 liên A5 - #${(bookingId || '').slice(-6).toUpperCase()}</title>
+          <title>In vé 85x55 - #${(bookingId || '').slice(-6).toUpperCase()}</title>
           <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
             
             body { 
               font-family: 'Inter', sans-serif; 
               margin: 0; 
               padding: 0; 
-              background: #f4f4f5;
+              background: #f1f5f9;
               -webkit-print-color-adjust: exact;
               color: #000;
             }
@@ -158,162 +147,112 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
               box-sizing: border-box;
               display: flex;
               flex-direction: column;
-              padding: 5mm;
+              padding: 10mm 0;
+            }
+
+            .liens-wrapper {
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              gap: 4mm;
             }
 
             .lien-container {
-              flex: 1;
+              width: 85mm;
+              height: 55mm;
+              border: 0.5pt solid #000;
+              padding: 2mm 3mm;
+              box-sizing: border-box;
               display: flex;
               flex-direction: column;
-              border: 0.5pt solid #e2e8f0;
-              padding: 4mm;
               position: relative;
-              overflow: hidden;
+              background: #fff;
             }
 
-            .page-divider {
-              height: 0;
-              border-top: 1pt dashed #cbd5e1;
-              margin: 2mm 0;
-            }
-
-            .print-timestamp {
-              font-size: 7px;
+            .cut-line {
+              font-size: 8px;
               color: #94a3b8;
-              text-align: right;
-              margin-bottom: 2mm;
+              width: 120mm;
+              text-align: center;
+              margin: 1mm 0;
             }
 
-            .header {
+            .lien-header {
               display: flex;
               justify-content: space-between;
-              align-items: flex-start;
-              border-bottom: 1.5pt solid #000;
-              padding-bottom: 2mm;
-              margin-bottom: 3mm;
+              align-items: center;
+              border-bottom: 0.8pt solid #000;
+              padding-bottom: 1mm;
+              margin-bottom: 1.5mm;
             }
 
-            .brand-name { margin: 0; font-size: 14px; font-weight: 800; text-transform: uppercase; color: #1e40af; }
-            .lien-title { font-size: 10px; font-weight: 700; color: #475569; margin-top: 1px; }
+            .brand { font-size: 11px; font-weight: 800; color: #1e40af; letter-spacing: 0.5px; }
+            .title { font-size: 8px; font-weight: 700; color: #475569; }
 
-            .info-grid {
-              display: grid;
-              grid-template-columns: 1.2fr 1fr;
-              gap: 4mm;
+            .lien-body {
               flex: 1;
-            }
-
-            .info-column {
               display: flex;
-              flex-direction: column;
               gap: 2mm;
             }
 
-            .border-left {
-              border-left: 0.5pt dashed #e2e8f0;
-              padding-left: 4mm;
-            }
+            .col-left { flex: 1.3; display: flex; flex-direction: column; gap: 0.8mm; }
+            .col-right { flex: 1; display: flex; flex-direction: column; gap: 0.8mm; align-items: flex-end; }
 
-            .info-item {
-              display: flex;
-              flex-direction: column;
-            }
+            .field { display: flex; flex-direction: column; line-height: 1.1; }
+            .label { font-size: 6.5px; color: #64748b; text-transform: uppercase; font-weight: 600; }
+            .value { font-size: 9px; font-weight: 700; color: #000; }
+            
+            .route-val { font-size: 9.5px; color: #1e40af; }
+            .seat-val { font-size: 10px; color: #b91c1c; }
 
-            .info-item .label {
-              font-size: 8px;
-              font-weight: 600;
-              color: #64748b;
-              text-transform: uppercase;
-              letter-spacing: 0.5px;
-            }
-
-            .info-item .value {
-              font-size: 11px;
-              font-weight: 700;
-              color: #0f172a;
-            }
-
-            .highlight-text {
-              color: #1e40af !important;
-              font-size: 12px !important;
-            }
-
-            .route-box {
+            .qr-box {
+              margin-top: auto;
+              border: 0.2pt solid #e2e8f0;
+              padding: 0.5mm;
               background: #f8fafc;
-              padding: 2mm;
-              border-radius: 4px;
-              border-left: 3pt solid #1e40af;
             }
 
-            .footer-summary {
-              margin-top: 3mm;
-              padding-top: 2mm;
-              border-top: 0.5pt solid #e2e8f0;
+            .lien-footer {
+              margin-top: 1mm;
+              border-top: 0.5pt dashed #ccc;
+              padding-top: 1mm;
               display: flex;
               justify-content: space-between;
               align-items: flex-end;
             }
 
-            .payment-details {
-              display: flex;
-              flex-direction: column;
-            }
-
-            .payment-row {
-              display: flex;
-              align-items: baseline;
-              gap: 2mm;
-            }
-
-            .payment-row .label { font-size: 9px; color: #475569; }
-            .payment-row .value { font-size: 13px; color: #b91c1c; }
+            .payment-info { font-size: 8px; color: #000; }
+            .payment-info strong { font-size: 10px; color: #b91c1c; }
+            .pay-detail { font-size: 6.5px; color: #64748b; margin-left: 1mm; }
             
-            .payment-sub {
-              font-size: 8px;
-              color: #94a3b8;
-              font-style: italic;
-            }
-
-            .thank-you {
-              font-size: 8px;
-              font-style: italic;
-              color: #94a3b8;
-              text-align: right;
-            }
+            .print-time { font-size: 6.5px; color: #94a3b8; font-style: italic; }
 
             .no-print-bar {
               background: #0f172a;
               color: white;
-              padding: 15px;
+              padding: 12px;
               text-align: center;
               position: sticky;
               top: 0;
               z-index: 1000;
-              box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+              box-shadow: 0 4px 10px rgba(0,0,0,0.3);
             }
             
             .print-btn {
               background: #2563eb;
               color: white;
               border: none;
-              padding: 12px 40px;
-              border-radius: 8px;
+              padding: 10px 30px;
+              border-radius: 6px;
               font-weight: 700;
-              font-size: 14px;
               cursor: pointer;
-              transition: all 0.2s;
-            }
-            
-            .print-btn:hover {
-              background: #1d4ed8;
-              transform: translateY(-1px);
             }
           </style>
         </head>
         <body>
           <div class="no-print no-print-bar">
-            <button class="print-btn" onclick="window.print()">BẮT ĐẦU IN PHIẾU (${items.length} TRANG)</button>
-            <div style="margin-top: 10px; font-size: 12px; opacity: 0.8;">Cài đặt in: Khổ A5, Chiều dọc (Portrait)</div>
+            <button class="print-btn" onclick="window.print()">IN PHIẾU (KHỔ 85x55mm)</button>
+            <div style="margin-top: 5px; font-size: 11px; opacity: 0.7;">Máy in A5 Portrait • 3 liên/trang</div>
           </div>
           ${pagesHtml}
         </body>
