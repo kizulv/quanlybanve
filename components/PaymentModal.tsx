@@ -50,7 +50,6 @@ interface PaymentModalProps {
   ) => void;
   selectionBasket: { trip: BusTrip; seats: Seat[] }[];
   editingBooking?: Booking | null;
-  // Fixed error: Property 'phone' does not exist on type '{ pickup: string; dropoff: string; }' by adding phone and note to the bookingForm type definition
   bookingForm: { phone: string; pickup: string; dropoff: string; note: string };
   paidCash: number;
   paidTransfer: number;
@@ -312,9 +311,34 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       title={editingBooking ? "Cập nhật thanh toán" : "Thanh toán & Xuất vé"}
       className="max-w-5xl bg-indigo-950 text-white border-indigo-900"
       headerClassName="bg-indigo-950 border-indigo-900 text-white"
-      footer={null}
+      footer={
+        <div className="flex flex-row gap-3 w-full justify-end px-2">
+          <Button
+            variant="outline"
+            onClick={onClose}
+            className="border-indigo-800 text-indigo-300 hover:bg-indigo-900 hover:text-white bg-transparent h-11 px-6 text-sm font-bold min-w-[120px]"
+          >
+            Hủy bỏ
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handlePrintReceipt}
+            className="border-indigo-700 text-indigo-100 hover:bg-indigo-800 bg-indigo-900/40 h-11 px-6 text-sm font-bold flex items-center justify-center gap-2 min-w-[120px]"
+          >
+            <Printer size={16} />
+            In phiếu
+          </Button>
+          <Button
+            onClick={handleConfirmClick}
+            disabled={isProcessing || !isBalanceMatched}
+            className={`h-11 px-8 font-bold text-sm shadow-lg transition-all min-w-[140px] ${actionInfo.colorClass}`}
+          >
+            {actionInfo.text}
+          </Button>
+        </div>
+      }
     >
-      <div className="flex flex-col md:flex-row h-full md:h-[600px]">
+      <div className="flex flex-col md:flex-row h-full md:h-[550px]">
         <div className="flex-1 overflow-y-auto p-4 bg-indigo-950/50">
           {items.length === 0 && (
             <div className="text-center py-10 text-indigo-400 italic text-sm">
@@ -472,7 +496,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           </div>
         </div>
 
-        <div className="w-full md:w-[360px] bg-indigo-900/20 p-4 flex flex-col gap-4 shrink-0 border-t md:border-t-0 border-indigo-900 shadow-xl overflow-y-auto">
+        <div className="w-full md:w-[360px] bg-indigo-900/20 p-4 flex flex-col gap-4 shrink-0 border-t md:border-t-0 md:border-l border-indigo-900 shadow-xl overflow-y-auto">
           <div className="bg-indigo-900/50 rounded-xl p-4 border border-indigo-800 shadow-inner space-y-3">
             <div className="flex items-center gap-2 mb-2 text-indigo-300 text-xs font-bold uppercase tracking-wider">
               <Calculator size={14} /> Tổng thanh toán
@@ -609,33 +633,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               <span className="absolute top-2.5 right-3 text-[10px] text-indigo-500 pointer-events-none font-bold">
                 CK
               </span>
-            </div>
-          </div>
-
-          <div className="mt-auto pt-4 border-t border-indigo-900/50">
-            <div className="flex flex-row gap-2">
-              <Button
-                variant="outline"
-                onClick={onClose}
-                className="flex-1 border-indigo-800 text-indigo-300 hover:bg-indigo-900 hover:text-white bg-transparent h-11 text-xs font-bold"
-              >
-                Hủy bỏ
-              </Button>
-              <Button
-                variant="outline"
-                onClick={handlePrintReceipt}
-                className="flex-1 border-indigo-700 text-indigo-100 hover:bg-indigo-800 bg-indigo-900/40 h-11 text-xs font-bold flex items-center justify-center gap-2"
-              >
-                <Printer size={16} />
-                In phiếu
-              </Button>
-              <Button
-                onClick={handleConfirmClick}
-                disabled={isProcessing || !isBalanceMatched}
-                className={`flex-1 h-11 font-bold text-sm shadow-lg transition-all ${actionInfo.colorClass}`}
-              >
-                {actionInfo.text}
-              </Button>
             </div>
           </div>
         </div>
