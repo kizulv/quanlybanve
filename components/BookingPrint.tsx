@@ -41,82 +41,80 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
       const seatLabels = trip.seats.map((s: any) => s.label).join(", ");
       const baseUrl = window.location.origin + window.location.pathname;
       const qrData = `${baseUrl}?bookingId=${bookingId || ''}`;
-      // Sử dụng QR đen trắng thuần túy
       const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(qrData)}&color=0-0-0&bgcolor=ffffff`;
 
       const renderLien = (title: string) => `
         <div class="lien-container">
           <div class="lien-header">
-            <div class="brand-box">
-               <div class="brand">VINABUS</div>
-               <div class="print-time">Ngày in: ${nowStr}</div>
+            <div class="brand-info">
+              <div class="brand-name">VINABUS</div>
+              <div class="print-date">Ngày in: ${nowStr}</div>
             </div>
-            <div class="lien-title">${title}</div>
+            <div class="lien-tag">${title}</div>
           </div>
           
-          <div class="lien-body">
-            <div class="col-main">
-              <div class="field-row">
-                <div class="field">
-                  <span class="label">MÃ ĐƠN HÀNG:</span>
-                  <span class="value">#${(bookingId || '').slice(-6).toUpperCase()}</span>
-                </div>
-                <div class="field">
-                  <span class="label">NGÀY ĐI:</span>
-                  <span class="value">${new Date(trip.tripDate).toLocaleDateString('vi-VN')}</span>
-                </div>
+          <div class="lien-content">
+            <div class="info-grid">
+              <div class="info-item">
+                <span class="info-label">MÃ ĐƠN HÀNG:</span>
+                <span class="info-value">#${(bookingId || '').slice(-6).toUpperCase()}</span>
               </div>
-
-              <div class="field-row">
-                <div class="field">
-                  <span class="label">SĐT KHÁCH:</span>
-                  <span class="value">${bookingForm.phone || "---"}</span>
-                </div>
-                <div class="field">
-                  <span class="label">BIỂN SỐ:</span>
-                  <span class="value">${trip.licensePlate}</span>
-                </div>
+              <div class="info-item">
+                <span class="info-label">SĐT KHÁCH:</span>
+                <span class="info-value">${bookingForm.phone || "---"}</span>
               </div>
-
-              <div class="field">
-                <span class="label">TUYẾN ĐƯỜNG:</span>
-                <span class="value route-val">${trip.route}</span>
+              <div class="info-item">
+                <span class="info-label">NGÀY ĐI:</span>
+                <span class="info-value">${new Date(trip.tripDate).toLocaleDateString('vi-VN')}</span>
               </div>
-              
-              <div class="field">
-                <span class="label">VỊ TRÍ GHẾ:</span>
-                <span class="value seat-val">${seatLabels}</span>
+              <div class="info-item">
+                <span class="info-label">BIỂN SỐ XE:</span>
+                <span class="info-value">${trip.licensePlate}</span>
+              </div>
+              <div class="info-item full-width">
+                <span class="info-label">TUYẾN ĐƯỜNG:</span>
+                <span class="info-value route-text">${trip.route}</span>
+              </div>
+              <div class="info-item full-width">
+                <span class="info-label">VỊ TRÍ GHẾ:</span>
+                <span class="info-value seat-text">${seatLabels}</span>
               </div>
             </div>
             
-            <div class="col-qr">
-              <div class="qr-wrapper">
-                <img src="${qrUrl}" width="70" height="70" />
+            <div class="qr-section">
+              <div class="qr-border">
+                <img src="${qrUrl}" width="75" height="75" />
               </div>
-              <div class="payment-box">
-                 <div class="total-label">TỔNG CẦN THU</div>
-                 <div class="total-value">${formatCurrency(finalTotal)}đ</div>
+              <div class="total-box">
+                 <div class="total-label">TỔNG THU</div>
+                 <div class="total-price">${formatCurrency(finalTotal)}đ</div>
               </div>
             </div>
           </div>
 
           <div class="lien-footer">
-            <span class="pay-methods">THANH TOÁN: TM: ${formatCurrency(paidCash)} | CK: ${formatCurrency(paidTransfer)}</span>
-            <span class="thanks">TRÂN TRỌNG CẢM ƠN!</span>
+            <div class="payment-detail">Thanh toán: TM ${formatCurrency(paidCash)} | CK ${formatCurrency(paidTransfer)}</div>
+            <div class="thanks-msg">CHÚC QUÝ KHÁCH THƯỢNG LỘ BÌNH AN!</div>
           </div>
         </div>
       `;
 
       return `
-        <div class="page-a5-landscape">
-          <div class="liens-wrapper">
-            <div class="row-top">
-              ${renderLien('LIÊN KHÁCH HÀNG')}
-              ${renderLien('LIÊN SOÁT VÉ')}
+        <div class="print-page">
+          <div class="top-row">
+            ${renderLien('LIÊN KHÁCH HÀNG')}
+            <div class="v-cut-line">
+              <div class="scissors">✂</div>
             </div>
-            <div class="row-bottom">
-              ${renderLien('LIÊN ĐỐI SOÁT')}
-            </div>
+            ${renderLien('LIÊN SOÁT VÉ')}
+          </div>
+          
+          <div class="h-cut-line">
+            <div class="scissors">✂</div>
+          </div>
+          
+          <div class="bottom-row">
+            ${renderLien('LIÊN ĐỐI SOÁT')}
           </div>
         </div>
       `;
@@ -125,9 +123,9 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
     printWindow.document.write(`
       <html>
         <head>
-          <title>PhieuVe_VINABUS_${(bookingId || '').slice(-6).toUpperCase()}</title>
+          <title>PhieuVe_VINABUS</title>
           <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
             
             * { box-sizing: border-box; -webkit-print-color-adjust: exact; border-radius: 0 !important; }
             
@@ -147,54 +145,68 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
             @media print {
               .no-print { display: none !important; }
               body { background: white; }
-              .page-a5-landscape { 
-                page-break-after: always;
-              }
+              .print-page { page-break-after: always; }
             }
 
-            /* Khổ giấy A5 Landscape chính xác 210mm x 148mm */
-            .page-a5-landscape {
+            .print-page {
               width: 210mm;
               height: 148mm;
               margin: 0 auto;
-              position: relative;
-              overflow: hidden;
-              padding: 4mm;
+              padding: 2mm;
               display: flex;
               flex-direction: column;
               background: #fff;
+              overflow: hidden;
             }
 
-            .liens-wrapper {
+            .top-row {
               display: flex;
-              flex-direction: column;
-              height: 100%;
+              height: 72mm;
               width: 100%;
-              gap: 4mm; /* Khoảng cách giữa hàng trên và hàng dưới */
+              justify-content: space-between;
+              align-items: stretch;
             }
 
-            .row-top {
-              display: flex;
-              gap: 4mm;
-              height: 68mm;
-              width: 100%;
-            }
-
-            .row-bottom {
+            .bottom-row {
               display: flex;
               justify-content: center;
-              height: 68mm;
+              height: 72mm;
               width: 100%;
+              align-items: stretch;
             }
 
+            /* Cut lines */
+            .v-cut-line {
+              width: 4mm;
+              height: 100%;
+              border-left: 1pt dashed #000;
+              position: relative;
+              margin-left: 2mm;
+            }
+            .h-cut-line {
+              height: 4mm;
+              width: 100%;
+              border-top: 1pt dashed #000;
+              position: relative;
+              margin-top: 1mm;
+              margin-bottom: 1mm;
+            }
+            .scissors {
+              position: absolute;
+              font-size: 12px;
+              background: white;
+              padding: 0 2px;
+            }
+            .v-cut-line .scissors { top: 50%; left: -6px; transform: translateY(-50%); }
+            .h-cut-line .scissors { left: 50%; top: -8px; transform: translateX(-50%); }
+
             .lien-container {
-              width: 99mm; /* Tính toán lại để khít lề */
-              height: 68mm;
-              border: 1.5pt solid #000;
+              width: 100mm;
+              height: 70mm;
+              border: 1.2pt solid #000;
               padding: 3mm;
               display: flex;
               flex-direction: column;
-              position: relative;
               background: #fff;
             }
 
@@ -202,50 +214,70 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
               display: flex;
               justify-content: space-between;
               align-items: flex-start;
-              border-bottom: 2pt solid #000;
+              border-bottom: 1.5pt solid #000;
               padding-bottom: 1.5mm;
               margin-bottom: 2mm;
             }
 
-            .brand-box { display: flex; flex-direction: column; }
-            .brand { font-size: 14px; font-weight: 800; line-height: 1; letter-spacing: 1px; }
-            .print-time { font-size: 8px; margin-top: 1mm; }
-            .lien-title { font-size: 10px; font-weight: 800; text-transform: uppercase; border: 1pt solid #000; padding: 1px 5px; }
+            .brand-info { display: flex; flex-direction: column; }
+            .brand-name { font-size: 16px; font-weight: 900; line-height: 1; letter-spacing: 0.5px; }
+            .print-date { font-size: 8px; margin-top: 1mm; font-weight: 500; }
+            .lien-tag { font-size: 10px; font-weight: 800; text-transform: uppercase; border: 1.2pt solid #000; padding: 2px 6px; }
 
-            .lien-body {
+            .lien-content {
               flex: 1;
               display: flex;
               gap: 3mm;
+              overflow: hidden;
             }
 
-            .col-main { flex: 1; display: flex; flex-direction: column; gap: 2mm; }
-            .col-qr { width: 30mm; display: flex; flex-direction: column; align-items: center; justify-content: space-between; border-left: 1pt dashed #000; padding-left: 2mm; }
+            .info-grid {
+              flex: 1;
+              display: flex;
+              flex-wrap: wrap;
+              align-content: flex-start;
+              gap: 1.5mm 3mm;
+            }
 
-            .field-row { display: flex; gap: 4mm; }
-            .field { display: flex; flex-direction: column; line-height: 1.1; }
+            .info-item {
+              display: flex;
+              flex-direction: column;
+              width: calc(50% - 1.5mm);
+            }
+            .full-width { width: 100%; }
+
+            .info-label { font-size: 8px; font-weight: 800; color: #000; margin-bottom: 0.5mm; }
+            .info-value { font-size: 11px; font-weight: 700; line-height: 1.1; }
             
-            .label { font-size: 8px; font-weight: 700; margin-bottom: 1px; }
-            .value { font-size: 11px; font-weight: 700; }
-            
-            .route-val { font-size: 11px; border-left: 3pt solid #000; padding-left: 2mm; }
-            .seat-val { font-size: 12px; font-weight: 800; border-top: 1pt solid #000; padding-top: 1mm; margin-top: 1mm; }
+            .route-text { font-size: 11px; border-left: 3pt solid #000; padding-left: 2mm; margin-top: 1px; }
+            .seat-text { font-size: 13px; font-weight: 900; border-top: 1pt solid #000; padding-top: 1mm; margin-top: 1mm; }
 
-            .qr-wrapper { border: 1pt solid #000; padding: 1mm; background: #fff; }
+            .qr-section {
+              width: 30mm;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: space-between;
+              border-left: 1pt dashed #000;
+              padding-left: 3mm;
+            }
 
-            .payment-box { width: 100%; text-align: center; border: 1pt solid #000; padding: 2mm 0; }
-            .total-label { font-size: 8px; font-weight: 800; }
-            .total-value { font-size: 13px; font-weight: 800; }
+            .qr-border { border: 1pt solid #000; padding: 1mm; background: #fff; line-height: 0; }
+            .total-box { width: 100%; text-align: center; border: 1.2pt solid #000; padding: 1.5mm 0; margin-top: 2mm; }
+            .total-label { font-size: 8px; font-weight: 900; }
+            .total-price { font-size: 14px; font-weight: 900; }
 
             .lien-footer {
               margin-top: 2mm;
-              border-top: 1pt solid #000;
+              border-top: 1.2pt solid #000;
               padding-top: 1.5mm;
               display: flex;
               justify-content: space-between;
               align-items: center;
               font-size: 8px;
-              font-weight: 700;
+              font-weight: 800;
             }
+            .thanks-msg { font-style: italic; }
 
             .no-print-bar {
               background: #000;
@@ -261,18 +293,20 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
               background: #fff;
               color: #000;
               border: 2pt solid #fff;
-              padding: 10px 50px;
-              font-weight: 800;
+              padding: 10px 60px;
+              font-weight: 900;
               font-size: 16px;
               cursor: pointer;
             }
-            .print-btn:hover { background: #eee; }
+            .print-btn:hover { background: #ddd; }
           </style>
         </head>
         <body>
           <div class="no-print no-print-bar">
-            <button class="print-btn" onclick="window.print()">THỰC HIỆN IN PHIẾU</button>
-            <p style="margin-top: 10px; font-size: 12px;">Cài đặt máy in: <b>Khổ A5 - Chiều ngang (Landscape) - Tỷ lệ 100%</b></p>
+            <button class="print-btn" onclick="window.print()">TIẾN HÀNH IN VÉ</button>
+            <p style="margin-top: 10px; font-size: 12px; font-weight: 600;">
+              Lưu ý: Chọn khổ giấy <b>A5</b>, Chiều <b>Landscape (Ngang)</b> và Tỷ lệ <b>100%</b>
+            </p>
           </div>
           ${pagesHtml}
         </body>
