@@ -57,8 +57,8 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
         <div class="w-[98mm] h-[64mm] border-[1.5pt] border-black p-[2.5mm] flex flex-col bg-white rounded-none">
           <div class="flex justify-between items-start border-b-[1.8pt] border-black pb-[1mm] mb-[1.5mm] rounded-none">
             <div class="flex flex-col">
-              <div class="text-[10px]">CÔNG TY TNHH MTV LÊ DŨNG</div>
-              <div class="text-[20px] mt-1 font-black leading-none tracking-[0.5px]">PHIẾU ĐẶT VÉ</div>
+              <div class="text-[10px] font-bold">CÔNG TY VINABUS</div>
+              <div class="text-[20px] mt-1 font-black leading-none tracking-[0.5px]">PHIẾU VÉ</div>
             </div>
             <div class="text-[10px] font-black uppercase border-[1.5pt] border-black px-[5px] py-[1px] rounded-none">${title}</div>
           </div>
@@ -87,7 +87,7 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
                   ).toLocaleDateString("vi-VN")}</div>
                 </div>
                 <div class="flex-1">
-                  <div class="text-[7.5px] uppercase mb-[0.5px]">XUẤT BẾN (DỰ KIẾN):</div>
+                  <div class="text-[7.5px] uppercase mb-[0.5px]">XUẤT BẾN:</div>
                   <div class="text-[10.5px] font-bold leading-none">${departureTimeOnly}</div>
                 </div>
               </div>
@@ -98,7 +98,7 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
               </div>
               <div class="w-full flex flex-col">
                 <div class="text-[7.5px] uppercase border-t-[1pt] border-black pt-1 mt-1 mb-[0.5px]">VỊ TRÍ GHẾ:</div>
-                <div class="text-[15px] font-black rounded-none">
+                <div class="text-[15px] font-black rounded-none leading-none">
                   ${seatLabels}
                 </div>
               </div>

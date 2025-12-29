@@ -242,7 +242,7 @@ function AppContent() {
           </div>
 
           <div className="w-full md:w-[320px] xl:w-[360px] flex flex-col gap-4 shrink-0 md:h-[calc(100vh-140px)]">
-            <BookingForm trips={trips} routes={routes} bookings={bookings} selectionBasket={selectionBasket} editingBooking={editingBooking} setTrips={setTrips} setBookings={setBookings} setUndoStack={setUndoStack} setEditingBooking={setEditingBooking} onCancelSelection={cancelAllSelections} onInitiateSwap={setSwapSourceSeat} onNavigateToTrip={(d, id) => { setSelectedDate(d); setSelectedTripId(id); }} />
+            <BookingForm trips={trips} routes={routes} buses={buses} bookings={bookings} selectionBasket={selectionBasket} editingBooking={editingBooking} setTrips={setTrips} setBookings={setBookings} setUndoStack={setUndoStack} setEditingBooking={setEditingBooking} onCancelSelection={cancelAllSelections} onInitiateSwap={setSwapSourceSeat} onNavigateToTrip={(d, id) => { setSelectedDate(d); setSelectedTripId(id); }} />
             <ManifestList tripBookings={tripBookings} selectedTrip={selectedTrip} highlightedBookingId={highlightedBookingId} onSelectBooking={handleSelectBookingFromHistory} />
           </div>
         </div>

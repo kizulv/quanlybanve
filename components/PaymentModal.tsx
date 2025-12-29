@@ -17,7 +17,7 @@ import {
   TrendingUp,
   AlertCircle,
 } from "lucide-react";
-import { BusTrip, Seat, Booking } from "../types";
+import { BusTrip, Seat, Booking, Bus as BusTypeData } from "../types";
 import { formatLunarDate } from "../utils/dateUtils";
 import { getStandardizedLocation, formatCurrency, parseCurrency } from "../utils/formatters";
 import { CurrencyInput } from "./ui/CurrencyInput";
@@ -53,6 +53,7 @@ interface PaymentModalProps {
   selectionBasket: { trip: BusTrip; seats: Seat[] }[];
   editingBooking?: Booking | null;
   bookingForm: { phone: string; pickup: string; dropoff: string; note: string };
+  buses: BusTypeData[];
   paidCash: number;
   paidTransfer: number;
   onMoneyChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -67,6 +68,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   selectionBasket,
   editingBooking,
   bookingForm,
+  buses,
   paidCash,
   paidTransfer,
   onMoneyChange,
@@ -79,21 +81,24 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
   const items: PaymentItem[] = useMemo(() => {
     if (selectionBasket.length > 0) {
-      return selectionBasket.map((item) => ({
-        tripId: item.trip.id,
-        tripName: item.trip.name,
-        tripDate: item.trip.departureTime,
-        route: item.trip.route,
-        licensePlate: item.trip.licensePlate,
-        busPhoneNumber: (item.trip as any).phoneNumber || "---",
-        seats: item.seats,
-        pickup: bookingForm.pickup || "",
-        dropoff: bookingForm.dropoff || "",
-        basePrice: item.trip.basePrice || 0,
-      }));
+      return selectionBasket.map((item) => {
+        const busObj = buses.find(b => b.plate === item.trip.licensePlate);
+        return {
+          tripId: item.trip.id,
+          tripName: item.trip.name,
+          tripDate: item.trip.departureTime,
+          route: item.trip.route,
+          licensePlate: item.trip.licensePlate,
+          busPhoneNumber: busObj?.phoneNumber || "---",
+          seats: item.seats,
+          pickup: bookingForm.pickup || "",
+          dropoff: bookingForm.dropoff || "",
+          basePrice: item.trip.basePrice || 0,
+        };
+      });
     }
     return [];
-  }, [selectionBasket, bookingForm]);
+  }, [selectionBasket, bookingForm, buses]);
 
   const getSeatValues = (
     tripId: string,

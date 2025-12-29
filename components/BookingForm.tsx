@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from "react";
 import {
   Seat,
@@ -76,6 +77,7 @@ interface TripDiffItem {
 interface BookingFormProps {
   trips: BusTrip[];
   routes: Route[];
+  buses: Bus[];
   bookings: Booking[];
   selectionBasket: { trip: BusTrip; seats: Seat[] }[];
   editingBooking: Booking | null;
@@ -91,6 +93,7 @@ interface BookingFormProps {
 export const BookingForm: React.FC<BookingFormProps> = ({
   trips,
   routes,
+  buses,
   bookings,
   selectionBasket,
   editingBooking,
@@ -930,6 +933,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
         selectionBasket={selectionBasket}
         editingBooking={editingBooking}
         bookingForm={bookingForm}
+        buses={buses}
         paidCash={modalPaymentInput.paidCash}
         paidTransfer={modalPaymentInput.paidTransfer}
         onMoneyChange={(e) => {
