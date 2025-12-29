@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from "react";
 import { Dialog } from "./ui/Dialog";
 import { Button } from "./ui/Button";
@@ -81,7 +80,9 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   isProcessing = false,
   initialOverrides = {},
 }) => {
-  const [seatOverrides, setSeatOverrides] = useState<Record<string, SeatOverride>>({});
+  const [seatOverrides, setSeatOverrides] = useState<
+    Record<string, SeatOverride>
+  >({});
   const [isSaved, setIsSaved] = useState(false);
   const [localProcessing, setLocalProcessing] = useState(false);
   const [stableItems, setStableItems] = useState<PaymentItem[]>([]);
@@ -107,7 +108,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       setStableItems(initialItems);
       setSeatOverrides(initialOverrides || {});
     }
-    
+
     if (!isOpen) {
       setStableItems([]);
       setSeatOverrides({});
@@ -125,7 +126,8 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     const key = `${tripId}_${seat.id}`;
     const override = seatOverrides[key];
 
-    let displayPrice = override?.price !== undefined ? override.price : seat.price;
+    let displayPrice =
+      override?.price !== undefined ? override.price : seat.price;
     if (displayPrice === 0) {
       displayPrice = tripBasePrice;
     }
@@ -133,8 +135,10 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     return {
       price: displayPrice,
       pickup: override?.pickup !== undefined ? override.pickup : defaultPickup,
-      dropoff: override?.dropoff !== undefined ? override.dropoff : defaultDropoff,
-      isPriceChanged: override?.price !== undefined && override.price !== seat.price,
+      dropoff:
+        override?.dropoff !== undefined ? override.dropoff : defaultDropoff,
+      isPriceChanged:
+        override?.price !== undefined && override.price !== seat.price,
     };
   };
 
@@ -156,9 +160,10 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   }, [stableItems, seatOverrides]);
 
   const previouslyPaid = editingBooking
-    ? (editingBooking.payment?.paidCash || 0) + (editingBooking.payment?.paidTransfer || 0)
+    ? (editingBooking.payment?.paidCash || 0) +
+      (editingBooking.payment?.paidTransfer || 0)
     : 0;
-  
+
   const currentInputTotal = paidCash + paidTransfer;
   const remainingBalance = finalTotal - currentInputTotal;
   const isBalanceMatched = currentInputTotal === finalTotal && finalTotal > 0;
@@ -177,7 +182,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   ) => {
     // Nếu có sự thay đổi, đặt lại trạng thái chưa lưu để nút Hoàn tất hiện lại
     if (isSaved) setIsSaved(false);
-    
+
     const key = `${tripId}_${seatId}`;
     setSeatOverrides((prev) => {
       const current = prev[key] || {};
@@ -229,7 +234,9 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     if (remainingBalance > 0) {
       noteSuffix = `(Cần thu thêm: ${formatCurrency(remainingBalance)}đ)`;
     } else if (remainingBalance < 0) {
-      noteSuffix = `(Cần hoàn lại: ${formatCurrency(Math.abs(remainingBalance))}đ)`;
+      noteSuffix = `(Cần hoàn lại: ${formatCurrency(
+        Math.abs(remainingBalance)
+      )}đ)`;
     }
 
     const finalOverrides: Record<string, SeatOverride> = { ...seatOverrides };
@@ -259,16 +266,27 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   };
 
   // Logic hiển thị trạng thái active cho các nút
-  const isCompleteBtnActive = isBalanceMatched && !isSaved && (!editingBooking || hasChanges) && !localProcessing && !isProcessing;
-  
+  const isCompleteBtnActive =
+    isBalanceMatched &&
+    !isSaved &&
+    (!editingBooking || hasChanges) &&
+    !localProcessing &&
+    !isProcessing;
+
   // In phiếu active khi: Đã lưu thành công HOẶC Đơn sửa đã khớp tiền và không thay đổi gì
-  const isPrintBtnActive = (isSaved && !!editingBooking) || (editingBooking && !hasChanges && isBalanceMatched);
+  const isPrintBtnActive =
+    (isSaved && !!editingBooking) ||
+    (editingBooking && !hasChanges && isBalanceMatched);
 
   return (
     <Dialog
       isOpen={isOpen}
       onClose={onClose}
-      title={editingBooking && editingBooking.id ? `Cập nhật thanh toán: #${editingBooking.id.slice(-6).toUpperCase()}` : "Thanh toán & Xuất vé"}
+      title={
+        editingBooking && editingBooking.id
+          ? "Cập nhật thanh toán"
+          : "Thanh toán & Xuất vé"
+      }
       className="max-w-5xl bg-indigo-950 text-white border-indigo-900"
       headerClassName="px-4 h-[40px] border-b border-indigo-900 flex items-center justify-between shrink-0 rounded-t-xl bg-gradient-to-r from-indigo-950 via-indigo-900 to-indigo-950 text-white text-sm font-semibold"
       footer={
@@ -277,21 +295,26 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             <Button
               variant="outline"
               onClick={onClose}
-              className="border-indigo-800 text-indigo-300 hover:bg-indigo-900 hover:text-white bg-transparent h-10 px-6 text-xs font-bold min-w-[100px]"
+              className="border-indigo-800 text-white hover:bg-indigo-600 hover:text-white bg-transparent h-10 px-6 text-xs font-bold min-w-[100px] border-indigo-900/70"
             >
               {isSaved ? "Đóng" : "Hủy bỏ"}
             </Button>
-            
+
             <Button
               onClick={handleConfirmClick}
               disabled={!isCompleteBtnActive}
               className={`h-10 px-8 font-bold text-xs shadow-lg transition-all min-w-[140px] border text-white
-                ${!isCompleteBtnActive 
-                  ? "bg-indigo-900/50 opacity-40 cursor-not-allowed border-indigo-900 shadow-none" 
-                  : "bg-indigo-600 hover:bg-indigo-500 border-indigo-700 shadow-indigo-500/20 active:scale-95"
+                ${
+                  !isCompleteBtnActive
+                    ? "bg-indigo-900/50 opacity-40 cursor-not-allowed border-indigo-900 shadow-none"
+                    : "bg-indigo-600 hover:bg-indigo-500 border-indigo-700 shadow-indigo-500/20 active:scale-95"
                 }`}
             >
-              {localProcessing || isProcessing ? "Đang xử lý..." : isSaved ? "Đã lưu" : "Hoàn tất"}
+              {localProcessing || isProcessing
+                ? "Đang xử lý..."
+                : isSaved
+                ? "Đã lưu"
+                : "Hoàn tất"}
             </Button>
           </div>
 
@@ -343,7 +366,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                     </div>
                   </div>
 
-                  <div className="p-2 space-y-2">
+                  <div className="p-3 space-y-2">
                     {trip.seats.map((seat) => {
                       const { price, pickup, dropoff, isPriceChanged } =
                         getSeatValues(
@@ -356,7 +379,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                       return (
                         <div
                           key={seat.id}
-                          className="flex flex-col sm:flex-row gap-2 items-start sm:items-center bg-indigo-950/50 p-2 rounded border border-indigo-900/50 hover:border-indigo-700 transition-colors"
+                          className="flex flex-col sm:flex-row gap-2 items-start sm:items-center transition-colors"
                         >
                           <div className="shrink-0">
                             <span className="inline-flex items-center justify-center w-12 h-[24.5px] bg-indigo-800 text-white font-bold text-xs rounded border border-indigo-700 shadow-sm">
