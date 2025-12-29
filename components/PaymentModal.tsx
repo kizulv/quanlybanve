@@ -17,6 +17,7 @@ import {
   TrendingUp,
   AlertCircle,
   X,
+  Printer,
 } from "lucide-react";
 import { BusTrip, Seat, Booking, Bus as BusTypeData } from "../types";
 import { formatLunarDate } from "../utils/dateUtils";
@@ -84,6 +85,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const [isSaved, setIsSaved] = useState(false);
   const [localProcessing, setLocalProcessing] = useState(false);
 
+  // Khởi tạo dữ liệu vé
   const items: PaymentItem[] = useMemo(() => {
     if (selectionBasket.length > 0) {
       return selectionBasket.map((item) => {
@@ -153,11 +155,11 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   
   const currentInputTotal = paidCash + paidTransfer;
   const remainingBalance = finalTotal - currentInputTotal;
-  const isBalanceMatched = currentInputTotal === finalTotal;
+  const isBalanceMatched = currentInputTotal === finalTotal && finalTotal > 0;
 
+  // Kiểm tra xem người dùng có thực hiện thay đổi nào không so với dữ liệu gốc
   const hasChanges = useMemo(() => {
-    if (!editingBooking) return true;
-    // So sánh dữ liệu override hiện tại với dữ liệu khởi tạo từ booking cũ
+    if (!editingBooking) return true; // Đơn mới luôn coi là có thay đổi
     return JSON.stringify(seatOverrides) !== JSON.stringify(initialOverrides);
   }, [seatOverrides, initialOverrides, editingBooking]);
 
@@ -193,7 +195,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const handleQuickSettle = (method: "cash" | "transfer") => {
     const gap = remainingBalance;
     const currentVal = method === "cash" ? paidCash : paidTransfer;
-    const newVal = currentVal + gap;
+    const newVal = Math.max(0, currentVal + gap);
     const event = {
       target: {
         name: method === "cash" ? "paidCash" : "paidTransfer",
@@ -244,14 +246,12 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     if (isOpen) {
       setSeatOverrides(initialOverrides);
       setIsSaved(false);
-    } else {
-      setSeatOverrides({});
-      setIsSaved(false);
     }
   }, [isOpen, initialOverrides]);
 
-  const showCompleteBtn = isBalanceMatched && !isSaved && (!editingBooking || hasChanges);
-  const showPrintBtn = isSaved || (editingBooking && !hasChanges && isBalanceMatched);
+  // Logic kích hoạt nút
+  const isCompleteDisabled = !isBalanceMatched || isSaved || (editingBooking && !hasChanges) || localProcessing || isProcessing;
+  const isPrintDisabled = !(isSaved || (editingBooking && !hasChanges && isBalanceMatched));
 
   return (
     <Dialog
@@ -261,40 +261,39 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       className="max-w-5xl bg-indigo-950 text-white border-indigo-900"
       headerClassName="bg-indigo-950 border-indigo-900 text-white"
       footer={
-        <div className="flex flex-row justify-between items-center w-full">
+        <div className="flex flex-row justify-between items-center w-full px-2">
           <div className="flex gap-3">
             <Button
               variant="outline"
               onClick={onClose}
-              className="border-indigo-800 text-indigo-300 hover:bg-indigo-900 hover:text-white bg-transparent h-10 px-6 text-xs font-bold min-w-[120px]"
+              className="border-indigo-800 text-indigo-300 hover:bg-indigo-900 hover:text-white bg-transparent h-10 px-6 text-xs font-bold min-w-[100px]"
             >
               {isSaved ? "Đóng" : "Hủy bỏ"}
             </Button>
             
-            {showCompleteBtn && (
-              <Button
-                onClick={handleConfirmClick}
-                disabled={localProcessing || isProcessing}
-                className="h-10 px-8 font-bold text-xs shadow-lg transition-all min-w-[140px] bg-indigo-600 hover:bg-indigo-500 border-indigo-700 text-white shadow-indigo-500/20"
-              >
-                {localProcessing || isProcessing ? "Đang xử lý..." : "Hoàn tất"}
-              </Button>
-            )}
+            <Button
+              onClick={handleConfirmClick}
+              disabled={isCompleteDisabled}
+              className={`h-10 px-8 font-bold text-xs shadow-lg transition-all min-w-[140px] border border-indigo-700 text-white
+                ${isCompleteDisabled 
+                  ? "bg-indigo-900/50 opacity-40 cursor-not-allowed shadow-none border-indigo-900" 
+                  : "bg-indigo-600 hover:bg-indigo-500 shadow-indigo-500/20 active:scale-95"
+                }`}
+            >
+              {localProcessing || isProcessing ? "Đang xử lý..." : isSaved ? "Đã hoàn tất" : "Hoàn tất"}
+            </Button>
           </div>
 
-          {showPrintBtn && (
-            <div className="animate-in zoom-in duration-300">
-              <BookingPrint
-                items={items}
-                bookingForm={bookingForm}
-                paidCash={paidCash}
-                paidTransfer={paidTransfer}
-                finalTotal={finalTotal}
-                getSeatValues={getSeatValues}
-                bookingId={editingBooking?.id}
-              />
-            </div>
-          )}
+          <BookingPrint
+            items={items}
+            bookingForm={bookingForm}
+            paidCash={paidCash}
+            paidTransfer={paidTransfer}
+            finalTotal={finalTotal}
+            getSeatValues={getSeatValues}
+            bookingId={editingBooking?.id}
+            disabled={isPrintDisabled}
+          />
         </div>
       }
     >
@@ -514,7 +513,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               <div
                 className={`p-2 rounded-full shrink-0 ${
                   remainingBalance > 0
-                    ? "bg-amber-500/20 text-amber-400"
+                    ? "bg-amber-50/20 text-amber-400"
                     : isBalanceMatched
                     ? "bg-green-500/20 text-green-400"
                     : "bg-blue-500/20 text-blue-400"
@@ -529,7 +528,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                 )}
               </div>
               <div>
-                <h4 className="text-xs">
+                <h4 className="text-xs font-bold">
                   {remainingBalance > 0
                     ? "Cần thu thêm"
                     : isBalanceMatched
@@ -549,14 +548,14 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => handleQuickSettle("cash")}
-                  className="text-[10px] py-2 px-2 rounded border transition-colors flex items-center justify-center gap-1 bg-white/10 hover:bg-white/20"
+                  className="text-[10px] font-bold py-2 px-2 rounded border transition-colors flex items-center justify-center gap-1 bg-white/10 hover:bg-white/20"
                 >
                   <DollarSign size={10} />{" "}
                   {remainingBalance > 0 ? "Thu TM" : "Hoàn TM"}
                 </button>
                 <button
                   onClick={() => handleQuickSettle("transfer")}
-                  className="text-[10px] py-2 px-2 rounded border transition-colors flex items-center justify-center gap-1 bg-white/10 hover:bg-white/20"
+                  className="text-[10px] font-bold py-2 px-2 rounded border transition-colors flex items-center justify-center gap-1 bg-white/10 hover:bg-white/20"
                 >
                   <CreditCard size={10} />{" "}
                   {remainingBalance > 0 ? "Thu CK" : "Hoàn CK"}
