@@ -1,11 +1,10 @@
-
 import React, { useState, useMemo, useEffect } from "react";
 import { Layout } from "./components/Layout";
 import { SeatMap } from "./components/SeatMap";
 import { SettingsView } from "./components/SettingsView";
 import { ScheduleView } from "./components/ScheduleView";
 import { PaymentManager } from "./components/PaymentManager";
-import { OrderInformation } from "./OrderInformation";
+import { OrderInformation } from "./components/OrderInformation";
 import { ToastProvider, useToast } from "./components/ui/Toast";
 import { RightSheet } from "./components/RightSheet";
 import { BookingForm } from "./components/BookingForm";

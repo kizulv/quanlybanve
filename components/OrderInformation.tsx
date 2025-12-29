@@ -1,12 +1,11 @@
-
 import React, { useState, useEffect } from 'react';
 import { Search, Ticket, Calendar, MapPin, Phone, User, Clock, Bus, CheckCircle2, AlertCircle, ArrowLeft, QrCode } from 'lucide-react';
-import { Button } from './components/ui/Button';
-import { Badge } from './components/ui/Badge';
-import { api } from './lib/api';
-import { Booking } from './types';
-import { formatCurrency } from './utils/formatters';
-import { formatLunarDate } from './utils/dateUtils';
+import { Button } from './ui/Button';
+import { Badge } from './ui/Badge';
+import { api } from '../lib/api';
+import { Booking } from '../types';
+import { formatCurrency } from '../utils/formatters';
+import { formatLunarDate } from '../utils/dateUtils';
 
 export const OrderInformation: React.FC = () => {
   const [searchId, setSearchId] = useState('');
