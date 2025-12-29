@@ -24,7 +24,7 @@ const SeatMapPreview: React.FC<{ trip: BusTrip; bookedSeatIds: string[] }> = ({ 
         key={seat.id}
         className={`
           relative flex items-center justify-center border transition-all duration-200 rounded-md shadow-sm
-          ${isCabin ? "h-11 w-11 sm:w-14 text-[10px]" : "h-9 w-9 sm:w-11 text-[10px]"}
+          ${isCabin ? "h-11 w-11 sm:w-16 text-[10px]" : "h-9 w-9 sm:w-11 text-[10px]"}
           ${isBooked ? "bg-blue-600 border-blue-700 text-white font-black ring-2 ring-blue-100" : "bg-slate-200 border-slate-300 text-slate-500 font-bold"}
         `}
         title={`${seat.label} ${isBooked ? '(Ghế của bạn)' : ''}`}
@@ -35,46 +35,29 @@ const SeatMapPreview: React.FC<{ trip: BusTrip; bookedSeatIds: string[] }> = ({ 
   };
 
   if (isCabin) {
-    // Cabin layout: 22 phòng - Chia 2 dãy B và A
+    // Cabin layout: 22 phòng - Hiển thị theo Tầng 1 và Tầng 2
     const regularSeats = seats.filter(s => !s.isFloorSeat && (s.row ?? 0) < 90);
     const benchSeats = seats.filter(s => !s.isFloorSeat && (s.row ?? 0) >= 90);
-    
-    const colB = regularSeats.filter(s => s.col === 0);
-    const colA = regularSeats.filter(s => s.col === 1);
     const rows = Array.from(new Set(regularSeats.map(s => s.row ?? 0))).sort((a, b) => a - b);
 
     return (
       <div className="flex flex-col items-center gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200 w-full overflow-hidden shadow-inner">
-        <div className="grid grid-cols-2 gap-4 sm:gap-8 w-full max-w-sm mx-auto">
-          {/* Dãy B (Trái) */}
-          <div className="flex flex-col items-center">
-            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Dãy B</div>
-            <div className="space-y-2">
-              {rows.map(r => (
-                <div key={`row-b-${r}`} className="flex gap-2">
-                  {[1, 2].map(f => {
-                    const s = colB.find(st => st.row === r && st.floor === f);
-                    return s ? renderSeat(s) : <div key={`empty-b-${r}-${f}`} className="h-11 w-11 sm:w-14" />;
-                  })}
-                </div>
-              ))}
+        <div className="grid grid-cols-2 gap-3 sm:gap-6 w-full">
+          {[1, 2].map(f => (
+            <div key={`floor-${f}`} className="flex flex-col items-center">
+              <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Tầng {f}</div>
+              <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
+                {rows.map(r => (
+                  <React.Fragment key={`row-${f}-${r}`}>
+                    {[0, 1].map(c => {
+                      const s = regularSeats.find(st => st.row === r && st.col === c && st.floor === f);
+                      return s ? renderSeat(s) : <div key={`empty-${f}-${r}-${c}`} className="h-11 w-11 sm:w-16" />;
+                    })}
+                  </React.Fragment>
+                ))}
+              </div>
             </div>
-          </div>
-
-          {/* Dãy A (Phải) */}
-          <div className="flex flex-col items-center">
-            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Dãy A</div>
-            <div className="space-y-2">
-              {rows.map(r => (
-                <div key={`row-a-${r}`} className="flex gap-2">
-                  {[1, 2].map(f => {
-                    const s = colA.find(st => st.row === r && st.floor === f);
-                    return s ? renderSeat(s) : <div key={`empty-a-${r}-${f}`} className="h-11 w-11 sm:w-14" />;
-                  })}
-                </div>
-              ))}
-            </div>
-          </div>
+          ))}
         </div>
 
         {benchSeats.length > 0 && (
@@ -96,8 +79,7 @@ const SeatMapPreview: React.FC<{ trip: BusTrip; bookedSeatIds: string[] }> = ({ 
 
   return (
     <div className="flex flex-col gap-6 bg-slate-50 p-4 rounded-xl border border-slate-200 w-full overflow-hidden shadow-inner">
-      {/* Container chính cho 2 tầng */}
-      <div className="grid grid-cols-2 gap-4 sm:gap-6 w-full max-w-lg mx-auto">
+      <div className="grid grid-cols-2 gap-3 sm:gap-6 w-full">
         {[1, 2].map(f => (
           <div key={`floor-${f}`} className="flex flex-col items-center">
             <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Tầng {f}</div>
@@ -115,7 +97,6 @@ const SeatMapPreview: React.FC<{ trip: BusTrip; bookedSeatIds: string[] }> = ({ 
         ))}
       </div>
 
-      {/* Băng 5 cuối xe */}
       {benchSeats.length > 0 && (
         <div className="pt-4 border-t border-slate-200 border-dashed w-full flex flex-col items-center">
           <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Băng 5 cuối xe</div>
