@@ -128,7 +128,7 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
       `;
 
         return `
-        <div class="w-[210mm] h-[147mm] relative overflow-hidden bg-white p-[5mm] flex flex-col print:break-after-page last:print:break-after-auto items-center">
+        <div class="page-container w-[210mm] h-[147mm] relative overflow-hidden bg-white p-[5mm] flex flex-col items-center">
           <!-- Hàng trên -->
           <div class="flex justify-between w-full mb-[8mm]">
             ${renderLien("LIÊN KHÁCH HÀNG")}
@@ -163,9 +163,21 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
             @page { size: A5 landscape; margin: 0; }
             * { -webkit-print-color-adjust: exact; border-radius: 0 !important; box-sizing: border-box; }
             body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; background: white; }
+            
+            .page-container {
+              page-break-after: always;
+            }
+            .page-container:last-child {
+              page-break-after: auto;
+            }
+
             @media print { 
               .no-print { display: none !important; }
-              body, html { width: 210mm; height: 148mm; overflow: hidden; }
+              html, body { 
+                width: 210mm; 
+                height: auto; /* Cho phép mở rộng chiều cao để chứa nhiều trang */
+                overflow: visible; 
+              }
             }
           </style>
         </head>
@@ -176,7 +188,7 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
             </button>
             <p class="mt-2 text-[11px]">Cài đặt in: Khổ <b>A5</b> • Hướng <b>Ngang (Landscape)</b> • Tỷ lệ <b>100%</b></p>
           </div>
-          <div class="block">
+          <div class="print-wrapper flex flex-col items-center">
             ${pagesHtml}
           </div>
         </body>
