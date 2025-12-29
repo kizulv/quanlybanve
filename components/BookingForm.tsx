@@ -321,8 +321,6 @@ export const BookingForm: React.FC<BookingFormProps> = ({
             tripDate: selectionBasket[0].trip.departureTime,
           },
         ]);
-        
-        // Cập nhật editingBooking để PaymentModal nhận được ID thực từ DB
         setEditingBooking(savedBooking);
       }
 
@@ -426,7 +424,6 @@ export const BookingForm: React.FC<BookingFormProps> = ({
         ]);
       }
 
-      // Cập nhật editingBooking để UI đồng bộ với dữ liệu server mới nhất
       setEditingBooking(savedBooking);
 
       toast({
@@ -940,10 +937,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
 
       <PaymentModal
         isOpen={isPaymentModalOpen}
-        onClose={() => {
-            setIsPaymentModalOpen(false);
-            setEditingBooking(null);
-        }}
+        onClose={() => setIsPaymentModalOpen(false)}
         onConfirm={handleConfirmPayment}
         selectionBasket={selectionBasket}
         editingBooking={editingBooking}

@@ -175,8 +175,9 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     field: keyof SeatOverride,
     value: string
   ) => {
-    // Không cho sửa sau khi đã nhấn Hoàn tất
-    if (isSaved) return;
+    // Nếu có sự thay đổi, đặt lại trạng thái chưa lưu để nút Hoàn tất hiện lại
+    if (isSaved) setIsSaved(false);
+    
     const key = `${tripId}_${seatId}`;
     setSeatOverrides((prev) => {
       const current = prev[key] || {};
@@ -201,7 +202,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   };
 
   const handleQuickSettle = (method: "cash" | "transfer") => {
-    if (isSaved) return;
+    if (isSaved) setIsSaved(false);
     const gap = remainingBalance;
     const currentVal = method === "cash" ? paidCash : paidTransfer;
     const newVal = Math.max(0, currentVal + gap);
@@ -212,6 +213,12 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       },
     } as React.ChangeEvent<HTMLInputElement>;
     onMoneyChange(event);
+  };
+
+  // Wrapper cho onMoneyChange để reset isSaved
+  const handleMoneyChangeLocal = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isSaved) setIsSaved(false);
+    onMoneyChange(e);
   };
 
   const handleConfirmClick = async () => {
@@ -243,7 +250,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
     try {
       await onConfirm(finalTotal, finalOverrides, noteSuffix);
-      // Khi lưu thành công, đánh dấu state cục bộ là đã lưu
       setIsSaved(true);
     } catch (e) {
       console.error(e);
@@ -256,16 +262,15 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const isCompleteBtnActive = isBalanceMatched && !isSaved && (!editingBooking || hasChanges) && !localProcessing && !isProcessing;
   
   // In phiếu active khi: Đã lưu thành công HOẶC Đơn sửa đã khớp tiền và không thay đổi gì
-  // Cực kỳ quan trọng: Phải có editingBooking với ID thực từ server để mã QR in đúng
   const isPrintBtnActive = (isSaved && !!editingBooking) || (editingBooking && !hasChanges && isBalanceMatched);
 
   return (
     <Dialog
       isOpen={isOpen}
       onClose={onClose}
-      title={editingBooking && editingBooking.id ? `Thanh toán: #${editingBooking.id.slice(-6).toUpperCase()}` : "Thanh toán & Xuất vé"}
+      title={editingBooking && editingBooking.id ? `Cập nhật thanh toán: #${editingBooking.id.slice(-6).toUpperCase()}` : "Thanh toán & Xuất vé"}
       className="max-w-5xl bg-indigo-950 text-white border-indigo-900"
-      headerClassName="bg-indigo-950 border-indigo-900 text-white"
+      headerClassName="px-4 h-[40px] border-b border-indigo-900 flex items-center justify-between shrink-0 rounded-t-xl bg-gradient-to-r from-indigo-950 via-indigo-900 to-indigo-950 text-white text-sm font-semibold"
       footer={
         <div className="flex flex-row justify-between items-center w-full px-2">
           <div className="flex gap-3">
@@ -317,7 +322,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               return (
                 <div
                   key={trip.tripId}
-                  className="bg-indigo-900/40 rounded-lg border border-indigo-800 overflow-hidden"
+                  className="bg-indigo-900/40 rounded border border-indigo-800 overflow-hidden"
                 >
                   <div className="bg-indigo-900/60 px-3 py-2 border-b border-indigo-800 flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
@@ -578,7 +583,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               <CurrencyInput
                 name="paidCash"
                 value={paidCash}
-                onChange={onMoneyChange}
+                onChange={handleMoneyChangeLocal}
                 className="w-full pl-9 pr-12 py-2 bg-indigo-950 border border-indigo-800 rounded text-right font-bold text-sm text-white focus:border-green-500 focus:outline-none transition-colors"
                 placeholder="0"
               />
@@ -593,7 +598,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               <CurrencyInput
                 name="paidTransfer"
                 value={paidTransfer}
-                onChange={onMoneyChange}
+                onChange={handleMoneyChangeLocal}
                 className="w-full pl-9 pr-12 py-2 bg-indigo-950 border border-indigo-800 rounded text-right font-bold text-sm text-white focus:border-blue-500 focus:outline-none transition-colors"
                 placeholder="0"
               />
