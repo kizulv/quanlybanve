@@ -229,49 +229,45 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
   };
 
   return (
-    <div className="flex flex-col items-center gap-1.5 min-w-[140px]">
-      <Button
-        variant="outline"
-        disabled={disabled}
-        onClick={handlePrintReceipt}
-        className="border-indigo-700 text-indigo-100 hover:bg-indigo-800 bg-indigo-900/40 h-10 px-4 text-xs font-bold flex items-center justify-center gap-2 w-full transition-all active:scale-95 shadow-lg shadow-indigo-900/20"
-      >
-        <Printer size={14} />
-        In phiếu
-      </Button>
-      
-      <div className="flex p-0.5 bg-indigo-950/40 border border-indigo-800/60 rounded-lg w-full">
+    <div className="flex items-center gap-2">
+      <div className="flex p-0.5 bg-indigo-950/40 border border-indigo-800/60 rounded-lg">
         <button
           onClick={() => setFormat("A5_LANDSCAPE")}
           disabled={disabled}
-          className={`flex-1 flex flex-col items-center justify-center py-1 px-1 rounded-md transition-all ${
+          className={`flex items-center gap-1.5 py-1 px-3 rounded-md transition-all ${
             format === "A5_LANDSCAPE" 
               ? "bg-indigo-600 text-white shadow-sm ring-1 ring-indigo-400/30" 
               : "text-indigo-400 hover:text-indigo-200 hover:bg-indigo-900/30"
           }`}
           title="In khổ A5 ngang"
         >
-          <div className="flex items-center gap-1">
-             <Layout size={11} className={format === "A5_LANDSCAPE" ? "text-white" : "text-indigo-500"} />
-             <span className="text-[9px] font-black uppercase tracking-tighter">A5 Ngang</span>
-          </div>
+          <Layout size={12} className={format === "A5_LANDSCAPE" ? "text-white" : "text-indigo-500"} />
+          <span className="text-[10px] font-black uppercase tracking-tight">A5 Ngang</span>
         </button>
         <button
           onClick={() => setFormat("A4_PORTRAIT")}
           disabled={disabled}
-          className={`flex-1 flex flex-col items-center justify-center py-1 px-1 rounded-md transition-all ${
+          className={`flex items-center gap-1.5 py-1 px-3 rounded-md transition-all ${
             format === "A4_PORTRAIT" 
               ? "bg-indigo-600 text-white shadow-sm ring-1 ring-indigo-400/30" 
               : "text-indigo-400 hover:text-indigo-200 hover:bg-indigo-900/30"
           }`}
           title="In khổ A4 đứng"
         >
-          <div className="flex items-center gap-1">
-             <FileText size={11} className={format === "A4_PORTRAIT" ? "text-white" : "text-indigo-500"} />
-             <span className="text-[9px] font-black uppercase tracking-tighter">A4 Đứng</span>
-          </div>
+          <FileText size={12} className={format === "A4_PORTRAIT" ? "text-white" : "text-indigo-500"} />
+          <span className="text-[10px] font-black uppercase tracking-tight">A4 Đứng</span>
         </button>
       </div>
+      
+      <Button
+        variant="outline"
+        disabled={disabled}
+        onClick={handlePrintReceipt}
+        className="border-indigo-700 text-indigo-100 hover:bg-indigo-800 bg-indigo-900/40 h-10 px-6 text-xs font-bold flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg shadow-indigo-900/20"
+      >
+        <Printer size={16} />
+        In phiếu
+      </Button>
     </div>
   );
 };

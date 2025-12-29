@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from "react";
 import { Dialog } from "./ui/Dialog";
 import { Button } from "./ui/Button";
@@ -262,14 +261,24 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       className="max-w-5xl bg-indigo-950 text-white border-indigo-900"
       headerClassName="bg-indigo-950 border-indigo-900 text-white"
       footer={
-        <div className="flex flex-row gap-3 w-full justify-end px-2">
-          <Button
-            variant="outline"
-            onClick={onClose}
-            className="border-indigo-800 text-indigo-300 hover:bg-indigo-900 hover:text-white bg-transparent h-11 px-6 text-sm font-bold min-w-[120px]"
-          >
-            Hủy bỏ
-          </Button>
+        <div className="flex flex-row justify-between items-center w-full px-4 py-2">
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              onClick={onClose}
+              className="border-indigo-800 text-indigo-300 hover:bg-indigo-900 hover:text-white bg-transparent h-11 px-6 text-sm font-bold min-w-[120px]"
+            >
+              Hủy bỏ
+            </Button>
+            <Button
+              onClick={handleConfirmClick}
+              disabled={isProcessing || !isBalanceMatched}
+              className={`h-11 px-8 font-bold text-sm shadow-lg transition-all min-w-[140px] ${actionInfo.colorClass}`}
+            >
+              {actionInfo.text}
+            </Button>
+          </div>
+          
           <BookingPrint
             items={items}
             bookingForm={bookingForm}
@@ -279,13 +288,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             getSeatValues={getSeatValues}
             bookingId={editingBooking?.id}
           />
-          <Button
-            onClick={handleConfirmClick}
-            disabled={isProcessing || !isBalanceMatched}
-            className={`h-11 px-8 font-bold text-sm shadow-lg transition-all min-w-[140px] ${actionInfo.colorClass}`}
-          >
-            {actionInfo.text}
-          </Button>
         </div>
       }
     >
