@@ -1,17 +1,16 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Search, Ticket, Calendar, MapPin, Phone, User, Clock, Bus, 
-  CheckCircle2, AlertCircle, ArrowLeft, QrCode, FileClock, 
+  CheckCircle2, AlertCircle, QrCode, FileClock, 
   Loader2, Plus, Trash2, Edit, ArrowRightLeft, Truck, UserCog, 
-  Banknote, RotateCcw, Info, Zap, CalendarIcon, ArrowRight
+  Banknote, RotateCcw, Info, CalendarIcon, ArrowRight
 } from 'lucide-react';
 import { Button } from './ui/Button';
 import { Badge } from './ui/Badge';
 import { api } from '../lib/api';
 import { Booking, BookingHistory } from '../types';
 import { formatCurrency } from '../utils/formatters';
-import { formatLunarDate } from '../utils/dateUtils';
 
 export const OrderInformation: React.FC = () => {
   const [searchId, setSearchId] = useState('');
@@ -21,7 +20,6 @@ export const OrderInformation: React.FC = () => {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Xử lý khi quét QR code có tham số ?bookingId=...
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const bookingId = params.get('bookingId');
@@ -64,38 +62,40 @@ export const OrderInformation: React.FC = () => {
         setBooking(found);
         await fetchHistory(found.id);
       } else {
-        setError('Không tìm thấy thông tin vé. Vui lòng kiểm tra lại mã đơn hoặc số điện thoại.');
+        setError('KHÔNG TÌM THẤY THÔNG TIN VÉ. VUI LÒNG KIỂM TRA LẠI MÃ ĐƠN HOẶC SỐ ĐIỆN THOẠI.');
         setBooking(null);
       }
     } catch (e) {
-      setError('Lỗi hệ thống khi tra cứu dữ liệu.');
+      setError('LỖI HỆ THỐNG KHI TRUY XUẤT DỮ LIỆU.');
     } finally {
       setLoading(false);
     }
   };
 
   const getStatusBadge = (status: string) => {
+    const baseClass = "rounded-none border-2 px-3 py-1 font-black uppercase text-[10px] tracking-widest";
     switch (status) {
-      case 'payment': return <Badge className="bg-green-500">Đã thanh toán</Badge>;
-      case 'booking': return <Badge className="bg-amber-500">Đã đặt chỗ</Badge>;
-      case 'hold': return <Badge className="bg-purple-500">Đang giữ chỗ</Badge>;
-      case 'cancelled': return <Badge variant="destructive">Đã hủy</Badge>;
-      default: return <Badge>{status}</Badge>;
+      case 'payment': return <span className={`${baseClass} border-black bg-black text-white`}>Đã thanh toán</span>;
+      case 'booking': return <span className={`${baseClass} border-black text-black`}>Đã đặt chỗ</span>;
+      case 'hold': return <span className={`${baseClass} border-slate-400 text-slate-500 border-dashed`}>Đang giữ chỗ</span>;
+      case 'cancelled': return <span className={`${baseClass} border-slate-300 text-slate-300 line-through`}>Đã hủy</span>;
+      default: return <span className={baseClass}>{status}</span>;
     }
   };
 
   const getActionTheme = (action: string) => {
+    const baseIconSize = 14;
     switch (action) {
-      case "CREATE": return { icon: <Plus size={14} />, color: "emerald", label: "Tạo đơn" };
+      case "CREATE": return { icon: <Plus size={baseIconSize} />, label: "TẠO ĐƠN" };
       case "DELETE":
-      case "CANCEL": return { icon: <Trash2 size={14} />, color: "red", label: "Hủy đơn" };
-      case "UPDATE": return { icon: <Edit size={14} />, color: "blue", label: "Cập nhật" };
-      case "SWAP": return { icon: <ArrowRightLeft size={14} />, color: "purple", label: "Đổi chỗ" };
-      case "TRANSFER": return { icon: <Truck size={14} />, color: "indigo", label: "Điều chuyển" };
-      case "PASSENGER_UPDATE": return { icon: <UserCog size={14} />, color: "orange", label: "Khách hàng" };
-      case "PAY_SEAT": return { icon: <Banknote size={14} />, color: "green", label: "Thu tiền" };
-      case "REFUND_SEAT": return { icon: <RotateCcw size={14} />, color: "red", label: "Hoàn vé" };
-      default: return { icon: <FileClock size={14} />, color: "slate", label: "Hệ thống" };
+      case "CANCEL": return { icon: <Trash2 size={baseIconSize} />, label: "HỦY ĐƠN" };
+      case "UPDATE": return { icon: <Edit size={baseIconSize} />, label: "CẬP NHẬT" };
+      case "SWAP": return { icon: <ArrowRightLeft size={baseIconSize} />, label: "ĐỔI CHỖ" };
+      case "TRANSFER": return { icon: <Truck size={baseIconSize} />, label: "ĐIỀU CHUYỂN" };
+      case "PASSENGER_UPDATE": return { icon: <UserCog size={baseIconSize} />, label: "KHÁCH HÀNG" };
+      case "PAY_SEAT": return { icon: <Banknote size={baseIconSize} />, label: "THU TIỀN" };
+      case "REFUND_SEAT": return { icon: <RotateCcw size={baseIconSize} />, label: "HOÀN VÉ" };
+      default: return { icon: <FileClock size={baseIconSize} />, label: "HỆ THỐNG" };
     }
   };
 
@@ -108,24 +108,26 @@ export const OrderInformation: React.FC = () => {
 
   const renderLogDetails = (log: BookingHistory) => {
     const details = log.details || {};
+    const badgeClass = "rounded-none border border-black bg-white text-black text-[10px] font-black px-2 py-0.5";
+    
     if ((log.action === "CREATE" || log.action === "DELETE" || log.action === "CANCEL") && details.trips) {
       const isCancelled = log.action === "DELETE" || log.action === "CANCEL";
       return (
-        <div className={`space-y-3 mb-2 ${isCancelled ? "opacity-60" : ""}`}>
+        <div className={`space-y-2 mb-1 ${isCancelled ? "opacity-40" : ""}`}>
           {details.trips.map((trip: any, idx: number) => (
-            <div key={idx} className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm border-b border-slate-100 border-dashed last:border-b-0 pb-2 last:pb-0">
+            <div key={idx} className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs border-b border-slate-200 border-dashed last:border-b-0 pb-2 last:pb-0">
               <div className="flex items-center gap-2">
-                <span className={`flex items-center font-black text-slate-800 ${isCancelled ? "line-through text-slate-400" : ""}`}>
-                  <MapPin size={13} className="text-slate-600 mr-1" /> {trip.route}
+                <span className={`font-black text-black uppercase ${isCancelled ? "line-through" : ""}`}>
+                  {trip.route}
                 </span>
-                <span className="bg-yellow-200 border border-yellow-300 rounded-full flex items-center h-5 px-2 text-[10px] text-slate-900 font-semibold tracking-wider">{trip.licensePlate}</span>
+                <span className="border border-black px-2 text-[9px] font-bold tracking-tighter">{trip.licensePlate}</span>
               </div>
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-1">
                 {trip.seats.map((s: string) => (
-                  <Badge key={s} className={`${isCancelled ? "bg-red-50 text-red-400 border-red-100 line-through" : "bg-emerald-50 text-emerald-700 border-emerald-200"} text-[10px] font-black px-2 py-0.5`}>{s}</Badge>
+                  <span key={s} className={badgeClass}>{s}</span>
                 ))}
               </div>
-              <span className="flex items-center text-[11px] text-slate-400 ml-auto"><CalendarIcon size={11} className="mr-1" /> {formatDate(trip.tripDate)}</span>
+              <span className="text-[10px] text-slate-500 ml-auto font-mono">[{formatDate(trip.tripDate)}]</span>
             </div>
           ))}
         </div>
@@ -133,16 +135,16 @@ export const OrderInformation: React.FC = () => {
     }
     if (log.action === "UPDATE" && details.changes) {
       return (
-        <div className="space-y-2">
+        <div className="space-y-1">
           {details.changes.map((change: any, idx: number) => (
-            <div key={idx} className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm border-b border-slate-100 border-dashed last:border-b-0 pb-2 last:pb-0">
-              <span className="flex items-center font-black text-slate-800"><MapPin size={12} className="mr-1" />{change.route}</span>
-              <div className="flex flex-wrap gap-1.5">
-                {change.kept?.map((s: string) => <Badge key={s} className="bg-slate-50 text-slate-600 border-slate-200 font-bold text-[10px] px-2">{s}</Badge>)}
-                {change.removed?.map((s: string) => <Badge key={s} className="bg-red-50 text-red-400 border-red-100 line-through font-bold text-[10px] px-2">{s}</Badge>)}
-                {change.added?.map((s: string) => <Badge key={s} className="bg-emerald-50 text-emerald-700 border-emerald-200 font-black text-[10px] px-2">{s}</Badge>)}
+            <div key={idx} className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs border-b border-slate-200 border-dashed last:border-b-0 pb-2 last:pb-0">
+              <span className="font-black text-black uppercase">{change.route}</span>
+              <div className="flex flex-wrap gap-1">
+                {change.kept?.map((s: string) => <span key={s} className="rounded-none border border-slate-300 text-slate-400 text-[10px] font-bold px-2 py-0.5">{s}</span>)}
+                {change.removed?.map((s: string) => <span key={s} className="rounded-none border border-slate-200 text-slate-300 line-through text-[10px] font-bold px-2 py-0.5">{s}</span>)}
+                {change.added?.map((s: string) => <span key={s} className={badgeClass}>{s}</span>)}
               </div>
-              <span className="flex items-center text-[11px] text-slate-400 ml-auto"><CalendarIcon size={11} className="mr-1" />{formatDate(change.date)}</span>
+              <span className="text-[10px] text-slate-500 ml-auto font-mono">[{formatDate(change.date)}]</span>
             </div>
           ))}
         </div>
@@ -150,14 +152,14 @@ export const OrderInformation: React.FC = () => {
     }
     if (log.action === "SWAP" && details.from && details.to) {
       return (
-        <div className="flex items-center gap-6 text-sm">
-          <span className="font-black text-purple-900 min-w-[120px]">{details.route}</span>
+        <div className="flex items-center gap-6 text-xs py-1">
+          <span className="font-black uppercase text-black min-w-[120px]">{details.route}</span>
           <div className="flex items-center gap-3">
-            <span className="text-[9px] font-black text-slate-400 uppercase">Từ</span>
-            <span className="font-black text-slate-500 bg-white px-3 py-0.5 rounded border border-slate-200 text-xs">{details.from}</span>
-            <ArrowRight size={14} className="text-purple-400" />
-            <span className="text-[9px] font-black text-purple-400 uppercase">Sang</span>
-            <span className="font-black text-purple-700 bg-white px-3 py-0.5 rounded border border-purple-300 text-xs shadow-sm">{details.to}</span>
+            <span className="text-[9px] font-bold text-slate-400 uppercase">GỐC</span>
+            <span className="font-black border border-slate-300 px-3 py-0.5 text-[11px]">{details.from}</span>
+            <ArrowRight size={14} className="text-black" />
+            <span className="text-[9px] font-bold text-black uppercase">MỚI</span>
+            <span className="font-black border-2 border-black px-3 py-0.5 text-[11px]">{details.to}</span>
           </div>
         </div>
       );
@@ -167,122 +169,122 @@ export const OrderInformation: React.FC = () => {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in duration-500 pb-20 px-4 md:px-0">
-      {/* Search Header */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="p-2 bg-primary/10 rounded-lg text-primary"><QrCode size={24} /></div>
+      {/* Search Header - Monochrome Style */}
+      <div className="bg-white p-8 rounded-none border-2 border-black shadow-none">
+        <div className="flex items-center gap-4 mb-8">
+          <div className="p-3 bg-black text-white rounded-none"><QrCode size={32} /></div>
           <div>
-            <h2 className="text-xl font-bold text-slate-900">Tra cứu thông tin vé</h2>
-            <p className="text-sm text-slate-500">Nhập mã đơn hàng hoặc số điện thoại để xem chi tiết</p>
+            <h2 className="text-2xl font-black text-black uppercase tracking-tighter">TRA CỨU THÔNG TIN VÉ</h2>
+            <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">NHẬP MÃ ĐƠN HÀNG HOẶC SỐ ĐIỆN THOẠI HÀNH KHÁCH</p>
           </div>
         </div>
-        <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex flex-col sm:flex-row gap-0">
           <div className="relative flex-1 group">
-            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors" />
+            <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-black" />
             <input 
-              className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all"
-              placeholder="Mã đơn (6 số cuối) hoặc Số điện thoại..."
+              className="w-full pl-12 pr-4 py-4 border-2 border-black border-r-0 rounded-none outline-none focus:bg-slate-50 transition-all font-bold placeholder-slate-300"
+              placeholder="MÃ ĐƠN (6 SỐ CUỐI) HOẶC SĐT..."
               value={searchId}
               onChange={(e) => setSearchId(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
             />
           </div>
-          <Button onClick={() => handleSearch()} disabled={loading} className="rounded-xl px-8 h-[46px]">
-            {loading ? <Loader2 size={18} className="animate-spin mr-2" /> : null}
-            {loading ? 'Đang kiểm tra...' : 'Tra cứu ngay'}
+          <Button onClick={() => handleSearch()} disabled={loading} className="rounded-none px-10 h-[60px] bg-black text-white font-black uppercase tracking-widest hover:bg-slate-800">
+            {loading ? <Loader2 size={20} className="animate-spin mr-2" /> : null}
+            {loading ? 'ĐANG TRA...' : 'TRA CỨU'}
           </Button>
         </div>
-        {error && <div className="mt-4 p-4 bg-red-50 border border-red-100 rounded-xl flex items-center gap-3 text-red-600 text-sm animate-in slide-in-from-top-2"><AlertCircle size={18} />{error}</div>}
+        {error && <div className="mt-6 p-4 border-2 border-dashed border-black flex items-center gap-3 text-black text-xs font-black uppercase tracking-tight animate-pulse"><AlertCircle size={20} />{error}</div>}
       </div>
 
       {booking && (
         <div className="space-y-8 animate-in zoom-in-95 duration-300">
-          {/* Main Content Grid: Summary & Payment */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Main Info Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-0 border-2 border-black divide-x-2 divide-black">
             {/* Booking Summary */}
-            <div className="md:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-              <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex justify-between items-center">
-                <div className="flex items-center gap-2">
-                  <Ticket className="text-primary" size={20} />
-                  <span className="font-bold text-slate-700">Mã đơn: <span className="text-primary">#{booking.id.slice(-6).toUpperCase()}</span></span>
+            <div className="md:col-span-2 bg-white overflow-hidden">
+              <div className="bg-slate-50 px-6 py-4 border-b-2 border-black flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                  <Ticket className="text-black" size={24} />
+                  <span className="font-black text-black text-lg uppercase tracking-tighter">MÃ ĐƠN: <span className="underline italic">#{booking.id.slice(-6).toUpperCase()}</span></span>
                 </div>
                 {getStatusBadge(booking.status)}
               </div>
               <div className="p-6">
-                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2 mb-4"><User size={14} /> Thông tin hành khách</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-12 gap-y-4">
-                  <div className="flex justify-between border-b border-slate-50 pb-2"><span className="text-slate-500">Họ tên:</span><span className="font-bold text-slate-900">{booking.passenger.name || 'Khách lẻ'}</span></div>
-                  <div className="flex justify-between border-b border-slate-50 pb-2"><span className="text-slate-500">Số điện thoại:</span><span className="font-bold text-slate-900">{booking.passenger.phone}</span></div>
-                  <div className="flex justify-between border-b border-slate-50 pb-2 sm:col-span-2"><span className="text-slate-500">Ghi chú hành khách:</span><span className="italic text-slate-600 text-sm text-right">{booking.passenger.note || '---'}</span></div>
+                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-6 border-b border-slate-100 pb-2 flex items-center gap-2"><User size={14} /> THÔNG TIN HÀNH KHÁCH</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-12 gap-y-6">
+                  <div className="flex flex-col border-b border-slate-100 pb-2"><span className="text-[9px] font-bold text-slate-400 uppercase">Họ và tên:</span><span className="font-black text-black text-lg">{booking.passenger.name || 'KHÁCH LẺ'}</span></div>
+                  <div className="flex flex-col border-b border-slate-100 pb-2"><span className="text-[9px] font-bold text-slate-400 uppercase">Số điện thoại:</span><span className="font-black text-black text-lg">{booking.passenger.phone}</span></div>
+                  <div className="flex flex-col sm:col-span-2"><span className="text-[9px] font-bold text-slate-400 uppercase mb-1">Ghi chú:</span><span className="italic text-slate-600 font-medium text-sm border border-dashed border-slate-200 p-2">{booking.passenger.note || '---'}</span></div>
                 </div>
               </div>
             </div>
 
             {/* Payment Summary */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden p-6 flex flex-col justify-between">
-              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2 mb-4"><CheckCircle2 size={14} /> Thanh toán</h3>
-              <div className="space-y-4">
-                <div className="flex justify-between items-center"><span className="text-slate-600 font-medium">Tổng tiền vé:</span><span className="text-xl font-black text-slate-900">{formatCurrency(booking.totalPrice)} đ</span></div>
-                <div className="space-y-2 pt-4 border-t border-slate-100">
-                  <div className="flex justify-between items-center text-sm"><span className="text-slate-500">Đã trả (Tiền mặt):</span><span className="font-bold text-emerald-600">{formatCurrency(booking.payment?.paidCash || 0)} đ</span></div>
-                  <div className="flex justify-between items-center text-sm"><span className="text-slate-500">Đã trả (Chuyển khoản):</span><span className="font-bold text-blue-600">{formatCurrency(booking.payment?.paidTransfer || 0)} đ</span></div>
+            <div className="bg-white p-6 flex flex-col">
+              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-6 border-b border-slate-100 pb-2 flex items-center gap-2"><CheckCircle2 size={14} /> TỔNG THANH TOÁN</h3>
+              <div className="space-y-6 flex-1">
+                <div className="flex flex-col"><span className="text-[9px] font-bold text-slate-400 uppercase">Tổng cộng:</span><span className="text-3xl font-black text-black tracking-tighter">{formatCurrency(booking.totalPrice)} đ</span></div>
+                <div className="space-y-3 pt-6 border-t-2 border-black border-dotted">
+                  <div className="flex justify-between items-center text-xs font-bold uppercase"><span className="text-slate-500">Tiền mặt:</span><span className="text-black">{formatCurrency(booking.payment?.paidCash || 0)} đ</span></div>
+                  <div className="flex justify-between items-center text-xs font-bold uppercase"><span className="text-slate-500">Chuyển khoản:</span><span className="text-black">{formatCurrency(booking.payment?.paidTransfer || 0)} đ</span></div>
                 </div>
               </div>
-              <div className="mt-6 pt-4 border-t border-slate-100 flex items-center gap-2 text-[10px] text-slate-400">
-                <Info size={12}/> Dữ liệu thanh toán được ghi nhận theo thời gian thực
+              <div className="mt-8 pt-4 border-t border-slate-100 flex items-start gap-2 text-[9px] font-bold text-slate-400 uppercase leading-relaxed">
+                <Info size={12} className="shrink-0"/> CHỨNG TỪ ĐIỆN TỬ ĐƯỢC XÁC THỰC BỞI VINABUS MANAGER
               </div>
             </div>
           </div>
 
-          {/* Trips Detail - Full Width */}
+          {/* Trips Detail - Ticket Style */}
           <div className="space-y-4">
-            <h3 className="font-bold text-slate-800 ml-1 flex items-center gap-2">
-              <Bus size={18} className="text-primary"/> Chi tiết hành trình ({booking.items.length})
+            <h3 className="font-black text-black text-lg uppercase tracking-tight ml-1 flex items-center gap-2">
+              <Bus size={22} className="text-black"/> CHI TIẾT HÀNH TRÌNH ({booking.items.length})
             </h3>
-            <div className="grid grid-cols-1 gap-4">
+            <div className="space-y-0 border-2 border-black divide-y-2 divide-black">
               {booking.items.map((item, idx) => {
                 const tripDate = new Date(item.tripDate);
                 return (
-                  <div key={idx} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                    <div className="p-6">
-                      <div className="flex flex-col lg:flex-row justify-between gap-8">
-                        <div className="space-y-6 flex-1">
-                          <div className="flex items-center gap-4">
-                            <div className="w-14 h-14 bg-primary/5 rounded-2xl flex items-center justify-center text-primary border border-primary/10 shadow-sm shrink-0"><Bus size={28} /></div>
-                            <div className="min-w-0">
-                              <h4 className="text-xl font-black text-slate-900 truncate">{item.route}</h4>
-                              <div className="flex flex-wrap items-center gap-4 text-sm text-slate-500 mt-1">
-                                <span className="flex items-center gap-1.5 bg-slate-50 px-2 py-0.5 rounded border border-slate-100 font-medium"><Calendar size={14} className="text-slate-400" /> {tripDate.toLocaleDateString('vi-VN')}</span>
-                                <span className="flex items-center gap-1.5 bg-slate-50 px-2 py-0.5 rounded border border-slate-100 font-medium"><Clock size={14} className="text-slate-400" /> {item.tripDate.split(' ')[1]}</span>
-                                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-100 font-bold uppercase tracking-wider text-[10px]">{item.busType === 'CABIN' ? 'Phòng VIP' : 'Giường nằm'}</Badge>
-                              </div>
+                  <div key={idx} className="bg-white p-6">
+                    <div className="flex flex-col lg:flex-row justify-between gap-10">
+                      <div className="space-y-8 flex-1">
+                        <div className="flex items-start gap-6">
+                          <div className="w-16 h-16 border-2 border-black rounded-none flex items-center justify-center text-black shrink-0 font-black text-2xl tracking-tighter">#{idx + 1}</div>
+                          <div className="min-w-0">
+                            <h4 className="text-2xl font-black text-black uppercase tracking-tight mb-2">{item.route}</h4>
+                            <div className="flex flex-wrap items-center gap-3">
+                              <span className="font-black text-xs border border-black px-2 py-0.5 uppercase">{tripDate.toLocaleDateString('vi-VN')}</span>
+                              <span className="font-black text-xs border border-black px-2 py-0.5 uppercase">{item.tripDate.split(' ')[1]}</span>
+                              <span className="font-bold text-[10px] bg-black text-white px-2 py-1 uppercase tracking-widest">{item.busType === 'CABIN' ? 'PHÒNG VIP' : 'GIƯỜNG NẰM'}</span>
                             </div>
                           </div>
-                          <div className="grid grid-cols-2 gap-6 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                            <div className="space-y-1"><span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Biển số xe</span><div className="font-black text-slate-700 text-lg">{item.licensePlate}</div></div>
-                            <div className="space-y-1 text-right lg:text-left"><span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Điểm đón khách</span><div className="font-bold text-slate-700 truncate" title={item.tickets[0]?.pickup || 'Đón tại văn phòng'}>{item.tickets[0]?.pickup || 'Văn phòng'}</div></div>
-                          </div>
                         </div>
+                        <div className="grid grid-cols-2 gap-0 border-2 border-black divide-x-2 divide-black">
+                          <div className="p-4 bg-slate-50"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">BIỂN SỐ XE</span><div className="font-black text-black text-xl">{item.licensePlate}</div></div>
+                          <div className="p-4"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">ĐIỂM ĐÓN</span><div className="font-black text-black truncate uppercase">{item.tickets[0]?.pickup || 'VĂN PHÒNG'}</div></div>
+                        </div>
+                      </div>
 
-                        <div className="lg:w-[40%] space-y-4 border-t lg:border-t-0 lg:border-l border-slate-100 pt-6 lg:pt-0 lg:pl-8">
-                           <div className="flex items-center justify-between">
-                              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Danh sách ghế & Giá vé</span>
-                              <Badge className="bg-primary/10 text-primary border-transparent font-bold">{item.tickets.length} ghế</Badge>
-                           </div>
-                           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 gap-3">
-                             {item.tickets.map((t) => (
-                               <div key={t.seatId} className="flex flex-col bg-white border border-slate-200 rounded-xl p-3 shadow-sm hover:border-primary/30 transition-colors">
-                                 <span className="text-base font-black text-primary">{t.seatId}</span>
-                                 <span className="text-[11px] text-slate-500 font-bold">{formatCurrency(t.price)} đ</span>
-                                 {t.note && <span className="text-[9px] text-amber-600 italic mt-1 truncate border-t border-amber-50 pt-1">*{t.note}</span>}
+                      <div className="lg:w-[35%] space-y-6 lg:border-l-2 lg:border-black lg:pl-10 lg:border-dashed">
+                         <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-black text-black uppercase tracking-widest border-b-2 border-black">VỊ TRÍ GHẾ & GIÁ VÉ</span>
+                            <span className="font-black text-xs underline">{item.tickets.length} GHẾ</span>
+                         </div>
+                         <div className="grid grid-cols-1 gap-2">
+                           {item.tickets.map((t) => (
+                             <div key={t.seatId} className="flex justify-between items-center border border-slate-200 p-3 rounded-none group hover:border-black transition-colors">
+                               <div className="flex items-center gap-3">
+                                 <span className="text-lg font-black text-black">{t.seatId}</span>
+                                 {t.note && <span className="text-[9px] font-bold text-slate-400 uppercase">({t.note})</span>}
                                </div>
-                             ))}
-                           </div>
-                           <div className="pt-2 text-[11px] text-slate-400 flex flex-col gap-2 bg-slate-50/50 p-3 rounded-xl border border-dashed border-slate-200">
-                              <div className="flex items-center gap-2"><MapPin size={13} className="text-primary" /> {item.tickets[0]?.pickup || 'Vui lòng xác nhận điểm đón với nhà xe'}</div>
-                              <div className="flex items-center gap-2"><Clock size={13} className="text-slate-400" /> Vui lòng có mặt trước giờ chạy 15 phút</div>
-                           </div>
-                        </div>
+                               <span className="text-sm font-black text-black">{formatCurrency(t.price)} đ</span>
+                             </div>
+                           ))}
+                         </div>
+                         <div className="p-4 border border-dashed border-slate-300 text-[10px] font-bold text-slate-500 flex flex-col gap-3 uppercase">
+                            <div className="flex items-center gap-3"><MapPin size={14} className="text-black" /> {item.tickets[0]?.pickup || 'XÁC NHẬN ĐIỂM ĐÓN VỚI NHÀ XE'}</div>
+                            <div className="flex items-center gap-3"><Clock size={14} className="text-black" /> CÓ MẶT TRƯỚC GIỜ KHỞI HÀNH 15 PHÚT</div>
+                         </div>
                       </div>
                     </div>
                   </div>
@@ -291,74 +293,56 @@ export const OrderInformation: React.FC = () => {
             </div>
           </div>
 
-          {/* Timeline History Section - Bottom Full Width */}
-          <div className="space-y-4 pt-6 border-t border-slate-200">
-            <div className="flex items-center justify-between ml-1">
-              <h3 className="font-black text-slate-800 flex items-center gap-2 text-lg">
-                <FileClock size={22} className="text-primary" /> Nhật ký hoạt động đơn hàng
+          {/* Timeline History Section - Document Log Style */}
+          <div className="pt-10 border-t-4 border-black">
+            <div className="flex items-center justify-between mb-8">
+              <h3 className="font-black text-black flex items-center gap-3 text-xl uppercase tracking-tighter">
+                <FileClock size={28} className="text-black" /> NHẬT KÝ BIẾN ĐỘNG ĐƠN HÀNG
               </h3>
-              <Badge variant="outline" className="text-slate-400 border-slate-200 font-medium">Toàn bộ lịch sử</Badge>
+              <span className="text-[10px] font-black border-2 border-black px-3 py-1 uppercase tracking-widest">LOG_DATA_SYNCED</span>
             </div>
             
-            <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm min-h-[300px]">
+            <div className="bg-white border-2 border-black p-8 rounded-none">
               {historyLoading ? (
-                <div className="flex flex-col items-center justify-center py-20 text-slate-400">
-                  <Loader2 className="animate-spin mb-4" size={40} />
-                  <p className="text-sm font-bold tracking-wider uppercase">Đang đồng bộ dữ liệu lịch sử...</p>
+                <div className="flex flex-col items-center justify-center py-20">
+                  <Loader2 className="animate-spin mb-4 text-black" size={48} />
+                  <p className="text-[11px] font-black uppercase tracking-widest">ĐANG TRUY XUẤT NHẬT KÝ HỆ THỐNG...</p>
                 </div>
               ) : history.length === 0 ? (
-                <div className="text-center py-20 text-slate-400">
-                  <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-dashed border-slate-200 opacity-50">
-                    <FileClock size={32} />
-                  </div>
-                  <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">Hệ thống chưa ghi nhận biến động</p>
+                <div className="text-center py-20 border-2 border-dashed border-slate-200">
+                  <p className="text-xs font-black text-slate-300 uppercase tracking-[0.3em]">CHƯA CÓ DỮ LIỆU NHẬT KÝ</p>
                 </div>
               ) : (
-                <div className="relative border-l-2 border-slate-100 ml-4 md:ml-6 space-y-10 py-2">
+                <div className="relative border-l-4 border-black ml-4 md:ml-6 space-y-12 py-2">
                   {history.map((log, idx) => {
                     const theme = getActionTheme(log.action);
-                    const colorClasses = {
-                      emerald: "bg-emerald-500 shadow-emerald-500/20",
-                      red: "bg-red-500 shadow-red-500/20",
-                      blue: "bg-blue-500 shadow-blue-500/20",
-                      purple: "bg-purple-500 shadow-purple-500/20",
-                      orange: "bg-orange-500 shadow-orange-500/20",
-                      slate: "bg-slate-500 shadow-slate-500/20",
-                      green: "bg-green-600 shadow-green-600/20",
-                      indigo: "bg-indigo-600 shadow-indigo-600/20",
-                    }[theme.color];
-
                     return (
-                      <div key={log.id} className="relative pl-10 animate-in slide-in-from-left duration-500">
-                        {/* Timeline Dot */}
-                        <div className={`absolute -left-[11px] top-1 w-5 h-5 rounded-full border-4 border-white shadow-lg flex items-center justify-center ${colorClasses} z-10`}>
-                          <div className="w-1.5 h-1.5 rounded-full bg-white"></div>
+                      <div key={log.id} className="relative pl-12 animate-in slide-in-from-left duration-500">
+                        {/* Dot */}
+                        <div className="absolute -left-[14px] top-1 w-6 h-6 bg-black border-4 border-white flex items-center justify-center z-10">
+                          <div className="w-1.5 h-1.5 bg-white"></div>
                         </div>
 
-                        <div className="flex flex-col gap-3">
-                          <div className="flex items-center justify-between flex-wrap gap-2">
-                            <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border flex items-center gap-2 shadow-sm
-                              ${log.action === "CREATE" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
-                                log.action === "DELETE" || log.action === "CANCEL" || log.action === "REFUND_SEAT" ? "bg-red-50 text-red-700 border-red-200" :
-                                log.action === "UPDATE" ? "bg-blue-50 text-blue-700 border-blue-200" :
-                                log.action === "SWAP" ? "bg-purple-50 text-purple-700 border-purple-200" :
-                                log.action === "TRANSFER" ? "bg-indigo-50 text-indigo-700 border-indigo-200" :
-                                log.action === "PASSENGER_UPDATE" ? "bg-orange-50 text-orange-700 border-orange-200" :
-                                "bg-green-50 text-green-700 border-green-200"}
-                            `}>
-                              {theme.icon}
-                              {theme.label}
-                            </span>
-                            <span className="text-xs text-slate-400 font-bold bg-slate-50 px-3 py-1 rounded-lg border border-slate-100 flex items-center gap-1.5">
-                              <Clock size={12}/> {formatDate(log.timestamp)}
-                            </span>
+                        <div className="flex flex-col gap-4">
+                          <div className="flex items-center justify-between flex-wrap gap-4 border-b border-black pb-2">
+                            <div className="flex items-center gap-3">
+                              <span className="font-black text-xs uppercase tracking-tighter flex items-center gap-2">
+                                {theme.icon}
+                                {theme.label}
+                              </span>
+                              <span className="h-4 w-[1px] bg-slate-200"></span>
+                              <span className="text-[11px] font-black text-slate-500 font-mono flex items-center gap-1.5">
+                                <Clock size={12}/> {formatDate(log.timestamp)}
+                              </span>
+                            </div>
+                            <span className="text-[9px] font-bold text-slate-400 font-mono tracking-widest uppercase">ID_{log.id.slice(-6)}</span>
                           </div>
 
-                          <div className="bg-slate-50/50 p-5 rounded-2xl border border-slate-100 hover:bg-white hover:shadow-xl hover:border-slate-200 transition-all duration-300">
+                          <div className="p-5 border border-slate-100 hover:bg-slate-50 transition-colors">
                             {renderLogDetails(log)}
-                            <div className="mt-3 flex items-start gap-3">
-                              <div className="p-1.5 bg-white rounded-lg border border-slate-100 text-slate-400 shrink-0"><Info size={14}/></div>
-                              <p className="text-[13px] leading-relaxed text-slate-600 font-medium pt-0.5">{log.description}</p>
+                            <div className="mt-4 flex items-start gap-4">
+                              <div className="p-2 bg-black text-white font-black text-[10px] uppercase shrink-0">GHI CHÚ</div>
+                              <p className="text-[13px] leading-relaxed text-black font-bold pt-1 uppercase tracking-tight">{log.description}</p>
                             </div>
                           </div>
                         </div>
@@ -366,22 +350,25 @@ export const OrderInformation: React.FC = () => {
                     );
                   })}
                   
-                  {/* Decorative end dot */}
-                  <div className="absolute -bottom-1 -left-[5px] w-2 h-2 rounded-full bg-slate-200"></div>
+                  {/* Footer dot */}
+                  <div className="absolute -bottom-2 -left-[6px] w-3 h-3 bg-black"></div>
                 </div>
               )}
+            </div>
+            <div className="mt-6 flex justify-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+               KẾT THÚC NHẬT KÝ ĐƠN HÀNG
             </div>
           </div>
         </div>
       )}
 
       {!booking && !loading && !error && (
-        <div className="py-32 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded-[2rem] bg-white/50 backdrop-blur-sm">
-          <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-6 border border-slate-200 shadow-inner opacity-40">
-            <Ticket size={48} />
+        <div className="py-40 text-center border-4 border-dashed border-slate-200 bg-white">
+          <div className="w-32 h-32 border-4 border-slate-100 flex items-center justify-center mx-auto mb-8 grayscale opacity-20">
+            <Ticket size={64} />
           </div>
-          <h3 className="text-lg font-bold text-slate-500 uppercase tracking-widest">Sẵn sàng tra cứu</h3>
-          <p className="font-medium text-slate-400 mt-2">Vui lòng quét QR trên vé hoặc nhập thông tin mã đơn/SĐT</p>
+          <h3 className="text-xl font-black text-slate-300 uppercase tracking-[0.4em]">SẴN SÀNG TRA CỨU</h3>
+          <p className="font-bold text-slate-300 mt-4 uppercase text-[11px] tracking-widest">VUI LÒNG QUÉT QR TRÊN VÉ HOẶC NHẬP THÔNG TIN CẦN TÌM</p>
         </div>
       )}
     </div>
