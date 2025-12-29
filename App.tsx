@@ -223,6 +223,13 @@ function AppContent() {
 
   if (isLoading) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><Loader2 className="animate-spin text-primary" size={48} /></div>;
 
+  // Render OrderInformation as a standalone page without Sidebar and Header
+  if (activeTab === "order-info") {
+    return (
+      <OrderInformation onBackToDashboard={() => setActiveTab("sales")} />
+    );
+  }
+
   return (
     <Layout activeTab={activeTab} onTabChange={setActiveTab} selectedDate={selectedDate} onDateChange={setSelectedDate} availableTrips={availableTripsForDate} selectedTripId={selectedTripId} onTripChange={setSelectedTripId} selectedDirection={selectedDirection} onDirectionChange={setSelectedDirection} routes={routes} headerRight={<RightSheet bookings={bookings} trips={trips} onSelectBooking={handleSelectBookingFromHistory} onUndo={handleUndo} lastUndoAction={undoStack[undoStack.length - 1]} />}>
       {activeTab === "sales" && (
@@ -249,7 +256,6 @@ function AppContent() {
       {activeTab === "finance" && <PaymentManager />}
       {activeTab === "schedule" && <ScheduleView trips={trips} routes={routes} buses={buses} onAddTrip={async (d, t) => { await api.trips.create(t as any); refreshData(); }} onUpdateTrip={async (id, t) => { await api.trips.update(id, t); refreshData(); }} onDeleteTrip={async (id) => { await api.trips.delete(id); refreshData(); }} onUpdateBus={async (id, u) => { await api.buses.update(id, u); refreshData(); }} />}
       {activeTab === "settings" && <SettingsView routes={routes} setRoutes={setRoutes} buses={buses} setBuses={setBuses} trips={trips} setTrips={setTrips} onDataChange={refreshData} />}
-      {activeTab === "order-info" && <OrderInformation />}
 
       <SeatDetailModal isOpen={!!seatDetailModal} onClose={() => setSeatDetailModal(null)} booking={seatDetailModal?.booking || null} seat={seatDetailModal?.seat || null} bookings={bookings} onSave={async (p, extra) => {
         if (!seatDetailModal) return;
