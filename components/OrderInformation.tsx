@@ -3,7 +3,8 @@ import {
   Search, Ticket, Calendar, MapPin, Phone, User, Clock, Bus, 
   CheckCircle2, AlertCircle, ArrowLeft, QrCode, FileClock, 
   Loader2, Plus, Trash2, Edit, ArrowRightLeft, Truck, UserCog, 
-  Banknote, RotateCcw, Info, Zap, CalendarIcon, ArrowRight, LayoutGrid
+  Banknote, RotateCcw, Info, Zap, CalendarIcon, ArrowRight, LayoutGrid,
+  Locate
 } from 'lucide-react';
 import { Button } from './ui/Button';
 import { Badge } from './ui/Badge';
@@ -332,74 +333,104 @@ export const OrderInformation: React.FC = () => {
             </div>
           </div>
 
-          {/* Trips Detail - Full Width */}
+          {/* Trips Detail - Full Width reorganized into 2 columns per trip */}
           <div className="space-y-4">
             <h3 className="font-bold text-slate-800 ml-1 flex items-center gap-2">
               <Bus size={18} className="text-primary"/> Chi tiết hành trình ({booking.items.length})
             </h3>
-            <div className="grid grid-cols-1 gap-4">
+            <div className="grid grid-cols-1 gap-6">
               {booking.items.map((item, idx) => {
                 const tripDate = new Date(item.tripDate);
                 const fullTrip = trips.find(t => t.id === item.tripId);
                 return (
                   <div key={idx} className="bg-white rounded border border-slate-200 shadow-sm overflow-hidden">
                     <div className="p-6">
-                      <div className="flex flex-col lg:flex-row justify-between gap-8">
-                        <div className="space-y-6 flex-1">
-                          <div className="flex items-center gap-4">
-                            <div className="w-14 h-14 bg-primary/5 rounded flex items-center justify-center text-primary border border-primary/10 shadow-sm shrink-0"><Bus size={28} /></div>
-                            <div className="min-w-0">
-                              <h4 className="text-xl font-black text-slate-900 truncate">{item.route}</h4>
-                              <div className="flex flex-wrap items-center gap-4 text-sm text-slate-500 mt-1">
-                                <span className="flex items-center gap-1.5 bg-slate-50 px-2 py-0.5 rounded border border-slate-100 font-medium"><Calendar size={14} className="text-slate-400" /> {tripDate.toLocaleDateString('vi-VN')}</span>
-                                <span className="flex items-center gap-1.5 bg-slate-50 px-2 py-0.5 rounded border border-slate-100 font-medium"><Clock size={14} className="text-slate-400" /> {item.tripDate.split(' ')[1]}</span>
-                                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-100 font-bold uppercase tracking-wider text-[10px] rounded">
-                                  {item.busType === 'CABIN' ? 'Phòng VIP' : 'Giường nằm'}
-                                </Badge>
+                      <div className="flex flex-col lg:flex-row justify-between gap-10">
+                        {/* LEFT COLUMN: Trip Info & Tickets */}
+                        <div className="flex-1 space-y-8">
+                          {/* Top Part: Trip Details */}
+                          <div className="space-y-6">
+                            <div className="flex items-center gap-4">
+                              <div className="w-14 h-14 bg-primary/5 rounded flex items-center justify-center text-primary border border-primary/10 shadow-sm shrink-0"><Bus size={28} /></div>
+                              <div className="min-w-0">
+                                <h4 className="text-xl font-black text-slate-900 truncate">{item.route}</h4>
+                                <div className="flex flex-wrap items-center gap-3 text-sm text-slate-500 mt-1">
+                                  <span className="flex items-center gap-1.5 bg-slate-50 px-2 py-0.5 rounded border border-slate-100 font-medium"><Calendar size={14} className="text-slate-400" /> {tripDate.toLocaleDateString('vi-VN')}</span>
+                                  <span className="flex items-center gap-1.5 bg-slate-50 px-2 py-0.5 rounded border border-slate-100 font-medium"><Clock size={14} className="text-slate-400" /> {item.tripDate.split(' ')[1]}</span>
+                                  <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-100 font-bold uppercase tracking-wider text-[10px] rounded">
+                                    {item.busType === 'CABIN' ? 'Phòng VIP' : 'Giường nằm'}
+                                  </Badge>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-4 p-4 bg-slate-50 rounded border border-slate-100">
+                              <div className="space-y-1">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Biển số xe</span>
+                                <div className="font-black text-slate-700">{item.licensePlate}</div>
+                              </div>
+                              <div className="space-y-1">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Điểm đón khách</span>
+                                <div className="font-bold text-slate-700 truncate" title={item.tickets[0]?.pickup || 'Văn phòng'}>
+                                  <MapPin size={12} className="inline mr-1 text-primary" /> {item.tickets[0]?.pickup || 'Văn phòng'}
+                                </div>
                               </div>
                             </div>
                           </div>
-                          
-                          <div className="grid grid-cols-2 gap-6 p-4 bg-slate-50 rounded border border-slate-100">
-                            <div className="space-y-1"><span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Biển số xe</span><div className="font-black text-slate-700 text-lg">{item.licensePlate}</div></div>
-                            <div className="space-y-1 text-right lg:text-left"><span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Điểm đón khách</span><div className="font-bold text-slate-700 truncate" title={item.tickets[0]?.pickup || 'Đón tại văn phòng'}>{item.tickets[0]?.pickup || 'Văn phòng'}</div></div>
-                          </div>
 
-                          {/* Seat Map Visualizer */}
-                          {fullTrip && (
-                            <div className="pt-4 border-t border-slate-100">
-                              <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                                <LayoutGrid size={14} /> Sơ đồ vị trí giường
+                          {/* Bottom Part: Booked Tickets & Prices */}
+                          <div className="space-y-4 pt-6 border-t border-slate-100">
+                             <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Danh sách ghế & Giá vé</span>
+                                <Badge className="bg-primary/10 text-primary border-transparent font-bold rounded">{item.tickets.length} ghế</Badge>
+                             </div>
+                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                               {item.tickets.map((t) => (
+                                 <div key={t.seatId} className="flex flex-col bg-white border border-slate-200 rounded p-3 shadow-sm hover:border-primary/30 transition-colors">
+                                   <div className="flex justify-between items-start">
+                                      <span className="text-base font-black text-primary">{t.seatId}</span>
+                                      <span className="text-[11px] text-slate-900 font-black">{formatCurrency(t.price)} đ</span>
+                                   </div>
+                                   {t.note && <span className="text-[9px] text-amber-600 italic mt-1 truncate border-t border-amber-50 pt-1">*{t.note}</span>}
+                                   <div className="mt-2 pt-1 border-t border-slate-50 flex flex-col gap-1">
+                                      <div className="flex items-center gap-1 text-[9px] text-slate-400 truncate"><MapPin size={8}/> {t.pickup || '---'}</div>
+                                      <div className="flex items-center gap-1 text-[9px] text-slate-400 truncate"><Locate size={8}/> {t.dropoff || '---'}</div>
+                                   </div>
+                                 </div>
+                               ))}
+                             </div>
+                             <div className="p-3 bg-blue-50/50 rounded border border-dashed border-blue-200 flex justify-between items-center">
+                                <span className="text-xs font-bold text-slate-600">Thanh toán cho hành trình này:</span>
+                                <span className="text-lg font-black text-blue-700">{formatCurrency(item.price)} đ</span>
+                             </div>
+                          </div>
+                        </div>
+
+                        {/* RIGHT COLUMN: Seat Map Preview */}
+                        <div className="lg:w-[45%] flex flex-col items-center lg:items-start space-y-4 border-t lg:border-t-0 lg:border-l border-slate-100 pt-8 lg:pt-0 lg:pl-10">
+                          {fullTrip ? (
+                            <div className="w-full">
+                              <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                <LayoutGrid size={14} /> Sơ đồ vị trí giường ({item.busType === 'CABIN' ? '22 phòng' : '41 giường'})
                               </h5>
-                              <div className="flex justify-center md:justify-start">
+                              <div className="flex justify-center">
                                 <SeatMapPreview trip={fullTrip} bookedSeatIds={item.seatIds} />
                               </div>
-                              <div className="flex gap-4 mt-3 text-[10px] font-bold uppercase text-slate-400 justify-center md:justify-start">
+                              <div className="flex gap-4 mt-6 text-[10px] font-bold uppercase text-slate-400 justify-center w-full">
                                 <div className="flex items-center gap-1.5"><div className="w-3 h-3 bg-blue-600 rounded-sm"></div> Ghế của bạn</div>
                                 <div className="flex items-center gap-1.5"><div className="w-3 h-3 bg-slate-300 rounded-sm"></div> Ghế khác</div>
                               </div>
+                              <div className="mt-6 p-4 bg-slate-50 rounded border border-slate-100 text-[11px] text-slate-500 leading-relaxed italic">
+                                <Info size={14} className="inline mr-1 text-slate-400 mb-0.5" /> 
+                                Sơ đồ hiển thị vị trí tương đối trên xe. Ghế của bạn được đánh dấu màu xanh dương đậm.
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="h-full w-full flex flex-col items-center justify-center text-slate-300 py-10">
+                              <Bus size={40} className="opacity-20 mb-2"/>
+                              <p className="text-xs italic">Đang tải sơ đồ ghế...</p>
                             </div>
                           )}
-                        </div>
-
-                        <div className="lg:w-[40%] space-y-4 border-t lg:border-t-0 lg:border-l border-slate-100 pt-6 lg:pt-0 lg:pl-8">
-                           <div className="flex items-center justify-between">
-                              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Danh sách ghế & Giá vé</span>
-                              <Badge className="bg-primary/10 text-primary border-transparent font-bold rounded">{item.tickets.length} ghế</Badge>
-                           </div>
-                           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 gap-3">
-                             {item.tickets.map((t) => (
-                               <div key={t.seatId} className="flex flex-col bg-white border border-slate-200 rounded p-3 shadow-sm hover:border-primary/30 transition-colors">
-                                 <span className="text-base font-black text-primary">{t.seatId}</span>
-                                 <span className="text-[11px] text-slate-500 font-bold">{formatCurrency(t.price)} đ</span>
-                                 {t.note && <span className="text-[9px] text-amber-600 italic mt-1 truncate border-t border-amber-50 pt-1">*{t.note}</span>}
-                               </div>
-                             ))}
-                           </div>
-                           <div className="pt-2 text-[11px] text-slate-400 flex flex-col gap-2 bg-slate-50/50 p-3 rounded border border-dashed border-slate-200">
-                              <div className="flex items-center gap-2"><MapPin size={13} className="text-primary" /> {item.tickets[0]?.pickup || 'Vui lòng xác nhận điểm đón với nhà xe'}</div>
-                              <div className="flex items-center gap-2"><Clock size={13} className="text-slate-400" /> Vui lòng có mặt trước giờ chạy 15 phút</div>
-                           </div>
                         </div>
                       </div>
                     </div>
