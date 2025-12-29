@@ -7,12 +7,11 @@ import {
   CreditCard,
   Calendar,
   MapPin,
+  // Fix: Added missing 'Locate' icon import to resolve error on line 357
+  Locate,
   Bus,
   Ticket,
-  ArrowRight,
-  Locate,
   Calculator,
-  Tag,
   RotateCcw,
   History,
   TrendingUp,
@@ -20,7 +19,7 @@ import {
 } from "lucide-react";
 import { BusTrip, Seat, Booking } from "../types";
 import { formatLunarDate } from "../utils/dateUtils";
-import { getStandardizedLocation } from "../utils/formatters";
+import { getStandardizedLocation, formatCurrency, formatCurrencyInput, parseCurrency } from "../utils/formatters";
 
 interface PaymentItem {
   tripId: string;
@@ -157,12 +156,12 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         return {
           text: "Cập nhật đơn hàng",
           colorClass:
-            "bg-blue-600 hover:bg-blue-500 border-blue-700 text-white",
+            "bg-blue-600 hover:bg-blue-50 border-blue-700 text-white",
         };
       return {
         text: "Xác nhận & Lưu",
         colorClass:
-          "bg-indigo-600 hover:bg-indigo-500 border-indigo-700 text-white",
+          "bg-indigo-600 hover:bg-indigo-50 border-indigo-700 text-white",
       };
     }
 
@@ -170,7 +169,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       return {
         text: "Xác nhận thanh toán",
         colorClass:
-          "bg-indigo-600 hover:bg-indigo-500 border-indigo-700 text-white",
+          "bg-indigo-600 hover:bg-indigo-50 border-indigo-700 text-white",
       };
     return {
       text: "Lưu công nợ",
@@ -192,7 +191,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       const current = prev[key] || {};
       let newValue: string | number = value;
       if (field === "price") {
-        newValue = parseInt(value.replace(/\D/g, "") || "0", 10);
+        newValue = parseCurrency(value);
       }
       return { ...prev, [key]: { ...current, [field]: newValue } };
     });
@@ -226,13 +225,9 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const handleConfirmClick = () => {
     let noteSuffix = "";
     if (remainingBalance > 0) {
-      noteSuffix = `(Cần thu thêm: ${remainingBalance.toLocaleString(
-        "vi-VN"
-      )}đ)`;
+      noteSuffix = `(Cần thu thêm: ${formatCurrency(remainingBalance)}đ)`;
     } else if (remainingBalance < 0) {
-      noteSuffix = `(Cần hoàn lại: ${Math.abs(remainingBalance).toLocaleString(
-        "vi-VN"
-      )}đ)`;
+      noteSuffix = `(Cần hoàn lại: ${formatCurrency(Math.abs(remainingBalance))}đ)`;
     }
 
     const finalOverrides: Record<string, SeatOverride> = { ...seatOverrides };
@@ -400,13 +395,13 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                                   ? "text-yellow-400 border-yellow-500/50 ring-1 ring-yellow-500/20"
                                   : "text-white border-indigo-800"
                               }`}
-                              value={price.toLocaleString("vi-VN")}
+                              value={formatCurrency(price)}
                               onChange={(e) =>
                                 handleOverrideChange(
                                   trip.tripId,
                                   seat.id,
                                   "price",
-                                  e.target.value
+                                  formatCurrencyInput(e.target.value)
                                 )
                               }
                             />
@@ -443,7 +438,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                     <History size={12} /> Tổng tiền cũ:
                   </span>
                   <span className="text-indigo-300 decoration-slate-500 line-through decoration-1">
-                    {previouslyPaid.toLocaleString("vi-VN")} đ
+                    {formatCurrency(previouslyPaid)} đ
                   </span>
                 </div>
                 <div className="flex justify-between items-center text-xs">
@@ -451,7 +446,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                     <TrendingUp size={12} /> Tổng tiền mới:
                   </span>
                   <span className="font-bold text-yellow-400">
-                    {finalTotal.toLocaleString("vi-VN")} đ
+                    {formatCurrency(finalTotal)} đ
                   </span>
                 </div>
               </div>
@@ -462,7 +457,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                 Cần thanh toán
               </span>
               <span className="text-3xl font-bold text-yellow-400 tracking-tight">
-                {finalTotal.toLocaleString("vi-VN")}{" "}
+                {formatCurrency(finalTotal)}{" "}
                 <span className="text-sm font-normal text-yellow-400/70">
                   đ
                 </span>
@@ -499,7 +494,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                     {diffFromPrevious > 0 ? "Cần thu thêm" : "Cần hoàn lại"}
                   </h4>
                   <div className="text-2xl font-bold mt-1">
-                    {Math.abs(diffFromPrevious).toLocaleString("vi-VN")}{" "}
+                    {formatCurrency(Math.abs(diffFromPrevious))}{" "}
                     <span className="text-xs font-normal opacity-70">đ</span>
                   </div>
                 </div>
@@ -537,8 +532,11 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               <input
                 type="text"
                 name="paidCash"
-                value={paidCash.toLocaleString("vi-VN")}
-                onChange={onMoneyChange}
+                value={formatCurrency(paidCash)}
+                onChange={(e) => {
+                  e.target.value = formatCurrencyInput(e.target.value);
+                  onMoneyChange(e);
+                }}
                 className="w-full pl-9 pr-12 py-2 bg-indigo-950 border border-indigo-800 rounded text-right font-bold text-sm text-white focus:border-green-500 focus:outline-none transition-colors"
                 placeholder="0"
               />
@@ -553,8 +551,11 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               <input
                 type="text"
                 name="paidTransfer"
-                value={paidTransfer.toLocaleString("vi-VN")}
-                onChange={onMoneyChange}
+                value={formatCurrency(paidTransfer)}
+                onChange={(e) => {
+                  e.target.value = formatCurrencyInput(e.target.value);
+                  onMoneyChange(e);
+                }}
                 className="w-full pl-9 pr-12 py-2 bg-indigo-950 border border-indigo-800 rounded text-right font-bold text-sm text-white focus:border-blue-500 focus:outline-none transition-colors"
                 placeholder="0"
               />
@@ -567,7 +568,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           {remainingBalance > 0 ? (
             <div className="p-2 rounded bg-red-950/30 border border-red-900/50 text-right text-xs text-red-400 font-bold flex justify-between items-center">
               <span>Đang thiếu:</span>
-              <span>{remainingBalance.toLocaleString("vi-VN")} đ</span>
+              <span>{formatCurrency(remainingBalance)} đ</span>
             </div>
           ) : remainingBalance < 0 ? (
             <div className="p-2 rounded bg-blue-950/30 border border-blue-900/50 text-right text-xs text-blue-400 font-bold flex justify-between items-center">
@@ -575,7 +576,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                 <RotateCcw size={12} /> Đang dư:
               </span>
               <span>
-                {Math.abs(remainingBalance).toLocaleString("vi-VN")} đ
+                {formatCurrency(Math.abs(remainingBalance))} đ
               </span>
             </div>
           ) : (

@@ -13,6 +13,7 @@ import {
   XCircle,
   RefreshCw,
 } from "lucide-react";
+import { formatCurrency } from "../utils/formatters";
 
 interface SeatMapProps {
   seats: Seat[];
@@ -23,7 +24,7 @@ interface SeatMapProps {
   onSeatSwap?: (seat: Seat) => void;
   onSeatRightClick?: (seat: Seat, booking: Booking | null) => void;
   editingBooking?: Booking | null;
-  swapSourceSeatId?: string; // Thêm prop để nhận biết ghế đang đổi
+  swapSourceSeatId?: string;
 }
 
 export const SeatMap: React.FC<SeatMapProps> = ({
@@ -37,7 +38,6 @@ export const SeatMap: React.FC<SeatMapProps> = ({
   editingBooking,
   swapSourceSeatId,
 }) => {
-  // Helper to determine visuals based on status
   const getSeatStatusClass = (status: SeatStatus, isSwapping: boolean) => {
     if (isSwapping) {
       return "ring-4 ring-indigo-500 ring-offset-1 z-30 bg-indigo-50 border-indigo-500 shadow-xl cursor-pointer animate-pulse";
@@ -75,8 +75,6 @@ export const SeatMap: React.FC<SeatMapProps> = ({
     customWidth?: string
   ) => {
     const isSwapping = swapSourceSeatId === seat.id;
-
-    // 1. Detect if this seat is a "Ghost" (Deselected during edit)
     const isGhost =
       seat.status === SeatStatus.AVAILABLE &&
       editingBooking?.items.some(
@@ -106,7 +104,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
     const hasInfo =
       (seat.status === SeatStatus.BOOKED ||
         seat.status === SeatStatus.SOLD ||
-        seat.status === SeatStatus.HELD || // Hiển thị info cho cả ghế HELD nếu có booking
+        seat.status === SeatStatus.HELD ||
         isGhost) &&
       booking &&
       bookingItem;
@@ -133,7 +131,6 @@ export const SeatMap: React.FC<SeatMapProps> = ({
           displayPrice = ticket.price;
           displayPickup = ticket.pickup || displayPickup;
           displayDropoff = ticket.dropoff || displayDropoff;
-          // FIX: Ưu tiên hiển thị ghi chú của vé nếu có (ngay cả khi là chuỗi rỗng để hỗ trợ xóa)
           if (ticket.note !== undefined && ticket.note !== null)
             displayNote = ticket.note;
         }
@@ -199,7 +196,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
                       : "text-yellow-800 bg-yellow-200 border-yellow-300/50"
                   }`}
                 >
-                  {displayPrice.toLocaleString("vi-VN")}
+                  {formatCurrency(displayPrice)}
                 </span>
               </div>
             )}
@@ -237,7 +234,6 @@ export const SeatMap: React.FC<SeatMapProps> = ({
             </div>
           ) : hasInfo ? (
             seat.status === SeatStatus.HELD ? (
-              // Case: HELD with booking info - Show only label and note (HIDE Phone/Map)
               <div className="flex flex-col h-full text-purple-800/80 items-center justify-center">
                 {displayNote ? (
                   <span className="truncate italic text-[10px] block text-center">
@@ -251,7 +247,6 @@ export const SeatMap: React.FC<SeatMapProps> = ({
                 )}
               </div>
             ) : (
-              // Case: BOOKED, SOLD, or GHOST - Show full info
               <>
                 <div
                   className={`flex items-center gap-1 font-bold whitespace-nowrap ${
@@ -310,7 +305,6 @@ export const SeatMap: React.FC<SeatMapProps> = ({
               <span className="font-medium text-[8px]">Đang chọn</span>
             </div>
           ) : seat.status === SeatStatus.HELD ? (
-            // Case: HELD without specific booking item (Direct hold or manual note)
             <div className="flex flex-col h-full text-purple-800/80 items-center justify-center">
               <div className="flex items-center justify-center">
                 <Lock size={10} className="opacity-60 mr-1" />
@@ -340,7 +334,6 @@ export const SeatMap: React.FC<SeatMapProps> = ({
   const regularSeats = seats.filter((s) => (s.row ?? 0) < 99 && !s.isFloorSeat);
   const floorSeats = seats.filter((s) => s.isFloorSeat);
 
-  // --- CABIN LOGIC ---
   const renderCabinColumn = (colIndex: number, label: string) => {
     const colSeats = regularSeats.filter((s) => (s.col ?? 0) === colIndex);
     const rows = Array.from(new Set(colSeats.map((s) => s.row ?? 0))).sort(
@@ -417,7 +410,6 @@ export const SeatMap: React.FC<SeatMapProps> = ({
     );
   };
 
-  // --- SLEEPER LOGIC ---
   const renderSleeperDeck = (floorNumber: number) => {
     const floorSeatsStandard = regularSeats.filter(
       (s) => s.floor === floorNumber

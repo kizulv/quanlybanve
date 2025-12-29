@@ -2,6 +2,7 @@ import React, { useState, useMemo } from "react";
 import { Users, Search, X, Calculator } from "lucide-react";
 import { Booking, BusTrip } from "../types";
 import { ManifestPrint } from "./ManifestPrint";
+import { formatCurrency } from "../utils/formatters";
 
 interface ManifestListProps {
   tripBookings: Booking[];
@@ -37,7 +38,6 @@ export const ManifestList: React.FC<ManifestListProps> = ({
   const totalManifestPrice = useMemo(() => {
     return filteredManifest.reduce((sum, booking) => {
       const tripItem = booking.items.find((i) => i.tripId === selectedTrip?.id);
-      // TripItem.price lúc này là tổng thực thu của chuyến này
       return sum + (tripItem?.price || 0);
     }, 0);
   }, [filteredManifest, selectedTrip]);
@@ -85,7 +85,7 @@ export const ManifestList: React.FC<ManifestListProps> = ({
           <span>Tổng tiền đã thu:</span>
         </div>
         <div className="font-black text-red-700 text-sm tracking-tight">
-          {totalManifestPrice.toLocaleString("vi-VN")}
+          {formatCurrency(totalManifestPrice)}
         </div>
       </div>
 
@@ -96,10 +96,6 @@ export const ManifestList: React.FC<ManifestListProps> = ({
           </div>
         ) : (
           filteredManifest.map((booking) => {
-            const totalPaid =
-              (booking.payment?.paidCash || 0) +
-              (booking.payment?.paidTransfer || 0);
-
             const timeStr = new Date(booking.createdAt).toLocaleTimeString(
               "vi-VN",
               {
@@ -113,7 +109,7 @@ export const ManifestList: React.FC<ManifestListProps> = ({
             );
             const seatsToShow = tripItem ? tripItem.seatIds : [];
             const isHighlighted = booking.id === highlightedBookingId;
-            const tripCollected = tripItem ? tripItem.price : 0; // Số tiền đã thu của trip này
+            const tripCollected = tripItem ? tripItem.price : 0;
 
             return (
               <div
@@ -164,7 +160,7 @@ export const ManifestList: React.FC<ManifestListProps> = ({
                   >
                     {tripCollected === 0
                       ? "Đã đặt vé"
-                      : tripCollected.toLocaleString("vi-VN")}
+                      : formatCurrency(tripCollected)}
                   </div>
                 </div>
               </div>

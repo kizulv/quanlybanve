@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from "react";
 import { Dialog } from "./ui/Dialog";
 import { Button } from "./ui/Button";
@@ -31,6 +30,9 @@ import {
 import {
   formatPhoneNumber,
   getStandardizedLocation,
+  formatCurrency,
+  formatCurrencyInput,
+  parseCurrency
 } from "../utils/formatters";
 
 interface SeatDetailModalProps {
@@ -174,7 +176,7 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
     const { name, value } = e.target;
     setPaymentInput((prev) => ({
       ...prev,
-      [name]: parseInt(value.replace(/\D/g, "") || "0", 10),
+      [name]: parseCurrency(value),
     }));
   };
 
@@ -233,7 +235,6 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
   const isBooked = seat.status === SeatStatus.BOOKED;
   const isHeld = seat.status === SeatStatus.HELD;
 
-  // Cột bên phải chỉ hiển thị khi vé ở trạng thái BOOKED (để thu tiền lẻ)
   const showRightPanel = isBooked;
 
   return (
@@ -387,7 +388,6 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
               <Save size={14} className="mr-1" /> Cập nhật
             </Button>
             
-            {/* Nếu là vé HOLD, hiển thị nút Hủy ngay tại bảng điều khiển chính */}
             {isHeld && (
               <Button
                 onClick={handleRefundSeat}
@@ -398,7 +398,6 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
               </Button>
             )}
             
-            {/* Có thể thêm nút Hủy vé cho cả vé BOOKED ở đây nếu cần */}
             {isBooked && (
                 <Button
                     onClick={handleRefundSeat}
@@ -411,7 +410,7 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
           </div>
         </div>
 
-        {/* RIGHT: Financial Actions (Chỉ hiển thị cho vé BOOKED để thu tiền) */}
+        {/* RIGHT: Financial Actions */}
         {showRightPanel && (
           <div className="w-full md:w-[280px] bg-indigo-900/20 p-4 flex flex-col gap-4 border-t md:border-t-0 md:border-l border-indigo-900/50 shadow-xl overflow-y-auto animate-in fade-in duration-300">
             <div className="bg-indigo-900/50 rounded-lg p-3 border border-indigo-800 space-y-3 shadow-inner mt-2">
@@ -419,7 +418,7 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
                 <Calculator size={12} /> Giá vé thu thực tế
               </div>
               <div className="text-2xl font-black text-yellow-400 tracking-tight">
-                {seatPrice.toLocaleString("vi-VN")}{" "}
+                {formatCurrency(seatPrice)}{" "}
                 <span className="text-[10px] font-normal opacity-60">VNĐ</span>
               </div>
             </div>
@@ -438,8 +437,11 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
                     title="Số tiền thu bằng tiền mặt"
                     name="paidCash"
                     className="w-full pl-8 pr-10 py-1.5 bg-indigo-950 border border-indigo-800 rounded text-right font-bold text-xs text-white focus:border-green-500 outline-none transition-all"
-                    value={paymentInput.paidCash.toLocaleString("vi-VN")}
-                    onChange={handleMoneyChange}
+                    value={formatCurrency(paymentInput.paidCash)}
+                    onChange={(e) => {
+                      e.target.value = formatCurrencyInput(e.target.value);
+                      handleMoneyChange(e);
+                    }}
                   />
                   <span className="absolute right-2.5 top-2 text-[9px] font-black text-indigo-700">
                     TM
@@ -453,8 +455,11 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
                     title="Số tiền thu bằng chuyển khoản"
                     name="paidTransfer"
                     className="w-full pl-8 pr-10 py-1.5 bg-indigo-950 border border-indigo-800 rounded text-right font-bold text-xs text-white focus:border-blue-500 outline-none transition-all"
-                    value={paymentInput.paidTransfer.toLocaleString("vi-VN")}
-                    onChange={handleMoneyChange}
+                    value={formatCurrency(paymentInput.paidTransfer)}
+                    onChange={(e) => {
+                      e.target.value = formatCurrencyInput(e.target.value);
+                      handleMoneyChange(e);
+                    }}
                   />
                   <span className="absolute right-2.5 top-2 text-[9px] font-black text-indigo-700">
                     CK

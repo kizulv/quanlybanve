@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from "react";
 import { Dialog } from "./ui/Dialog";
 import { Button } from "./ui/Button";
@@ -7,24 +6,21 @@ import {
   Loader2,
   Clock,
   MapPin,
-  Wallet,
   Calendar,
   CheckCircle2,
   AlertTriangle,
-  ArrowRightLeft,
   BusFront,
   LayoutGrid,
   Info,
   ArrowRight,
   Zap,
-  Check,
 } from "lucide-react";
 import {
   generateCabinLayout,
   generateSleeperLayout,
 } from "../utils/generators";
 import { isSameDay } from "../utils/dateUtils";
-import { Badge } from "./ui/Badge";
+import { formatCurrency, formatCurrencyInput, parseCurrency } from "../utils/formatters";
 
 interface AddTripModalProps {
   isOpen: boolean;
@@ -127,7 +123,6 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
     const dateStr = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, "0")}-${String(targetDate.getDate()).padStart(2, "0")}`;
     const dateTimeStr = `${dateStr} ${time}`;
 
-    // FIX: Sử dụng Map theo ID ghế (Số thứ tự) để bảo toàn trạng thái, KHÔNG dùng tọa độ hàng/cột
     const occupiedSeatsMap = new Map<string, Seat>(); 
     (initialData?.seats || []).forEach((s) => {
       if (s.status !== SeatStatus.AVAILABLE) {
@@ -138,7 +133,6 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
     let newLayoutSeats: Seat[] = [];
     if (bus.layoutConfig) {
       const config = bus.layoutConfig;
-      // Standard seats
       for (let f = 1; f <= config.floors; f++) {
         for (let r = 0; r < config.rows; r++) {
           for (let c = 0; c < config.cols; c++) {
@@ -150,7 +144,6 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
           }
         }
       }
-      // Floor seats
       if (config.hasFloorSeats) {
           const fCount = bus.type === BusType.CABIN ? 6 : 12;
           for (let i = 0; i < fCount; i++) {
@@ -161,7 +154,6 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
               }
           }
       }
-      // Rear Bench
       if (config.hasRearBench) {
         for (let f = 1; f <= config.floors; f++) {
           if (config.benchFloors?.includes(f)) {
@@ -181,20 +173,16 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
 
     const handledOldIds = new Set<string>();
     let finalSeats = newLayoutSeats.map((newSeat) => {
-      // FIX: Ánh xạ dựa trên ID (Số thứ tự ghế)
       const oldSeat = occupiedSeatsMap.get(newSeat.id);
       if (oldSeat) {
         handledOldIds.add(oldSeat.id);
-        // Giữ trạng thái cũ, nhưng cập nhật vị trí hàng/tầng theo bus mới
         return { ...newSeat, status: oldSeat.status, price: price, note: oldSeat.note };
       }
       return newSeat;
     });
 
-    // Những ghế cũ đã đặt nhưng không tìm thấy ID tương ứng trên bus mới (Ghế thừa/Lệch sơ đồ)
     (initialData?.seats || []).forEach((oldSeat) => {
       if (oldSeat.status !== SeatStatus.AVAILABLE && !handledOldIds.has(oldSeat.id)) {
-        // Đưa vào khu vực "Ghế lệch sơ đồ" (row: 99) để quản lý không bị mất dữ liệu
         finalSeats.push({ ...oldSeat, floor: 1, row: 99, col: 0 });
       }
     });
@@ -236,14 +224,24 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
         </div>
         <div className="space-y-5">
           <div className="bg-white p-4 rounded-xl border border-slate-200 h-full flex flex-col shadow-sm">
-            <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-4 pb-2 border-b border-slate-100 text-sm"><Clock size={18} className="text-primary" /> Thời gian & Giá vé</h3>
+            <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-4 pb-2 border-b border-slate-200 text-sm"><Clock size={18} className="text-primary" /> Thời gian & Giá vé</h3>
             <div className="space-y-5 flex-1">
               <div className="bg-blue-50 text-blue-800 px-4 py-3 rounded-lg flex items-center gap-3 border border-blue-100"><Calendar className="text-blue-600" size={24} /><div><div className="text-xs font-semibold uppercase tracking-wider text-blue-600/80">Ngày khởi hành</div><div className="font-bold text-lg leading-none">{targetDate.toLocaleDateString("vi-VN")}</div></div></div>
               <div><label className="block text-sm font-medium text-slate-700 mb-1.5">Giờ khởi hành</label>
                 <input type="time" required className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none" value={time} onChange={(e) => setTime(e.target.value)} />
               </div>
               <div><label className="block text-sm font-medium text-slate-700 mb-1.5">Giá vé (VNĐ)</label>
-                <input type="text" required className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none font-bold" value={price.toLocaleString("vi-VN")} onChange={(e) => setPrice(parseInt(e.target.value.replace(/\D/g, "") || "0", 10))} />
+                <input 
+                  type="text" 
+                  required 
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none font-bold" 
+                  value={formatCurrency(price)} 
+                  onChange={(e) => {
+                    const formatted = formatCurrencyInput(e.target.value);
+                    e.target.value = formatted;
+                    setPrice(parseCurrency(formatted));
+                  }} 
+                />
               </div>
               <div className="mt-auto pt-4 border-t border-slate-100"><div className="flex items-start gap-2 text-xs text-slate-500 bg-slate-50 p-2 rounded border border-slate-100"><Info size={14} className="shrink-0 mt-0.5 text-slate-400" /><p>Hệ thống bảo toàn số ghế cũ dựa trên mã số ghế khi bạn thay đổi xe hoặc cập nhật thông tin.</p></div></div>
             </div>

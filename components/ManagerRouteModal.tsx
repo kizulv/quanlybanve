@@ -1,9 +1,9 @@
-
 import React, { useState, useEffect } from "react";
 import { Dialog } from "./ui/Dialog";
 import { Button } from "./ui/Button";
 import { Route } from "../types";
 import { MapPin, Save, Clock, Loader2, Banknote, AlertCircle, Zap, ArrowRightLeft, ArrowRight } from "lucide-react";
+import { formatCurrency, formatCurrencyInput, parseCurrency } from "../utils/formatters";
 
 interface ManagerRouteModalProps {
   isOpen: boolean;
@@ -32,7 +32,6 @@ export const ManagerRouteModal: React.FC<ManagerRouteModalProps> = ({
 
   useEffect(() => {
     if (initialData) {
-      // Logic to split name if origin/dest are missing (Legacy Data Support)
       let origin = initialData.origin || "";
       let destination = initialData.destination || "";
       
@@ -87,13 +86,10 @@ export const ManagerRouteModal: React.FC<ManagerRouteModalProps> = ({
   }
 
   const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Remove all non-numeric characters
-    const rawValue = e.target.value.replace(/\D/g, "");
-    const numberValue = rawValue ? parseInt(rawValue, 10) : 0;
-
+    const formatted = formatCurrencyInput(e.target.value);
     setFormData((prev) => ({
       ...prev,
-      price: numberValue,
+      price: parseCurrency(formatted),
     }));
   };
 
@@ -105,16 +101,10 @@ export const ManagerRouteModal: React.FC<ManagerRouteModalProps> = ({
       }));
   };
 
-  const formatPrice = (price: number | undefined) => {
-    if (!price) return "";
-    return price.toLocaleString("vi-VN");
-  };
-
   const handleSave = async () => {
     if (!formData.origin || !formData.destination) return;
     setIsSaving(true);
     try {
-      // Construct the display name
       const constructedName = `${formData.origin} - ${formData.destination}`;
       
       const routeToSave = {
@@ -159,7 +149,6 @@ export const ManagerRouteModal: React.FC<ManagerRouteModalProps> = ({
       }
     >
       <div className="space-y-5">
-        {/* Origin & Destination */}
         <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
              <label className="block text-sm font-medium text-slate-700 mb-3">
                 Lộ trình <span className="text-red-500">*</span>
@@ -217,7 +206,6 @@ export const ManagerRouteModal: React.FC<ManagerRouteModalProps> = ({
              )}
         </div>
 
-        {/* Giá vé niêm yết */}
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1.5">
             Giá vé niêm yết (VNĐ)
@@ -229,7 +217,7 @@ export const ManagerRouteModal: React.FC<ManagerRouteModalProps> = ({
             <input
               type="text"
               name="price"
-              value={formatPrice(formData.price)}
+              value={formatCurrency(formData.price)}
               onChange={handlePriceChange}
               placeholder="0"
               className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none bg-white text-slate-900 shadow-sm font-bold"
@@ -237,7 +225,6 @@ export const ManagerRouteModal: React.FC<ManagerRouteModalProps> = ({
           </div>
         </div>
 
-        {/* Giờ xuất bến (Ngang hàng) */}
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">
@@ -277,7 +264,6 @@ export const ManagerRouteModal: React.FC<ManagerRouteModalProps> = ({
           </div>
         </div>
 
-        {/* Status and Enhanced Option */}
         <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-100">
            <div>
                <label className="block text-sm font-medium text-slate-700 mb-1.5">Tình trạng</label>

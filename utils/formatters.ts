@@ -1,4 +1,3 @@
-
 export const formatPhoneNumber = (value: string): string => {
   const raw = value.replace(/\D/g, "");
   if (raw.length > 15) return raw.slice(0, 15);
@@ -37,14 +36,38 @@ export const getStandardizedLocation = (input: string): string => {
   
   if (mappings[lower]) return mappings[lower];
 
-  // Nếu đã có chữ BX ở đầu thì chuẩn hóa viết hoa chữ BX
   if (/^bx\s/i.test(value)) {
     value = value.replace(/^bx\s/i, "BX ");
   } 
-  // Nếu chưa có BX và là bến xe thì gợi ý thêm (logic cũ: tự động viết hoa chữ cái đầu)
-  else if (value.length > 2) {
-    // Không tự động thêm BX ở đây để tránh làm phiền người dùng, chỉ chuẩn hóa viết hoa
-  }
   
   return value.replace(/(?:^|\s)\S/g, (a) => a.toUpperCase());
+};
+
+/**
+ * Định dạng số tiền để hiển thị (VD: 100.000)
+ */
+export const formatCurrency = (amount: number | string | undefined | null): string => {
+  if (amount === undefined || amount === null) return "0";
+  const value = typeof amount === 'string' ? parseInt(amount.replace(/\D/g, "") || "0", 10) : amount;
+  return new Intl.NumberFormat("vi-VN").format(value);
+};
+
+/**
+ * Phân tích chuỗi định dạng tiền tệ về số nguyên (VD: "100.000" -> 100000)
+ */
+export const parseCurrency = (value: string): number => {
+  if (!value) return 0;
+  return parseInt(value.replace(/\D/g, "") || "0", 10);
+};
+
+/**
+ * Định dạng mượt mà cho Input (dùng trong onChange)
+ * Giúp người dùng gõ đến đâu hiển thị dấu chấm đến đó
+ */
+export const formatCurrencyInput = (value: string): string => {
+  // Loại bỏ tất cả ký tự không phải số
+  const digits = value.replace(/\D/g, "");
+  if (!digits) return "";
+  // Thêm dấu chấm phân cách hàng nghìn
+  return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 };

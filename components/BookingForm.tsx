@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from "react";
 import {
   Seat,
@@ -17,6 +16,9 @@ import {
   formatPhoneNumber,
   validatePhoneNumber,
   getStandardizedLocation,
+  formatCurrency,
+  formatCurrencyInput,
+  parseCurrency
 } from "../utils/formatters";
 import { api } from "../lib/api";
 import { useToast } from "./ui/Toast";
@@ -426,12 +428,8 @@ export const BookingForm: React.FC<BookingFormProps> = ({
 
   const handleConfirmAction = () => {
     if (editingBooking) {
-      // FIX logic: Dùng label thay vì ID để so sánh, vì ID có thể là S-1 trong khi Label là 1
-      // Lấy danh sách label hiện tại của đơn hàng cũ từ tickets
       const oldTripMap = new Map<string, string[]>(
         editingBooking.items.map((item) => {
-            // Nếu có tickets, ưu tiên lấy labels (thường ID chính là Label nếu được chuẩn hóa)
-            // Trong hệ thống này, item.seatIds chứa ID thực của ghế
             return [item.tripId, item.seatIds];
         })
       );
@@ -439,7 +437,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
       const newTripMap = new Map<string, string[]>(
         selectionBasket.map((item) => [
           item.trip.id,
-          item.seats.map((s) => s.id), // Luôn dùng s.id để so sánh chính xác với đơn cũ
+          item.seats.map((s) => s.id),
         ])
       );
       
@@ -459,13 +457,12 @@ export const BookingForm: React.FC<BookingFormProps> = ({
           const oldItem = editingBooking.items.find((i) => i.tripId === tripId);
           const tripObj = trips.find(t => t.id === tripId);
 
-          // Ánh xạ ID -> Label để hiển thị cho người dùng
           const getLabel = (id: string) => {
               if (tripObj) {
                   const s = tripObj.seats.find(st => st.id === id);
                   if (s) return s.label;
               }
-              return id; // Fallback
+              return id;
           };
 
           diffTrips.push({
@@ -926,15 +923,14 @@ export const BookingForm: React.FC<BookingFormProps> = ({
         bookingForm={bookingForm}
         paidCash={modalPaymentInput.paidCash}
         paidTransfer={modalPaymentInput.paidTransfer}
-        onMoneyChange={(e) =>
+        onMoneyChange={(e) => {
+          const formatted = formatCurrencyInput(e.target.value);
+          e.target.value = formatted;
           setModalPaymentInput((p) => ({
             ...p,
-            [e.target.name]: parseInt(
-              e.target.value.replace(/\D/g, "") || "0",
-              10
-            ),
+            [e.target.name]: parseCurrency(formatted),
           }))
-        }
+        }}
         initialOverrides={modalInitialOverrides}
       />
 
@@ -980,11 +976,11 @@ export const BookingForm: React.FC<BookingFormProps> = ({
                   <span className="text-xs">Tổng tiền:</span>
                   <div className="flex items-center gap-2 font-medium">
                     <span className="text-slate-400 line-through text-xs">
-                      {updateSummary?.oldPrice.toLocaleString("vi-VN")}
+                      {formatCurrency(updateSummary?.oldPrice)}
                     </span>
                     <ArrowRightIcon size={14} className="text-slate-300" />
                     <span className="text-slate-900 font-bold">
-                      {updateSummary?.newPrice.toLocaleString("vi-VN")} đ
+                      {formatCurrency(updateSummary?.newPrice)} đ
                     </span>
                   </div>
                 </div>
