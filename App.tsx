@@ -108,6 +108,19 @@ function AppContent() {
     return bookings.filter(b => b.items.some(i => i.tripId === selectedTrip.id) && b.status !== "cancelled");
   }, [bookings, selectedTrip]);
 
+  // -- HELPERS --
+  const getCorrectSeatStatus = (seatId: string, tripId: string, excludeBookingId?: string): SeatStatus => {
+    const booking = bookings.find(b => 
+      b.id !== excludeBookingId && 
+      b.status !== "cancelled" && 
+      b.items.some(i => i.tripId === tripId && i.seatIds.includes(seatId))
+    );
+    if (!booking) return SeatStatus.AVAILABLE;
+    if (booking.status === 'payment') return SeatStatus.SOLD;
+    if (booking.status === 'hold') return SeatStatus.HELD;
+    return SeatStatus.BOOKED;
+  };
+
   // -- HANDLERS --
   const handleSeatClick = async (clickedSeat: Seat) => {
     if (!selectedTrip) return;
@@ -132,6 +145,7 @@ function AppContent() {
     if ([SeatStatus.BOOKED, SeatStatus.SOLD, SeatStatus.HELD].includes(clickedSeat.status)) {
       const booking = tripBookings.find(b => b.items.some(i => i.tripId === selectedTrip.id && i.seatIds.includes(clickedSeat.id)));
       if (editingBooking && booking?.id === editingBooking.id) {
+        // Toggling off a seat from the current editing booking
         setTrips(prev => prev.map(t => t.id === selectedTrip.id ? { ...t, seats: t.seats.map(s => s.id === clickedSeat.id ? { ...s, status: SeatStatus.AVAILABLE } : s) } : t));
       } else if (booking) setHighlightedBookingId(booking.id);
       return;
@@ -143,13 +157,26 @@ function AppContent() {
   const handleSelectBookingFromHistory = (booking: Booking) => {
     setEditingBooking(booking);
     setHighlightedBookingId(null);
-    setTrips(prev => prev.map(t => {
-      const matchingItem = booking.items.find(i => i.tripId === t.id);
-      return { ...t, seats: t.seats.map(s => {
-        if (s.status === SeatStatus.SELECTED) return { ...s, status: SeatStatus.AVAILABLE };
-        if (matchingItem?.seatIds.includes(s.id)) return { ...s, status: SeatStatus.SELECTED };
-        return s;
-      })};
+    setTrips(prevTrips => prevTrips.map(trip => {
+      const matchingItemInBooking = booking.items.find(i => i.tripId === trip.id);
+      
+      return { 
+        ...trip, 
+        seats: trip.seats.map(seat => {
+          // Nếu ghế thuộc đơn hàng mới chọn, đặt thành SELECTED
+          if (matchingItemInBooking?.seatIds.includes(seat.id)) {
+            return { ...seat, status: SeatStatus.SELECTED };
+          }
+          
+          // Nếu ghế đang ở trạng thái SELECTED (của đơn hàng cũ đang sửa dở), 
+          // khôi phục trạng thái thực tế của nó thay vì đưa về Available
+          if (seat.status === SeatStatus.SELECTED) {
+            return { ...seat, status: getCorrectSeatStatus(seat.id, trip.id, booking.id) };
+          }
+          
+          return seat;
+        })
+      };
     }));
   };
 
@@ -174,8 +201,24 @@ function AppContent() {
   };
 
   const cancelAllSelections = () => {
-    if (editingBooking) return refreshData().then(() => setEditingBooking(null));
-    setTrips(prev => prev.map(t => ({ ...t, seats: t.seats.map(s => s.status === SeatStatus.SELECTED ? { ...s, status: s.originalStatus || SeatStatus.AVAILABLE } : s) })));
+    if (editingBooking) {
+      setEditingBooking(null);
+      setTrips(prevTrips => prevTrips.map(trip => ({
+        ...trip,
+        seats: trip.seats.map(seat => {
+          if (seat.status === SeatStatus.SELECTED) {
+            return { ...seat, status: getCorrectSeatStatus(seat.id, trip.id) };
+          }
+          return seat;
+        })
+      })));
+      return;
+    }
+    
+    setTrips(prev => prev.map(t => ({ 
+      ...t, 
+      seats: t.seats.map(s => s.status === SeatStatus.SELECTED ? { ...s, status: s.originalStatus || SeatStatus.AVAILABLE } : s) 
+    })));
     toast({ type: "info", title: "Đã hủy chọn" });
   };
 
