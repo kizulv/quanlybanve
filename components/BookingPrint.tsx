@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Printer } from "lucide-react";
 import { Button } from "./ui/Button";
@@ -91,8 +90,8 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
               <div class="text-[10px] font-bold">CÔNG TY TNHH MTV LÊ DŨNG</div>
               <div class="text-[20px] mt-1 font-black leading-none tracking-[0.5px]">PHIẾU ĐẶT VÉ</div>
             </div>
-            <div class="flex flex-col w-[115px]">
-              <div class="text-[10px] uppercase border-[1.5pt] border-black text-center py-[2px]  rounded-none">${title}</div>
+            <div class="flex flex-col w-[110px]">
+              <div class="text-[10px] uppercase border-[1.5pt] border-black text-center py-[2px] font-semibold rounded-none">${title}</div>
                <div class="text-[8px] italic text-center mt-[3px]">Ngày in: ${nowStr}</div>
             </div>
           </div>
@@ -134,11 +133,11 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
               </div>
             </div>
             
-            <div class="w-[30mm] flex flex-col items-center justify-between border-l-[1pt] border-dashed border-black pl-[2mm]">
-              <div class="border-2 border-black p-1 bg-white leading-none rounded-none">
+            <div class="flex flex-col items-center justify-between border-l-[1pt] border-dashed border-black pl-[2mm]">
+              <div class="flex items-center border-2 border-black p-1 rounded-none w-[110px] margin-auto justify-center">
                 <img src="${qrUrl}" width="65" height="65" />
               </div>
-              <div class="w-full text-center border-[1.5pt] border-black py-[1mm] mt-[1mm] rounded-none">
+              <div class="w-[110px] text-center border-[1.5pt] border-black py-[1mm] mt-[1mm] rounded-none">
                  <div class="text-[7.5px] font-black">GIÁ VÉ</div>
                  <div class="text-[10px] font-black">${formatCurrency(
                    tripTotal
@@ -193,7 +192,7 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
     printWindow.document.write(`
       <html>
         <head>
-          <title>${bookingForm.phone} - Phiếu in</title>
+          <title>In phiếu đặt vé - [${bookingForm.phone}]</title>
           <script src="https://cdn.tailwindcss.com"></script>
           <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
           <style>
@@ -221,11 +220,11 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
         <body class="bg-white text-black">
           <div class="no-print bg-black text-white p-3 text-center sticky top-0 z-[1000] border-b border-gray-800">
             <button class="bg-white text-black font-black py-2 px-12 text-sm hover:bg-gray-200 transition-colors" onclick="window.print()">
-              XÁC NHẬN IN PHIẾU
+              IN PHIẾU
             </button>
             <p class="mt-2 text-[11px]">Cài đặt in: Khổ <b>A5</b> • Hướng <b>Ngang (Landscape)</b> • Tỷ lệ <b>100%</b></p>
           </div>
-          <div class="print-wrapper flex flex-col items-center">
+          <div class="print-wrapper flex flex-col items-center justify-between">
             ${pagesHtml}
           </div>
         </body>
