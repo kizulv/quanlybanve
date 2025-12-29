@@ -55,7 +55,7 @@ interface PaymentModalProps {
     finalTotal: number,
     seatOverrides: Record<string, SeatOverride>,
     noteSuffix?: string
-  ) => Promise<void>;
+  ) => Promise<Booking | void>;
   selectionBasket: { trip: BusTrip; seats: Seat[] }[];
   editingBooking?: Booking | null;
   bookingForm: { phone: string; pickup: string; dropoff: string; note: string };
@@ -86,7 +86,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const [localProcessing, setLocalProcessing] = useState(false);
   const [stableItems, setStableItems] = useState<PaymentItem[]>([]);
 
-  // Chụp lại dữ liệu một lần duy nhất khi mở Modal để tránh dữ liệu bị biến mất sau khi lưu (khi selectionBasket trống)
+  // Chụp lại dữ liệu một lần duy nhất khi mở Modal để tránh dữ liệu bị biến mất sau khi lưu
   useEffect(() => {
     if (isOpen && selectionBasket.length > 0 && stableItems.length === 0) {
       const initialItems = selectionBasket.map((item) => {
@@ -175,6 +175,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     field: keyof SeatOverride,
     value: string
   ) => {
+    // Không cho sửa sau khi đã nhấn Hoàn tất
     if (isSaved) return;
     const key = `${tripId}_${seatId}`;
     setSeatOverrides((prev) => {
@@ -242,6 +243,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
     try {
       await onConfirm(finalTotal, finalOverrides, noteSuffix);
+      // Khi lưu thành công, đánh dấu state cục bộ là đã lưu
       setIsSaved(true);
     } catch (e) {
       console.error(e);
@@ -252,13 +254,16 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
   // Logic hiển thị trạng thái active cho các nút
   const isCompleteBtnActive = isBalanceMatched && !isSaved && (!editingBooking || hasChanges) && !localProcessing && !isProcessing;
-  const isPrintBtnActive = isSaved || (editingBooking && !hasChanges && isBalanceMatched);
+  
+  // In phiếu active khi: Đã lưu thành công HOẶC Đơn sửa đã khớp tiền và không thay đổi gì
+  // Cực kỳ quan trọng: Phải có editingBooking với ID thực từ server để mã QR in đúng
+  const isPrintBtnActive = (isSaved && !!editingBooking) || (editingBooking && !hasChanges && isBalanceMatched);
 
   return (
     <Dialog
       isOpen={isOpen}
       onClose={onClose}
-      title={editingBooking ? "Cập nhật thanh toán" : "Thanh toán & Xuất vé"}
+      title={editingBooking && editingBooking.id ? `Thanh toán: #${editingBooking.id.slice(-6).toUpperCase()}` : "Thanh toán & Xuất vé"}
       className="max-w-5xl bg-indigo-950 text-white border-indigo-900"
       headerClassName="bg-indigo-950 border-indigo-900 text-white"
       footer={
@@ -281,7 +286,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                   : "bg-indigo-600 hover:bg-indigo-500 border-indigo-700 shadow-indigo-500/20 active:scale-95"
                 }`}
             >
-              {localProcessing || isProcessing ? "Đang xử lý..." : isSaved ? "Đã hoàn tất" : "Hoàn tất"}
+              {localProcessing || isProcessing ? "Đang xử lý..." : isSaved ? "Đã lưu" : "Hoàn tất"}
             </Button>
           </div>
 
@@ -363,7 +368,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                                 />
                               </div>
                               <input
-                                disabled={isSaved}
                                 type="text"
                                 className="w-full pl-6 pr-2 py-1 text-[11px] bg-indigo-950 border border-indigo-800 rounded focus:border-yellow-400 focus:outline-none text-white placeholder-indigo-500/50 transition-colors"
                                 placeholder="Điểm đón"
@@ -395,7 +399,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                                 />
                               </div>
                               <input
-                                disabled={isSaved}
                                 type="text"
                                 className="w-full pl-6 pr-2 py-1 text-[11px] bg-indigo-950 border border-indigo-800 rounded focus:border-yellow-400 focus:outline-none text-white placeholder-indigo-500/50 transition-colors "
                                 placeholder="Điểm trả"
@@ -422,7 +425,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
                           <div className="w-full sm:w-28 relative shrink-0">
                             <CurrencyInput
-                              disabled={isSaved}
                               title="Giá vé"
                               className={`w-full text-right font-bold text-xs bg-indigo-950 border rounded px-2 py-1 pr-3 focus:outline-none transition-colors ${
                                 isPriceChanged || seat.price === 0
@@ -574,7 +576,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                 <DollarSign size={16} />
               </div>
               <CurrencyInput
-                disabled={isSaved}
                 name="paidCash"
                 value={paidCash}
                 onChange={onMoneyChange}
@@ -590,7 +591,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                 <CreditCard size={16} />
               </div>
               <CurrencyInput
-                disabled={isSaved}
                 name="paidTransfer"
                 value={paidTransfer}
                 onChange={onMoneyChange}

@@ -305,28 +305,34 @@ export const BookingForm: React.FC<BookingFormProps> = ({
         ...result.bookings,
       ]);
 
-      if (result.bookings.length > 0) {
+      const savedBooking = result.bookings[0];
+
+      if (savedBooking) {
         setUndoStack((prev) => [
           ...prev,
           {
             type: "CREATED_BOOKING",
-            bookingId: result.bookings[0].id,
-            phone: result.bookings[0].passenger.phone,
-            seatCount: result.bookings[0].totalTickets,
+            bookingId: savedBooking.id,
+            phone: savedBooking.passenger.phone,
+            seatCount: savedBooking.totalTickets,
             seatLabels: selectionBasket.flatMap((i) =>
               i.seats.map((s) => s.label)
             ),
             tripDate: selectionBasket[0].trip.departureTime,
           },
         ]);
+        
+        // Cập nhật editingBooking để PaymentModal nhận được ID thực từ DB
+        setEditingBooking(savedBooking);
       }
 
-      setBookingForm({ phone: "", pickup: "", dropoff: "", note: "" });
       toast({
         type: "success",
         title: "Thành công",
         message: "Đã tạo đơn hàng thành công.",
       });
+      
+      return savedBooking;
     } catch (e) {
       toast({
         type: "error",
@@ -398,15 +404,18 @@ export const BookingForm: React.FC<BookingFormProps> = ({
         finalPayment,
         status
       );
+      
+      const savedBooking = result.booking;
       setBookings((prev) =>
-        prev.map((b) => (b.id === targetBookingId ? result.booking : b))
+        prev.map((b) => (b.id === targetBookingId ? savedBooking : b))
       );
+      
       const updatedTripsMap = new Map<string, BusTrip>(
         result.updatedTrips.map((t: BusTrip) => [t.id, t])
       );
       setTrips((prev) => prev.map((t) => updatedTripsMap.get(t.id) || t));
 
-      if (oldBooking)
+      if (oldBooking) {
         setUndoStack((prev) => [
           ...prev,
           {
@@ -415,12 +424,18 @@ export const BookingForm: React.FC<BookingFormProps> = ({
             phone: oldBooking.passenger.phone,
           },
         ]);
+      }
+
+      // Cập nhật editingBooking để UI đồng bộ với dữ liệu server mới nhất
+      setEditingBooking(savedBooking);
 
       toast({
         type: "success",
         title: "Thành công",
         message: "Đã lưu thay đổi đơn hàng.",
       });
+      
+      return savedBooking;
     } catch (e) {
       toast({ type: "error", title: "Lỗi", message: "Cập nhật thất bại." });
       throw e;
@@ -503,8 +518,8 @@ export const BookingForm: React.FC<BookingFormProps> = ({
       return;
     }
 
-    if (bookingMode === "booking") processBooking(undefined, {}, "", "booking");
-    else if (bookingMode === "hold") processBooking(undefined, {}, "", "hold");
+    if (bookingMode === "booking") processBooking(undefined, {}, "", "booking").then(() => setEditingBooking(null));
+    else if (bookingMode === "hold") processBooking(undefined, {}, "", "hold").then(() => setEditingBooking(null));
     else handleInitiatePayment();
   };
 
@@ -560,7 +575,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
     noteSuffix: string = ""
   ) => {
     if (pendingPaymentContext?.type === "update" && editingBooking) {
-      await executeBookingUpdate(
+      return await executeBookingUpdate(
         editingBooking.id,
         modalPaymentInput,
         overrides,
@@ -568,7 +583,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
         "payment"
       );
     } else {
-      await processBooking(modalPaymentInput, overrides, noteSuffix);
+      return await processBooking(modalPaymentInput, overrides, noteSuffix);
     }
   };
 
@@ -592,7 +607,6 @@ export const BookingForm: React.FC<BookingFormProps> = ({
         {},
         noteSuffix
       );
-      // Đóng modal chính sau khi lưu thành công cho các mode không in phiếu
       setEditingBooking(null);
     } else {
       const overrides: Record<string, SeatOverride> = {};
@@ -926,7 +940,10 @@ export const BookingForm: React.FC<BookingFormProps> = ({
 
       <PaymentModal
         isOpen={isPaymentModalOpen}
-        onClose={() => setIsPaymentModalOpen(false)}
+        onClose={() => {
+            setIsPaymentModalOpen(false);
+            setEditingBooking(null);
+        }}
         onConfirm={handleConfirmPayment}
         selectionBasket={selectionBasket}
         editingBooking={editingBooking}
