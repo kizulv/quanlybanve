@@ -84,7 +84,7 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
         }, 0);
 
         const renderLien = (title: string) => `
-        <div class="w-[98mm] h-[64mm] border-[1.5pt] border-black p-[2.5mm] pb-[1.5mm] flex flex-col bg-white rounded-none">
+        <div class="w-[97.5mm] h-[64mm] border-[1.5pt] border-black p-[2.5mm] pb-[1.5mm] flex flex-col bg-white rounded-none">
           <div class="flex justify-between items-start border-b-[1.8pt] border-black pb-[1mm] mb-[1.5mm] rounded-none">
             <div class="flex flex-col">
               <div class="text-[10px] font-bold">CÔNG TY TNHH MTV LÊ DŨNG</div>
@@ -167,8 +167,8 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
         <div class="page-container w-[210mm] h-[147mm] relative overflow-hidden bg-white p-[5mm] flex flex-col items-center">
           <!-- Hàng trên -->
           <div class="flex justify-between w-full mb-[8mm]">
-            ${renderLien("LIÊN KHÁCH HÀNG")}
-            <div class="w-[4mm]"></div> <!-- Spacer cho đường cắt dọc -->
+            ${renderLien("LIÊN HÀNH KHÁCH")}
+
             ${renderLien("LIÊN SOÁT VÉ")}
           </div>
           
@@ -178,8 +178,8 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
           </div>
 
           <!-- Đường cắt tuyệt đối -->
-          <div class="absolute left-1/2 top-[5mm] h-[64mm] border-l-[1pt] border-dashed border-black z-50">
-            <span class="absolute top-1/2 left-[-8.5px] -translate-y-1/2 text-[11px] bg-white px-[2px] leading-none">✂</span>
+          <div class="absolute left-[1/2-1pt] top-[5mm] h-[64mm] border-l-[1pt] border-dashed border-black z-50">
+            <span class="absolute top-1/2 left-[-7.5px] -translate-y-1/2 text-[11px] bg-white px-[2px] leading-none">✂</span>
           </div>
           <div class="absolute top-[73mm] left-[5mm] right-[5mm] border-t-[1pt] border-dashed border-black z-50">
             <span class="absolute left-1/2 top-[-6px] -translate-x-1/2 text-[11px] bg-white px-[2px] leading-none">✂</span>
