@@ -1,27 +1,120 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Search, Ticket, Calendar, MapPin, Phone, User, Clock, Bus, 
   CheckCircle2, AlertCircle, ArrowLeft, QrCode, FileClock, 
   Loader2, Plus, Trash2, Edit, ArrowRightLeft, Truck, UserCog, 
-  Banknote, RotateCcw, Info, Zap, CalendarIcon, ArrowRight
+  Banknote, RotateCcw, Info, Zap, CalendarIcon, ArrowRight, LayoutGrid
 } from 'lucide-react';
 import { Button } from './ui/Button';
 import { Badge } from './ui/Badge';
 import { api } from '../lib/api';
-import { Booking, BookingHistory } from '../types';
+import { Booking, BookingHistory, BusTrip, BusType, Seat } from '../types';
 import { formatCurrency } from '../utils/formatters';
 import { formatLunarDate } from '../utils/dateUtils';
+
+const SeatMapPreview: React.FC<{ trip: BusTrip; bookedSeatIds: string[] }> = ({ trip, bookedSeatIds }) => {
+  const isCabin = trip.type === BusType.CABIN;
+  const seats = trip.seats || [];
+  
+  const renderSeat = (seat: Seat) => {
+    const isBooked = bookedSeatIds.includes(seat.id);
+    return (
+      <div 
+        key={seat.id}
+        className={`
+          relative flex items-center justify-center border transition-all duration-200 rounded-sm
+          ${isCabin ? "h-7 w-8 text-[9px]" : "h-6 w-7 text-[8px]"}
+          ${isBooked ? "bg-blue-600 border-blue-700 text-white font-bold shadow-sm" : "bg-slate-300 border-slate-400 text-slate-600"}
+        `}
+        title={`${seat.label} ${isBooked ? '(Ghế của bạn)' : ''}`}
+      >
+        {seat.label}
+      </div>
+    );
+  };
+
+  if (isCabin) {
+    const rows = Array.from(new Set(seats.filter(s => !s.isFloorSeat).map(s => s.row ?? 0))).sort((a, b) => a - b);
+    const floorSeats = seats.filter(s => s.isFloorSeat).sort((a, b) => (a.row ?? 0) - (b.row ?? 0));
+
+    return (
+      <div className="flex gap-2 justify-center bg-slate-50 p-2 rounded border border-slate-200">
+        <div className="flex flex-col gap-1 border-r border-slate-200 pr-2">
+          <div className="text-[8px] font-bold text-slate-400 text-center uppercase mb-1">Dãy B</div>
+          {rows.map(r => (
+            <div key={`row-b-${r}`} className="flex gap-1">
+              {[1, 2].map(f => {
+                const s = seats.find(st => st.row === r && st.col === 0 && st.floor === f);
+                return s ? renderSeat(s) : <div key={`empty-b-${r}-${f}`} className="h-7 w-8" />;
+              })}
+            </div>
+          ))}
+        </div>
+        
+        {floorSeats.length > 0 && (
+          <div className="flex flex-col gap-1 border-r border-slate-200 pr-2">
+            <div className="text-[8px] font-bold text-slate-400 text-center uppercase mb-1">Sàn</div>
+            {floorSeats.map(s => renderSeat(s))}
+          </div>
+        )}
+
+        <div className="flex flex-col gap-1 pl-1">
+          <div className="text-[8px] font-bold text-slate-400 text-center uppercase mb-1">Dãy A</div>
+          {rows.map(r => (
+            <div key={`row-a-${r}`} className="flex gap-1">
+              {[1, 2].map(f => {
+                const s = seats.find(st => st.row === r && st.col === 1 && st.floor === f);
+                return s ? renderSeat(s) : <div key={`empty-a-${r}-${f}`} className="h-7 w-8" />;
+              })}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Sleeper layout
+  const rows = Array.from(new Set(seats.filter(s => !s.isFloorSeat).map(s => s.row ?? 0))).sort((a, b) => a - b);
+  const floorSeats = seats.filter(s => s.isFloorSeat).sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
+
+  return (
+    <div className="flex flex-col gap-3 bg-slate-50 p-2 rounded border border-slate-200">
+      <div className="flex gap-4 justify-center">
+        {[1, 2].map(f => (
+          <div key={`floor-${f}`} className="flex flex-col gap-1">
+            <div className="text-[8px] font-bold text-slate-400 text-center uppercase mb-1">Tầng {f}</div>
+            {rows.map(r => (
+              <div key={`row-${f}-${r}`} className="flex gap-1">
+                {[0, 1, 2].map(c => {
+                  const s = seats.find(st => st.row === r && st.col === c && st.floor === f);
+                  return s ? renderSeat(s) : <div key={`empty-${f}-${r}-${c}`} className="h-6 w-7" />;
+                })}
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+      {floorSeats.length > 0 && (
+        <div className="border-t border-slate-200 pt-2">
+          <div className="text-[8px] font-bold text-slate-400 text-center uppercase mb-1">Vé Sàn</div>
+          <div className="grid grid-cols-6 gap-1 justify-items-center">
+            {floorSeats.map(s => renderSeat(s))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 export const OrderInformation: React.FC = () => {
   const [searchId, setSearchId] = useState('');
   const [booking, setBooking] = useState<Booking | null>(null);
   const [history, setHistory] = useState<BookingHistory[]>([]);
+  const [trips, setTrips] = useState<BusTrip[]>([]);
   const [loading, setLoading] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Xử lý khi quét QR code có tham số ?bookingId=...
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const bookingId = params.get('bookingId');
@@ -53,7 +146,12 @@ export const OrderInformation: React.FC = () => {
     setError(null);
     setHistory([]);
     try {
-      const allBookings = await api.bookings.getAll();
+      const [allBookings, allTrips] = await Promise.all([
+        api.bookings.getAll(),
+        api.trips.getAll()
+      ]);
+      
+      setTrips(allTrips);
       const found = allBookings.find((b: Booking) => 
         b.id === cleanId || 
         b.id.slice(-6).toUpperCase() === cleanId.toUpperCase() ||
@@ -76,11 +174,11 @@ export const OrderInformation: React.FC = () => {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'payment': return <Badge className="bg-green-500">Đã thanh toán</Badge>;
-      case 'booking': return <Badge className="bg-amber-500">Đã đặt chỗ</Badge>;
-      case 'hold': return <Badge className="bg-purple-500">Đang giữ chỗ</Badge>;
-      case 'cancelled': return <Badge variant="destructive">Đã hủy</Badge>;
-      default: return <Badge>{status}</Badge>;
+      case 'payment': return <Badge className="bg-green-500 rounded">Đã thanh toán</Badge>;
+      case 'booking': return <Badge className="bg-amber-500 rounded">Đã đặt chỗ</Badge>;
+      case 'hold': return <Badge className="bg-purple-500 rounded">Đang giữ chỗ</Badge>;
+      case 'cancelled': return <Badge variant="destructive" className="rounded">Đã hủy</Badge>;
+      default: return <Badge className="rounded">{status}</Badge>;
     }
   };
 
@@ -118,11 +216,11 @@ export const OrderInformation: React.FC = () => {
                 <span className={`flex items-center font-black text-slate-800 ${isCancelled ? "line-through text-slate-400" : ""}`}>
                   <MapPin size={13} className="text-slate-600 mr-1" /> {trip.route}
                 </span>
-                <span className="bg-yellow-200 border border-yellow-300 rounded-full flex items-center h-5 px-2 text-[10px] text-slate-900 font-semibold tracking-wider">{trip.licensePlate}</span>
+                <span className="bg-yellow-200 border border-yellow-300 rounded flex items-center h-5 px-2 text-[10px] text-slate-900 font-semibold tracking-wider">{trip.licensePlate}</span>
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {trip.seats.map((s: string) => (
-                  <Badge key={s} className={`${isCancelled ? "bg-red-50 text-red-400 border-red-100 line-through" : "bg-emerald-50 text-emerald-700 border-emerald-200"} text-[10px] font-black px-2 py-0.5`}>{s}</Badge>
+                  <Badge key={s} className={`${isCancelled ? "bg-red-50 text-red-400 border-red-100 line-through" : "bg-emerald-50 text-emerald-700 border-emerald-200"} text-[10px] font-black px-2 py-0.5 rounded`}>{s}</Badge>
                 ))}
               </div>
               <span className="flex items-center text-[11px] text-slate-400 ml-auto"><CalendarIcon size={11} className="mr-1" /> {formatDate(trip.tripDate)}</span>
@@ -138,9 +236,9 @@ export const OrderInformation: React.FC = () => {
             <div key={idx} className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm border-b border-slate-100 border-dashed last:border-b-0 pb-2 last:pb-0">
               <span className="flex items-center font-black text-slate-800"><MapPin size={12} className="mr-1" />{change.route}</span>
               <div className="flex flex-wrap gap-1.5">
-                {change.kept?.map((s: string) => <Badge key={s} className="bg-slate-50 text-slate-600 border-slate-200 font-bold text-[10px] px-2">{s}</Badge>)}
-                {change.removed?.map((s: string) => <Badge key={s} className="bg-red-50 text-red-400 border-red-100 line-through font-bold text-[10px] px-2">{s}</Badge>)}
-                {change.added?.map((s: string) => <Badge key={s} className="bg-emerald-50 text-emerald-700 border-emerald-200 font-black text-[10px] px-2">{s}</Badge>)}
+                {change.kept?.map((s: string) => <Badge key={s} className="bg-slate-50 text-slate-600 border-slate-200 font-bold text-[10px] px-2 rounded">{s}</Badge>)}
+                {change.removed?.map((s: string) => <Badge key={s} className="bg-red-50 text-red-400 border-red-100 line-through font-bold text-[10px] px-2 rounded">{s}</Badge>)}
+                {change.added?.map((s: string) => <Badge key={s} className="bg-emerald-50 text-emerald-700 border-emerald-200 font-black text-[10px] px-2 rounded">{s}</Badge>)}
               </div>
               <span className="flex items-center text-[11px] text-slate-400 ml-auto"><CalendarIcon size={11} className="mr-1" />{formatDate(change.date)}</span>
             </div>
@@ -168,9 +266,9 @@ export const OrderInformation: React.FC = () => {
   return (
     <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in duration-500 pb-20 px-4 md:px-0">
       {/* Search Header */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+      <div className="bg-white p-6 rounded border border-slate-200 shadow-sm">
         <div className="flex items-center gap-3 mb-6">
-          <div className="p-2 bg-primary/10 rounded-lg text-primary"><QrCode size={24} /></div>
+          <div className="p-2 bg-primary/10 rounded text-primary"><QrCode size={24} /></div>
           <div>
             <h2 className="text-xl font-bold text-slate-900">Tra cứu thông tin vé</h2>
             <p className="text-sm text-slate-500">Nhập mã đơn hàng hoặc số điện thoại để xem chi tiết</p>
@@ -180,19 +278,19 @@ export const OrderInformation: React.FC = () => {
           <div className="relative flex-1 group">
             <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors" />
             <input 
-              className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all"
+              className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all"
               placeholder="Mã đơn (6 số cuối) hoặc Số điện thoại..."
               value={searchId}
               onChange={(e) => setSearchId(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
             />
           </div>
-          <Button onClick={() => handleSearch()} disabled={loading} className="rounded-xl px-8 h-[46px]">
+          <Button onClick={() => handleSearch()} disabled={loading} className="rounded px-8 h-[46px]">
             {loading ? <Loader2 size={18} className="animate-spin mr-2" /> : null}
             {loading ? 'Đang kiểm tra...' : 'Tra cứu ngay'}
           </Button>
         </div>
-        {error && <div className="mt-4 p-4 bg-red-50 border border-red-100 rounded-xl flex items-center gap-3 text-red-600 text-sm animate-in slide-in-from-top-2"><AlertCircle size={18} />{error}</div>}
+        {error && <div className="mt-4 p-4 bg-red-50 border border-red-100 rounded flex items-center gap-3 text-red-600 text-sm animate-in slide-in-from-top-2"><AlertCircle size={18} />{error}</div>}
       </div>
 
       {booking && (
@@ -200,7 +298,7 @@ export const OrderInformation: React.FC = () => {
           {/* Main Content Grid: Summary & Payment */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Booking Summary */}
-            <div className="md:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="md:col-span-2 bg-white rounded border border-slate-200 shadow-sm overflow-hidden">
               <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex justify-between items-center">
                 <div className="flex items-center gap-2">
                   <Ticket className="text-primary" size={20} />
@@ -219,7 +317,7 @@ export const OrderInformation: React.FC = () => {
             </div>
 
             {/* Payment Summary */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden p-6 flex flex-col justify-between">
+            <div className="bg-white rounded border border-slate-200 shadow-sm overflow-hidden p-6 flex flex-col justify-between">
               <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2 mb-4"><CheckCircle2 size={14} /> Thanh toán</h3>
               <div className="space-y-4">
                 <div className="flex justify-between items-center"><span className="text-slate-600 font-medium">Tổng tiền vé:</span><span className="text-xl font-black text-slate-900">{formatCurrency(booking.totalPrice)} đ</span></div>
@@ -242,43 +340,63 @@ export const OrderInformation: React.FC = () => {
             <div className="grid grid-cols-1 gap-4">
               {booking.items.map((item, idx) => {
                 const tripDate = new Date(item.tripDate);
+                const fullTrip = trips.find(t => t.id === item.tripId);
                 return (
-                  <div key={idx} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                  <div key={idx} className="bg-white rounded border border-slate-200 shadow-sm overflow-hidden">
                     <div className="p-6">
                       <div className="flex flex-col lg:flex-row justify-between gap-8">
                         <div className="space-y-6 flex-1">
                           <div className="flex items-center gap-4">
-                            <div className="w-14 h-14 bg-primary/5 rounded-2xl flex items-center justify-center text-primary border border-primary/10 shadow-sm shrink-0"><Bus size={28} /></div>
+                            <div className="w-14 h-14 bg-primary/5 rounded flex items-center justify-center text-primary border border-primary/10 shadow-sm shrink-0"><Bus size={28} /></div>
                             <div className="min-w-0">
                               <h4 className="text-xl font-black text-slate-900 truncate">{item.route}</h4>
                               <div className="flex flex-wrap items-center gap-4 text-sm text-slate-500 mt-1">
                                 <span className="flex items-center gap-1.5 bg-slate-50 px-2 py-0.5 rounded border border-slate-100 font-medium"><Calendar size={14} className="text-slate-400" /> {tripDate.toLocaleDateString('vi-VN')}</span>
                                 <span className="flex items-center gap-1.5 bg-slate-50 px-2 py-0.5 rounded border border-slate-100 font-medium"><Clock size={14} className="text-slate-400" /> {item.tripDate.split(' ')[1]}</span>
-                                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-100 font-bold uppercase tracking-wider text-[10px]">{item.busType === 'CABIN' ? 'Phòng VIP' : 'Giường nằm'}</Badge>
+                                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-100 font-bold uppercase tracking-wider text-[10px] rounded">
+                                  {item.busType === 'CABIN' ? 'Phòng VIP' : 'Giường nằm'}
+                                </Badge>
                               </div>
                             </div>
                           </div>
-                          <div className="grid grid-cols-2 gap-6 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                          
+                          <div className="grid grid-cols-2 gap-6 p-4 bg-slate-50 rounded border border-slate-100">
                             <div className="space-y-1"><span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Biển số xe</span><div className="font-black text-slate-700 text-lg">{item.licensePlate}</div></div>
                             <div className="space-y-1 text-right lg:text-left"><span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Điểm đón khách</span><div className="font-bold text-slate-700 truncate" title={item.tickets[0]?.pickup || 'Đón tại văn phòng'}>{item.tickets[0]?.pickup || 'Văn phòng'}</div></div>
                           </div>
+
+                          {/* Seat Map Visualizer */}
+                          {fullTrip && (
+                            <div className="pt-4 border-t border-slate-100">
+                              <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                <LayoutGrid size={14} /> Sơ đồ vị trí giường
+                              </h5>
+                              <div className="flex justify-center md:justify-start">
+                                <SeatMapPreview trip={fullTrip} bookedSeatIds={item.seatIds} />
+                              </div>
+                              <div className="flex gap-4 mt-3 text-[10px] font-bold uppercase text-slate-400 justify-center md:justify-start">
+                                <div className="flex items-center gap-1.5"><div className="w-3 h-3 bg-blue-600 rounded-sm"></div> Ghế của bạn</div>
+                                <div className="flex items-center gap-1.5"><div className="w-3 h-3 bg-slate-300 rounded-sm"></div> Ghế khác</div>
+                              </div>
+                            </div>
+                          )}
                         </div>
 
                         <div className="lg:w-[40%] space-y-4 border-t lg:border-t-0 lg:border-l border-slate-100 pt-6 lg:pt-0 lg:pl-8">
                            <div className="flex items-center justify-between">
                               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Danh sách ghế & Giá vé</span>
-                              <Badge className="bg-primary/10 text-primary border-transparent font-bold">{item.tickets.length} ghế</Badge>
+                              <Badge className="bg-primary/10 text-primary border-transparent font-bold rounded">{item.tickets.length} ghế</Badge>
                            </div>
                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 gap-3">
                              {item.tickets.map((t) => (
-                               <div key={t.seatId} className="flex flex-col bg-white border border-slate-200 rounded-xl p-3 shadow-sm hover:border-primary/30 transition-colors">
+                               <div key={t.seatId} className="flex flex-col bg-white border border-slate-200 rounded p-3 shadow-sm hover:border-primary/30 transition-colors">
                                  <span className="text-base font-black text-primary">{t.seatId}</span>
                                  <span className="text-[11px] text-slate-500 font-bold">{formatCurrency(t.price)} đ</span>
                                  {t.note && <span className="text-[9px] text-amber-600 italic mt-1 truncate border-t border-amber-50 pt-1">*{t.note}</span>}
                                </div>
                              ))}
                            </div>
-                           <div className="pt-2 text-[11px] text-slate-400 flex flex-col gap-2 bg-slate-50/50 p-3 rounded-xl border border-dashed border-slate-200">
+                           <div className="pt-2 text-[11px] text-slate-400 flex flex-col gap-2 bg-slate-50/50 p-3 rounded border border-dashed border-slate-200">
                               <div className="flex items-center gap-2"><MapPin size={13} className="text-primary" /> {item.tickets[0]?.pickup || 'Vui lòng xác nhận điểm đón với nhà xe'}</div>
                               <div className="flex items-center gap-2"><Clock size={13} className="text-slate-400" /> Vui lòng có mặt trước giờ chạy 15 phút</div>
                            </div>
@@ -297,10 +415,10 @@ export const OrderInformation: React.FC = () => {
               <h3 className="font-black text-slate-800 flex items-center gap-2 text-lg">
                 <FileClock size={22} className="text-primary" /> Nhật ký hoạt động đơn hàng
               </h3>
-              <Badge variant="outline" className="text-slate-400 border-slate-200 font-medium">Toàn bộ lịch sử</Badge>
+              <Badge variant="outline" className="text-slate-400 border-slate-200 font-medium rounded">Toàn bộ lịch sử</Badge>
             </div>
             
-            <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm min-h-[300px]">
+            <div className="bg-white rounded border border-slate-200 p-8 shadow-sm min-h-[300px]">
               {historyLoading ? (
                 <div className="flex flex-col items-center justify-center py-20 text-slate-400">
                   <Loader2 className="animate-spin mb-4" size={40} />
@@ -349,15 +467,15 @@ export const OrderInformation: React.FC = () => {
                               {theme.icon}
                               {theme.label}
                             </span>
-                            <span className="text-xs text-slate-400 font-bold bg-slate-50 px-3 py-1 rounded-lg border border-slate-100 flex items-center gap-1.5">
+                            <span className="text-xs text-slate-400 font-bold bg-slate-50 px-3 py-1 rounded border border-slate-100 flex items-center gap-1.5">
                               <Clock size={12}/> {formatDate(log.timestamp)}
                             </span>
                           </div>
 
-                          <div className="bg-slate-50/50 p-5 rounded-2xl border border-slate-100 hover:bg-white hover:shadow-xl hover:border-slate-200 transition-all duration-300">
+                          <div className="bg-slate-50/50 p-5 rounded border border-slate-100 hover:bg-white hover:shadow-xl hover:border-slate-200 transition-all duration-300">
                             {renderLogDetails(log)}
                             <div className="mt-3 flex items-start gap-3">
-                              <div className="p-1.5 bg-white rounded-lg border border-slate-100 text-slate-400 shrink-0"><Info size={14}/></div>
+                              <div className="p-1.5 bg-white rounded border border-slate-100 text-slate-400 shrink-0"><Info size={14}/></div>
                               <p className="text-[13px] leading-relaxed text-slate-600 font-medium pt-0.5">{log.description}</p>
                             </div>
                           </div>
@@ -376,7 +494,7 @@ export const OrderInformation: React.FC = () => {
       )}
 
       {!booking && !loading && !error && (
-        <div className="py-32 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded-[2rem] bg-white/50 backdrop-blur-sm">
+        <div className="py-32 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded bg-white/50 backdrop-blur-sm">
           <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-6 border border-slate-200 shadow-inner opacity-40">
             <Ticket size={48} />
           </div>
