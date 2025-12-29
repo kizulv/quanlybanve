@@ -84,11 +84,12 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const [seatOverrides, setSeatOverrides] = useState<Record<string, SeatOverride>>({});
   const [isSaved, setIsSaved] = useState(false);
   const [localProcessing, setLocalProcessing] = useState(false);
+  const [stableItems, setStableItems] = useState<PaymentItem[]>([]);
 
-  // Khởi tạo dữ liệu vé
-  const items: PaymentItem[] = useMemo(() => {
-    if (selectionBasket.length > 0) {
-      return selectionBasket.map((item) => {
+  // Chụp lại dữ liệu một lần duy nhất khi mở Modal để tránh dữ liệu bị biến mất sau khi lưu (khi selectionBasket trống)
+  useEffect(() => {
+    if (isOpen && selectionBasket.length > 0 && stableItems.length === 0) {
+      const initialItems = selectionBasket.map((item) => {
         const busObj = buses.find((b) => b.plate === item.trip.licensePlate);
         return {
           tripId: item.trip.id,
@@ -103,9 +104,16 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           basePrice: item.trip.basePrice || 0,
         };
       });
+      setStableItems(initialItems);
+      setSeatOverrides(initialOverrides || {});
     }
-    return [];
-  }, [selectionBasket, bookingForm, buses]);
+    
+    if (!isOpen) {
+      setStableItems([]);
+      setSeatOverrides({});
+      setIsSaved(false);
+    }
+  }, [isOpen, selectionBasket, buses, bookingForm, initialOverrides]);
 
   const getSeatValues = (
     tripId: string,
@@ -130,12 +138,10 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     };
   };
 
-  const { totalOriginal, finalTotal } = useMemo(() => {
-    let original = 0;
+  const { finalTotal } = useMemo(() => {
     let final = 0;
-    items.forEach((trip) => {
+    stableItems.forEach((trip) => {
       trip.seats.forEach((seat) => {
-        original += seat.price;
         const { price } = getSeatValues(
           trip.tripId,
           seat,
@@ -146,8 +152,8 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         final += price;
       });
     });
-    return { totalOriginal: original, finalTotal: final };
-  }, [items, seatOverrides]);
+    return { finalTotal: final };
+  }, [stableItems, seatOverrides]);
 
   const previouslyPaid = editingBooking
     ? (editingBooking.payment?.paidCash || 0) + (editingBooking.payment?.paidTransfer || 0)
@@ -157,9 +163,9 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const remainingBalance = finalTotal - currentInputTotal;
   const isBalanceMatched = currentInputTotal === finalTotal && finalTotal > 0;
 
-  // Kiểm tra xem người dùng có thực hiện thay đổi nào không so với dữ liệu gốc
+  // Kiểm tra xem có bất kỳ thay đổi nào so với dữ liệu khởi tạo không
   const hasChanges = useMemo(() => {
-    if (!editingBooking) return true; // Đơn mới luôn coi là có thay đổi
+    if (!editingBooking) return true;
     return JSON.stringify(seatOverrides) !== JSON.stringify(initialOverrides);
   }, [seatOverrides, initialOverrides, editingBooking]);
 
@@ -169,6 +175,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     field: keyof SeatOverride,
     value: string
   ) => {
+    if (isSaved) return;
     const key = `${tripId}_${seatId}`;
     setSeatOverrides((prev) => {
       const current = prev[key] || {};
@@ -193,6 +200,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   };
 
   const handleQuickSettle = (method: "cash" | "transfer") => {
+    if (isSaved) return;
     const gap = remainingBalance;
     const currentVal = method === "cash" ? paidCash : paidTransfer;
     const newVal = Math.max(0, currentVal + gap);
@@ -206,7 +214,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   };
 
   const handleConfirmClick = async () => {
-    if (!isBalanceMatched) return;
+    if (!isBalanceMatched || isSaved) return;
     setLocalProcessing(true);
 
     let noteSuffix = "";
@@ -217,7 +225,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     }
 
     const finalOverrides: Record<string, SeatOverride> = { ...seatOverrides };
-    items.forEach((trip) => {
+    stableItems.forEach((trip) => {
       trip.seats.forEach((seat) => {
         const key = `${trip.tripId}_${seat.id}`;
         const { price } = getSeatValues(
@@ -242,16 +250,9 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     }
   };
 
-  useEffect(() => {
-    if (isOpen) {
-      setSeatOverrides(initialOverrides);
-      setIsSaved(false);
-    }
-  }, [isOpen, initialOverrides]);
-
-  // Logic kích hoạt nút
-  const isCompleteDisabled = !isBalanceMatched || isSaved || (editingBooking && !hasChanges) || localProcessing || isProcessing;
-  const isPrintDisabled = !(isSaved || (editingBooking && !hasChanges && isBalanceMatched));
+  // Logic hiển thị trạng thái active cho các nút
+  const isCompleteBtnActive = isBalanceMatched && !isSaved && (!editingBooking || hasChanges) && !localProcessing && !isProcessing;
+  const isPrintBtnActive = isSaved || (editingBooking && !hasChanges && isBalanceMatched);
 
   return (
     <Dialog
@@ -273,11 +274,11 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             
             <Button
               onClick={handleConfirmClick}
-              disabled={isCompleteDisabled}
-              className={`h-10 px-8 font-bold text-xs shadow-lg transition-all min-w-[140px] border border-indigo-700 text-white
-                ${isCompleteDisabled 
-                  ? "bg-indigo-900/50 opacity-40 cursor-not-allowed shadow-none border-indigo-900" 
-                  : "bg-indigo-600 hover:bg-indigo-500 shadow-indigo-500/20 active:scale-95"
+              disabled={!isCompleteBtnActive}
+              className={`h-10 px-8 font-bold text-xs shadow-lg transition-all min-w-[140px] border text-white
+                ${!isCompleteBtnActive 
+                  ? "bg-indigo-900/50 opacity-40 cursor-not-allowed border-indigo-900 shadow-none" 
+                  : "bg-indigo-600 hover:bg-indigo-500 border-indigo-700 shadow-indigo-500/20 active:scale-95"
                 }`}
             >
               {localProcessing || isProcessing ? "Đang xử lý..." : isSaved ? "Đã hoàn tất" : "Hoàn tất"}
@@ -285,28 +286,28 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           </div>
 
           <BookingPrint
-            items={items}
+            items={stableItems}
             bookingForm={bookingForm}
             paidCash={paidCash}
             paidTransfer={paidTransfer}
             finalTotal={finalTotal}
             getSeatValues={getSeatValues}
             bookingId={editingBooking?.id}
-            disabled={isPrintDisabled}
+            disabled={!isPrintBtnActive}
           />
         </div>
       }
     >
       <div className="flex flex-col md:flex-row h-full md:h-[550px]">
         <div className="flex-1 overflow-y-auto p-4 bg-indigo-950/50">
-          {items.length === 0 && (
+          {stableItems.length === 0 && (
             <div className="text-center py-10 text-indigo-400 italic text-sm">
               Không có dữ liệu vé.
             </div>
           )}
 
           <div className="space-y-4">
-            {items.map((trip) => {
+            {stableItems.map((trip) => {
               const tripDate = new Date(trip.tripDate);
               return (
                 <div
