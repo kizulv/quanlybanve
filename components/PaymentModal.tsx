@@ -140,9 +140,9 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     ? (editingBooking.payment?.paidCash || 0) +
       (editingBooking.payment?.paidTransfer || 0)
     : 0;
-  const diffFromPrevious = finalTotal - previouslyPaid;
   const currentInputTotal = paidCash + paidTransfer;
   const remainingBalance = finalTotal - currentInputTotal;
+  const isBalanceMatched = currentInputTotal === finalTotal;
 
   const getActionInfo = () => {
     if (isProcessing)
@@ -151,30 +151,16 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         colorClass: "bg-slate-600 border-slate-700",
       };
 
-    if (editingBooking) {
-      if (remainingBalance === 0)
-        return {
-          text: "Cập nhật đơn hàng",
-          colorClass:
-            "bg-blue-600 hover:bg-blue-50 border-blue-700 text-white",
-        };
+    if (!isBalanceMatched) {
       return {
-        text: "Xác nhận & Lưu",
-        colorClass:
-          "bg-indigo-600 hover:bg-indigo-50 border-indigo-700 text-white",
+        text: "Hoàn tất",
+        colorClass: "bg-slate-600 border-slate-700 text-slate-400 cursor-not-allowed",
       };
     }
 
-    if (remainingBalance <= 0)
-      return {
-        text: "Xác nhận thanh toán",
-        colorClass:
-          "bg-indigo-600 hover:bg-indigo-50 border-indigo-700 text-white",
-      };
     return {
-      text: "Lưu công nợ",
-      colorClass:
-        "bg-yellow-500 hover:bg-yellow-400 text-indigo-950 border-yellow-600",
+      text: "Hoàn tất",
+      colorClass: "bg-indigo-600 hover:bg-indigo-500 border-indigo-700 text-white shadow-indigo-500/20",
     };
   };
 
@@ -223,7 +209,11 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   };
 
   const handleConfirmClick = () => {
+    if (!isBalanceMatched) return;
+
     let noteSuffix = "";
+    // Note: Since button is disabled until matched, these suffixes might not be needed
+    // but we keep the logic for edge cases or future changes
     if (remainingBalance > 0) {
       noteSuffix = `(Cần thu thêm: ${formatCurrency(remainingBalance)}đ)`;
     } else if (remainingBalance < 0) {
@@ -464,61 +454,69 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             </div>
           </div>
 
-          {editingBooking && diffFromPrevious !== 0 && (
-            <div
-              className={`p-4 rounded-xl border shadow-sm animate-in fade-in slide-in-from-top-2 flex flex-col gap-3
-                   ${
-                     diffFromPrevious > 0
-                       ? "bg-amber-950/40 border-amber-700/50 text-amber-100"
-                       : "bg-blue-950/40 border-blue-700/50 text-blue-100"
-                   }
-               `}
-            >
-              <div className="flex items-start gap-3">
-                <div
-                  className={`p-2 rounded-full shrink-0 ${
-                    diffFromPrevious > 0
-                      ? "bg-amber-500/20 text-amber-400"
-                      : "bg-blue-500/20 text-blue-400"
-                  }`}
-                >
-                  {diffFromPrevious > 0 ? (
-                    <AlertCircle size={20} />
-                  ) : (
-                    <RotateCcw size={20} />
-                  )}
-                </div>
-                <div>
-                  <h4 className="font-bold text-sm">
-                    {diffFromPrevious > 0 ? "Cần thu thêm" : "Cần hoàn lại"}
-                  </h4>
-                  <div className="text-2xl font-bold mt-1">
-                    {formatCurrency(Math.abs(diffFromPrevious))}{" "}
-                    <span className="text-xs font-normal opacity-70">đ</span>
-                  </div>
+          <div
+            className={`p-4 rounded-xl border shadow-sm animate-in fade-in slide-in-from-top-2 flex flex-col gap-3
+                 ${
+                   remainingBalance > 0
+                     ? "bg-amber-950/40 border-amber-700/50 text-amber-100"
+                     : isBalanceMatched
+                     ? "bg-green-950/40 border-green-700/50 text-green-100"
+                     : "bg-blue-950/40 border-blue-700/50 text-blue-100"
+                 }
+             `}
+          >
+            <div className="flex items-start gap-3">
+              <div
+                className={`p-2 rounded-full shrink-0 ${
+                  remainingBalance > 0
+                    ? "bg-amber-500/20 text-amber-400"
+                    : isBalanceMatched
+                    ? "bg-green-500/20 text-green-400"
+                    : "bg-blue-500/20 text-blue-400"
+                }`}
+              >
+                {remainingBalance > 0 ? (
+                  <AlertCircle size={20} />
+                ) : isBalanceMatched ? (
+                  <CheckCircle2 size={20} />
+                ) : (
+                  <RotateCcw size={20} />
+                )}
+              </div>
+              <div>
+                <h4 className="font-bold text-sm">
+                  {remainingBalance > 0
+                    ? "Cần thu thêm"
+                    : isBalanceMatched
+                    ? "Đã khớp tiền"
+                    : "Cần hoàn lại"}
+                </h4>
+                <div className="text-2xl font-bold mt-1">
+                  {formatCurrency(Math.abs(remainingBalance))}{" "}
+                  <span className="text-xs font-normal opacity-70">đ</span>
                 </div>
               </div>
-
-              {remainingBalance !== 0 && (
-                <div className="grid grid-cols-2 gap-2 mt-1">
-                  <button
-                    onClick={() => handleQuickSettle("cash")}
-                    className="text-[10px] font-bold py-2 px-2 rounded border transition-colors flex items-center justify-center gap-1 bg-white/10 hover:bg-white/20"
-                  >
-                    <DollarSign size={10} />{" "}
-                    {diffFromPrevious > 0 ? "Thu TM" : "Hoàn TM"}
-                  </button>
-                  <button
-                    onClick={() => handleQuickSettle("transfer")}
-                    className="text-[10px] font-bold py-2 px-2 rounded border transition-colors flex items-center justify-center gap-1 bg-white/10 hover:bg-white/20"
-                  >
-                    <CreditCard size={10} />{" "}
-                    {diffFromPrevious > 0 ? "Thu CK" : "Hoàn CK"}
-                  </button>
-                </div>
-              )}
             </div>
-          )}
+
+            {!isBalanceMatched && (
+              <div className="grid grid-cols-2 gap-2 mt-1">
+                <button
+                  onClick={() => handleQuickSettle("cash")}
+                  className="text-[10px] font-bold py-2 px-2 rounded border transition-colors flex items-center justify-center gap-1 bg-white/10 hover:bg-white/20"
+                >
+                  <DollarSign size={10} />{" "}
+                  {remainingBalance > 0 ? "Thu TM" : "Hoàn TM"}
+                </button>
+                <button
+                  onClick={() => handleQuickSettle("transfer")}
+                  className="text-[10px] font-bold py-2 px-2 rounded border transition-colors flex items-center justify-center gap-1 bg-white/10 hover:bg-white/20"
+                >
+                  <CreditCard size={10} />{" "}
+                  {remainingBalance > 0 ? "Thu CK" : "Hoàn CK"}
+                </button>
+              </div>
+            )}
+          </div>
 
           <div className="space-y-3 pt-2">
             <div className="text-xs font-bold text-indigo-400 uppercase tracking-wider mb-2">
@@ -556,30 +554,10 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             </div>
           </div>
 
-          {remainingBalance > 0 ? (
-            <div className="p-2 rounded bg-red-950/30 border border-red-900/50 text-right text-xs text-red-400 font-bold flex justify-between items-center">
-              <span>Đang thiếu:</span>
-              <span>{formatCurrency(remainingBalance)} đ</span>
-            </div>
-          ) : remainingBalance < 0 ? (
-            <div className="p-2 rounded bg-blue-950/30 border border-blue-900/50 text-right text-xs text-blue-400 font-bold flex justify-between items-center">
-              <span className="flex items-center gap-1">
-                <RotateCcw size={12} /> Đang dư:
-              </span>
-              <span>
-                {formatCurrency(Math.abs(remainingBalance))} đ
-              </span>
-            </div>
-          ) : (
-            <div className="p-2 rounded bg-green-950/30 border border-green-900/50 text-right text-xs text-green-400 font-bold flex justify-center items-center gap-2">
-              <CheckCircle2 size={14} /> Đã khớp thanh toán
-            </div>
-          )}
-
           <div className="mt-auto space-y-3 pt-2">
             <Button
               onClick={handleConfirmClick}
-              disabled={isProcessing}
+              disabled={isProcessing || !isBalanceMatched}
               className={`w-full h-10 font-bold text-sm shadow-lg transition-all ${actionInfo.colorClass}`}
             >
               {actionInfo.text}

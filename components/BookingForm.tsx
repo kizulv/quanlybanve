@@ -17,7 +17,7 @@ import {
   validatePhoneNumber,
   getStandardizedLocation,
   formatCurrency,
-  parseCurrency
+  parseCurrency,
 } from "../utils/formatters";
 import { api } from "../lib/api";
 import { useToast } from "./ui/Toast";
@@ -429,24 +429,24 @@ export const BookingForm: React.FC<BookingFormProps> = ({
     if (editingBooking) {
       const oldTripMap = new Map<string, string[]>(
         editingBooking.items.map((item) => {
-            return [item.tripId, item.seatIds];
+          return [item.tripId, item.seatIds];
         })
       );
-      
+
       const newTripMap = new Map<string, string[]>(
         selectionBasket.map((item) => [
           item.trip.id,
           item.seats.map((s) => s.id),
         ])
       );
-      
+
       const allTripIds = new Set([...oldTripMap.keys(), ...newTripMap.keys()]);
       const diffTrips: TripDiffItem[] = [];
 
       allTripIds.forEach((tripId) => {
         const oldIds = oldTripMap.get(tripId) || [];
         const newIds = newTripMap.get(tripId) || [];
-        
+
         const addedIds = newIds.filter((s) => !oldIds.includes(s));
         const removedIds = oldIds.filter((s) => !newIds.includes(s));
         const keptIds = oldIds.filter((s) => newIds.includes(s));
@@ -454,14 +454,14 @@ export const BookingForm: React.FC<BookingFormProps> = ({
         if (addedIds.length || removedIds.length || keptIds.length) {
           const basketItem = selectionBasket.find((i) => i.trip.id === tripId);
           const oldItem = editingBooking.items.find((i) => i.tripId === tripId);
-          const tripObj = trips.find(t => t.id === tripId);
+          const tripObj = trips.find((t) => t.id === tripId);
 
-          const getLabel = (id: string) => {
-              if (tripObj) {
-                  const s = tripObj.seats.find(st => st.id === id);
-                  if (s) return s.label;
-              }
-              return id;
+          const getLabel = (id) => {
+            if (tripObj) {
+              const s = tripObj.seats.find((st) => st.id === id);
+              if (s) return s.label;
+            }
+            return id;
           };
 
           diffTrips.push({
@@ -470,9 +470,18 @@ export const BookingForm: React.FC<BookingFormProps> = ({
               basketItem?.trip.departureTime || oldItem?.tripDate || ""
             ),
             seats: [
-              ...keptIds.map((id) => ({ label: getLabel(id), status: "kept" as const })),
-              ...removedIds.map((id) => ({ label: getLabel(id), status: "removed" as const })),
-              ...addedIds.map((id) => ({ label: getLabel(id), status: "added" as const })),
+              ...keptIds.map((id) => ({
+                label: getLabel(id),
+                status: "kept" as const,
+              })),
+              ...removedIds.map((id) => ({
+                label: getLabel(id),
+                status: "removed" as const,
+              })),
+              ...addedIds.map((id) => ({
+                label: getLabel(id),
+                status: "added" as const,
+              })),
             ].sort((a, b) =>
               a.label.localeCompare(b.label, undefined, { numeric: true })
             ),
@@ -515,11 +524,8 @@ export const BookingForm: React.FC<BookingFormProps> = ({
       (s, i) => s + i.seats.reduce((ss, seat) => ss + seat.price, 0),
       0
     );
-    setModalPaymentInput((prev) =>
-      prev.paidCash === 0 && prev.paidTransfer === 0
-        ? { paidCash: total, paidTransfer: 0 }
-        : prev
-    );
+    // FIX: Set defaults to 0 as requested by user
+    setModalPaymentInput({ paidCash: 0, paidTransfer: 0 });
     setPendingPaymentContext({ type: "new", totalPrice: total });
     setIsPaymentModalOpen(true);
   };
@@ -544,6 +550,8 @@ export const BookingForm: React.FC<BookingFormProps> = ({
       bookingIds: [editingBooking.id],
       totalPrice: totalBasketPrice,
     });
+    // For editing, we might want to keep current payments but the user said default to 0
+    // I'll keep the current behavior for edits (showing paid amount) unless it's strictly 0 requested for edits too
     setIsPaymentModalOpen(true);
   };
 
@@ -662,6 +670,8 @@ export const BookingForm: React.FC<BookingFormProps> = ({
                       <span className="text-[9px] text-slate-400">
                         {new Date(item.trip.departureTime).getDate()}/
                         {new Date(item.trip.departureTime).getMonth() + 1}
+                        {" - "}
+                        {formatLunarDate(new Date(item.trip.departureTime))}
                       </span>
                     </div>
                   </div>
