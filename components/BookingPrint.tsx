@@ -1,9 +1,8 @@
 import React, { useState } from "react";
-import { Printer, ChevronDown, FileText, Layout } from "lucide-react";
+import { Printer, FileText, Layout, Check } from "lucide-react";
 import { Button } from "./ui/Button";
 import { formatCurrency } from "../utils/formatters";
 import { formatLunarDate } from "../utils/dateUtils";
-import { Popover } from "./ui/Popover";
 import QRCode from "qrcode";
 
 interface BookingPrintProps {
@@ -35,7 +34,9 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
   disabled = false,
   bookingId,
 }) => {
-  const handlePrintReceipt = async (format: PrintFormat) => {
+  const [format, setFormat] = useState<PrintFormat>("A5_LANDSCAPE");
+
+  const handlePrintReceipt = async () => {
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
 
@@ -50,8 +51,6 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
     // Cấu hình theo khổ in
     const isA4 = format === "A4_PORTRAIT";
     const pageSizeCss = isA4 ? "A4 portrait" : "A5 landscape";
-    // Khổ A5 ngang là 210x148. Khổ A4 đứng là 210x297.
-    // Nếu in A4 đứng, ta vẫn giữ chiều rộng 210mm nhưng có thể cho chiều cao thoải mái hơn hoặc căn giữa.
     const containerHeight = isA4 ? "min-h-[280mm]" : "h-[147mm]";
     const contentMarginTop = isA4 ? "mt-[20mm]" : "mt-0";
 
@@ -82,7 +81,6 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
         const qrUrl = qrDataUrls[tripIndex];
         const departureTimeOnly = trip.tripDate.split(" ")[1] || "";
 
-        // Tính tổng tiền cho riêng chuyến xe này dựa trên danh sách ghế
         const tripTotal = trip.seats.reduce((sum: number, seat: any) => {
           const vals = getSeatValues(
             trip.tripId,
@@ -177,18 +175,13 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
         return `
         <div class="page-container w-[210mm] ${containerHeight} relative overflow-hidden bg-white p-[5mm] flex flex-col items-center">
           <div class="${contentMarginTop} flex flex-col items-center w-full">
-            <!-- Hàng trên -->
             <div class="flex justify-between w-full mb-[8mm]">
               ${renderLien("LIÊN HÀNH KHÁCH")}
               ${renderLien("LIÊN SOÁT VÉ")}
             </div>
-            
-            <!-- Hàng dưới -->
             <div class="flex justify-center w-full">
               ${renderLien("LIÊN ĐỐI SOÁT")}
             </div>
-
-            <!-- Đường cắt tuyệt đối tương đối với cụm nội dung -->
             <div class="absolute left-[105mm] top-[5mm] h-[64mm] border-l-[1pt] border-dashed border-black z-50 ${isA4 ? 'translate-y-[20mm]' : ''}">
               <span class="absolute top-1/2 left-[-7.5px] -translate-y-1/2 text-[11px] bg-white px-[2px] leading-none">✂</span>
             </div>
@@ -211,21 +204,11 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
             @page { size: ${pageSizeCss}; margin: 0; }
             * { -webkit-print-color-adjust: exact; border-radius: 0 !important; box-sizing: border-box; }
             body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; background: white; }
-            
-            .page-container {
-              page-break-after: always;
-            }
-            .page-container:last-child {
-              page-break-after: auto;
-            }
-
+            .page-container { page-break-after: always; }
+            .page-container:last-child { page-break-after: auto; }
             @media print { 
               .no-print { display: none !important; }
-              html, body { 
-                width: 210mm; 
-                height: auto;
-                overflow: visible; 
-              }
+              html, body { width: 210mm; height: auto; overflow: visible; }
             }
           </style>
         </head>
@@ -234,7 +217,7 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
             <button class="bg-white text-black font-black py-2 px-12 text-sm hover:bg-gray-200 transition-colors" onclick="window.print()">
               IN PHIẾU
             </button>
-            <p class="mt-2 text-[11px]">Cài đặt in: Khổ <b>${isA4 ? 'A4' : 'A5'}</b> • Hướng <b>${isA4 ? 'Đứng (Portrait)' : 'Ngang (Landscape)'}</b> • Tỷ lệ <b>100%</b></p>
+            <p class="mt-2 text-[11px]">Cài đặt in: Khổ <b>${isA4 ? 'A4' : 'A5'}</b> • Hướng <b>${isA4 ? 'Đứng (Portrait)' : 'Ngang (Landscape)'}</b></p>
           </div>
           <div class="print-wrapper flex flex-col items-center justify-between">
             ${pagesHtml}
@@ -246,56 +229,49 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
   };
 
   return (
-    <Popover
-      align="right"
-      trigger={
-        <Button
-          variant="outline"
+    <div className="flex flex-col items-center gap-1.5 min-w-[140px]">
+      <Button
+        variant="outline"
+        disabled={disabled}
+        onClick={handlePrintReceipt}
+        className="border-indigo-700 text-indigo-100 hover:bg-indigo-800 bg-indigo-900/40 h-10 px-4 text-xs font-bold flex items-center justify-center gap-2 w-full transition-all active:scale-95 shadow-lg shadow-indigo-900/20"
+      >
+        <Printer size={14} />
+        In phiếu
+      </Button>
+      
+      <div className="flex p-0.5 bg-indigo-950/40 border border-indigo-800/60 rounded-lg w-full">
+        <button
+          onClick={() => setFormat("A5_LANDSCAPE")}
           disabled={disabled}
-          className="border-indigo-700 text-indigo-100 hover:bg-indigo-800 bg-indigo-900/40 h-11 px-4 text-sm font-bold flex items-center justify-center gap-2 min-w-[120px]"
+          className={`flex-1 flex flex-col items-center justify-center py-1 px-1 rounded-md transition-all ${
+            format === "A5_LANDSCAPE" 
+              ? "bg-indigo-600 text-white shadow-sm ring-1 ring-indigo-400/30" 
+              : "text-indigo-400 hover:text-indigo-200 hover:bg-indigo-900/30"
+          }`}
+          title="In khổ A5 ngang"
         >
-          <Printer size={16} />
-          In phiếu
-          <ChevronDown size={14} className="opacity-50" />
-        </Button>
-      }
-      content={(close) => (
-        <div className="w-56 bg-white rounded-lg shadow-xl border border-slate-200 p-1 flex flex-col gap-1 overflow-hidden z-[1001]">
-          <div className="px-3 py-2 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">
-            Chọn khổ giấy in
+          <div className="flex items-center gap-1">
+             <Layout size={11} className={format === "A5_LANDSCAPE" ? "text-white" : "text-indigo-500"} />
+             <span className="text-[9px] font-black uppercase tracking-tighter">A5 Ngang</span>
           </div>
-          <button
-            onClick={() => {
-              handlePrintReceipt("A5_LANDSCAPE");
-              close();
-            }}
-            className="flex items-center gap-3 w-full p-3 text-left hover:bg-slate-50 rounded-md transition-colors group"
-          >
-            <div className="p-2 bg-blue-50 text-blue-600 rounded-lg group-hover:bg-blue-100">
-              <Layout size={18} />
-            </div>
-            <div className="flex flex-col">
-              <span className="text-sm font-bold text-slate-900">A5 Nằm ngang</span>
-              <span className="text-[10px] text-slate-500">Khổ chuẩn (210 x 148 mm)</span>
-            </div>
-          </button>
-          <button
-            onClick={() => {
-              handlePrintReceipt("A4_PORTRAIT");
-              close();
-            }}
-            className="flex items-center gap-3 w-full p-3 text-left hover:bg-slate-50 rounded-md transition-colors group"
-          >
-            <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg group-hover:bg-indigo-100">
-              <FileText size={18} />
-            </div>
-            <div className="flex flex-col">
-              <span className="text-sm font-bold text-slate-900">A4 Đứng</span>
-              <span className="text-[10px] text-slate-500">Khổ văn phòng (210 x 297 mm)</span>
-            </div>
-          </button>
-        </div>
-      )}
-    />
+        </button>
+        <button
+          onClick={() => setFormat("A4_PORTRAIT")}
+          disabled={disabled}
+          className={`flex-1 flex flex-col items-center justify-center py-1 px-1 rounded-md transition-all ${
+            format === "A4_PORTRAIT" 
+              ? "bg-indigo-600 text-white shadow-sm ring-1 ring-indigo-400/30" 
+              : "text-indigo-400 hover:text-indigo-200 hover:bg-indigo-900/30"
+          }`}
+          title="In khổ A4 đứng"
+        >
+          <div className="flex items-center gap-1">
+             <FileText size={11} className={format === "A4_PORTRAIT" ? "text-white" : "text-indigo-500"} />
+             <span className="text-[9px] font-black uppercase tracking-tighter">A4 Đứng</span>
+          </div>
+        </button>
+      </div>
+    </div>
   );
 };
