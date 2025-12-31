@@ -1,82 +1,35 @@
-import React, { useState, useEffect, useMemo } from "react";
-import {
-  Search,
-  Ticket,
-  Calendar,
-  MapPin,
-  Phone,
-  User,
-  Clock,
-  Bus,
-  CheckCircle2,
-  AlertCircle,
-  ArrowLeft,
-  QrCode,
-  FileClock,
-  Loader2,
-  Plus,
-  Trash2,
-  Edit,
-  ArrowRightLeft,
-  Truck,
-  UserCog,
-  Banknote,
-  RotateCcw,
-  Info,
-  Zap,
-  CalendarIcon,
-  ArrowRight,
-  LayoutGrid,
-  Locate,
-  Home,
-  Notebook,
-} from "lucide-react";
-import { Button } from "./ui/Button";
-import { Badge } from "./ui/Badge";
-import { api } from "../lib/api";
-import { Booking, BookingHistory, BusTrip, BusType, Seat } from "../types";
-import {
-  formatCurrency,
-  formatPhoneNumber,
-  formatDate,
-} from "../utils/formatters";
-import { formatLunarDate } from "../utils/dateUtils";
+import React, { useState, useEffect, useMemo } from 'react';
+import { 
+  Search, Ticket, Calendar, MapPin, Phone, User, Clock, Bus, 
+  CheckCircle2, AlertCircle, ArrowLeft, QrCode, FileClock, 
+  Loader2, Plus, Trash2, Edit, ArrowRightLeft, Truck, UserCog, 
+  Banknote, RotateCcw, Info, Zap, CalendarIcon, ArrowRight, LayoutGrid,
+  Locate, Home
+} from 'lucide-react';
+import { Button } from './ui/Button';
+import { Badge } from './ui/Badge';
+import { api } from '../lib/api';
+import { Booking, BookingHistory, BusTrip, BusType, Seat } from '../types';
+import { formatCurrency } from '../utils/formatters';
+import { formatLunarDate } from '../utils/dateUtils';
 
-const SeatMapPreview: React.FC<{ trip: BusTrip; bookedSeatIds: string[] }> = ({
-  trip,
-  bookedSeatIds,
-}) => {
+const SeatMapPreview: React.FC<{ trip: BusTrip; bookedSeatIds: string[] }> = ({ trip, bookedSeatIds }) => {
   const isCabin = trip.type === BusType.CABIN;
   const seats = trip.seats || [];
-
+  
   const renderSeat = (seat: Seat | undefined) => {
-    if (!seat)
-      return (
-        <div
-          className={`${
-            isCabin ? "h-11 w-10 sm:w-12" : "h-9 w-9 sm:w-11"
-          } rounded-md border border-dashed border-slate-200 bg-slate-50/50`}
-        />
-      );
-
+    if (!seat) return <div className={`${isCabin ? "h-11 w-10 sm:w-12" : "h-9 w-9 sm:w-11"} rounded-md border border-dashed border-slate-200 bg-slate-50/50`} />;
+    
     const isBooked = bookedSeatIds.includes(seat.id);
     return (
-      <div
+      <div 
         key={seat.id}
         className={`
           relative flex items-center justify-center border transition-all duration-200 rounded-md shadow-sm
-          ${
-            isCabin
-              ? "h-11 w-10 sm:w-12 text-[10px]"
-              : "h-9 w-9 sm:w-11 text-[10px]"
-          }
-          ${
-            isBooked
-              ? "bg-blue-600 border-blue-700 text-white font-black ring-2 ring-blue-100"
-              : "bg-slate-200 border-slate-300 text-slate-500 font-bold"
-          }
+          ${isCabin ? "h-11 w-10 sm:w-12 text-[10px]" : "h-9 w-9 sm:w-11 text-[10px]"}
+          ${isBooked ? "bg-blue-600 border-blue-700 text-white font-black ring-2 ring-blue-100" : "bg-slate-200 border-slate-300 text-slate-500 font-bold"}
         `}
-        title={`${seat.label} ${isBooked ? "(Ghế của bạn)" : ""}`}
+        title={`${seat.label} ${isBooked ? '(Ghế của bạn)' : ''}`}
       >
         {seat.label}
       </div>
@@ -84,69 +37,35 @@ const SeatMapPreview: React.FC<{ trip: BusTrip; bookedSeatIds: string[] }> = ({
   };
 
   if (isCabin) {
-    const regularSeats = seats.filter(
-      (s) => !s.isFloorSeat && (s.row ?? 0) < 90
-    );
-    const benchSeats = seats.filter(
-      (s) => !s.isFloorSeat && (s.row ?? 0) >= 90
-    );
-    const rows = Array.from(new Set(regularSeats.map((s) => s.row ?? 0))).sort(
-      (a, b) => a - b
-    );
+    const regularSeats = seats.filter(s => !s.isFloorSeat && (s.row ?? 0) < 90);
+    const benchSeats = seats.filter(s => !s.isFloorSeat && (s.row ?? 0) >= 90);
+    const rows = Array.from(new Set(regularSeats.map(s => s.row ?? 0))).sort((a, b) => a - b);
 
     return (
-      <div className="flex flex-col items-center gap-4 bg-slate-50 p-4 rounded border border-slate-200 w-full overflow-hidden shadow-inner">
+      <div className="flex flex-col items-center gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200 w-full overflow-hidden shadow-inner">
         <div className="grid grid-cols-2 gap-4 sm:gap-8 w-full">
           <div className="flex flex-col items-center">
-            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">
-              Dãy B
-            </div>
+            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Dãy B</div>
             <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
-              <div className="text-[8px] font-bold text-slate-300 text-center uppercase mb-1">
-                T1
-              </div>
-              <div className="text-[8px] font-bold text-slate-300 text-center uppercase mb-1">
-                T2
-              </div>
-              {rows.map((r) => (
+              <div className="text-[8px] font-bold text-slate-300 text-center uppercase mb-1">T1</div>
+              <div className="text-[8px] font-bold text-slate-300 text-center uppercase mb-1">T2</div>
+              {rows.map(r => (
                 <React.Fragment key={`row-b-${r}`}>
-                  {renderSeat(
-                    regularSeats.find(
-                      (s) => s.row === r && s.col === 0 && s.floor === 1
-                    )
-                  )}
-                  {renderSeat(
-                    regularSeats.find(
-                      (s) => s.row === r && s.col === 0 && s.floor === 2
-                    )
-                  )}
+                  {renderSeat(regularSeats.find(s => s.row === r && s.col === 0 && s.floor === 1))}
+                  {renderSeat(regularSeats.find(s => s.row === r && s.col === 0 && s.floor === 2))}
                 </React.Fragment>
               ))}
             </div>
           </div>
           <div className="flex flex-col items-center">
-            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">
-              Dãy A
-            </div>
+            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Dãy A</div>
             <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
-              <div className="text-[8px] font-bold text-slate-300 text-center uppercase mb-1">
-                T1
-              </div>
-              <div className="text-[8px] font-bold text-slate-300 text-center uppercase mb-1">
-                T2
-              </div>
-              {rows.map((r) => (
+              <div className="text-[8px] font-bold text-slate-300 text-center uppercase mb-1">T1</div>
+              <div className="text-[8px] font-bold text-slate-300 text-center uppercase mb-1">T2</div>
+              {rows.map(r => (
                 <React.Fragment key={`row-a-${r}`}>
-                  {renderSeat(
-                    regularSeats.find(
-                      (s) => s.row === r && s.col === 1 && s.floor === 1
-                    )
-                  )}
-                  {renderSeat(
-                    regularSeats.find(
-                      (s) => s.row === r && s.col === 1 && s.floor === 2
-                    )
-                  )}
+                  {renderSeat(regularSeats.find(s => s.row === r && s.col === 1 && s.floor === 1))}
+                  {renderSeat(regularSeats.find(s => s.row === r && s.col === 1 && s.floor === 2))}
                 </React.Fragment>
               ))}
             </div>
@@ -154,13 +73,9 @@ const SeatMapPreview: React.FC<{ trip: BusTrip; bookedSeatIds: string[] }> = ({
         </div>
         {benchSeats.length > 0 && (
           <div className="pt-4 border-t border-slate-200 border-dashed w-full flex flex-col items-center gap-2">
-            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-              Băng cuối
-            </div>
+            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Băng cuối</div>
             <div className="flex gap-2 justify-center">
-              {benchSeats
-                .sort((a, b) => (a.col ?? 0) - (b.col ?? 0))
-                .map((s) => renderSeat(s))}
+              {benchSeats.sort((a,b) => (a.col ?? 0) - (b.col ?? 0)).map(s => renderSeat(s))}
             </div>
           </div>
         )}
@@ -168,33 +83,22 @@ const SeatMapPreview: React.FC<{ trip: BusTrip; bookedSeatIds: string[] }> = ({
     );
   }
 
-  const standardSeats = seats.filter((s) => !s.isFloorSeat && (s.row ?? 0) < 6);
-  const benchSeats = seats.filter((s) => !s.isFloorSeat && (s.row ?? 0) >= 6);
+  const standardSeats = seats.filter(s => !s.isFloorSeat && (s.row ?? 0) < 6);
+  const benchSeats = seats.filter(s => !s.isFloorSeat && (s.row ?? 0) >= 6);
   const rows = [0, 1, 2, 3, 4, 5];
 
   return (
-    <div className="flex flex-col gap-6 bg-slate-50 p-4 rounded border border-slate-200 w-full overflow-hidden shadow-inner">
+    <div className="flex flex-col gap-6 bg-slate-50 p-4 rounded-xl border border-slate-200 w-full overflow-hidden shadow-inner">
       <div className="grid grid-cols-2 gap-3 sm:gap-6 w-full">
-        {[1, 2].map((f) => (
+        {[1, 2].map(f => (
           <div key={`floor-${f}`} className="flex flex-col items-center">
-            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">
-              Tầng {f}
-            </div>
+            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Tầng {f}</div>
             <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
-              {rows.map((r) => (
+              {rows.map(r => (
                 <React.Fragment key={`row-${f}-${r}`}>
-                  {[0, 1, 2].map((c) => {
-                    const s = standardSeats.find(
-                      (st) => st.row === r && st.col === c && st.floor === f
-                    );
-                    return s ? (
-                      renderSeat(s)
-                    ) : (
-                      <div
-                        key={`empty-${f}-${r}-${c}`}
-                        className="h-9 w-9 sm:w-11"
-                      />
-                    );
+                  {[0, 1, 2].map(c => {
+                    const s = standardSeats.find(st => st.row === r && st.col === c && st.floor === f);
+                    return s ? renderSeat(s) : <div key={`empty-${f}-${r}-${c}`} className="h-9 w-9 sm:w-11" />;
                   })}
                 </React.Fragment>
               ))}
@@ -204,25 +108,16 @@ const SeatMapPreview: React.FC<{ trip: BusTrip; bookedSeatIds: string[] }> = ({
       </div>
       {benchSeats.length > 0 && (
         <div className="pt-4 border-t border-slate-200 border-dashed w-full flex flex-col items-center">
-          <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">
-            Băng 5 cuối xe
-          </div>
+          <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Băng 5 cuối xe</div>
           <div className="flex flex-col gap-4 w-full">
-            {[1, 2].map((f) => {
-              const floorBench = benchSeats
-                .filter((s) => s.floor === f)
-                .sort((a, b) => (a.col ?? 0) - (b.col ?? 0));
+            {[1, 2].map(f => {
+              const floorBench = benchSeats.filter(s => s.floor === f).sort((a,b) => (a.col ?? 0) - (b.col ?? 0));
               if (floorBench.length === 0) return null;
               return (
-                <div
-                  key={`bench-row-${f}`}
-                  className="flex flex-col items-center gap-1.5"
-                >
-                  <div className="text-[8px] font-black text-slate-300 uppercase tracking-tighter">
-                    Tầng {f}
-                  </div>
+                <div key={`bench-row-${f}`} className="flex flex-col items-center gap-1.5">
+                   <div className="text-[8px] font-black text-slate-300 uppercase tracking-tighter">Tầng {f}</div>
                   <div className="flex gap-1.5 sm:gap-2 justify-center">
-                    {floorBench.map((s) => renderSeat(s))}
+                    {floorBench.map(s => renderSeat(s))}
                   </div>
                 </div>
               );
@@ -238,10 +133,8 @@ interface OrderInformationProps {
   onBackToDashboard?: () => void;
 }
 
-export const OrderInformation: React.FC<OrderInformationProps> = ({
-  onBackToDashboard,
-}) => {
-  const [searchId, setSearchId] = useState("");
+export const OrderInformation: React.FC<OrderInformationProps> = ({ onBackToDashboard }) => {
+  const [searchId, setSearchId] = useState('');
   const [booking, setBooking] = useState<Booking | null>(null);
   const [history, setHistory] = useState<BookingHistory[]>([]);
   const [trips, setTrips] = useState<BusTrip[]>([]);
@@ -251,7 +144,7 @@ export const OrderInformation: React.FC<OrderInformationProps> = ({
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const bookingId = params.get("bookingId");
+    const bookingId = params.get('bookingId');
     if (bookingId) {
       handleSearch(bookingId);
     }
@@ -262,8 +155,7 @@ export const OrderInformation: React.FC<OrderInformationProps> = ({
     try {
       const data = await api.bookings.getHistory(id);
       const sorted = [...data].sort(
-        (a, b) =>
-          new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+        (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
       );
       setHistory(sorted);
     } catch (error) {
@@ -283,26 +175,25 @@ export const OrderInformation: React.FC<OrderInformationProps> = ({
     try {
       const [allBookings, allTrips] = await Promise.all([
         api.bookings.getAll(),
-        api.trips.getAll(),
+        api.trips.getAll()
       ]);
-
+      
       setTrips(allTrips);
-      const found = allBookings.find(
-        (b: Booking) =>
-          b.id === cleanId ||
-          b.id.slice(-6).toUpperCase() === cleanId.toUpperCase() ||
-          b.passenger.phone === cleanId
+      const found = allBookings.find((b: Booking) => 
+        b.id === cleanId || 
+        b.id.slice(-6).toUpperCase() === cleanId.toUpperCase() ||
+        b.passenger.phone === cleanId
       );
 
       if (found) {
         setBooking(found);
         await fetchHistory(found.id);
       } else {
-        setError("Không tìm thấy thông tin vé, kiểm tra lại số điện thoại.");
+        setError('Không tìm thấy thông tin vé. Vui lòng kiểm tra lại mã đơn hoặc số điện thoại.');
         setBooking(null);
       }
     } catch (e) {
-      setError("Lỗi hệ thống khi tra cứu dữ liệu.");
+      setError('Lỗi hệ thống khi tra cứu dữ liệu.');
     } finally {
       setLoading(false);
     }
@@ -310,128 +201,56 @@ export const OrderInformation: React.FC<OrderInformationProps> = ({
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case "payment":
-        return (
-          <Badge className="font-normal bg-green-500 rounded">
-            Đã thanh toán
-          </Badge>
-        );
-      case "booking":
-        return (
-          <Badge className="font-normal bg-amber-500 rounded">Đã đặt chỗ</Badge>
-        );
-      case "hold":
-        return (
-          <Badge className="font-normal bg-purple-500 rounded">
-            Đang giữ chỗ
-          </Badge>
-        );
-      case "cancelled":
-        return (
-          <Badge variant="destructive" className="rounded">
-            Đã hủy
-          </Badge>
-        );
-      default:
-        return <Badge className="rounded">{status}</Badge>;
+      case 'payment': return <Badge className="bg-green-500 rounded">Đã thanh toán</Badge>;
+      case 'booking': return <Badge className="bg-amber-500 rounded">Đã đặt chỗ</Badge>;
+      case 'hold': return <Badge className="bg-purple-500 rounded">Đang giữ chỗ</Badge>;
+      case 'cancelled': return <Badge variant="destructive" className="rounded">Đã hủy</Badge>;
+      default: return <Badge className="rounded">{status}</Badge>;
     }
   };
 
   const getActionTheme = (action: string) => {
     switch (action) {
-      case "CREATE":
-        return { icon: <Plus size={14} />, color: "emerald", label: "Đặt vé" };
+      case "CREATE": return { icon: <Plus size={14} />, color: "emerald", label: "Tạo đơn" };
       case "DELETE":
-      case "CANCEL":
-        return { icon: <Trash2 size={14} />, color: "red", label: "Hủy vé" };
-      case "UPDATE":
-        return { icon: <Edit size={14} />, color: "blue", label: "Cập nhật" };
-      case "SWAP":
-        return {
-          icon: <ArrowRightLeft size={14} />,
-          color: "purple",
-          label: "Đổi chỗ",
-        };
-      case "TRANSFER":
-        return {
-          icon: <Truck size={14} />,
-          color: "indigo",
-          label: "Điều chuyển",
-        };
-      case "PASSENGER_UPDATE":
-        return {
-          icon: <UserCog size={14} />,
-          color: "orange",
-          label: "Khách hàng",
-        };
-      case "PAY_SEAT":
-        return {
-          icon: <Banknote size={14} />,
-          color: "green",
-          label: "Thu tiền",
-        };
-      case "REFUND_SEAT":
-        return {
-          icon: <RotateCcw size={14} />,
-          color: "red",
-          label: "Hoàn vé",
-        };
-      default:
-        return {
-          icon: <FileClock size={14} />,
-          color: "slate",
-          label: "Hệ thống",
-        };
+      case "CANCEL": return { icon: <Trash2 size={14} />, color: "red", label: "Hủy đơn" };
+      case "UPDATE": return { icon: <Edit size={14} />, color: "blue", label: "Cập nhật" };
+      case "SWAP": return { icon: <ArrowRightLeft size={14} />, color: "purple", label: "Đổi chỗ" };
+      case "TRANSFER": return { icon: <Truck size={14} />, color: "indigo", label: "Điều chuyển" };
+      case "PASSENGER_UPDATE": return { icon: <UserCog size={14} />, color: "orange", label: "Khách hàng" };
+      case "PAY_SEAT": return { icon: <Banknote size={14} />, color: "green", label: "Thu tiền" };
+      case "REFUND_SEAT": return { icon: <RotateCcw size={14} />, color: "red", label: "Hoàn vé" };
+      default: return { icon: <FileClock size={14} />, color: "slate", label: "Hệ thống" };
     }
+  };
+
+  const formatDate = (dateStr: string) => {
+    try {
+      const date = new Date(dateStr);
+      return date.toLocaleDateString("vi-VN") + " " + date.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+    } catch (e) { return dateStr; }
   };
 
   const renderLogDetails = (log: BookingHistory) => {
     const details = log.details || {};
-    if (
-      (log.action === "CREATE" ||
-        log.action === "DELETE" ||
-        log.action === "CANCEL") &&
-      details.trips
-    ) {
+    if ((log.action === "CREATE" || log.action === "DELETE" || log.action === "CANCEL") && details.trips) {
       const isCancelled = log.action === "DELETE" || log.action === "CANCEL";
       return (
         <div className={`space-y-3 mb-2 ${isCancelled ? "opacity-60" : ""}`}>
           {details.trips.map((trip: any, idx: number) => (
-            <div
-              key={idx}
-              className="grid items-center gap-3 text-sm border-b border-slate-200 border-dashed pb-2"
-            >
+            <div key={idx} className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm border-b border-slate-100 border-dashed last:border-b-0 pb-2 last:pb-0">
               <div className="flex items-center gap-2">
-                <span
-                  className={`flex items-center font-black text-slate-800 ${
-                    isCancelled ? "line-through text-slate-400" : ""
-                  }`}
-                >
-                  <MapPin size={13} className="text-slate-600 mr-1" />{" "}
-                  {trip.route}
+                <span className={`flex items-center font-black text-slate-800 ${isCancelled ? "line-through text-slate-400" : ""}`}>
+                  <MapPin size={13} className="text-slate-600 mr-1" /> {trip.route}
                 </span>
-                <span className="bg-yellow-200 border border-yellow-300 rounded flex items-center h-5 px-2 text-[10px] text-slate-900 font-semibold tracking-wider">
-                  {trip.licensePlate}
-                </span>
-                <span className="flex items-center text-[11px] text-slate-400 bg-slate-100 border border-slate-300 rounded px-2 h-5">
-                  <CalendarIcon size={11} className="mr-1" />{" "}
-                  {formatDate(trip.tripDate)}
-                </span>
+                <span className="bg-yellow-200 border border-yellow-300 rounded flex items-center h-5 px-2 text-[10px] text-slate-900 font-semibold tracking-wider">{trip.licensePlate}</span>
               </div>
-              <div className="flex gap-1.5">
+              <div className="flex flex-wrap gap-1.5">
                 {trip.seats.map((s: string) => (
-                  <Badge
-                    key={s}
-                    className={`${
-                      isCancelled
-                        ? "bg-red-50 text-red-400 border-red-100 line-through hover:bg-red-50"
-                        : "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-50 "
-                    } text-[10px] font-black px-2 py-0.5 rounded`}
-                  >
-                    {s}
-                  </Badge>
+                  <Badge key={s} className={`${isCancelled ? "bg-red-50 text-red-400 border-red-100 line-through" : "bg-emerald-50 text-emerald-700 border-emerald-200"} text-[10px] font-black px-2 py-0.5 rounded`}>{s}</Badge>
                 ))}
               </div>
+              <span className="flex items-center text-[11px] text-slate-400 ml-auto"><CalendarIcon size={11} className="mr-1" /> {formatDate(trip.tripDate)}</span>
             </div>
           ))}
         </div>
@@ -439,48 +258,16 @@ export const OrderInformation: React.FC<OrderInformationProps> = ({
     }
     if (log.action === "UPDATE" && details.changes) {
       return (
-        <div className="space-y-3 mb-2 ">
+        <div className="space-y-2">
           {details.changes.map((change: any, idx: number) => (
-            <div
-              key={idx}
-              className="grid items-center gap-3 text-sm border-b border-slate-200 border-dashed pb-2"
-            >
-              <div className="flex items-center gap-2">
-                <span className="flex items-center font-black text-slate-800">
-                  <MapPin size={12} className="mr-1" />
-                  {change.route}
-                </span>
-                <span className="flex items-center text-[11px] text-slate-400 bg-slate-100 border border-slate-300 rounded px-2 h-5">
-                  <CalendarIcon size={11} className="mr-1" />
-                  {formatDate(change.date)}
-                </span>
-              </div>
+            <div key={idx} className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm border-b border-slate-100 border-dashed last:border-b-0 pb-2 last:pb-0">
+              <span className="flex items-center font-black text-slate-800"><MapPin size={12} className="mr-1" />{change.route}</span>
               <div className="flex flex-wrap gap-1.5">
-                {change.kept?.map((s: string) => (
-                  <Badge
-                    key={s}
-                    className="bg-slate-50 text-slate-600 border-slate-200 font-bold text-[10px] px-2 rounded"
-                  >
-                    {s}
-                  </Badge>
-                ))}
-                {change.removed?.map((s: string) => (
-                  <Badge
-                    key={s}
-                    className="bg-red-50 text-red-400 border-red-100 line-through font-bold text-[10px] px-2 rounded"
-                  >
-                    {s}
-                  </Badge>
-                ))}
-                {change.added?.map((s: string) => (
-                  <Badge
-                    key={s}
-                    className="bg-emerald-50 text-emerald-700 border-emerald-200 font-black text-[10px] px-2 rounded"
-                  >
-                    {s}
-                  </Badge>
-                ))}
+                {change.kept?.map((s: string) => <Badge key={s} className="bg-slate-50 text-slate-600 border-slate-200 font-bold text-[10px] px-2 rounded">{s}</Badge>)}
+                {change.removed?.map((s: string) => <Badge key={s} className="bg-red-50 text-red-400 border-red-100 line-through font-bold text-[10px] px-2 rounded">{s}</Badge>)}
+                {change.added?.map((s: string) => <Badge key={s} className="bg-emerald-50 text-emerald-700 border-emerald-200 font-black text-[10px] px-2 rounded">{s}</Badge>)}
               </div>
+              <span className="flex items-center text-[11px] text-slate-400 ml-auto"><CalendarIcon size={11} className="mr-1" />{formatDate(change.date)}</span>
             </div>
           ))}
         </div>
@@ -488,30 +275,14 @@ export const OrderInformation: React.FC<OrderInformationProps> = ({
     }
     if (log.action === "SWAP" && details.from && details.to) {
       return (
-        <div className="grid items-center gap-3 text-sm border-b border-slate-200 border-dashed pb-2">
-          <div className="flex items-center gap-2">
-            <span className="font-black text-purple-900 min-w-[120px]">
-              {details.route}
-            </span>
-            <span className="flex items-center text-[11px] text-slate-400 bg-slate-100 border border-slate-300 rounded px-2 h-5">
-              <CalendarIcon size={11} className="mr-1" />
-              {formatDate(details.date)}
-            </span>
-          </div>
+        <div className="flex items-center gap-6 text-sm">
+          <span className="font-black text-purple-900 min-w-[120px]">{details.route}</span>
           <div className="flex items-center gap-3">
-            <span className="text-[9px] font-black text-slate-400 uppercase">
-              Từ
-            </span>
-            <span className="font-black text-slate-500 bg-white px-3 py-0.5 rounded border border-slate-200 text-xs">
-              {details.from}
-            </span>
+            <span className="text-[9px] font-black text-slate-400 uppercase">Từ</span>
+            <span className="font-black text-slate-500 bg-white px-3 py-0.5 rounded border border-slate-200 text-xs">{details.from}</span>
             <ArrowRight size={14} className="text-purple-400" />
-            <span className="text-[9px] font-black text-purple-400 uppercase">
-              Sang
-            </span>
-            <span className="font-black text-purple-700 bg-white px-3 py-0.5 rounded border border-purple-300 text-xs shadow-sm">
-              {details.to}
-            </span>
+            <span className="text-[9px] font-black text-purple-400 uppercase">Sang</span>
+            <span className="font-black text-purple-700 bg-white px-3 py-0.5 rounded border border-purple-300 text-xs shadow-sm">{details.to}</span>
           </div>
         </div>
       );
@@ -525,65 +296,47 @@ export const OrderInformation: React.FC<OrderInformationProps> = ({
         {/* Standalone Header with Back Button */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <div className="w-11 h-11 bg-slate-900 rounded flex items-center justify-center text-white shadow-lg">
-              <Bus size={26} className="text-white font-normal" />
-            </div>
-            <div>
-              <h1 className="text-xl font-black text-slate-900 tracking-tight uppercase">
-                NHÀ XE TRUNG DŨNG
-              </h1>
-              <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">
-                Tra cứu vé Tết trực tuyến
-              </p>
-            </div>
+             <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center text-white shadow-lg">
+                <Bus size={28} />
+             </div>
+             <div>
+                <h1 className="text-2xl font-black text-slate-900 tracking-tight uppercase">VinaBus Manager</h1>
+                <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Hệ thống tra cứu vé trực tuyến</p>
+             </div>
           </div>
           {onBackToDashboard && (
-            <Button
-              variant="outline"
-              onClick={onBackToDashboard}
-              className="rounded border-slate-200 bg-slate-900 hover:bg-slate-800 text-white hover:text-slate-50 font-normal h-10 px-4 text-xs"
-            >
-              <Home size={16} className="mr-1" /> Quay lại Dashboard
+            <Button variant="outline" onClick={onBackToDashboard} className="rounded-xl border-slate-200 bg-white hover:bg-slate-50 text-slate-600 font-bold h-10 px-4">
+              <Home size={18} className="mr-2" /> Quay lại Dashboard
             </Button>
           )}
         </div>
 
         {/* Search Bar - Full Width Standalone */}
-        <div className="bg-white p-4 rounded border border-slate-200">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center bg-primary/10 rounded h-[36px] w-[36px]">
-              <QrCode size={26} className="text-slate-700" />
+        <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-xl shadow-slate-200/50">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-3 bg-primary/10 rounded-xl text-primary"><QrCode size={28} /></div>
+            <div>
+              <h2 className="text-xl font-black text-slate-900">Tra cứu đơn hàng</h2>
+              <p className="text-sm text-slate-500 font-medium italic">Vui lòng quét QR trên vé hoặc nhập 6 số cuối mã đơn / Số điện thoại</p>
             </div>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-4">
             <div className="relative flex-1 group">
-              <Search
-                size={20}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-slate-400 transition-colors"
-              />
-              <input
-                className="w-full h-[36px] pl-10 pr-3 py-4 text-lg font-bold border border-slate-200 rounded outline-none focus:border-slate-900 transition-all placeholder-slate-400 placeholder:text-xs placeholder:font-normal text-indent"
-                placeholder="Nhập số điện thoại đã Đặt hoặc Mua vé"
+              <Search size={22} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors" />
+              <input 
+                className="w-full pl-12 pr-4 py-3.5 text-lg border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all font-medium placeholder-slate-300"
+                placeholder="Ví dụ: 0912345678 hoặc A12B34..."
                 value={searchId}
-                onChange={(e) => setSearchId(formatPhoneNumber(e.target.value))}
-                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                onChange={(e) => setSearchId(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
               />
             </div>
-            <Button
-              onClick={() => handleSearch()}
-              disabled={loading}
-              className="rounded px-10 h-10 text-xs shadow-lg shadow-primary/20 bg-slate-900 hover:bg-slate-800 font-normal"
-            >
-              {loading ? (
-                <Loader2 size={24} className="animate-spin mr-2" />
-              ) : null}
-              {loading ? "Đang tìm..." : "Tra cứu ngay"}
+            <Button onClick={() => handleSearch()} disabled={loading} className="rounded-xl px-10 h-[58px] text-lg font-black shadow-lg shadow-primary/20">
+              {loading ? <Loader2 size={24} className="animate-spin mr-2" /> : null}
+              {loading ? 'Đang tìm...' : 'Tra cứu ngay'}
             </Button>
           </div>
-          {error && (
-            <div className="mt-6 p-4 bg-red-50 border border-red-100 rounded flex items-center gap-3 text-red-600 text-sm animate-in slide-in-from-top-2">
-              <AlertCircle size={20} />
-              {error}
-            </div>
-          )}
+          {error && <div className="mt-6 p-4 bg-red-50 border border-red-100 rounded-xl flex items-center gap-3 text-red-600 text-sm font-bold animate-in slide-in-from-top-2"><AlertCircle size={20} />{error}</div>}
         </div>
 
         {booking ? (
@@ -591,316 +344,232 @@ export const OrderInformation: React.FC<OrderInformationProps> = ({
             {/* Main Content Grid: Summary & Payment */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* Booking Summary */}
-              <div className="md:col-span-2 bg-white rounded border border-slate-200 shadow-sm overflow-hidden">
-                <div className="bg-slate-50 h-[40px] border-b border-slate-200">
-                  <h3 className="bg-slate-50 text-xs flex items-center justify-between gap-2 px-4 h-[40px] border-b border-slate-200">
-                    <div className="flex items-center font-semibold text-slate-400 uppercase">
-                      <User size={16} className="mr-2" /> Lịch sử đặt vé
-                    </div>
-                    <div className="text-xs">
-                      {getStatusBadge(booking.status)}
-                    </div>
-                  </h3>
+              <div className="md:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="bg-slate-50 px-8 py-5 border-b border-slate-200 flex justify-between items-center">
+                  <div className="flex items-center gap-3">
+                    <Ticket className="text-primary" size={24} />
+                    <span className="font-black text-slate-700 text-lg">Mã đơn: <span className="text-primary tracking-widest">#{booking.id.slice(-6).toUpperCase()}</span></span>
+                  </div>
+                  {getStatusBadge(booking.status)}
                 </div>
-                <div className="p-4">
-                  {historyLoading ? (
-                    <div className="flex flex-col items-center justify-center py-20 text-slate-400">
-                      <Loader2 className="animate-spin mb-4" size={48} />
-                      <p className="text-xs tracking-widest uppercase">
-                        Đang đồng bộ dữ liệu lịch sử...
-                      </p>
-                    </div>
-                  ) : history.length === 0 ? (
-                    <div className="text-center py-20 text-slate-400">
-                      <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6 border border-dashed border-slate-200 opacity-50">
-                        <FileClock size={40} />
-                      </div>
-                      <p className="text-xs text-slate-500 uppercase tracking-widest">
-                        Hệ thống chưa ghi nhận biến động dữ liệu
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="relative border-l-4 border-slate-100 ml-3 space-y-6 py-2">
-                      {history.map((log, idx) => {
-                        const theme = getActionTheme(log.action);
-                        const colorClasses = {
-                          emerald: "bg-emerald-500 shadow-emerald-500/20",
-                          red: "bg-red-500 shadow-red-500/20",
-                          blue: "bg-blue-500 shadow-blue-500/20",
-                          purple: "bg-purple-500 shadow-purple-500/20",
-                          orange: "bg-orange-500 shadow-orange-500/20",
-                          slate: "bg-slate-500 shadow-slate-500/20",
-                          green: "bg-green-600 shadow-green-600/20",
-                          indigo: "bg-indigo-600 shadow-indigo-600/20",
-                        }[theme.color];
-
-                        return (
-                          <div
-                            key={log.id}
-                            className="relative pl-6 animate-in slide-in-from-left duration-500"
-                          >
-                            <div
-                              className={`absolute -left-[14px] top-1 w-6 h-6 rounded-full border-4 border-white shadow-lg flex items-center justify-center ${colorClasses} z-10`}
-                            >
-                              <div className="w-1.5 h-1.5 rounded-full bg-white"></div>
-                            </div>
-
-                            <div className="flex flex-col gap-4">
-                              <div className="flex items-center justify-between flex-wrap gap-3">
-                                <span
-                                  className={`text-[10px] font-black uppercase px-3 py-1.5 rounded-full border flex items-center gap-1 shadow-sm
-                                ${
-                                  log.action === "CREATE"
-                                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                    : log.action === "DELETE" ||
-                                      log.action === "CANCEL" ||
-                                      log.action === "REFUND_SEAT"
-                                    ? "bg-red-50 text-red-700 border-red-200"
-                                    : log.action === "UPDATE"
-                                    ? "bg-slate-50 text-slate-900 border-slate-200"
-                                    : log.action === "SWAP"
-                                    ? "bg-slate-50 text-slate-900 border-slate-200"
-                                    : log.action === "TRANSFER"
-                                    ? "bg-slate-50 text-slate-900 border-slate-200"
-                                    : log.action === "PASSENGER_UPDATE"
-                                    ? "bg-orange-50 text-orange-700 border-orange-200"
-                                    : "bg-green-50 text-green-700 border-green-200"
-                                }
-                              `}
-                                >
-                                  {theme.icon}
-                                  {theme.label}
-                                </span>
-                                <span className="text-[11px] text-slate-400 bg-slate-50 px-4 py-1.5 rounded-full border border-slate-100 flex items-center gap-2">
-                                  <Clock size={14} />{" "}
-                                  {formatDate(log.timestamp)}
-                                </span>
-                              </div>
-
-                              <div className="bg-slate-50/50 px-6 py-4 rounded border border-slate-100 hover:bg-white hover:shadow-2xl hover:border-primary/20 transition-all duration-300 group/log">
-                                {renderLogDetails(log)}
-                                <div className="mt-3 flex items-center gap-1 px-3 py-2 border border-slate-200 bg-slate-100 rounded">
-                                  <p className="text-xs leading-relaxed text-slate-500">
-                                    {log.description}
-                                  </p>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                      <div className="absolute -bottom-0 -left-[8px] w-3 h-3 rounded-full bg-slate-200"></div>
-                    </div>
-                  )}
+                <div className="p-8">
+                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 mb-6"><User size={16} /> Thông tin hành khách</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-16 gap-y-6">
+                    <div className="flex flex-col border-b border-slate-50 pb-2"><span className="text-[10px] font-black text-slate-400 uppercase">Họ tên:</span><span className="font-bold text-slate-900 text-lg">{booking.passenger.name || 'Khách lẻ'}</span></div>
+                    <div className="flex flex-col border-b border-slate-50 pb-2"><span className="text-[10px] font-black text-slate-400 uppercase">Số điện thoại:</span><span className="font-bold text-slate-900 text-lg">{booking.passenger.phone}</span></div>
+                    <div className="flex flex-col border-b border-slate-50 pb-2 sm:col-span-2"><span className="text-[10px] font-black text-slate-400 uppercase">Ghi chú hành khách:</span><span className="italic text-slate-600 font-medium">{booking.passenger.note || '---'}</span></div>
+                  </div>
                 </div>
               </div>
 
               {/* Payment Summary */}
-              <div className="bg-white rounded border border-slate-200 shadow-sm overflow-hidden flex flex-col">
-                <h3 className="bg-slate-50 text-xs font-semibold text-slate-400 uppercase flex items-center gap-2 px-4 h-[40px] border-b border-slate-200">
-                  <CheckCircle2 size={16} /> Tổng thanh toán
-                </h3>
-                <div className="px-5">
-                  <div className="flex justify-between items-end py-4">
-                    <span className="text-slate-500 font-bold text-sm mb-[4px]">
-                      Tổng tiền vé:
-                    </span>
-                    <span className="text-2xl font-black text-emerald-600">
-                      {formatCurrency(booking.totalPrice)} đ
-                    </span>
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden p-8 flex flex-col justify-between">
+                <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 mb-6"><CheckCircle2 size={16} /> Chi phí & Thanh toán</h3>
+                <div className="space-y-6">
+                  <div className="flex justify-between items-center"><span className="text-slate-500 font-bold">Tổng tiền vé:</span><span className="text-2xl font-black text-slate-900">{formatCurrency(booking.totalPrice)} đ</span></div>
+                  <div className="space-y-3 pt-6 border-t border-slate-100">
+                    <div className="flex justify-between items-center text-sm"><span className="text-slate-400 font-bold uppercase text-[10px]">Tiền mặt:</span><span className="font-black text-emerald-600">{formatCurrency(booking.payment?.paidCash || 0)} đ</span></div>
+                    <div className="flex justify-between items-center text-sm"><span className="text-slate-400 font-bold uppercase text-[10px]">Chuyển khoản:</span><span className="font-black text-blue-600">{formatCurrency(booking.payment?.paidTransfer || 0)} đ</span></div>
                   </div>
-                  <div className="space-y-1 py-4 border-t border-slate-100">
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-slate-400 text-xs">Tiền mặt:</span>
-                      <span className="font-black text-slate-500">
-                        {formatCurrency(booking.payment?.paidCash || 0)} đ
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-slate-400 text-xs">
-                        Chuyển khoản:
-                      </span>
-                      <span className="font-black text-slate-500">
-                        {formatCurrency(booking.payment?.paidTransfer || 0)} đ
-                      </span>
-                    </div>
-                  </div>
+                </div>
+                <div className="mt-8 pt-4 border-t border-slate-100 flex items-center gap-2 text-[10px] text-slate-400 font-bold italic leading-tight">
+                  <Info size={14} className="shrink-0"/> Dữ liệu thanh toán đã được đối soát thực tế tại văn phòng
                 </div>
               </div>
             </div>
 
             {/* Trips Detail */}
-            <div className="bg-white rounded border border-slate-200 shadow-sm overflow-hidden flex flex-col">
-              <h3 className="bg-slate-50 text-xs font-semibold text-slate-400 uppercase flex items-center gap-2 px-4 h-[40px] border-b border-slate-200">
-                <Bus size={16} /> Chi tiết chuyến đi ({booking.items.length}{" "}
-                chuyến)
+            <div className="space-y-6">
+              <h3 className="font-black text-slate-800 ml-1 flex items-center gap-2 text-xl">
+                <Bus size={22} className="text-primary"/> Chi tiết chuyến đi ({booking.items.length})
               </h3>
-              <div className="px-5">
-                <div className="grid grid-cols-1 gap-8">
-                  {booking.items.map((item, idx) => {
-                    const tripDate = new Date(item.tripDate);
-                    const fullTrip = trips.find((t) => t.id === item.tripId);
-                    return (
-                      <div
-                        key={idx}
-                        className="border-b-2 border-slate-300 border-dashed overflow-hidden last:border-0"
-                      >
-                        <div className="py-4">
-                          <div className="flex flex-col lg:flex-row justify-between gap-6">
-                            <div className="flex-1">
-                              <div className="space-y-3">
-                                <div className="flex items-center gap-2">
-                                  <Bus
-                                    size={16}
-                                    className="text-slate-400 rounded"
-                                  />
-                                  <h4 className="text-sm font-black text-slate-900 uppercase">
-                                    {item.route}
-                                  </h4>
-                                </div>
-                                <div className="grid grid-cols-2 gap-6 p-4 bg-slate-50 rounded border border-slate-100">
-                                  <div className="space-y-1">
-                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                      Biển số xe (dự kiến)
-                                    </span>
-                                    <div className="text-xl font-black text-slate-800">
-                                      {item.licensePlate}
-                                    </div>
-                                  </div>
-                                  <div className="space-y-1">
-                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                      Thời gian xuất bến (Dự kiến)
-                                    </span>
-                                    <div
-                                      className="font-bold text-slate-800 truncate text-lg"
-                                      title="Thời gian xuất bến dự kiến"
-                                    >
-                                      {tripDate.toLocaleDateString("vi-VN")}
-                                    </div>
+              <div className="grid grid-cols-1 gap-8">
+                {booking.items.map((item, idx) => {
+                  const tripDate = new Date(item.tripDate);
+                  const fullTrip = trips.find(t => t.id === item.tripId);
+                  return (
+                    <div key={idx} className="bg-white rounded-2xl border border-slate-200 shadow-lg overflow-hidden">
+                      <div className="p-8">
+                        <div className="flex flex-col lg:flex-row justify-between gap-12">
+                          <div className="flex-1 space-y-10">
+                            <div className="space-y-8">
+                              <div className="flex items-center gap-5">
+                                <div className="w-16 h-16 bg-primary/5 rounded-2xl flex items-center justify-center text-primary border border-primary/10 shadow-inner shrink-0"><Bus size={32} /></div>
+                                <div className="min-w-0">
+                                  <h4 className="text-2xl font-black text-slate-900 truncate tracking-tight">{item.route}</h4>
+                                  <div className="flex flex-wrap items-center gap-4 text-sm text-slate-500 mt-2">
+                                    <span className="flex items-center gap-2 bg-slate-100 px-3 py-1 rounded-lg border border-slate-200 font-black text-slate-700 shadow-sm"><Calendar size={16} className="text-primary" /> {tripDate.toLocaleDateString('vi-VN')}</span>
+                                    <span className="flex items-center gap-2 bg-slate-100 px-3 py-1 rounded-lg border border-slate-200 font-black text-slate-700 shadow-sm"><Clock size={16} className="text-primary" /> {item.tripDate.split(' ')[1]}</span>
+                                    <Badge className="bg-blue-600 text-white border-transparent font-black uppercase tracking-widest text-[10px] h-7 px-3 rounded-lg shadow-blue-500/20">
+                                      {item.busType === 'CABIN' ? 'Phòng VIP' : 'Giường nằm'}
+                                    </Badge>
                                   </div>
                                 </div>
                               </div>
-                              <div className="pt-4 border-t border-slate-100">
-                                <div className="flex items-center justify-between">
-                                  <span className="text-xs font-black text-slate-400 uppercase tracking-widest">
-                                    Chi tiết vé đặt
-                                  </span>
-                                  <Badge className="bg-slate-900 text-white font-normal border-transparent px-4 h-7 rounded-full">
-                                    {item.tickets.length} giường
-                                  </Badge>
+                              
+                              <div className="grid grid-cols-2 gap-6 p-6 bg-slate-50 rounded-2xl border border-slate-100 shadow-inner">
+                                <div className="space-y-1">
+                                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Biển số xe điều động</span>
+                                  <div className="text-xl font-black text-slate-800">{item.licensePlate}</div>
                                 </div>
-                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                                  {item.tickets.map((t) => (
-                                    <div
-                                      key={t.seatId}
-                                      className="flex flex-col bg-white border-2 border-slate-300 rounded p-4 hover:border-primary transition-all duration-300 group/ticket"
-                                    >
-                                      <div className="flex justify-between items-center">
-                                        <span className="text-xl font-black text-slate-900 group-hover/ticket:scale-110 transition-transform">
-                                          {t.seatId}
-                                        </span>
-                                        <span className="text-sm text-slate-900 font-black">
-                                          {formatCurrency(t.price)} đ
-                                        </span>
-                                      </div>
-                                      <div className="mt-2 pt-3 border-t border-slate-50 flex gap-2 items-center">
-                                        <div className="flex items-center gap-1 text-[10px] text-slate-500 font-medium truncate">
-                                          <MapPin
-                                            size={10}
-                                            className="text-slate-300"
-                                          />{" "}
-                                          {t.pickup || "---"}
-                                        </div>
-                                        <div className="flex items-center gap-2 text-[10px] text-slate-500 font-medium truncate">
-                                          <ArrowRight
-                                            size={10}
-                                            className="text-slate-300"
-                                          />{" "}
-                                          {t.dropoff || "---"}
-                                        </div>
-                                      </div>
-                                      {t.note && (
-                                        <span className="text-[10px] text-amber-600 font-bold italic mt-1 truncate border-t border-amber-50 pt-2">
-                                          *{t.note}
-                                        </span>
-                                      )}
-                                    </div>
-                                  ))}
-                                </div>
-                                <div className="p-4 bg-blue-50/70 rounded border-2 border-dashed border-blue-200 flex justify-between items-center mt-6">
-                                  <span className="text-sm font-black text-slate-600">
-                                    Thanh toán cho chặng này:
-                                  </span>
-                                  <span className="text-xl font-black text-blue-700">
-                                    {formatCurrency(item.price)} đ
-                                  </span>
+                                <div className="space-y-1">
+                                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Điểm đón khách dự kiến</span>
+                                  <div className="font-bold text-slate-800 truncate text-lg" title={item.tickets[0]?.pickup || 'Văn phòng'}>
+                                    <MapPin size={16} className="inline mr-1 text-primary" /> {item.tickets[0]?.pickup || 'Văn phòng'}
+                                  </div>
                                 </div>
                               </div>
                             </div>
 
-                            <div className="lg:w-[45%] flex flex-col items-center lg:items-start space-y-6 border-t lg:border-t-0 lg:border-l border-slate-100 pt-10 lg:pt-0 lg:pl-12 overflow-hidden">
-                              {fullTrip ? (
-                                <div className="w-full">
-                                  <h5 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2">
-                                    <LayoutGrid size={16} /> Sơ đồ vị trí (
-                                    {item.busType === "CABIN"
-                                      ? "22 phòng"
-                                      : "41 giường"}
-                                    )
-                                  </h5>
-                                  <div className="flex justify-center w-full overflow-hidden">
-                                    <SeatMapPreview
-                                      trip={fullTrip}
-                                      bookedSeatIds={item.seatIds}
-                                    />
-                                  </div>
-                                  <div className="flex gap-6 mt-8 text-[10px] font-black uppercase text-slate-400 justify-center w-full">
-                                    <div className="flex items-center gap-2">
-                                      <div className="w-4 h-4 bg-blue-600 rounded-md shadow-md shadow-blue-500/20"></div>{" "}
-                                      Vị trí của bạn
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                      <div className="w-4 h-4 bg-slate-300 rounded-md"></div>{" "}
-                                      Ghế khác
-                                    </div>
-                                  </div>
-                                </div>
-                              ) : (
-                                <div className="h-full w-full flex flex-col items-center justify-center text-slate-300 py-20 border-2 border-dashed border-slate-100 rounded">
-                                  <Bus
-                                    size={64}
-                                    className="opacity-10 mb-4 animate-pulse"
-                                  />
-                                  <p className="text-sm font-bold uppercase tracking-widest">
-                                    Đang tải sơ đồ ghế...
-                                  </p>
-                                </div>
-                              )}
+                            <div className="space-y-6 pt-8 border-t border-slate-100">
+                               <div className="flex items-center justify-between">
+                                  <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Giường đã chọn & Giá vé chi tiết</span>
+                                  <Badge className="bg-primary/10 text-primary border-transparent font-black px-4 h-7 rounded-full">{item.tickets.length} giường</Badge>
+                               </div>
+                               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                                 {item.tickets.map((t) => (
+                                   <div key={t.seatId} className="flex flex-col bg-white border-2 border-slate-100 rounded-2xl p-4 shadow-sm hover:border-primary transition-all duration-300 group/ticket">
+                                     <div className="flex justify-between items-start mb-3">
+                                        <span className="text-xl font-black text-primary group-hover/ticket:scale-110 transition-transform">{t.seatId}</span>
+                                        <span className="text-xs text-slate-900 font-black">{formatCurrency(t.price)} đ</span>
+                                     </div>
+                                     {t.note && <span className="text-[10px] text-amber-600 font-bold italic mt-1 truncate border-t border-amber-50 pt-2">*{t.note}</span>}
+                                     <div className="mt-3 pt-3 border-t border-slate-50 flex flex-col gap-2">
+                                        <div className="flex items-center gap-2 text-[10px] text-slate-500 font-medium truncate"><MapPin size={10} className="text-slate-300"/> {t.pickup || '---'}</div>
+                                        <div className="flex items-center gap-2 text-[10px] text-slate-500 font-medium truncate"><Locate size={10} className="text-slate-300"/> {t.dropoff || '---'}</div>
+                                     </div>
+                                   </div>
+                                 ))}
+                               </div>
+                               <div className="p-5 bg-blue-50/70 rounded-2xl border-2 border-dashed border-blue-200 flex justify-between items-center shadow-inner">
+                                  <span className="text-sm font-black text-slate-600">Thanh toán cho chặng này:</span>
+                                  <span className="text-2xl font-black text-blue-700">{formatCurrency(item.price)} đ</span>
+                               </div>
                             </div>
+                          </div>
+
+                          <div className="lg:w-[45%] flex flex-col items-center lg:items-start space-y-6 border-t lg:border-t-0 lg:border-l border-slate-100 pt-10 lg:pt-0 lg:pl-12 overflow-hidden">
+                            {fullTrip ? (
+                              <div className="w-full">
+                                <h5 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2">
+                                  <LayoutGrid size={16} /> Sơ đồ vị trí ({item.busType === 'CABIN' ? '22 phòng' : '41 giường'})
+                                </h5>
+                                <div className="flex justify-center w-full overflow-hidden">
+                                  <SeatMapPreview trip={fullTrip} bookedSeatIds={item.seatIds} />
+                                </div>
+                                <div className="flex gap-6 mt-8 text-[10px] font-black uppercase text-slate-400 justify-center w-full">
+                                  <div className="flex items-center gap-2"><div className="w-4 h-4 bg-blue-600 rounded-md shadow-md shadow-blue-500/20"></div> Vị trí của bạn</div>
+                                  <div className="flex items-center gap-2"><div className="w-4 h-4 bg-slate-300 rounded-md"></div> Ghế khác</div>
+                                </div>
+                                <div className="mt-10 p-5 bg-indigo-50 rounded-2xl border border-indigo-100 text-xs text-indigo-700 leading-relaxed font-medium italic shadow-inner">
+                                  <span className="font-black text-indigo-900 block mb-2 not-italic flex items-center gap-2">
+                                    <Info size={16}/> Lưu ý sơ đồ:
+                                  </span>
+                                  Sơ đồ hiển thị vị trí tương đối trên xe để quý khách dễ dàng nhận diện. Phòng/giường của quý khách được tô đậm màu xanh dương.
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="h-full w-full flex flex-col items-center justify-center text-slate-300 py-20 border-2 border-dashed border-slate-100 rounded-2xl">
+                                <Bus size={64} className="opacity-10 mb-4 animate-pulse"/>
+                                <p className="text-sm font-bold uppercase tracking-widest">Đang tải sơ đồ ghế...</p>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Timeline History Section - Bottom Full Width */}
+            <div className="space-y-6 pt-10 border-t border-slate-200">
+              <div className="flex items-center justify-between ml-1">
+                <h3 className="font-black text-slate-800 flex items-center gap-2 text-xl">
+                  <FileClock size={24} className="text-primary" /> Nhật ký thay đổi đơn hàng
+                </h3>
+                <Badge variant="outline" className="text-slate-400 border-slate-200 font-black rounded-full px-4">ĐỐI SOÁT HỆ THỐNG</Badge>
+              </div>
+              
+              <div className="bg-white rounded-2xl border border-slate-200 p-10 shadow-sm min-h-[300px]">
+                {historyLoading ? (
+                  <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+                    <Loader2 className="animate-spin mb-4" size={48} />
+                    <p className="text-sm font-black tracking-widest uppercase">Đang đồng bộ dữ liệu lịch sử...</p>
+                  </div>
+                ) : history.length === 0 ? (
+                  <div className="text-center py-20 text-slate-400">
+                    <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6 border border-dashed border-slate-200 opacity-50">
+                      <FileClock size={40} />
+                    </div>
+                    <p className="text-sm font-black text-slate-500 uppercase tracking-widest">Hệ thống chưa ghi nhận biến động dữ liệu</p>
+                  </div>
+                ) : (
+                  <div className="relative border-l-4 border-slate-100 ml-6 space-y-12 py-2">
+                    {history.map((log, idx) => {
+                      const theme = getActionTheme(log.action);
+                      const colorClasses = {
+                        emerald: "bg-emerald-500 shadow-emerald-500/20",
+                        red: "bg-red-500 shadow-red-500/20",
+                        blue: "bg-blue-500 shadow-blue-500/20",
+                        purple: "bg-purple-500 shadow-purple-500/20",
+                        orange: "bg-orange-500 shadow-orange-500/20",
+                        slate: "bg-slate-500 shadow-slate-500/20",
+                        green: "bg-green-600 shadow-green-600/20",
+                        indigo: "bg-indigo-600 shadow-indigo-600/20",
+                      }[theme.color];
+
+                      return (
+                        <div key={log.id} className="relative pl-12 animate-in slide-in-from-left duration-500">
+                          <div className={`absolute -left-[14px] top-1 w-6 h-6 rounded-full border-4 border-white shadow-lg flex items-center justify-center ${colorClasses} z-10`}>
+                            <div className="w-1.5 h-1.5 rounded-full bg-white"></div>
+                          </div>
+
+                          <div className="flex flex-col gap-4">
+                            <div className="flex items-center justify-between flex-wrap gap-3">
+                              <span className={`text-[10px] font-black uppercase tracking-widest px-4 py-1.5 rounded-full border flex items-center gap-2 shadow-sm
+                                ${log.action === "CREATE" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
+                                  log.action === "DELETE" || log.action === "CANCEL" || log.action === "REFUND_SEAT" ? "bg-red-50 text-red-700 border-red-200" :
+                                  log.action === "UPDATE" ? "bg-blue-50 text-blue-700 border-blue-200" :
+                                  log.action === "SWAP" ? "bg-purple-50 text-purple-700 border-purple-200" :
+                                  log.action === "TRANSFER" ? "bg-indigo-50 text-indigo-700 border-indigo-200" :
+                                  log.action === "PASSENGER_UPDATE" ? "bg-orange-50 text-orange-700 border-orange-200" :
+                                  "bg-green-50 text-green-700 border-green-200"}
+                              `}>
+                                {theme.icon}
+                                {theme.label}
+                              </span>
+                              <span className="text-xs text-slate-400 font-black bg-slate-50 px-4 py-1.5 rounded-full border border-slate-100 flex items-center gap-2">
+                                <Clock size={14}/> {formatDate(log.timestamp)}
+                              </span>
+                            </div>
+
+                            <div className="bg-slate-50/50 p-6 rounded-2xl border border-slate-100 hover:bg-white hover:shadow-2xl hover:border-primary/20 transition-all duration-300 group/log">
+                              {renderLogDetails(log)}
+                              <div className="mt-4 flex items-start gap-4">
+                                <div className="p-2 bg-white rounded-xl border border-slate-100 text-slate-400 shrink-0 shadow-sm group-hover/log:text-primary transition-colors"><Info size={16}/></div>
+                                <p className="text-sm leading-relaxed text-slate-600 font-bold pt-0.5">{log.description}</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <div className="absolute -bottom-1 -left-[6px] w-3 h-3 rounded-full bg-slate-200"></div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
-        ) : (
-          !loading &&
-          !error && (
-            <div className="py-40 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded bg-white/50 backdrop-blur-sm">
-              <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-8 border border-slate-200 shadow-xl opacity-40">
-                <Ticket size={36} className="text-slate-900" />
-              </div>
-              <h3 className="text-2xl font-black text-slate-500 uppercase tracking-widest">
-                Hệ thống sẵn sàng
-              </h3>
-              <p className="text-slate-400 mt-3 text-lg">
-                Quét QR hoặc nhập số điện thoại để tra cứu ngay
-              </p>
+        ) : !loading && !error && (
+          <div className="py-40 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded-3xl bg-white/50 backdrop-blur-sm shadow-inner">
+            <div className="w-32 h-32 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-8 border border-slate-200 shadow-xl opacity-40">
+              <Ticket size={64} className="text-primary" />
             </div>
-          )
+            <h3 className="text-2xl font-black text-slate-500 uppercase tracking-widest">Hệ thống sẵn sàng</h3>
+            <p className="font-bold text-slate-400 mt-3 text-lg">Quét QR hoặc nhập thông tin để tra cứu ngay</p>
+          </div>
         )}
       </div>
       <div className="h-20"></div>
