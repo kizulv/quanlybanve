@@ -31,7 +31,7 @@ import {
   formatPhoneNumber,
   getStandardizedLocation,
   formatCurrency,
-  parseCurrency
+  parseCurrency,
 } from "../utils/formatters";
 import { CurrencyInput } from "./ui/CurrencyInput";
 
@@ -387,7 +387,7 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
             >
               <Save size={14} className="mr-1" /> Cập nhật
             </Button>
-            
+
             {isHeld && (
               <Button
                 onClick={handleRefundSeat}
@@ -397,15 +397,15 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
                 <Trash2 size={14} className="mr-1" /> Hủy giữ chỗ
               </Button>
             )}
-            
+
             {isBooked && (
-                <Button
-                    onClick={handleRefundSeat}
-                    disabled={isSaving}
-                    className="flex-1 bg-red-900/40 hover:bg-red-800 text-red-100 font-bold h-9 text-xs border border-red-900 shadow-sm"
-                >
-                    <Trash2 size={14} className="mr-1" /> Hủy vé
-                </Button>
+              <Button
+                onClick={handleRefundSeat}
+                disabled={isSaving}
+                className="flex-1 bg-red-900/40 hover:bg-red-800 text-red-100 font-bold h-9 text-xs border border-red-900 shadow-sm"
+              >
+                <Trash2 size={14} className="mr-1" /> Hủy vé
+              </Button>
             )}
           </div>
         </div>
@@ -425,7 +425,8 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
 
             <div className="space-y-3 animate-in fade-in slide-in-from-right-2 duration-300 mt-[2px]">
               <div className="text-[10px] font-black text-indigo-400 uppercase tracking-widest px-1 flex items-center gap-2">
-                <CreditCard size={12} className="text-emerald-400" /> Thu tiền lẻ ghế này
+                <CreditCard size={12} className="text-emerald-400" /> Thu tiền
+                lẻ ghế này
               </div>
 
               <div className="space-y-2">
@@ -465,7 +466,7 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
                 onClick={handlePaySeat}
                 disabled={
                   isSaving ||
-                  (paymentInput.paidCash + paymentInput.paidTransfer === 0)
+                  paymentInput.paidCash + paymentInput.paidTransfer === 0
                 }
                 className="w-full bg-green-600 hover:bg-green-500 text-white font-black uppercase text-[10px] h-9 shadow-lg shadow-green-900/20 border border-green-700"
               >
