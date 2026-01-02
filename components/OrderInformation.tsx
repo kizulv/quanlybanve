@@ -62,7 +62,7 @@ const SeatMapPreview: React.FC<{ trip: BusTrip; bookedSeatIds: string[] }> = ({
       return (
         <div
           className={`${
-            isCabin ? "h-8 w-[60px]" : "h-9 w-9 sm:w-11"
+            isCabin ? "h-8 w-15" : "h-9 w-9 sm:w-11"
           } rounded-md border border-dashed border-slate-200 bg-slate-50/50`}
         />
       );
@@ -75,7 +75,7 @@ const SeatMapPreview: React.FC<{ trip: BusTrip; bookedSeatIds: string[] }> = ({
           relative flex items-center justify-center border transition-all duration-200 rounded-md shadow-sm
           ${
             isCabin
-              ? "h-[35.5px] w-[60px] text-[10px]"
+              ? "h-[35.5px] w-15 text-[10px]"
               : "h-8 w-9 sm:w-11 text-[10px]"
           }
           ${
@@ -432,7 +432,7 @@ export const OrderInformation: React.FC<OrderInformationProps> = ({
                     <MapPin size={13} className="text-slate-600 mr-1" />{" "}
                     {trip.route}
                   </span>
-                  <span className="hidden md:block bg-yellow-200 border border-yellow-300 rounded flex items-center h-5 px-2 text-[10px] text-slate-900 font-semibold tracking-wider">
+                  <span className="sm:hidden md:block bg-yellow-200 border border-yellow-300 rounded flex items-center h-5 px-2 text-[10px] text-slate-900 font-semibold tracking-wider">
                     {trip.licensePlate}
                   </span>
                 </div>
@@ -484,7 +484,7 @@ export const OrderInformation: React.FC<OrderInformationProps> = ({
                 {change.kept?.map((s: string) => (
                   <span
                     key={s}
-                    className="rounded-full w-8 text-center border bg-slate-100 text-slate-600 border-slate-300 hover:bg-slate-100 text-[10px] font-black px-2 py-0.5 rounded"
+                    className="rounded-full w-8 text-center border bg-slate-100 text-slate-600 border-slate-300 hover:bg-slate-100 text-[10px] font-black px-2 py-0.5"
                   >
                     {s}
                   </span>
@@ -515,7 +515,7 @@ export const OrderInformation: React.FC<OrderInformationProps> = ({
       return (
         <div className="grid items-center gap-3 text-sm border-b border-slate-200 border-dashed pb-2">
           <div className="flex items-center gap-2">
-            <span className="font-black text-purple-900 min-w-[120px]">
+            <span className="font-black text-purple-900 min-w-30">
               {details.route}
             </span>
             <span className="flex items-center text-[11px] text-slate-400 bg-slate-100 border border-slate-300 rounded px-2 h-5">
@@ -545,8 +545,8 @@ export const OrderInformation: React.FC<OrderInformationProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col p-4 md:p-10 animate-in fade-in duration-500">
-      <div className="max-w-5xl mx-auto w-full space-y-6">
+    <div className="bg-slate-50  animate-in fade-in duration-500">
+      <div className="min-h-screen flex flex-col p-4 md:p-10 max-w-5xl mx-auto w-full space-y-6">
         {/* Standalone Header with Back Button */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -567,7 +567,7 @@ export const OrderInformation: React.FC<OrderInformationProps> = ({
         {booking ? (
           // PhoneNumber without Search
           <div className="overflow-hidden flex flex-col bg-white rounded-lg rounded-t-xl border border-slate-200 text-center">
-            <h3 className="px-4 h-[40px] border-b flex items-center bg-gradient-to-r from-indigo-950 via-indigo-900 to-indigo-950 uppercase gap-2 shadow-sm border-b border-slate-200 text-white text-xs">
+            <h3 className="px-4 h-10 border-b flex items-center bg-linear-to-r from-indigo-950 via-indigo-900 to-indigo-950 uppercase gap-2 border-slate-200 text-white text-xs">
               <NotepadText size={18} /> Thông tin đặt vé
             </h3>
             <div className="flex items-center justify-between px-4 py-4">
@@ -582,52 +582,14 @@ export const OrderInformation: React.FC<OrderInformationProps> = ({
             </div>
           </div>
         ) : (
-          // Search Bar - Full Width Standalone
-          <div className="bg-white p-4 rounded border border-slate-200">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center bg-primary/10 rounded h-[36px] w-[36px]">
-                <QrCode size={26} className="text-slate-700" />
-              </div>
-              <div className="relative flex-1 group">
-                <Search
-                  size={20}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-slate-400 transition-colors"
-                />
-                <input
-                  className="w-full h-[36px] pl-10 pr-3 py-4 text-lg font-bold border border-slate-200 rounded outline-none focus:border-slate-900 transition-all placeholder-slate-400 placeholder:text-xs placeholder:font-normal text-indent"
-                  placeholder="Nhập số điện thoại đã Đặt hoặc Mua vé"
-                  value={searchId}
-                  onChange={(e) =>
-                    setSearchId(formatPhoneNumber(e.target.value))
-                  }
-                  onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                />
-              </div>
-              <Button
-                onClick={() => handleSearch()}
-                disabled={loading}
-                className="rounded px-5 lg:px-10 h-10 text-xs shadow-lg shadow-primary/20 bg-slate-900 hover:bg-slate-800 font-normal"
-              >
-                {loading ? (
-                  <Loader2 size={24} className="animate-spin mr-2" />
-                ) : null}
-                {loading ? "Đang tìm..." : "Tra cứu"}
-              </Button>
-            </div>
-            {error && (
-              <div className="mt-6 p-4 bg-red-50 border border-red-100 rounded flex items-center gap-3 text-red-600 text-sm animate-in slide-in-from-top-2">
-                <AlertCircle size={20} />
-                {error}
-              </div>
-            )}
-          </div>
+          <></>
         )}
 
         {booking ? (
           <div className="space-y-8 animate-in zoom-in-95 duration-300">
             {/* Trips Detail */}
-            <div className="bg-white rounded border border-slate-200 shadow-sm overflow-hidden flex flex-col">
-              <h3 className="bg-slate-50 text-xs font-semibold text-slate-400 uppercase flex items-center gap-2 px-4 h-[40px] border-b border-slate-200">
+            <div className="bg-white rounded border border-slate-200 overflow-hidden flex flex-col">
+              <h3 className="bg-slate-50 text-xs font-semibold text-slate-400 uppercase flex items-center gap-2 px-4 h-10 border-b border-slate-200">
                 <Bus size={16} /> Chi tiết chuyến ({booking.items.length}{" "}
                 chuyến)
               </h3>
@@ -760,9 +722,9 @@ export const OrderInformation: React.FC<OrderInformationProps> = ({
               <Collapsible
                 disabled={!isMobile}
                 defaultOpen={!isMobile}
-                className="w-full lg:flex-1 bg-white rounded border border-slate-200 shadow-sm overflow-hidden h-fit"
+                className="w-full lg:flex-1 bg-white rounded border border-slate-200 overflow-hidden h-fit"
               >
-                <div className="bg-slate-50 h-[40px] md:border-b md:border-slate-200">
+                <div className="bg-slate-50 h-10 md:border-b md:border-slate-200">
                   <CollapsibleTrigger className="h-full">
                     <h3 className="bg-slate-50 text-xs flex items-center justify-between gap-2 px-4 h-full w-full">
                       <div className="flex items-center font-semibold text-slate-400 uppercase">
@@ -812,7 +774,7 @@ export const OrderInformation: React.FC<OrderInformationProps> = ({
                             className="relative pl-4 md:pl-6 animate-in slide-in-from-left duration-500"
                           >
                             <div
-                              className={`absolute -left-[14px] top-1 w-6 h-6 rounded-full border-4 border-white shadow-lg flex items-center justify-center ${colorClasses} z-10`}
+                              className={`absolute -left-3.5 top-1 w-6 h-6 rounded-full border-4 border-white shadow-lg flex items-center justify-center ${colorClasses} z-10`}
                             >
                               <div className="w-1.5 h-1.5 rounded-full bg-white"></div>
                             </div>
@@ -820,24 +782,23 @@ export const OrderInformation: React.FC<OrderInformationProps> = ({
                             <div className="flex flex-col gap-4">
                               <div className="flex items-center justify-between flex-wrap gap-3">
                                 <span
-                                  className={`text-[10px] font-black uppercase px-3 py-1.5 rounded-full border flex items-center gap-1 shadow-sm
-                                ${
-                                  log.action === "CREATE"
-                                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                    : log.action === "DELETE" ||
-                                      log.action === "CANCEL" ||
-                                      log.action === "REFUND_SEAT"
-                                    ? "bg-red-50 text-red-700 border-red-200"
-                                    : log.action === "UPDATE"
-                                    ? "bg-slate-50 text-slate-900 border-slate-200"
-                                    : log.action === "SWAP"
-                                    ? "bg-slate-50 text-slate-900 border-slate-200"
-                                    : log.action === "TRANSFER"
-                                    ? "bg-slate-50 text-slate-900 border-slate-200"
-                                    : log.action === "PASSENGER_UPDATE"
-                                    ? "bg-orange-50 text-orange-700 border-orange-200"
-                                    : "bg-green-50 text-green-700 border-green-200"
-                                }
+                                  className={`text-[10px] font-black uppercase px-3 py-1.5 rounded-full border flex items-center gap-1 ${
+                                    log.action === "CREATE"
+                                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                      : log.action === "DELETE" ||
+                                        log.action === "CANCEL" ||
+                                        log.action === "REFUND_SEAT"
+                                      ? "bg-red-50 text-red-700 border-red-200"
+                                      : log.action === "UPDATE"
+                                      ? "bg-slate-50 text-slate-900 border-slate-200"
+                                      : log.action === "SWAP"
+                                      ? "bg-slate-50 text-slate-900 border-slate-200"
+                                      : log.action === "TRANSFER"
+                                      ? "bg-slate-50 text-slate-900 border-slate-200"
+                                      : log.action === "PASSENGER_UPDATE"
+                                      ? "bg-orange-50 text-orange-700 border-orange-200"
+                                      : "bg-green-50 text-green-700 border-green-200"
+                                  }
                               `}
                                 >
                                   {theme.icon}
@@ -861,19 +822,19 @@ export const OrderInformation: React.FC<OrderInformationProps> = ({
                           </div>
                         );
                       })}
-                      <div className="absolute -bottom-0 -left-[8px] w-3 h-3 rounded-full bg-slate-200"></div>
+                      <div className="absolute bottom-0 -left-2 w-3 h-3 rounded-full bg-slate-200"></div>
                     </div>
                   )}
                 </CollapsibleContent>
               </Collapsible>
               {/* Payment Summary */}
-              <div className="bg-white rounded border border-slate-200 shadow-sm overflow-hidden flex flex-col w-full lg:w-[35%]">
-                <h3 className="bg-slate-50 text-xs font-semibold text-slate-400 uppercase flex items-center gap-2 px-4 h-[40px] border-b border-slate-200">
+              <div className="bg-white rounded border border-slate-200 overflow-hidden flex flex-col w-full lg:w-[35%]">
+                <h3 className="bg-slate-50 text-xs font-semibold text-slate-400 uppercase flex items-center gap-2 px-4 h-10 border-b border-slate-200">
                   <CheckCircle2 size={16} /> Tổng thanh toán
                 </h3>
                 <div className="px-5">
                   <div className="flex justify-between items-end py-4">
-                    <span className="text-slate-500 font-bold text-sm mb-[4px]">
+                    <span className="text-slate-500 font-bold text-sm mb-1">
                       Tổng tiền vé:
                     </span>
                     <span className="text-2xl font-black text-slate-600">
@@ -903,7 +864,7 @@ export const OrderInformation: React.FC<OrderInformationProps> = ({
         ) : (
           !loading &&
           !error && (
-            <div className="py-40 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded bg-white/50 backdrop-blur-sm">
+            <div className="flex-1 py-40 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded bg-white/50 backdrop-blur-sm">
               <div className="w-16 h-16 md:w-24 md:h-24 bg-slate-100 flex items-center justify-center mx-auto mb-8 border-2 border-slate-200">
                 <QrCode size={40} className="text-slate-600" />
               </div>

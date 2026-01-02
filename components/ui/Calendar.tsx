@@ -263,7 +263,7 @@ export const Calendar: React.FC<CalendarProps> = ({
 
   return (
     <div
-      className={`p-4 bg-white rounded-lg border border-slate-200 shadow-xl w-auto min-w-[340px] ${className}`}
+      className={`p-4 bg-white rounded-lg border border-slate-200 shadow-xl w-auto min-w-85 ${className}`}
       onClick={(e) => e.stopPropagation()}
     >
       <div className="flex items-center justify-between mb-4 px-1">

@@ -203,11 +203,17 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
       })
       .join("");
 
+    const styles = Array.from(
+      document.querySelectorAll("style, link[rel='stylesheet']")
+    )
+      .map((el) => el.outerHTML)
+      .join("\n");
+
     printWindow.document.write(`
       <html>
         <head>
           <title>In phiếu đặt vé - [${bookingForm.phone}]</title>
-          <script src="https://cdn.tailwindcss.com"></script>
+          ${styles}
           <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
           <style>
             @page { size: ${pageSizeCss}; margin: 0; }

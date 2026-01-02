@@ -1,18 +1,28 @@
-
-import React, { useState, useRef, useEffect } from 'react';
-import { createPortal } from 'react-dom';
+import React, { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 
 interface PopoverProps {
   trigger: React.ReactNode;
   content: (close: () => void) => React.ReactNode;
-  align?: 'left' | 'right';
+  align?: "left" | "right";
   className?: string;
 }
 
-export const Popover: React.FC<PopoverProps> = ({ trigger, content, align = 'left', className = '' }) => {
+export const Popover: React.FC<PopoverProps> = ({
+  trigger,
+  content,
+  align = "left",
+  className = "",
+}) => {
   const [isOpen, setIsOpen] = useState(false);
   const triggerRef = useRef<HTMLDivElement>(null);
-  const [coords, setCoords] = useState({ top: 0, left: 0, right: 0, width: 0, isMobile: false });
+  const [coords, setCoords] = useState({
+    top: 0,
+    left: 0,
+    right: 0,
+    width: 0,
+    isMobile: false,
+  });
 
   const updateCoords = () => {
     if (isOpen && triggerRef.current) {
@@ -23,7 +33,7 @@ export const Popover: React.FC<PopoverProps> = ({ trigger, content, align = 'lef
         left: rect.left + window.scrollX,
         right: window.innerWidth - rect.right - window.scrollX,
         width: rect.width,
-        isMobile
+        isMobile,
       });
     }
   };
@@ -31,12 +41,12 @@ export const Popover: React.FC<PopoverProps> = ({ trigger, content, align = 'lef
   useEffect(() => {
     if (isOpen) {
       updateCoords();
-      window.addEventListener('resize', updateCoords);
-      window.addEventListener('scroll', updateCoords, true);
+      window.addEventListener("resize", updateCoords);
+      window.addEventListener("scroll", updateCoords, true);
     }
     return () => {
-      window.removeEventListener('resize', updateCoords);
-      window.removeEventListener('scroll', updateCoords, true);
+      window.removeEventListener("resize", updateCoords);
+      window.removeEventListener("scroll", updateCoords, true);
     };
   }, [isOpen]);
 
@@ -44,12 +54,15 @@ export const Popover: React.FC<PopoverProps> = ({ trigger, content, align = 'lef
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       // Check if click is inside trigger
-      if (triggerRef.current && triggerRef.current.contains(event.target as Node)) {
+      if (
+        triggerRef.current &&
+        triggerRef.current.contains(event.target as Node)
+      ) {
         return;
       }
-      
+
       // Check if click is inside portal content
-      const portalContent = document.getElementById('popover-portal-content');
+      const portalContent = document.getElementById("popover-portal-content");
       if (portalContent && portalContent.contains(event.target as Node)) {
         return;
       }
@@ -58,27 +71,35 @@ export const Popover: React.FC<PopoverProps> = ({ trigger, content, align = 'lef
     };
 
     if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener("mousedown", handleClickOutside);
     }
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isOpen]);
 
   const close = () => setIsOpen(false);
 
   const popoverContent = (
-    <div 
+    <div
       id="popover-portal-content"
       className={`
-        z-[9999] animate-in fade-in zoom-in-95 duration-200
-        ${coords.isMobile 
-          ? 'fixed inset-0 flex items-center justify-center p-4 bg-black/40 backdrop-blur-[2px]' 
-          : 'absolute'} 
+        z-9999 animate-in fade-in zoom-in-95 duration-200
+        ${
+          coords.isMobile
+            ? "fixed inset-0 flex items-center justify-center p-4 bg-black/40 backdrop-blur-[2px]"
+            : "absolute"
+        } 
         ${className}
       `}
-      style={!coords.isMobile ? {
-        top: coords.top,
-        ...(align === 'right' ? { right: coords.right } : { left: coords.left }),
-      } : {}}
+      style={
+        !coords.isMobile
+          ? {
+              top: coords.top,
+              ...(align === "right"
+                ? { right: coords.right }
+                : { left: coords.left }),
+            }
+          : {}
+      }
       onClick={(e) => {
         // Close if clicking the backdrop on mobile
         if (coords.isMobile && e.target === e.currentTarget) {
@@ -86,7 +107,7 @@ export const Popover: React.FC<PopoverProps> = ({ trigger, content, align = 'lef
         }
       }}
     >
-      <div className={`${coords.isMobile ? 'shadow-2xl' : ''}`}>
+      <div className={`${coords.isMobile ? "shadow-2xl" : ""}`}>
         {content(close)}
       </div>
     </div>
@@ -94,9 +115,9 @@ export const Popover: React.FC<PopoverProps> = ({ trigger, content, align = 'lef
 
   return (
     <>
-      <div 
-        ref={triggerRef} 
-        onClick={() => setIsOpen(!isOpen)} 
+      <div
+        ref={triggerRef}
+        onClick={() => setIsOpen(!isOpen)}
         className="cursor-pointer inline-block"
       >
         {trigger}

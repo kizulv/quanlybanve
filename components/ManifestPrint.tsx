@@ -223,7 +223,7 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
                 .join("")}
             </div>
           </div>
-          <div class="w-[180px] flex flex-col">
+          <div class="w-45 flex flex-col">
             <div class="text-sm font-bold py-1 px-2 mb-1.5 text-center uppercase tracking-wider">SÀN</div>
             <div class="flex flex-col justify-around h-full">
               ${[0, 1, 2, 3, 4, 5]
@@ -340,7 +340,7 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
       if (floorSeats.length > 0) {
         layoutHtml += `
           <div class="pt-2">
-            <div class="text-center font-black text-[10px] uppercase mb-1.5 tracking-widest text-slate-500">SÀN</div>
+            <div class="text-center font-black text-2.5 uppercase mb-1.5 tracking-widest text-slate-500">SÀN</div>
             <div class="grid grid-cols-6 gap-1.5">
               ${floorSeats.map((s) => renderSeatHtml(s)).join("")}
             </div>
@@ -348,6 +348,12 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
         `;
       }
     }
+
+    const styles = Array.from(
+      document.querySelectorAll("style, link[rel='stylesheet']")
+    )
+      .map((el) => el.outerHTML)
+      .join("\n");
 
     const htmlContent = `
       <!DOCTYPE html>
@@ -357,7 +363,7 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
       selectedTrip.licensePlate
     }</title>
         <meta charset="UTF-8">
-        <script src="https://cdn.tailwindcss.com"></script>
+        ${styles}
         <style>
           @page { ${A4_landscape};}
           @media print {
@@ -420,7 +426,7 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
       variant="ghost"
       size="sm"
       onClick={handlePrint}
-      className="h-7 text-[10px] font-bold text-blue-600 hover:bg-blue-50 border border-blue-100"
+      className="h-7 text-[12px] font-bold text-blue-600 hover:bg-blue-50 border border-blue-100"
       disabled={disabled || !selectedTrip}
     >
       <Printer size={12} className="mr-1" /> In bảng kê

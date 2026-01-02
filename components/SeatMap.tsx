@@ -165,8 +165,8 @@ export const SeatMap: React.FC<SeatMapProps> = ({
           customWidth
             ? customWidth
             : isBench
-            ? "w-1/5 min-h-[90px] md:h-[100px] rounded-lg"
-            : "w-full min-h-[90px] md:h-[100px] rounded-lg"
+            ? "w-1/5 min-h-22.5 md:h-25 rounded-lg"
+            : "w-full min-h-22.5 md:h-25 rounded-lg"
         } 
         `}
       >
@@ -480,7 +480,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
                 return (
                   <div
                     key={`ghost-${floorNumber}-${rowIndex}-${colIndex}`}
-                    className="w-full h-[90px] border border-slate-100 border-dashed rounded-lg bg-slate-50/20"
+                    className="w-full h-22.5 border border-slate-100 border-dashed rounded-lg bg-slate-50/20"
                   />
                 );
               });

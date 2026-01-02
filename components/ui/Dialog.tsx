@@ -54,7 +54,7 @@ export const Dialog: React.FC<DialogProps> = ({
   return (
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6"
+      className="fixed inset-0 z-100 flex items-center justify-center p-4 sm:p-6"
     >
       {/* Overlay background */}
       <div

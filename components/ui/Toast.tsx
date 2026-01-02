@@ -44,19 +44,27 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({
   return (
     <ToastContext.Provider value={{ toast }}>
       {children}
-      <div className="fixed top-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-none">
+      <div className="fixed top-4 right-4 z-9999 flex flex-col gap-2 pointer-events-none">
         {toasts.map((t) => (
           <div
             key={t.id}
             className="pointer-events-auto flex items-start w-72 rounded-lg p-3 shadow-xl border border-slate-100 bg-white transition-all animate-in slide-in-from-right-full duration-300"
           >
             <div className="shrink-0 pt-0.5">
-              {t.type === 'success' && <CheckCircle2 size={18} className="text-green-600" />}
-              {t.type === 'error' && <AlertCircle size={18} className="text-red-600" />}
-              {t.type === 'warning' && <AlertCircle size={18} className="text-amber-500" />}
-              {t.type === 'info' && <Info size={18} className="text-blue-600" />}
+              {t.type === "success" && (
+                <CheckCircle2 size={18} className="text-green-600" />
+              )}
+              {t.type === "error" && (
+                <AlertCircle size={18} className="text-red-600" />
+              )}
+              {t.type === "warning" && (
+                <AlertCircle size={18} className="text-amber-500" />
+              )}
+              {t.type === "info" && (
+                <Info size={18} className="text-blue-600" />
+              )}
             </div>
-            
+
             <div className="flex-1 ml-3 mr-2 min-w-0">
               <h4 className="text-sm font-bold text-slate-800 leading-tight">
                 {t.title}
@@ -68,8 +76,9 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({
               )}
             </div>
 
-            <button 
-              onClick={() => removeToast(t.id)} 
+            <button
+              title="Đóng"
+              onClick={() => removeToast(t.id)}
               className="shrink-0 text-slate-300 hover:text-slate-500 transition-colors pt-0.5"
             >
               <X size={14} />

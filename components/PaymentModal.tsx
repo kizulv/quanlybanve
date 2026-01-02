@@ -312,7 +312,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             <Button
               variant="outline"
               onClick={onClose}
-              className="border-indigo-800 text-white hover:bg-indigo-600 hover:text-white bg-transparent h-10 px-6 text-xs font-bold min-w-[100px] border-indigo-900/70"
+              className="border-indigo-800 text-white hover:bg-indigo-600 hover:text-white bg-transparent h-10 px-6 text-xs font-bold min-w-25"
             >
               {isSaved ? "Đóng" : "Hủy bỏ"}
             </Button>
@@ -320,7 +320,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             <Button
               onClick={handleConfirmClick}
               disabled={!isCompleteBtnActive}
-              className={`h-10 px-8 font-bold text-xs shadow-lg transition-all min-w-[140px] border text-white
+              className={`h-10 px-8 font-bold text-xs shadow-lg transition-all min-w-35 border text-white
                 ${
                   !isCompleteBtnActive
                     ? "bg-indigo-900/50 opacity-40 cursor-not-allowed border-indigo-900 shadow-none"
@@ -352,7 +352,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         </div>
       }
     >
-      <div className="flex flex-col md:flex-row h-full md:h-[550px]">
+      <div className="flex flex-col md:flex-row h-full md:h-137.5">
         <div className="flex-1 overflow-y-auto p-4 bg-indigo-950/50">
           {stableItems.length === 0 && (
             <div className="text-center py-10 text-indigo-400 italic text-sm">
@@ -410,7 +410,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
                           <div className="flex-1 grid grid-cols-2 gap-2 w-full">
                             <div className="relative group">
-                              <div className="absolute left-2.5 top-[9px] pointer-events-none">
+                              <div className="absolute left-2.5 top-2.25 pointer-events-none">
                                 <MapPin
                                   size={10}
                                   className="text-indigo-400 group-focus-within:text-yellow-400 transition-colors"
@@ -441,7 +441,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                             </div>
 
                             <div className="relative group">
-                              <div className="absolute left-2.5 top-[9px] pointer-events-none">
+                              <div className="absolute left-2.5 top-2.25 pointer-events-none">
                                 <Locate
                                   size={10}
                                   className="text-indigo-400 group-focus-within:text-yellow-400 transition-colors"
@@ -491,7 +491,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                               }
                             />
                             <span
-                              className={`absolute right-1 top-[7px] text-[10px] pointer-events-none hidden sm:block  ${
+                              className={`absolute right-1 top-1.75 text-[10px] pointer-events-none hidden sm:block  ${
                                 isPriceChanged || seat.price === 0
                                   ? "text-yellow-400 font-semibold"
                                   : "text-white"
@@ -510,7 +510,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           </div>
         </div>
 
-        <div className="w-full md:w-[360px] bg-indigo-900/20 p-4 flex flex-col gap-4 shrink-0 border-t md:border-t-0 md:border-l border-indigo-900 shadow-xl overflow-y-auto">
+        <div className="w-full md:w-90 bg-indigo-900/20 p-4 flex flex-col gap-4 shrink-0 border-t md:border-t-0 md:border-l border-indigo-900 shadow-xl overflow-y-auto">
           <div className="bg-indigo-900/50 rounded p-4 border border-indigo-800 shadow-inner space-y-3">
             <div className="flex items-center gap-2 mb-2 text-indigo-300 text-xs font-bold uppercase tracking-wider">
               <Calculator size={14} /> Tổng thanh toán

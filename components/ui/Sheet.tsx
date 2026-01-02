@@ -84,7 +84,7 @@ export const SheetContent: React.FC<{
   if (!isOpen) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] flex justify-end">
+    <div className="fixed inset-0 z-100 flex justify-end">
       {/* Backdrop */}
       <div
         className="fixed inset-0 bg-black/40 backdrop-blur-sm animate-in fade-in duration-300"
@@ -93,7 +93,7 @@ export const SheetContent: React.FC<{
 
       {/* Content */}
       <div
-        className={`fixed inset-y-0 right-0 z-[101] h-full w-full md:w-[400px] border-l bg-white shadow-2xl transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right duration-300 ${className}`}
+        className={`fixed inset-y-0 right-0 z-101 h-full w-full md:w-100 border-l bg-white shadow-2xl transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right duration-300 ${className}`}
       >
         <button
           onClick={() => setIsOpen(false)}

@@ -260,7 +260,7 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
       } bg-indigo-950 text-white border-indigo-900 rounded-xl overflow-hidden transition-all duration-300`}
       headerClassName="h-[40px] bg-gradient-to-r from-indigo-950 via-indigo-900 to-indigo-950 border-indigo-900 text-white"
     >
-      <div className="flex flex-col md:flex-row h-full md:h-[300px]">
+      <div className="flex flex-col md:flex-row h-full md:h-75">
         {/* LEFT: Customer Info */}
         <div
           className={`flex-1 overflow-y-auto p-4 ${
@@ -423,7 +423,7 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
 
         {/* RIGHT: Financial Actions */}
         {showRightPanel && (
-          <div className="w-full md:w-[280px] bg-indigo-900/20 p-4 flex flex-col gap-4 border-t md:border-t-0 md:border-l border-indigo-900/50 shadow-xl overflow-y-auto animate-in fade-in duration-300">
+          <div className="w-full md:w-70 bg-indigo-900/20 p-4 flex flex-col gap-4 border-t md:border-t-0 md:border-l border-indigo-900/50 shadow-xl overflow-y-auto animate-in fade-in duration-300">
             <div className="bg-indigo-900/50 rounded-lg p-3 border border-indigo-800 space-y-3 shadow-inner mt-2">
               <div className="flex items-center gap-2 text-indigo-400 text-[10px] font-black uppercase tracking-widest">
                 <Calculator size={12} /> Giá vé thu thực tế
@@ -434,7 +434,7 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
               </div>
             </div>
 
-            <div className="space-y-3 animate-in fade-in slide-in-from-right-2 duration-300 mt-[2px]">
+            <div className="space-y-3 animate-in fade-in slide-in-from-right-2 duration-300 mt-0.5">
               <div className="text-[10px] font-black text-indigo-400 uppercase tracking-widest px-1 flex items-center gap-2">
                 <CreditCard size={12} className="text-emerald-400" /> Thu tiền
                 lẻ ghế này
