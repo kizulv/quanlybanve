@@ -330,8 +330,11 @@ function AppContent() {
     }
   };
 
-  const cancelAllSelections = (suppressToast: boolean = false) => {
-    if (editingBooking) {
+  const cancelAllSelections = (
+    suppressToast: boolean = false,
+    forceClear: boolean = false
+  ) => {
+    if (editingBooking && !forceClear) {
       const savedBooking = editingBooking;
       setEditingBooking(null);
       setTrips((prevTrips) =>

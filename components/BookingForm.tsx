@@ -84,7 +84,7 @@ interface BookingFormProps {
   setBookings: React.Dispatch<React.SetStateAction<Booking[]>>;
   setUndoStack: React.Dispatch<React.SetStateAction<UndoAction[]>>;
   setEditingBooking: (booking: Booking | null) => void;
-  onCancelSelection: (suppressToast?: boolean) => void;
+  onCancelSelection: (suppressToast?: boolean, forceClear?: boolean) => void;
   onInitiateSwap?: (seat: Seat) => void;
   onNavigateToTrip?: (date: Date, tripId: string) => void;
 }
@@ -680,7 +680,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
 
     // Reset form states after successful payment
     setEditingBooking(null);
-    onCancelSelection(true);
+    onCancelSelection(true, true);
     setBookingForm({ phone: "", pickup: "", dropoff: "", note: "" });
     setBookingMode("booking");
     setPhoneError(null);
