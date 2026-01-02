@@ -23,6 +23,7 @@ import {
 import { BusFront, Loader2, ArrowRightLeft } from "lucide-react";
 import { api } from "./lib/api";
 import { isSameDay } from "./utils/dateUtils";
+import { SUBDOMAIN } from "./constants";
 
 function AppContent() {
   const { toast } = useToast();
@@ -57,8 +58,8 @@ function AppContent() {
   // -- DEEP LINKING & SUBDOMAIN ROUTING --
   useEffect(() => {
     const hostname = window.location.hostname;
-    const subdomain = import.meta.env.VITE_APP_SUBDOMAIN;
-    if (subdomain && hostname.includes(`${subdomain}.`)) {
+
+    if (SUBDOMAIN && hostname.includes(`${SUBDOMAIN}.`)) {
       setActiveTab("order-info");
     }
 

@@ -3,6 +3,7 @@ import { Printer, FileText, Layout, Check } from "lucide-react";
 import { Button } from "./ui/Button";
 import { formatCurrency } from "../utils/formatters";
 import { formatLunarDate } from "../utils/dateUtils";
+import { BASE_URL } from "../constants";
 import QRCode from "qrcode";
 
 interface BookingPrintProps {
@@ -58,22 +59,8 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
     // Tạo các mã QR trước khi render HTML
     const qrDataUrls = await Promise.all(
       items.map(async (trip) => {
-        const domain = import.meta.env.VITE_APP_DOMAIN;
-        const subdomain = import.meta.env.VITE_APP_SUBDOMAIN;
-        let baseUrl;
+        const qrData = `${BASE_URL}?bookingId=${bookingId || ""}`;
 
-        if (domain && subdomain) {
-          console.log("Using env vars for QR:", { domain, subdomain });
-          baseUrl = `https://${subdomain}.${domain}`;
-        } else {
-          console.log("Fallback to window.location for QR:", {
-            domain,
-            subdomain,
-          });
-          baseUrl = window.location.origin + window.location.pathname;
-        }
-
-        const qrData = `${baseUrl}?bookingId=${bookingId || ""}`;
         try {
           return await QRCode.toDataURL(qrData, {
             margin: 1,

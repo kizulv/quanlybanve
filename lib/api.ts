@@ -1,8 +1,12 @@
-
 import { Bus, BusTrip, Route, Passenger, Seat, Booking } from "../types";
 
 // Dynamically determine the API URL based on current window location
 const getApiUrl = () => {
+  // Check for environment variable first
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+
   if (
     typeof window !== "undefined" &&
     window.location &&
@@ -126,22 +130,34 @@ export const api = {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ items, passenger, payment, status }),
       }),
-    updatePassenger: (id: string, passenger: Passenger) => 
+    updatePassenger: (id: string, passenger: Passenger) =>
       fetchJson(`${API_URL}/bookings/${id}/passenger`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ passenger }),
       }),
-    updateTicket: (id: string, seatId: string, details: { pickup?: string, dropoff?: string, note?: string, phone?: string, name?: string, action?: string, payment?: any }) =>
+    updateTicket: (
+      id: string,
+      seatId: string,
+      details: {
+        pickup?: string;
+        dropoff?: string;
+        note?: string;
+        phone?: string;
+        name?: string;
+        action?: string;
+        payment?: any;
+      }
+    ) =>
       fetchJson(`${API_URL}/bookings/${id}/tickets/${seatId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(details),
       }),
-    delete: (id: string) => 
-        fetchJson(`${API_URL}/bookings/${id}`, {
-            method: "DELETE"
-        }),
+    delete: (id: string) =>
+      fetchJson(`${API_URL}/bookings/${id}`, {
+        method: "DELETE",
+      }),
     updatePayment: (
       bookingIds: string[],
       payment: { paidCash: number; paidTransfer: number }
@@ -152,17 +168,27 @@ export const api = {
         body: JSON.stringify({ bookingIds, payment }),
       }),
     swapSeats: (tripId: string, seatId1: string, seatId2: string) =>
-        fetchJson(`${API_URL}/bookings/swap`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ tripId, seatId1, seatId2 }),
+      fetchJson(`${API_URL}/bookings/swap`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tripId, seatId1, seatId2 }),
+      }),
+    transferSeat: (
+      bookingId: string,
+      fromTripId: string,
+      toTripId: string,
+      seatTransfers: { sourceSeatId: string; targetSeatId: string }[]
+    ) =>
+      fetchJson(`${API_URL}/bookings/transfer`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bookingId,
+          fromTripId,
+          toTripId,
+          seatTransfers,
         }),
-    transferSeat: (bookingId: string, fromTripId: string, toTripId: string, seatTransfers: { sourceSeatId: string, targetSeatId: string }[]) =>
-        fetchJson(`${API_URL}/bookings/transfer`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ bookingId, fromTripId, toTripId, seatTransfers }),
-        }),
+      }),
     getHistory: (id: string) => fetchJson(`${API_URL}/bookings/${id}/history`),
   },
 
@@ -191,7 +217,9 @@ export const api = {
   },
 
   maintenance: {
-    fixSeats: () => fetchJson(`${API_URL}/maintenance/fix-seats`, { method: "POST" }),
-    fixPayments: () => fetchJson(`${API_URL}/maintenance/fix-payments`, { method: "POST" }),
-  }
+    fixSeats: () =>
+      fetchJson(`${API_URL}/maintenance/fix-seats`, { method: "POST" }),
+    fixPayments: () =>
+      fetchJson(`${API_URL}/maintenance/fix-payments`, { method: "POST" }),
+  },
 };

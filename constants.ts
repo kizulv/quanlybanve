@@ -4,3 +4,8 @@
 
 export const APP_NAME = "VinaBus Manager";
 export const DATE_FORMAT = "DD/MM/YYYY";
+
+// Environment Configuration
+export const DOMAIN = import.meta.env.VITE_APP_DOMAIN || "pcthanh.com";
+export const SUBDOMAIN = import.meta.env.VITE_APP_SUBDOMAIN || "vetet";
+export const BASE_URL = `https://${SUBDOMAIN}.${DOMAIN}`;

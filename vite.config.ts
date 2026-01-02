@@ -13,11 +13,17 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 3000,
       host: "0.0.0.0",
+      allowedHosts: ["vetet.pcthanh.com"],
     },
     plugins: [react()],
     define: {
-      "process.env.API_KEY": JSON.stringify(env.GEMINI_API_KEY),
       "process.env.GEMINI_API_KEY": JSON.stringify(env.GEMINI_API_KEY),
+      "import.meta.env.VITE_APP_DOMAIN": JSON.stringify(
+        env.VITE_APP_DOMAIN || "pcthanh.com"
+      ),
+      "import.meta.env.VITE_APP_SUBDOMAIN": JSON.stringify(
+        env.VITE_APP_SUBDOMAIN || "vetet"
+      ),
     },
     resolve: {
       alias: {
