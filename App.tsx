@@ -54,8 +54,14 @@ function AppContent() {
     "outbound" | "inbound"
   >("outbound");
 
-  // -- DEEP LINKING --
+  // -- DEEP LINKING & SUBDOMAIN ROUTING --
   useEffect(() => {
+    const hostname = window.location.hostname;
+    const subdomain = import.meta.env.VITE_APP_SUBDOMAIN;
+    if (subdomain && hostname.includes(`${subdomain}.`)) {
+      setActiveTab("order-info");
+    }
+
     const params = new URLSearchParams(window.location.search);
     if (params.get("bookingId")) {
       setActiveTab("order-info");

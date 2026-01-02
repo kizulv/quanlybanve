@@ -58,7 +58,21 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
     // Tạo các mã QR trước khi render HTML
     const qrDataUrls = await Promise.all(
       items.map(async (trip) => {
-        const baseUrl = window.location.origin + window.location.pathname;
+        const domain = import.meta.env.VITE_APP_DOMAIN;
+        const subdomain = import.meta.env.VITE_APP_SUBDOMAIN;
+        let baseUrl;
+
+        if (domain && subdomain) {
+          console.log("Using env vars for QR:", { domain, subdomain });
+          baseUrl = `https://${subdomain}.${domain}`;
+        } else {
+          console.log("Fallback to window.location for QR:", {
+            domain,
+            subdomain,
+          });
+          baseUrl = window.location.origin + window.location.pathname;
+        }
+
         const qrData = `${baseUrl}?bookingId=${bookingId || ""}`;
         try {
           return await QRCode.toDataURL(qrData, {
