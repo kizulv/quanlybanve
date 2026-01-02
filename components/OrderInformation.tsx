@@ -44,6 +44,11 @@ import {
   formatDate,
 } from "../utils/formatters";
 import { formatLunarDate } from "../utils/dateUtils";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "./ui/Collapsible";
 
 const SeatMapPreview: React.FC<{ trip: BusTrip; bookedSeatIds: string[] }> = ({
   trip,
@@ -94,7 +99,7 @@ const SeatMapPreview: React.FC<{ trip: BusTrip; bookedSeatIds: string[] }> = ({
       (s) => !s.isFloorSeat && (s.row ?? 0) >= 90
     );
     const rows = Array.from(new Set(regularSeats.map((s) => s.row ?? 0))).sort(
-      (a, b) => a - b
+      (a: number, b: number) => a - b
     );
 
     return (
@@ -254,6 +259,16 @@ export const OrderInformation: React.FC<OrderInformationProps> = ({
   const [loading, setLoading] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 1024); // lg breakpoint in tailwind
+    };
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -742,18 +757,24 @@ export const OrderInformation: React.FC<OrderInformationProps> = ({
             {/* Main Content Grid: Summary & Payment */}
             <div className="flex flex-col lg:flex-row gap-6">
               {/* Booking Summary */}
-              <div className="w-full lg:flex-1 bg-white rounded border border-slate-200 shadow-sm overflow-hidden">
-                <div className="bg-slate-50 h-[40px] border-b border-slate-200">
-                  <h3 className="bg-slate-50 text-xs flex items-center justify-between gap-2 px-4 h-[40px] border-b border-slate-200">
-                    <div className="flex items-center font-semibold text-slate-400 uppercase">
-                      <User size={16} className="mr-2" /> Lịch sử đặt vé
-                    </div>
-                    <div className="text-xs">
-                      {getStatusBadge(booking.status)}
-                    </div>
-                  </h3>
+              <Collapsible
+                disabled={!isMobile}
+                defaultOpen={!isMobile}
+                className="w-full lg:flex-1 bg-white rounded border border-slate-200 shadow-sm overflow-hidden h-fit"
+              >
+                <div className="bg-slate-50 h-[40px] md:border-b md:border-slate-200">
+                  <CollapsibleTrigger className="h-full">
+                    <h3 className="bg-slate-50 text-xs flex items-center justify-between gap-2 px-4 h-full w-full">
+                      <div className="flex items-center font-semibold text-slate-400 uppercase">
+                        <User size={16} className="mr-2" /> Lịch sử đặt vé
+                      </div>
+                      <div className="text-xs">
+                        {getStatusBadge(booking.status)}
+                      </div>
+                    </h3>
+                  </CollapsibleTrigger>
                 </div>
-                <div className="px-2 py-4 md:p-4">
+                <CollapsibleContent className="p-4 pl-2 md:p-4">
                   {historyLoading ? (
                     <div className="flex flex-col items-center justify-center py-20 text-slate-400">
                       <Loader2 className="animate-spin mb-4" size={48} />
@@ -843,8 +864,8 @@ export const OrderInformation: React.FC<OrderInformationProps> = ({
                       <div className="absolute -bottom-0 -left-[8px] w-3 h-3 rounded-full bg-slate-200"></div>
                     </div>
                   )}
-                </div>
-              </div>
+                </CollapsibleContent>
+              </Collapsible>
               {/* Payment Summary */}
               <div className="bg-white rounded border border-slate-200 shadow-sm overflow-hidden flex flex-col w-full lg:w-[35%]">
                 <h3 className="bg-slate-50 text-xs font-semibold text-slate-400 uppercase flex items-center gap-2 px-4 h-[40px] border-b border-slate-200">
