@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from "react";
 import {
   Seat,
@@ -85,7 +84,7 @@ interface BookingFormProps {
   setBookings: React.Dispatch<React.SetStateAction<Booking[]>>;
   setUndoStack: React.Dispatch<React.SetStateAction<UndoAction[]>>;
   setEditingBooking: (booking: Booking | null) => void;
-  onCancelSelection: () => void;
+  onCancelSelection: (suppressToast?: boolean) => void;
   onInitiateSwap?: (seat: Seat) => void;
   onNavigateToTrip?: (date: Date, tripId: string) => void;
 }
@@ -138,6 +137,12 @@ export const BookingForm: React.FC<BookingFormProps> = ({
     oldPrice: number;
     newPrice: number;
     diffTrips: TripDiffItem[];
+    metadataDiff?: {
+      phone?: { old: string; new: string };
+      pickup?: { old: string; new: string };
+      dropoff?: { old: string; new: string };
+      note?: { old: string; new: string };
+    };
   } | null>(null);
 
   useEffect(() => {
@@ -176,7 +181,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
   }, [editingBooking]);
 
   const totalBasketPrice = useMemo(() => {
-    if (!editingBooking && bookingMode === "booking") return 0;
+    if (bookingMode === "booking") return 0;
     return selectionBasket.reduce((sum, item) => {
       return (
         sum +
@@ -187,7 +192,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
               (i) => i.tripId === item.trip.id
             );
             const ticket = originalItem?.tickets?.find(
-              (t) => t.seatId === s.id
+              (t) => String(t.seatId) === String(s.id)
             );
             if (ticket) price = ticket.price;
           }
@@ -241,7 +246,8 @@ export const BookingForm: React.FC<BookingFormProps> = ({
     paymentData?: { paidCash: number; paidTransfer: number },
     overrides: Record<string, SeatOverride> = {},
     noteSuffix: string = "",
-    explicitStatus?: "booking" | "payment" | "hold"
+    explicitStatus?: "booking" | "payment" | "hold",
+    explicitItems?: any[]
   ) => {
     if (selectionBasket.length === 0) {
       toast({
@@ -329,7 +335,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
         title: "Thành công",
         message: "Đã tạo đơn hàng thành công.",
       });
-      
+
       return savedBooking;
     } catch (e) {
       toast({
@@ -346,7 +352,8 @@ export const BookingForm: React.FC<BookingFormProps> = ({
     paymentData: { paidCash: number; paidTransfer: number },
     overrides: Record<string, SeatOverride> = {},
     noteSuffix: string = "",
-    explicitStatus?: "booking" | "payment" | "hold"
+    explicitStatus?: "booking" | "payment" | "hold",
+    explicitItems?: any[]
   ) => {
     try {
       const passenger = {
@@ -361,19 +368,46 @@ export const BookingForm: React.FC<BookingFormProps> = ({
       const status = explicitStatus || bookingMode;
       const oldBooking = bookings.find((b) => b.id === targetBookingId);
 
-      const currentItems = selectionBasket.map((item) => ({
-        tripId: item.trip.id,
-        seats: item.seats,
-        tickets: item.seats.map((s) => {
-          const override = overrides[`${item.trip.id}_${s.id}`];
-          return {
-            seatId: s.id,
-            price: status === "booking" ? 0 : override?.price ?? s.price,
-            pickup: override?.pickup ?? passenger.pickupPoint ?? "",
-            dropoff: override?.dropoff ?? passenger.dropoffPoint ?? "",
-          };
-        }),
-      }));
+      let currentItems;
+      if (explicitItems && explicitItems.length > 0) {
+        currentItems = explicitItems.map((item) => ({
+          tripId: item.tripId,
+          seats: item.seats,
+          tickets: item.seats.map((s: Seat) => {
+            const override = overrides[`${item.tripId}_${s.id}`];
+            return {
+              seatId: s.id,
+              price: status === "booking" ? 0 : override?.price ?? s.price,
+              pickup: override?.pickup ?? passenger.pickupPoint ?? "",
+              dropoff: override?.dropoff ?? passenger.dropoffPoint ?? "",
+            };
+          }),
+        }));
+      } else {
+        currentItems = selectionBasket.map((item) => ({
+          tripId: item.trip.id,
+          seats: item.seats,
+          tickets: item.seats.map((s) => {
+            let price = s.price;
+            if (oldBooking) {
+              const originalItem = oldBooking.items.find(
+                (i) => i.tripId === item.trip.id
+              );
+              const ticket = originalItem?.tickets?.find(
+                (t) => String(t.seatId) === String(s.id)
+              );
+              if (ticket) price = ticket.price;
+            }
+            const override = overrides[`${item.trip.id}_${s.id}`];
+            return {
+              seatId: s.id,
+              price: status === "booking" ? 0 : override?.price ?? price,
+              pickup: override?.pickup ?? passenger.pickupPoint ?? "",
+              dropoff: override?.dropoff ?? passenger.dropoffPoint ?? "",
+            };
+          }),
+        }));
+      }
 
       const basketTripIds = new Set(currentItems.map((i) => i.tripId));
       const loadedTripIds = new Set(trips.map((t) => t.id));
@@ -402,12 +436,12 @@ export const BookingForm: React.FC<BookingFormProps> = ({
         finalPayment,
         status
       );
-      
+
       const savedBooking = result.booking;
       setBookings((prev) =>
         prev.map((b) => (b.id === targetBookingId ? savedBooking : b))
       );
-      
+
       const updatedTripsMap = new Map<string, BusTrip>(
         result.updatedTrips.map((t: BusTrip) => [t.id, t])
       );
@@ -431,7 +465,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
         title: "Thành công",
         message: "Đã lưu thay đổi đơn hàng.",
       });
-      
+
       return savedBooking;
     } catch (e) {
       toast({ type: "error", title: "Lỗi", message: "Cập nhật thất bại." });
@@ -503,20 +537,59 @@ export const BookingForm: React.FC<BookingFormProps> = ({
         }
       });
 
+      const hasSeatChanges = diffTrips.some((t) =>
+        t.seats.some((s) => s.status !== "kept")
+      );
+
+      const metadataDiff: any = {};
+      if (bookingForm.phone !== editingBooking.passenger.phone)
+        metadataDiff.phone = {
+          old: editingBooking.passenger.phone,
+          new: bookingForm.phone,
+        };
+      if (bookingForm.pickup !== (editingBooking.passenger.pickupPoint || ""))
+        metadataDiff.pickup = {
+          old: editingBooking.passenger.pickupPoint || "",
+          new: bookingForm.pickup,
+        };
+      if (bookingForm.dropoff !== (editingBooking.passenger.dropoffPoint || ""))
+        metadataDiff.dropoff = {
+          old: editingBooking.passenger.dropoffPoint || "",
+          new: bookingForm.dropoff,
+        };
+
+      const oldNote = (editingBooking.passenger.note || "")
+        .replace(/\s*\(Chuyển sang [^\)]+\)/g, "")
+        .replace(/\s*\(Cần thu thêm: [^\)]+\)/g, "")
+        .replace(/\s*\(Cần hoàn lại: [^\)]+\)/g, "")
+        .trim();
+
+      if (bookingForm.note.trim() !== oldNote)
+        metadataDiff.note = { old: oldNote, new: bookingForm.note };
+
       setUpdateSummary({
         diffCount:
           selectionBasket.reduce((s, i) => s + i.seats.length, 0) -
           editingBooking.totalTickets,
-        diffPrice: totalBasketPrice - editingBooking.totalPrice,
+        diffPrice: hasSeatChanges
+          ? totalBasketPrice - editingBooking.totalPrice
+          : 0,
         oldPrice: editingBooking.totalPrice,
-        newPrice: totalBasketPrice,
+        newPrice: hasSeatChanges ? totalBasketPrice : editingBooking.totalPrice,
         diffTrips,
+        metadataDiff,
       });
       return;
     }
 
-    if (bookingMode === "booking") processBooking(undefined, {}, "", "booking").then(() => setEditingBooking(null));
-    else if (bookingMode === "hold") processBooking(undefined, {}, "", "hold").then(() => setEditingBooking(null));
+    if (bookingMode === "booking")
+      processBooking(undefined, {}, "", "booking").then(() =>
+        setEditingBooking(null)
+      );
+    else if (bookingMode === "hold")
+      processBooking(undefined, {}, "", "hold").then(() =>
+        setEditingBooking(null)
+      );
     else handleInitiatePayment();
   };
 
@@ -569,19 +642,49 @@ export const BookingForm: React.FC<BookingFormProps> = ({
   const handleConfirmPayment = async (
     finalTotal: number,
     overrides: Record<string, SeatOverride>,
-    noteSuffix: string = ""
+    noteSuffix: string = "",
+    passedItems: any[] = []
   ) => {
-    if (pendingPaymentContext?.type === "update" && editingBooking) {
-      return await executeBookingUpdate(
-        editingBooking.id,
+    let resultBooking;
+
+    // Recovery logic: If editingBooking is missing but we have update context
+    const targetBooking =
+      editingBooking ||
+      (pendingPaymentContext?.type === "update" &&
+      pendingPaymentContext.bookingIds?.[0]
+        ? bookings.find((b) => b.id === pendingPaymentContext.bookingIds[0])
+        : null);
+
+    if (targetBooking) {
+      // If we don't have editingBooking, we MUST rely on passedItems to reconstruct the operation
+      // because selectionBasket might be empty due to state loss.
+      const useItems = passedItems.length > 0 ? passedItems : undefined;
+
+      resultBooking = await executeBookingUpdate(
+        targetBooking.id,
         modalPaymentInput,
         overrides,
         noteSuffix,
-        "payment"
+        "payment",
+        useItems
       );
     } else {
-      return await processBooking(modalPaymentInput, overrides, noteSuffix);
+      resultBooking = await processBooking(
+        modalPaymentInput,
+        overrides,
+        noteSuffix
+      );
     }
+
+    // Reset form states after successful payment
+    setEditingBooking(null);
+    onCancelSelection(true);
+    setBookingForm({ phone: "", pickup: "", dropoff: "", note: "" });
+    setBookingMode("booking");
+    setPhoneError(null);
+    setUpdateSummary(null);
+
+    return resultBooking;
   };
 
   const handleProceedUpdate = async () => {
@@ -597,26 +700,21 @@ export const BookingForm: React.FC<BookingFormProps> = ({
               : "Mua vé"
           })`
         : "";
-    if (bookingMode !== "payment") {
-      await executeBookingUpdate(
-        editingBooking.id,
-        { paidCash: 0, paidTransfer: 0 },
-        {},
-        noteSuffix
-      );
-      setEditingBooking(null);
-    } else {
-      const overrides: Record<string, SeatOverride> = {};
-      editingBooking.items.forEach((i) =>
-        i.tickets?.forEach(
-          (t) =>
-            (overrides[`${i.tripId}_${t.seatId}`] = {
-              price: t.price,
-              pickup: t.pickup,
-              dropoff: t.dropoff,
-            })
-        )
-      );
+    const overrides: Record<string, SeatOverride> = {};
+    editingBooking.items.forEach((i) =>
+      i.tickets?.forEach(
+        (t) =>
+          (overrides[`${i.tripId}_${t.seatId}`] = {
+            price: t.price,
+            pickup: t.pickup,
+            dropoff: t.dropoff,
+          })
+      )
+    );
+
+    const isRefundNeeded = totalBasketPrice < (editingBooking.totalPrice || 0);
+
+    if (isRefundNeeded) {
       setModalInitialOverrides(overrides);
       setPendingPaymentContext({
         type: "update",
@@ -624,6 +722,22 @@ export const BookingForm: React.FC<BookingFormProps> = ({
         totalPrice: totalBasketPrice,
       });
       setIsPaymentModalOpen(true);
+    } else {
+      const paymentToUse =
+        bookingMode === "payment"
+          ? {
+              paidCash: editingBooking.payment?.paidCash || 0,
+              paidTransfer: editingBooking.payment?.paidTransfer || 0,
+            }
+          : { paidCash: 0, paidTransfer: 0 };
+
+      await executeBookingUpdate(
+        editingBooking.id,
+        paymentToUse,
+        overrides,
+        noteSuffix
+      );
+      setEditingBooking(null);
     }
   };
 
@@ -966,45 +1080,146 @@ export const BookingForm: React.FC<BookingFormProps> = ({
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="text-slate-600 pt-2 space-y-4">
-                <div className="space-y-4 py-2 text-sm bg-slate-50 rounded-lg p-4 border border-slate-100">
-                  {updateSummary?.diffTrips.map((t, idx) => (
-                    <div key={idx} className="space-y-2">
-                      <div className="text-xs font-bold flex items-center gap-2 border-b pb-1">
-                        <MapPin size={12} className="text-blue-500" /> {t.route}{" "}
-                        • <Calendar size={12} className="text-slate-400" />{" "}
-                        {t.date.toLocaleDateString("vi-VN")}
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {t.seats.map((s, si) => (
-                          <span
-                            key={si}
-                            className={`px-2 py-1 rounded text-[11px] font-bold ${
-                              s.status === "added"
-                                ? "bg-green-100 text-green-700"
-                                : s.status === "removed"
-                                ? "bg-red-50 text-red-400 line-through"
-                                : "bg-slate-100"
-                            }`}
-                          >
-                            {s.label}
+                {/* Metadata Changes */}
+                {updateSummary?.metadataDiff &&
+                  Object.keys(updateSummary.metadataDiff).length > 0 && (
+                    <div className="space-y-3 py-3 bg-blue-50/50 rounded-lg p-4 border border-blue-100">
+                      <h4 className="text-xs font-bold text-blue-700 uppercase mb-2">
+                        Thông tin thay đổi
+                      </h4>
+                      {updateSummary.metadataDiff.phone && (
+                        <div className="text-sm grid grid-cols-[100px_1fr] items-center gap-2">
+                          <span className="text-slate-500 text-xs">
+                            Số điện thoại:
                           </span>
-                        ))}
+                          <div className="flex items-center gap-2">
+                            <span className="line-through text-slate-400 text-xs">
+                              {updateSummary.metadataDiff.phone.old}
+                            </span>
+                            <ArrowRightIcon
+                              size={12}
+                              className="text-slate-300"
+                            />
+                            <span className="font-bold text-blue-700">
+                              {updateSummary.metadataDiff.phone.new}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                      {updateSummary.metadataDiff.pickup && (
+                        <div className="text-sm grid grid-cols-[100px_1fr] items-center gap-2">
+                          <span className="text-slate-500 text-xs">
+                            Điểm đón:
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="line-through text-slate-400 text-xs">
+                              {updateSummary.metadataDiff.pickup.old ||
+                                "(Trống)"}
+                            </span>
+                            <ArrowRightIcon
+                              size={12}
+                              className="text-slate-300"
+                            />
+                            <span className="font-bold text-blue-700">
+                              {updateSummary.metadataDiff.pickup.new ||
+                                "(Trống)"}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                      {updateSummary.metadataDiff.dropoff && (
+                        <div className="text-sm grid grid-cols-[100px_1fr] items-center gap-2">
+                          <span className="text-slate-500 text-xs">
+                            Điểm trả:
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="line-through text-slate-400 text-xs">
+                              {updateSummary.metadataDiff.dropoff.old ||
+                                "(Trống)"}
+                            </span>
+                            <ArrowRightIcon
+                              size={12}
+                              className="text-slate-300"
+                            />
+                            <span className="font-bold text-blue-700">
+                              {updateSummary.metadataDiff.dropoff.new ||
+                                "(Trống)"}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                      {updateSummary.metadataDiff.note && (
+                        <div className="text-sm grid grid-cols-[100px_1fr] items-center gap-2">
+                          <span className="text-slate-500 text-xs">
+                            Ghi chú:
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="line-through text-slate-400 text-xs">
+                              {updateSummary.metadataDiff.note.old || "(Trống)"}
+                            </span>
+                            <ArrowRightIcon
+                              size={12}
+                              className="text-slate-300"
+                            />
+                            <span className="font-bold text-blue-700">
+                              {updateSummary.metadataDiff.note.new || "(Trống)"}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                {/* Seat Changes (Only show if there are actual changes or overrides) */}
+                {updateSummary?.diffTrips.some((t) =>
+                  t.seats.some((s) => s.status !== "kept")
+                ) && (
+                  <>
+                    <div className="space-y-4 py-2 text-sm bg-slate-50 rounded-lg p-4 border border-slate-100">
+                      <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">
+                        Thay đổi ghế ngồi
+                      </h4>
+                      {updateSummary?.diffTrips.map((t, idx) => (
+                        <div key={idx} className="space-y-2">
+                          <div className="text-xs font-bold flex items-center gap-2 border-b pb-1">
+                            <MapPin size={12} className="text-blue-500" />{" "}
+                            {t.route} •{" "}
+                            <Calendar size={12} className="text-slate-400" />{" "}
+                            {t.date.toLocaleDateString("vi-VN")}
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {t.seats.map((s, si) => (
+                              <span
+                                key={si}
+                                className={`px-2 py-1 rounded text-[11px] font-bold ${
+                                  s.status === "added"
+                                    ? "bg-green-100 text-green-700"
+                                    : s.status === "removed"
+                                    ? "bg-red-50 text-red-400 line-through"
+                                    : "bg-slate-100"
+                                }`}
+                              >
+                                {s.label}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex justify-between items-center pt-3 border-t">
+                      <span className="text-xs">Tổng tiền:</span>
+                      <div className="flex items-center gap-2 font-medium">
+                        <span className="text-slate-400 line-through text-xs">
+                          {formatCurrency(updateSummary?.oldPrice)}
+                        </span>
+                        <ArrowRightIcon size={14} className="text-slate-300" />
+                        <span className="text-slate-900 font-bold">
+                          {formatCurrency(updateSummary?.newPrice)} đ
+                        </span>
                       </div>
                     </div>
-                  ))}
-                </div>
-                <div className="flex justify-between items-center pt-3 border-t">
-                  <span className="text-xs">Tổng tiền:</span>
-                  <div className="flex items-center gap-2 font-medium">
-                    <span className="text-slate-400 line-through text-xs">
-                      {formatCurrency(updateSummary?.oldPrice)}
-                    </span>
-                    <ArrowRightIcon size={14} className="text-slate-300" />
-                    <span className="text-slate-900 font-bold">
-                      {formatCurrency(updateSummary?.newPrice)} đ
-                    </span>
-                  </div>
-                </div>
+                  </>
+                )}
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -1012,8 +1227,17 @@ export const BookingForm: React.FC<BookingFormProps> = ({
             <Button variant="outline" onClick={() => setUpdateSummary(null)}>
               Quay lại
             </Button>
-            <Button className="bg-blue-600" onClick={handleProceedUpdate}>
-              Đồng ý lưu
+            <Button
+              className={
+                updateSummary?.diffPrice && updateSummary.diffPrice < 0
+                  ? "bg-red-600 hover:bg-red-500"
+                  : "bg-blue-600"
+              }
+              onClick={handleProceedUpdate}
+            >
+              {updateSummary?.diffPrice && updateSummary.diffPrice < 0
+                ? "Hoàn tiền"
+                : "Đồng ý lưu"}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

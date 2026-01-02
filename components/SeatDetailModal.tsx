@@ -101,17 +101,28 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
             initialPickup = ticket.pickup || initialPickup;
             initialDropoff = ticket.dropoff || initialDropoff;
           }
+          // Prioritize ticket specific info if available
+          const ticketName =
+            ticket?.name || booking.passenger.name || "Khách lẻ";
+          const ticketPhone = ticket?.phone || booking.passenger.phone || "";
+
+          setForm({
+            phone: formatPhoneNumber(ticketPhone),
+            pickup: initialPickup,
+            dropoff: initialDropoff,
+            note: initialNote,
+            name: ticketName,
+          });
         } else {
           initialNote = booking.passenger.note || "";
+          setForm({
+            phone: formatPhoneNumber(booking.passenger.phone),
+            pickup: initialPickup,
+            dropoff: initialDropoff,
+            note: initialNote,
+            name: booking.passenger.name || "Khách lẻ",
+          });
         }
-
-        setForm({
-          phone: formatPhoneNumber(booking.passenger.phone),
-          pickup: initialPickup,
-          dropoff: initialDropoff,
-          note: initialNote,
-          name: booking.passenger.name || "Khách lẻ",
-        });
 
         if (seat.status === SeatStatus.BOOKED) {
           setPaymentInput({ paidCash: seatPrice, paidTransfer: 0 });
@@ -185,7 +196,7 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
     try {
       await onSave({
         ...form,
-        phone: form.phone.replace(/\D/g, ""),
+        phone: formatPhoneNumber(form.phone),
         pickupPoint: form.pickup,
         dropoffPoint: form.dropoff,
       });
@@ -201,7 +212,7 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
       await onSave(
         {
           ...form,
-          phone: form.phone.replace(/\D/g, ""),
+          phone: formatPhoneNumber(form.phone),
           pickupPoint: form.pickup,
           dropoffPoint: form.dropoff,
         },
@@ -218,7 +229,7 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
       await onSave(
         {
           ...form,
-          phone: form.phone.replace(/\D/g, ""),
+          phone: formatPhoneNumber(form.phone),
           pickupPoint: form.pickup,
           dropoffPoint: form.dropoff,
         },

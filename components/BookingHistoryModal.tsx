@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from "react";
 import { Dialog } from "./ui/Dialog";
 import { Button } from "./ui/Button";
@@ -375,10 +374,10 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title="Lịch sử hoạt động"
-      className="max-w-[700px]"
+      className="max-w-[700px] bg-none"
       headerClassName="px-4 h-[40px] border-b flex items-center justify-between shrink-0 rounded-t-xl bg-gradient-to-r from-indigo-950 via-indigo-900 to-indigo-950 text-white text-sm font-semibold"
     >
-      <div className="space-y-5 max-h-[75vh] overflow-y-auto">
+      <div className="space-y-5 max-h-[75vh] overflow-y-auto bg-white">
         {booking && (
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 sticky top-0 z-20 bg-white px-4 border-b border-slate-200 shadow-sm py-1">
             <div className="flex items-center gap-1">

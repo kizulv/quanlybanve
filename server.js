@@ -98,6 +98,8 @@ const ticketDetailSchema = new mongoose.Schema(
     pickup: String,
     dropoff: String,
     note: String,
+    name: String, // NEW
+    phone: String, // NEW
   },
   { _id: false }
 );
@@ -494,6 +496,8 @@ app.post("/api/bookings", async (req, res) => {
           pickup: passenger.pickupPoint || "",
           dropoff: passenger.dropoffPoint || "",
           note: "",
+          name: passenger.name || "", // Default from booking passenger
+          phone: passenger.phone || "", // Default from booking passenger
         }));
 
       const seatIds = tickets.map((t) => t.seatId);
@@ -607,7 +611,7 @@ app.put("/api/bookings/:id", async (req, res) => {
     const bookingItems = [];
     const changes = [];
 
-    const totalPaid = (payment?.paidCash || 0) + (payment?.paidTransfer || 0);
+    const totalPaid = (payment?.paidCash || 0) + (payment?.transfer || 0); // Corrected from payment?.paidTransfer
     const finalStatus =
       requestedStatus || (totalPaid > 0 ? "payment" : "booking");
 
@@ -629,6 +633,8 @@ app.put("/api/bookings/:id", async (req, res) => {
           pickup: passenger.pickupPoint || "",
           dropoff: passenger.dropoffPoint || "",
           note: "",
+          name: passenger.name || "", // Default from booking passenger
+          phone: passenger.phone || "", // Default from booking passenger
         }));
       const seatIds = tickets.map((t) => t.seatId);
       const itemPrice = tickets.reduce((sum, t) => sum + (t.price || 0), 0);
@@ -722,14 +728,46 @@ app.put("/api/bookings/:id", async (req, res) => {
       );
     }
 
-    const passengerChanged =
-      oldBooking.passenger.phone !== passenger.phone ||
-      oldBooking.passenger.pickupPoint !== passenger.pickupPoint ||
-      oldBooking.passenger.dropoffPoint !== passenger.dropoffPoint;
-
-    if (passengerChanged && summaryParts.length === 0) {
-      summaryParts.push("Cập nhật thông tin khách/điểm đón trả");
+    const updates = [];
+    if (oldBooking.passenger.phone !== passenger.phone) {
+      updates.push(`SĐT: ${oldBooking.passenger.phone} -> ${passenger.phone}`);
     }
+    if (oldBooking.passenger.pickupPoint !== passenger.pickupPoint) {
+      updates.push(
+        `Điểm đón: ${oldBooking.passenger.pickupPoint || "(Trống)"} -> ${
+          passenger.pickupPoint || "(Trống)"
+        }`
+      );
+    }
+    if (oldBooking.passenger.dropoffPoint !== passenger.dropoffPoint) {
+      updates.push(
+        `Điểm trả: ${oldBooking.passenger.dropoffPoint || "(Trống)"} -> ${
+          passenger.dropoffPoint || "(Trống)"
+        }`
+      );
+    }
+
+    const cleanOldNote = (oldBooking.passenger.note || "")
+      .replace(/\s*\(Chuyển sang [^\)]+\)/g, "")
+      .replace(/\s*\(Cần thu thêm: [^\)]+\)/g, "")
+      .replace(/\s*\(Cần hoàn lại: [^\)]+\)/g, "")
+      .trim();
+    const cleanNewNote = (passenger.note || "")
+      .replace(/\s*\(Chuyển sang [^\)]+\)/g, "")
+      .replace(/\s*\(Cần thu thêm: [^\)]+\)/g, "")
+      .replace(/\s*\(Cần hoàn lại: [^\)]+\)/g, "")
+      .trim();
+
+    if (cleanOldNote !== cleanNewNote) {
+      updates.push(`Ghi chú: ${cleanOldNote || "(Trống)"} -> ${cleanNewNote}`);
+    }
+
+    if (updates.length > 0) {
+      summaryParts.push(updates.join("; "));
+    }
+
+    // Check meaningful changes for logging condition
+    const passengerChanged = updates.length > 0;
 
     const summaryText =
       summaryParts.length > 0
@@ -1025,15 +1063,46 @@ app.patch("/api/bookings/:id/tickets/:seatId", async (req, res) => {
     let targetTicket = null;
     let targetItem = null;
 
+    let changes = [];
+
+    const totalSeats = booking.items.reduce(
+      (sum, i) => sum + i.seatIds.length,
+      0
+    );
+    const isSingleSeatObj = totalSeats === 1;
+
     booking.items.forEach((item) => {
       if (item.tickets) {
         const ticket = item.tickets.find((t) => t.seatId === seatId);
         if (ticket) {
           targetTicket = ticket;
           targetItem = item;
-          if (pickup !== undefined) ticket.pickup = pickup;
-          if (dropoff !== undefined) ticket.dropoff = dropoff;
-          if (note !== undefined) ticket.note = note;
+
+          if (pickup !== undefined && ticket.pickup !== pickup) {
+            changes.push(
+              `Điểm đón: ${ticket.pickup || "(Trống)"} -> ${
+                pickup || "(Trống)"
+              }`
+            );
+            ticket.pickup = pickup;
+            if (isSingleSeatObj) booking.passenger.pickupPoint = pickup;
+          }
+          if (dropoff !== undefined && ticket.dropoff !== dropoff) {
+            changes.push(
+              `Điểm trả: ${ticket.dropoff || "(Trống)"} -> ${
+                dropoff || "(Trống)"
+              }`
+            );
+            ticket.dropoff = dropoff;
+            if (isSingleSeatObj) booking.passenger.dropoffPoint = dropoff;
+          }
+          if (note !== undefined && ticket.note !== note) {
+            changes.push(
+              `Ghi chú: ${ticket.note || "(Trống)"} -> ${note || "(Trống)"}`
+            );
+            ticket.note = note;
+            if (isSingleSeatObj) booking.passenger.note = note;
+          }
         }
       }
     });
@@ -1041,12 +1110,41 @@ app.patch("/api/bookings/:id/tickets/:seatId", async (req, res) => {
     if (!targetTicket)
       return res.status(404).json({ error: "Ticket not found" });
 
-    if (phone) booking.passenger.phone = phone;
-    if (name) booking.passenger.name = name;
-
     const trip = await Trip.findById(targetItem.tripId);
     const targetSeat = trip?.seats?.find((s) => s.id === seatId);
     const label = targetSeat ? targetSeat.label : seatId;
+
+    if (phone !== undefined && targetTicket.phone !== phone) {
+      const oldPhone = targetTicket.phone || booking.passenger.phone;
+      if (oldPhone !== phone) {
+        changes.push(`SĐT: ${oldPhone} -> ${phone}`);
+      }
+      targetTicket.phone = phone;
+
+      if (isSingleSeatObj) {
+        booking.passenger.phone = phone;
+      }
+    }
+    if (name !== undefined && targetTicket.name !== name) {
+      const oldName = targetTicket.name || booking.passenger.name;
+      if (oldName !== name) {
+        changes.push(`Tên: ${oldName} -> ${name}`);
+      }
+      targetTicket.name = name;
+
+      if (isSingleSeatObj) {
+        booking.passenger.name = name;
+      }
+    }
+
+    if (changes.length > 0) {
+      await logBookingAction(
+        booking._id,
+        "PASSENGER_UPDATE",
+        `Giường ${label} thay đổi thông tin: ${changes.join("; ")}`,
+        { seat: label, changes }
+      );
+    }
 
     if (action === "PAY" && payment) {
       if (trip) {

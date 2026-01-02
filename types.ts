@@ -1,4 +1,3 @@
-
 export enum BusType {
   SLEEPER = "SLEEPER", // Xe Giường đơn
   CABIN = "CABIN", // Xe Phòng
@@ -41,30 +40,32 @@ export interface TicketDetail {
   pickup: string;
   dropoff: string;
   note?: string; // NEW: Ghi chú riêng cho từng vé
+  name?: string; // NEW: Tên riêng cho vé
+  phone?: string; // NEW: SĐT riêng cho vé
 }
 
 // New Interface for Line Items
 export interface BookingItem {
   tripId: string;
   tripDate: string; // Snapshot
-  route: string;    // Snapshot
+  route: string; // Snapshot
   licensePlate: string; // Snapshot
   seatIds: string[]; // Kept for easy indexing
   tickets: TicketDetail[]; // NEW: Detailed info per seat
   price: number; // Total price for these seats
   isEnhanced?: boolean; // NEW: Accurate snapshot for reporting
-  busType?: BusType;    // NEW: Accurate snapshot for reporting
+  busType?: BusType; // NEW: Accurate snapshot for reporting
 }
 
 export interface Booking {
   id: string;
   passenger: Passenger;
-  items: BookingItem[]; 
+  items: BookingItem[];
   status: "booking" | "payment" | "hold" | "cancelled"; // UPDATED STATUSES
   createdAt: string;
-  updatedAt: string; 
+  updatedAt: string;
   totalPrice: number;
-  totalTickets: number; 
+  totalTickets: number;
   // Computed property from Payment Collection (Not stored in Booking DB)
   payment?: {
     paidCash: number;
@@ -75,7 +76,16 @@ export interface Booking {
 export interface BookingHistory {
   id: string;
   bookingId: string;
-  action: 'CREATE' | 'UPDATE' | 'CANCEL' | 'SWAP' | 'PASSENGER_UPDATE' | 'DELETE' | 'TRANSFER' | 'PAY_SEAT' | 'REFUND_SEAT';
+  action:
+    | "CREATE"
+    | "UPDATE"
+    | "CANCEL"
+    | "SWAP"
+    | "PASSENGER_UPDATE"
+    | "DELETE"
+    | "TRANSFER"
+    | "PAY_SEAT"
+    | "REFUND_SEAT";
   description: string;
   details?: any;
   timestamp: string;
@@ -92,7 +102,7 @@ export interface BusTrip {
   driver: string;
   basePrice: number;
   seats: Seat[];
-  direction?: 'outbound' | 'inbound';
+  direction?: "outbound" | "inbound";
 }
 
 export interface RouteStats {
@@ -111,7 +121,7 @@ export interface Route {
   departureTime?: string;
   returnTime?: string;
   isEnhanced?: boolean;
-  status?: 'active' | 'inactive';
+  status?: "active" | "inactive";
 }
 
 export interface BusLayoutConfig {
@@ -150,7 +160,22 @@ export interface ActivityLog {
 }
 
 // Undo Action Types Updated for Detail Alerts
-export type UndoAction = 
-  | { type: 'CREATED_BOOKING'; bookingId: string; phone: string; seatCount: number; seatLabels: string[]; tripDate: string }
-  | { type: 'UPDATED_BOOKING'; previousBooking: Booking; phone: string }
-  | { type: 'SWAPPED_SEATS'; tripId: string; seat1: string; seat2: string; label1: string; label2: string; tripDate: string };
+export type UndoAction =
+  | {
+      type: "CREATED_BOOKING";
+      bookingId: string;
+      phone: string;
+      seatCount: number;
+      seatLabels: string[];
+      tripDate: string;
+    }
+  | { type: "UPDATED_BOOKING"; previousBooking: Booking; phone: string }
+  | {
+      type: "SWAPPED_SEATS";
+      tripId: string;
+      seat1: string;
+      seat2: string;
+      label1: string;
+      label2: string;
+      tripDate: string;
+    };

@@ -53,7 +53,8 @@ interface PaymentModalProps {
   onConfirm: (
     finalTotal: number,
     seatOverrides: Record<string, SeatOverride>,
-    noteSuffix?: string
+    noteSuffix?: string,
+    stableItems?: PaymentItem[]
   ) => Promise<Booking | void>;
   selectionBasket: { trip: BusTrip; seats: Seat[] }[];
   editingBooking?: Booking | null;
@@ -83,6 +84,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const [seatOverrides, setSeatOverrides] = useState<
     Record<string, SeatOverride>
   >({});
+  const [savedBooking, setSavedBooking] = useState<Booking | null>(null);
   const [isSaved, setIsSaved] = useState(false);
   const [localProcessing, setLocalProcessing] = useState(false);
   const [stableItems, setStableItems] = useState<PaymentItem[]>([]);
@@ -113,6 +115,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       setStableItems([]);
       setSeatOverrides({});
       setIsSaved(false);
+      setSavedBooking(null);
     }
   }, [isOpen, selectionBasket, buses, bookingForm, initialOverrides]);
 
@@ -226,8 +229,15 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     onMoneyChange(e);
   };
 
+  const hasPaymentChanges = useMemo(() => {
+    if (!editingBooking) return false;
+    const initialCash = editingBooking.payment?.paidCash || 0;
+    const initialTransfer = editingBooking.payment?.paidTransfer || 0;
+    return paidCash !== initialCash || paidTransfer !== initialTransfer;
+  }, [paidCash, paidTransfer, editingBooking]);
+
   const handleConfirmClick = async () => {
-    if (!isBalanceMatched || isSaved) return;
+    if (isSaved) return;
     setLocalProcessing(true);
 
     let noteSuffix = "";
@@ -256,7 +266,15 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     });
 
     try {
-      await onConfirm(finalTotal, finalOverrides, noteSuffix);
+      const result = await onConfirm(
+        finalTotal,
+        finalOverrides,
+        noteSuffix,
+        stableItems
+      );
+      if (result) {
+        setSavedBooking(result as Booking);
+      }
       setIsSaved(true);
     } catch (e) {
       console.error(e);
@@ -267,15 +285,14 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
   // Logic hiển thị trạng thái active cho các nút
   const isCompleteBtnActive =
-    isBalanceMatched &&
     !isSaved &&
-    (!editingBooking || hasChanges) &&
+    (!editingBooking || hasChanges || hasPaymentChanges) &&
     !localProcessing &&
     !isProcessing;
 
   // In phiếu active khi: Đã lưu thành công HOẶC Đơn sửa đã khớp tiền và không thay đổi gì
   const isPrintBtnActive =
-    (isSaved && !!editingBooking) ||
+    (isSaved && (!!savedBooking || !!editingBooking)) ||
     (editingBooking && !hasChanges && isBalanceMatched);
 
   return (
@@ -320,12 +337,16 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
           <BookingPrint
             items={stableItems}
-            bookingForm={bookingForm}
+            bookingForm={
+              savedBooking
+                ? { phone: savedBooking.passenger.phone }
+                : bookingForm
+            }
             paidCash={paidCash}
             paidTransfer={paidTransfer}
             finalTotal={finalTotal}
             getSeatValues={getSeatValues}
-            bookingId={editingBooking?.id}
+            bookingId={savedBooking?.id || editingBooking?.id}
             disabled={!isPrintBtnActive}
           />
         </div>

@@ -117,6 +117,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
     let displayPickup = booking?.passenger?.pickupPoint || "";
     let displayDropoff = booking?.passenger?.dropoffPoint || "";
     let displayNote = booking?.passenger?.note || "";
+    let displayName = booking?.passenger?.name || "";
 
     if (hasInfo && booking && bookingItem) {
       const rawPhone = booking.passenger.phone;
@@ -133,6 +134,12 @@ export const SeatMap: React.FC<SeatMapProps> = ({
           displayDropoff = ticket.dropoff || displayDropoff;
           if (ticket.note !== undefined && ticket.note !== null)
             displayNote = ticket.note;
+
+          if (ticket.name) displayName = ticket.name;
+          if (ticket.phone) {
+            const tPhone = ticket.phone.replace(/\D/g, "");
+            formattedPhone = formatPhone(tPhone || ticket.phone);
+          }
         }
       }
     }
@@ -267,6 +274,12 @@ export const SeatMap: React.FC<SeatMapProps> = ({
                     )}
                   </div>
                 </div>
+                {displayName && displayName !== "Khách lẻ" && (
+                  <div className="flex items-center gap-1 text-[9px] text-slate-500 font-medium overflow-hidden">
+                    <User size={9} className="shrink-0 opacity-60" />
+                    <span className="truncate">{displayName}</span>
+                  </div>
+                )}
                 {displayPickup || displayDropoff ? (
                   <div
                     className={`flex gap-1 overflow-hidden whitespace-nowrap ${
