@@ -318,7 +318,7 @@ export const OrderInformation: React.FC<OrderInformationProps> = ({
     switch (status) {
       case "payment":
         return (
-          <Badge className="font-normal bg-green-500 rounded">
+          <Badge className="font-normal bg-slate-200 rounded hover:bg-slate-300 text-slate-600">
             Đã thanh toán
           </Badge>
         );
@@ -407,7 +407,7 @@ export const OrderInformation: React.FC<OrderInformationProps> = ({
               key={idx}
               className="grid items-center gap-3 text-sm border-b border-slate-200 border-dashed pb-2"
             >
-              <div className="md:flex items-center gap-2">
+              <div className="flex justify-between md:justify-start items-center gap-2">
                 <div className="flex items-center gap-2 justify-between md:justify-center">
                   <span
                     className={`flex items-center font-black text-slate-800 ${
@@ -417,29 +417,29 @@ export const OrderInformation: React.FC<OrderInformationProps> = ({
                     <MapPin size={13} className="text-slate-600 mr-1" />{" "}
                     {trip.route}
                   </span>
-                  <span className="bg-yellow-200 border border-yellow-300 rounded flex items-center h-5 px-2 text-[10px] text-slate-900 font-semibold tracking-wider">
+                  <span className="hidden md:block bg-yellow-200 border border-yellow-300 rounded flex items-center h-5 px-2 text-[10px] text-slate-900 font-semibold tracking-wider">
                     {trip.licensePlate}
                   </span>
                 </div>
-                <div className="flex items-center gap-2 mt-1 ml-[18px] md:mt-0 md:ml-0">
+                <div className=" flex items-center gap-2">
                   <span className="flex items-center text-[11px] text-slate-400 bg-slate-100 border border-slate-300 rounded px-2 h-5">
                     <CalendarIcon size={11} className="mr-1" />{" "}
                     {formatDate(trip.tripDate)}
                   </span>
                 </div>
               </div>
-              <div className="flex gap-1.5">
+              <div className="flex gap-2">
                 {trip.seats.map((s: string) => (
-                  <Badge
+                  <span
                     key={s}
-                    className={`${
+                    className={`rounded-full w-8 text-center border ${
                       isCancelled
                         ? "bg-red-50 text-red-400 border-red-100 line-through hover:bg-red-50"
-                        : "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-50 "
+                        : "bg-slate-100 text-slate-600 border-slate-300 hover:bg-slate-100"
                     } text-[10px] font-black px-2 py-0.5 rounded`}
                   >
                     {s}
-                  </Badge>
+                  </span>
                 ))}
               </div>
             </div>
@@ -535,8 +535,8 @@ export const OrderInformation: React.FC<OrderInformationProps> = ({
         {/* Standalone Header with Back Button */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <div className="w-11 h-11 bg-slate-900 rounded flex items-center justify-center text-white shadow-lg">
-              <Bus size={26} className="text-white font-normal" />
+            <div className="w-11 h-11 bg-slate-100 border-2 border-slate-900 rounded flex items-center justify-center text-white shadow-lg">
+              <Bus size={28} className="text-slate-900 font-normal" />
             </div>
             <div>
               <h1 className="text-xl font-black text-slate-900 tracking-tight uppercase">
@@ -551,11 +551,11 @@ export const OrderInformation: React.FC<OrderInformationProps> = ({
 
         {booking ? (
           // PhoneNumber without Search
-          <div className="shadow-sm overflow-hidden flex flex-col bg-white rounded border border-slate-200 gap-2 text-center">
-            <h3 className="bg-slate-50 text-xs font-semibold text-slate-400 uppercase flex items-center gap-2 px-4 h-[40px] border-b border-slate-200">
+          <div className="overflow-hidden flex flex-col bg-white rounded-lg rounded-t-xl border border-slate-200 text-center">
+            <h3 className="px-4 h-[40px] border-b flex items-center bg-gradient-to-r from-indigo-950 via-indigo-900 to-indigo-950 uppercase gap-2 shadow-sm border-b border-slate-200 text-white text-xs">
               <NotepadText size={18} /> Thông tin đặt vé
             </h3>
-            <div className="flex items-center justify-between p-4">
+            <div className="flex items-center justify-between px-4 py-4">
               <div className="flex items-center gap-2 text-lg font-bold text-indent">
                 <PhoneCall size={14} />
                 {booking.passenger.phone}
@@ -855,7 +855,7 @@ export const OrderInformation: React.FC<OrderInformationProps> = ({
                     <span className="text-slate-500 font-bold text-sm mb-[4px]">
                       Tổng tiền vé:
                     </span>
-                    <span className="text-2xl font-black text-emerald-600">
+                    <span className="text-2xl font-black text-slate-600">
                       {formatCurrency(booking.totalPrice)} đ
                     </span>
                   </div>
