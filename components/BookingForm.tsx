@@ -714,9 +714,10 @@ export const BookingForm: React.FC<BookingFormProps> = ({
       )
     );
 
-    const isRefundNeeded = totalBasketPrice < (editingBooking.totalPrice || 0);
+    const isPriceChanged =
+      Math.abs(totalBasketPrice - (editingBooking.totalPrice || 0)) >= 1;
 
-    if (isRefundNeeded) {
+    if (isPriceChanged) {
       setModalInitialOverrides(overrides);
       setPendingPaymentContext({
         type: "update",
@@ -747,7 +748,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
     <>
       <div className="bg-indigo-950 rounded-xl shadow-lg border border-indigo-900 flex flex-col overflow-visible shrink-0 transition-colors duration-300">
         <div className="px-3 h-10 bg-linear-to-r from-indigo-950 via-indigo-900 to-indigo-950 border-b border-indigo-900 flex items-center justify-between shrink-0 rounded-t-xl">
-          <div className="flex items-center gap-2 text-sm font-bold text-white">
+          <div className="flex items-center gap-2 text-xs font-bold text-white">
             <Ticket size={16} className="text-yellow-400" />
             {editingBooking ? "Chỉnh sửa" : "Đặt vé mới"}
           </div>
@@ -809,18 +810,6 @@ export const BookingForm: React.FC<BookingFormProps> = ({
                         <span className="inline-block bg-indigo-100 text-indigo-700 text-[10px] font-bold px-1.5 py-0.5 rounded border border-indigo-200">
                           {s.label}
                         </span>
-                        {editingBooking && onInitiateSwap && (
-                          <button
-                            title="Đổi ghế"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onInitiateSwap(s);
-                            }}
-                            className="absolute -top-3 right-3 bg-white text-indigo-600 rounded-full p-0.5 shadow-sm border border-slate-200 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-indigo-50"
-                          >
-                            <ArrowRightLeft size={10} />
-                          </button>
-                        )}
                       </div>
                     ))}
                   </div>
@@ -1013,13 +1002,13 @@ export const BookingForm: React.FC<BookingFormProps> = ({
           {editingBooking ? (
             <>
               <Button
-                className="bg-green-600 hover:bg-green-500 text-white font-bold h-10 text-sm border border-green-700"
+                className={` text-white font-normal h-10 text-xs`}
                 onClick={handleManualPaymentForEdit}
               >
                 <CreditCard size={16} className="mr-2" /> Thanh toán
               </Button>
               <Button
-                className={`font-bold h-10 text-sm ${
+                className={`font-normal h-10 text-xs ${
                   selectionBasket.length === 0
                     ? "bg-red-600 hover:bg-red-500"
                     : "bg-yellow-500 hover:bg-yellow-400 text-indigo-950"
@@ -1233,12 +1222,16 @@ export const BookingForm: React.FC<BookingFormProps> = ({
               className={
                 updateSummary?.diffPrice && updateSummary.diffPrice < 0
                   ? "bg-red-600 hover:bg-red-500"
+                  : updateSummary?.diffPrice && updateSummary.diffPrice > 0
+                  ? "bg-green-600 hover:bg-green-500"
                   : "bg-blue-600"
               }
               onClick={handleProceedUpdate}
             >
               {updateSummary?.diffPrice && updateSummary.diffPrice < 0
                 ? "Hoàn tiền"
+                : updateSummary?.diffPrice && updateSummary.diffPrice > 0
+                ? "Thanh toán"
                 : "Đồng ý lưu"}
             </Button>
           </AlertDialogFooter>

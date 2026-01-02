@@ -152,7 +152,11 @@ function AppContent() {
       (b) =>
         b.id !== excludeBookingId &&
         b.status !== "cancelled" &&
-        b.items.some((i) => i.tripId === tripId && i.seatIds.includes(seatId))
+        b.items.some(
+          (i) =>
+            i.tripId === tripId &&
+            i.seatIds.some((sid) => String(sid) === String(seatId))
+        )
     );
     if (!booking) return SeatStatus.AVAILABLE;
     if (booking.status === "payment") return SeatStatus.SOLD;
@@ -209,7 +213,8 @@ function AppContent() {
       const booking = tripBookings.find((b) =>
         b.items.some(
           (i) =>
-            i.tripId === selectedTrip.id && i.seatIds.includes(clickedSeat.id)
+            i.tripId === selectedTrip.id &&
+            i.seatIds.some((sid) => String(sid) === String(clickedSeat.id))
         )
       );
       if (editingBooking && booking?.id === editingBooking.id) {
@@ -271,7 +276,11 @@ function AppContent() {
           ...trip,
           seats: trip.seats.map((seat) => {
             // Nếu ghế thuộc đơn hàng mới chọn, đặt thành SELECTED
-            if (matchingItemInBooking?.seatIds.includes(seat.id)) {
+            if (
+              matchingItemInBooking?.seatIds.some(
+                (sid) => String(sid) === String(seat.id)
+              )
+            ) {
               return { ...seat, status: SeatStatus.SELECTED };
             }
 
@@ -336,7 +345,9 @@ function AppContent() {
             ...trip,
             seats: trip.seats.map((seat) => {
               // 1. Restore seats that were originally part of the booking
-              if (bookingSeatIds.includes(seat.id)) {
+              if (
+                bookingSeatIds.some((sid) => String(sid) === String(seat.id))
+              ) {
                 let status = SeatStatus.BOOKED;
                 if (savedBooking.status === "payment") status = SeatStatus.SOLD;
                 else if (savedBooking.status === "hold")
@@ -420,10 +431,10 @@ function AppContent() {
             }`}
           >
             <div
-              className={`px-4 h-[40px] border-b flex items-center justify-between shrink-0 rounded-t-xl ${
+              className={`px-4 h-10 border-b flex items-center justify-between shrink-0 rounded-t-xl ${
                 swapSourceSeat
                   ? "bg-indigo-600"
-                  : "bg-gradient-to-r from-indigo-950 via-indigo-900 to-indigo-950"
+                  : "bg-linear-to-r from-indigo-950 via-indigo-900 to-indigo-950"
               }`}
             >
               <div className="flex items-center gap-3 text-white text-xs font-bold">
@@ -471,7 +482,7 @@ function AppContent() {
             </div>
           </div>
 
-          <div className="w-full md:w-[320px] xl:w-[360px] flex flex-col gap-4 shrink-0 md:h-[calc(100vh-140px)]">
+          <div className="w-full md:w-[320px] xl:w-90 flex flex-col gap-4 shrink-0 md:h-[calc(100vh-140px)]">
             <BookingForm
               trips={trips}
               routes={routes}

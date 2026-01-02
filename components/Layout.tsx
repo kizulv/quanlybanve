@@ -227,7 +227,7 @@ export const Layout: React.FC<LayoutProps> = ({
   const DirectionToggle = () => {
     if (!onDirectionChange) return null;
     return (
-      <label className="flex items-center gap-2 cursor-pointer select-none bg-white border border-slate-200 rounded-md px-2 md:px-3 h-9 hover:border-slate-300 transition-colors">
+      <label className="flex items-center gap-2 cursor-pointer select-none bg-white border border-slate-200 rounded-md px-2 md:px-4 h-9 hover:border-slate-300 transition-colors">
         <div
           className={`relative flex items-center justify-center w-4 h-4 border rounded bg-white transition-colors ${
             selectedDirection === "outbound"

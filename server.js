@@ -609,7 +609,9 @@ app.put("/api/bookings/:id", async (req, res) => {
       const trip = await Trip.findById(oldItem.tripId);
       if (trip) {
         trip.seats = trip.seats.map((s) =>
-          oldItem.seatIds.includes(s.id) ? { ...s, status: "available" } : s
+          oldItem.seatIds.includes(String(s.id))
+            ? { ...s, status: "available" }
+            : s
         );
         trip.markModified("seats");
         await trip.save();
@@ -710,7 +712,9 @@ app.put("/api/bookings/:id", async (req, res) => {
       const trip = await Trip.findById(item.tripId);
       if (trip) {
         trip.seats = trip.seats.map((s) =>
-          item.seatIds.includes(s.id) ? { ...s, status: targetSeatStatus } : s
+          item.seatIds.includes(String(s.id))
+            ? { ...s, status: targetSeatStatus }
+            : s
         );
         trip.markModified("seats");
         await trip.save();
@@ -825,10 +829,10 @@ app.post("/api/bookings/swap", async (req, res) => {
       items: { $elemMatch: { tripId, seatIds: seatId1 } },
     });
     if (!booking1) {
-      const s1 = trip.seats.find((s) => s.id === seatId1);
+      const s1 = trip.seats.find((s) => String(s.id) === String(seatId1));
       if (s1 && s1.status !== "available") {
         trip.seats = trip.seats.map((s) =>
-          s.id === seatId1 ? { ...s, status: "available" } : s
+          String(s.id) === String(seatId1) ? { ...s, status: "available" } : s
         );
         trip.markModified("seats");
         await trip.save();
@@ -888,17 +892,18 @@ app.post("/api/bookings/swap", async (req, res) => {
           }
           return item;
         });
-        const s1 = trip.seats.find((s) => s.id === seatId1);
-        const s2 = trip.seats.find((s) => s.id === seatId2);
-        const status1 = s1.status;
-        const status2 = s2.status;
-        trip.seats = trip.seats.map((s) =>
-          s.id === seatId1
-            ? { ...s, status: status2 }
-            : s.id === seatId2
-            ? { ...s, status: status1 }
-            : s
-        );
+        const s1 = trip.seats.find((s) => String(s.id) === String(seatId1));
+        const s2 = trip.seats.find((s) => String(s.id) === String(seatId2));
+        if (!s1 || !s2)
+          return res.status(404).json({ error: "One or both seats not found" });
+
+        trip.seats = trip.seats.map((s) => {
+          if (String(s.id) === String(seatId1))
+            return { ...s, status: s2.status, label: s2.label };
+          if (String(s.id) === String(seatId2))
+            return { ...s, status: s1.status, label: s1.label };
+          return s;
+        });
         booking1.markModified("items");
         booking2.markModified("items");
         trip.markModified("seats");
@@ -910,21 +915,22 @@ app.post("/api/bookings/swap", async (req, res) => {
       booking1.items = booking1.items.map((item) => {
         if (item.tripId === tripId) {
           const newSeatIds = item.seatIds.map((s) =>
-            s === seatId1 ? seatId2 : s
+            String(s) === String(seatId1) ? seatId2 : s
           );
           const newTickets = item.tickets.map((t) =>
-            t.seatId === seatId1 ? { ...t, seatId: seatId2 } : t
+            String(t.seatId) === String(seatId1) ? { ...t, seatId: seatId2 } : t
           );
           return { ...item, seatIds: newSeatIds, tickets: newTickets };
         }
         return item;
       });
-      const s1 = trip.seats.find((s) => s.id === seatId1);
+      const s1 = trip.seats.find((s) => String(s.id) === String(seatId1));
+      if (!s1) return res.status(404).json({ error: "Seat 1 not found" });
       const status1 = s1.status;
       trip.seats = trip.seats.map((s) =>
-        s.id === seatId1
+        String(s.id) === String(seatId1)
           ? { ...s, status: "available" }
-          : s.id === seatId2
+          : String(s.id) === String(seatId2)
           ? { ...s, status: status1 }
           : s
       );
@@ -933,8 +939,8 @@ app.post("/api/bookings/swap", async (req, res) => {
       await booking1.save();
       await trip.save();
     }
-    const s1Obj = trip.seats.find((s) => s.id === seatId1);
-    const s2Obj = trip.seats.find((s) => s.id === seatId2);
+    const s1Obj = trip.seats.find((s) => String(s.id) === String(seatId1));
+    const s2Obj = trip.seats.find((s) => String(s.id) === String(seatId2));
 
     const swapDesc = `Đổi chỗ: Ghế ${s1Obj.label} -> Ghế ${s2Obj.label} (Xe ${trip.licensePlate})`;
     await logBookingAction(booking1._id, "SWAP", swapDesc, {
@@ -964,8 +970,8 @@ app.post("/api/bookings/transfer", async (req, res) => {
     if (!fromTrip || !toTrip)
       return res.status(404).json({ error: "Trips not found" });
 
-    const sourceSeatIds = seatTransfers.map((st) => st.sourceSeatId);
-    const targetSeatIds = seatTransfers.map((st) => st.targetSeatId);
+    const sourceSeatIds = seatTransfers.map((st) => String(st.sourceSeatId));
+    const targetSeatIds = seatTransfers.map((st) => String(st.targetSeatId));
 
     const sourceItem = booking.items.find((i) => i.tripId === fromTripId);
     if (!sourceItem)
@@ -974,16 +980,18 @@ app.post("/api/bookings/transfer", async (req, res) => {
         .json({ error: "Source trip item not found in booking" });
 
     const ticketsToMove = sourceItem.tickets.filter((t) =>
-      sourceSeatIds.includes(t.seatId)
+      sourceSeatIds.includes(String(t.seatId))
     );
     const movedTickets = ticketsToMove.map((t) => {
-      const transfer = seatTransfers.find((st) => st.sourceSeatId === t.seatId);
+      const transfer = seatTransfers.find(
+        (st) => String(st.sourceSeatId) === String(t.seatId)
+      );
       const tObj = t.toObject ? t.toObject() : t;
       return { ...tObj, seatId: transfer.targetSeatId };
     });
 
     fromTrip.seats = fromTrip.seats.map((s) =>
-      sourceSeatIds.includes(s.id) ? { ...s, status: "available" } : s
+      sourceSeatIds.includes(String(s.id)) ? { ...s, status: "available" } : s
     );
     fromTrip.markModified("seats");
     await fromTrip.save();
@@ -1159,7 +1167,7 @@ app.patch("/api/bookings/:id/tickets/:seatId", async (req, res) => {
     if (action === "PAY" && payment) {
       if (trip) {
         trip.seats = trip.seats.map((s) =>
-          s.id === seatId ? { ...s, status: "sold" } : s
+          String(s.id) === String(seatId) ? { ...s, status: "sold" } : s
         );
         trip.markModified("seats");
         await trip.save();
@@ -1222,7 +1230,7 @@ app.patch("/api/bookings/:id/tickets/:seatId", async (req, res) => {
     if (action === "REFUND") {
       if (trip) {
         trip.seats = trip.seats.map((s) =>
-          s.id === seatId ? { ...s, status: "available" } : s
+          String(s.id) === String(seatId) ? { ...s, status: "available" } : s
         );
         trip.markModified("seats");
         await trip.save();
@@ -1327,7 +1335,9 @@ app.delete("/api/bookings/:id", async (req, res) => {
       const trip = await Trip.findById(item.tripId);
       if (trip) {
         trip.seats = trip.seats.map((s) =>
-          item.seatIds.includes(s.id) ? { ...s, status: "available" } : s
+          item.seatIds.includes(String(s.id))
+            ? { ...s, status: "available" }
+            : s
         );
         trip.markModified("seats");
         await trip.save();

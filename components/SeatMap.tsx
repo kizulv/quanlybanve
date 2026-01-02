@@ -79,7 +79,8 @@ export const SeatMap: React.FC<SeatMapProps> = ({
       seat.status === SeatStatus.AVAILABLE &&
       editingBooking?.items.some(
         (item) =>
-          item.tripId === currentTripId && item.seatIds.includes(seat.id)
+          item.tripId === currentTripId &&
+          item.seatIds.some((sid) => String(sid) === String(seat.id))
       );
 
     let statusClass = getSeatStatusClass(seat.status, isSwapping);
@@ -93,7 +94,8 @@ export const SeatMap: React.FC<SeatMapProps> = ({
       (b) =>
         b.items.some(
           (item) =>
-            item.tripId === currentTripId && item.seatIds.includes(seat.id)
+            item.tripId === currentTripId &&
+            item.seatIds.some((sid) => String(sid) === String(seat.id))
         ) && b.status !== "cancelled"
     );
 
@@ -124,10 +126,15 @@ export const SeatMap: React.FC<SeatMapProps> = ({
       const normalizedPhone = rawPhone.replace(/\D/g, "");
       formattedPhone = formatPhone(normalizedPhone || rawPhone);
       groupTotal = bookingItem.seatIds.length;
-      groupIndex = bookingItem.seatIds.indexOf(seat.id) + 1;
+      groupIndex =
+        bookingItem.seatIds.findIndex(
+          (sid) => String(sid) === String(seat.id)
+        ) + 1;
 
       if (bookingItem.tickets && bookingItem.tickets.length > 0) {
-        const ticket = bookingItem.tickets.find((t) => t.seatId === seat.id);
+        const ticket = bookingItem.tickets.find(
+          (t) => String(t.seatId) === String(seat.id)
+        );
         if (ticket) {
           displayPrice = ticket.price;
           displayPickup = ticket.pickup || displayPickup;
@@ -304,7 +311,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
                   </div>
                 )}
                 {displayNote && (
-                  <div className="mt-auto flex items-center gap-1 text-slate-400 italic">
+                  <div className="mt-2 flex items-center gap-1 text-slate-400 italic">
                     <StickyNote size={10} className="text-amber-500" />
                     <span className="w-full text-[10px] truncate">
                       {displayNote}

@@ -107,7 +107,7 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
       ? "size: A4 landscape; margin: 3mm;"
       : "size: A4 portrait; margin: 0;";
     const A4_margin = isCabin ? "ml-[20mm]" : "mt-0";
-    const Manifest_RecordHight = "h-[90px]";
+    const Manifest_RecordHight = "h-[94px]";
     const Manifest_SeatFontSize = isCabin ? "text-[12px]" : "text-[10px]";
     let layoutHtml = "";
 
@@ -178,7 +178,7 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
             <div class="${Manifest_SeatFontSize} leading-tight opacity-90 mt-0.5">${
         data.pickup || "---"
       } - ${data.dropoff || "---"}</div>
-            <div class="text-[10px] leading-tight opacity-90 mt-0.5 italic">${
+            <div class="text-[10px] leading-tight opacity-90 mt-1 italic">${
               data.note || ""
             }</div>
           </div>

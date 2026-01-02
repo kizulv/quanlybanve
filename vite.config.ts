@@ -12,10 +12,11 @@ export default defineConfig(({ mode }) => {
         "vetet.pcthanh.com",
         "banve.pcthanh.com",
         "vetet.nhaxetrungdung.com",
+        "api.pcthanh.com",
       ],
       hmr: {
-        protocol: "wss",
-        clientPort: 443,
+        protocol: env.VITE_USE_WSS === "true" ? "wss" : "ws",
+        clientPort: env.VITE_USE_WSS === "true" ? 443 : 3000,
       },
     },
     plugins: [react()],
