@@ -95,15 +95,15 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
         }, 0);
 
         const renderLien = (title: string) => `
-        <div class="w-[97.5mm] h-[64mm] border-[1.5pt] border-black p-[2.5mm] pb-[1.5mm] flex flex-col bg-white rounded-none">
+        <div class="w-[97.5mm] h-[64mm] border-2 border-black p-[2.5mm] pb-[1.5mm] flex flex-col bg-white rounded-none">
           <div class="flex justify-between items-start border-b-[1.8pt] border-black pb-[1mm] mb-[1.5mm] rounded-none">
             <div class="flex flex-col">
               <div class="text-[10px] font-bold">CÔNG TY TNHH MTV LÊ DŨNG</div>
               <div class="text-[20px] mt-1 font-black leading-none tracking-[0.5px]">PHIẾU ĐẶT VÉ</div>
             </div>
-            <div class="flex flex-col w-[110px]">
-              <div class="text-[10px] uppercase border-[1.5pt] border-black text-center py-[2px] font-semibold rounded-none">${title}</div>
-               <div class="text-[8px] italic text-center mt-[3px]">Ngày in: ${nowStr}</div>
+            <div class="flex flex-col w-27.5">
+              <div class="text-[10px] uppercase border-2 border-black text-center py-0.5 font-semibold rounded-none">${title}</div>
+               <div class="text-[8px] italic text-center mt-0.75">Ngày in: ${nowStr}</div>
             </div>
           </div>
           
@@ -123,8 +123,8 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
                   }</div>
                 </div>
               </div>
-              <div class="my-[2px]">
-                <div class="text-[7.5px] uppercase mb-[1px]">NGÀY KHỞI HÀNH:</div>
+              <div class="my-0.5">
+                <div class="text-[7.5px] uppercase mb-px">NGÀY KHỞI HÀNH:</div>
                 <div class="text-[10.5px] font-bold leading-none">${new Date(
                   trip.tripDate
                 ).toLocaleDateString("vi-VN")} 
@@ -145,10 +145,10 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
             </div>
             
             <div class="flex flex-col items-center justify-between border-l-[1pt] border-dashed border-black pl-[2mm]">
-              <div class="flex items-center border-2 border-black p-1 rounded-none w-[110px] margin-auto justify-center">
+              <div class="flex items-center border-2 border-black p-1 rounded-none w-27.5 margin-auto justify-center">
                 <img src="${qrUrl}" width="65" height="65" />
               </div>
-              <div class="w-[110px] text-center border-[1.5pt] border-black py-[1mm] mt-[1mm] rounded-none">
+              <div class="w-27.5 text-center border-2 border-black py-[1mm] mt-[1mm] rounded-none">
                  <div class="text-[7.5px] font-black">GIÁ VÉ</div>
                  <div class="text-[10px] font-black">${formatCurrency(
                    tripTotal
@@ -161,10 +161,10 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
             </div>
           </div>
 
-          <div class="mt-[1.2mm] border-t-[1.5pt] border-black pt-[1.2mm] flex justify-between items-center text-sm rounded-none">
+          <div class="mt-[1.2mm] border-t-2 border-black pt-[1.2mm] flex justify-between items-center text-sm rounded-none">
             <div class="flex items-center justify-between">
               <span class="font-black">Xuất bến: ${departureTimeOnly}</span>
-              <span class="ml-[3px] text-[9px] mt-[1.5px] italic">(Dự kiến)</span>
+              <span class="ml-0.75 text-[9px] mt-[1.5px] italic">(Dự kiến)</span>
             </div>
             <div class="font-black flex items-center gap-1">
               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-top: 1px;"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l2.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
@@ -185,15 +185,15 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
               ${renderLien("LIÊN ĐỐI SOÁT")}
             </div>
             <div class="absolute left-[105mm-1pt] top-[5mm] h-[64mm] border-l-[1pt] border-dashed border-black z-50">
-              <span class="absolute top-1/2 left-[-7.5px] -translate-y-1/2 text-[11px] bg-white px-[2px] leading-none">✂</span>
+              <span class="absolute top-1/2 left-[-7.5px] -translate-y-1/2 text-[11px] bg-white px-0.5 leading-none">✂</span>
             </div>
             <div class="absolute top-[73mm] left-[5mm] right-[5mm] border-t-[1pt] border-dashed border-black z-50">
-              <span class="absolute left-1/2 top-[-6px] -translate-x-1/2 text-[11px] bg-white px-[2px] leading-none">✂</span>
+              <span class="absolute left-1/2 -top-1.5 -translate-x-1/2 text-[11px] bg-white px-0.5 leading-none">✂</span>
             </div>
             ${
               isA4
                 ? `<div class="absolute top-[145mm] left-[5mm] right-[5mm] border-t-[1pt] border-dashed border-black z-50">
-                    <span class="absolute left-1/2 top-[-6px] -translate-x-1/2 text-[11px] bg-white px-[2px] leading-none">✂</span>
+                    <span class="absolute left-1/2 -top-1.5 -translate-x-1/2 text-[11px] bg-white px-0.5 leading-none">✂</span>
                   </div>`
                 : ""
             }
@@ -222,7 +222,7 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
           </style>
         </head>
         <body class="bg-white text-black">
-          <div class="no-print bg-black text-white p-3 text-center sticky top-0 z-[1000] border-b border-gray-800">
+          <div class="no-print bg-black text-white p-3 text-center sticky top-0 z-1000 border-b border-gray-800">
             <button class="bg-white text-black font-black py-2 px-12 text-sm hover:bg-gray-200 transition-colors" onclick="window.print()">
               IN PHIẾU
             </button>
@@ -243,7 +243,7 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
 
   return (
     <div className="flex items-center gap-2">
-      <div className="flex bg-indigo-950/40 border border-indigo-800/60 rounded-lg h-[36px]">
+      <div className="flex bg-indigo-950/40 border border-indigo-800/60 rounded-lg h-9">
         <button
           onClick={() => setFormat("A5_LANDSCAPE")}
           disabled={disabled}

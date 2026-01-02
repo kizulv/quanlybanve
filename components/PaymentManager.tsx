@@ -615,12 +615,12 @@ export const PaymentManager: React.FC = () => {
         <table className="w-full text-sm text-left">
           <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200">
             <tr>
-              <th className="py-3 w-[250px] text-center">Số điện thoại</th>
+              <th className="py-3 w-62.5 text-center">Số điện thoại</th>
               <th className="py-3">Số vé</th>
-              <th className="py-3 text-center w-[170px]">Giao dịch</th>
-              <th className="py-3 text-center w-[200px]">Cập nhật</th>
-              <th className="py-3 text-right w-[170px] pr-6">Tổng thực thu</th>
-              <th className="py-3 text-center w-[170px]">Chi tiết</th>
+              <th className="py-3 text-center w-42.5">Giao dịch</th>
+              <th className="py-3 text-center w-50">Cập nhật</th>
+              <th className="py-3 text-right w-42.5 pr-6">Tổng thực thu</th>
+              <th className="py-3 text-center w-42.5">Chi tiết</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -722,7 +722,7 @@ export const PaymentManager: React.FC = () => {
           setEditingPaymentId(null);
         }}
         title="Lịch sử thanh toán"
-        className="max-w-[700px]"
+        className="max-w-175"
         headerClassName="px-4 h-[40px] border-b flex items-center justify-between shrink-0 rounded-t-xl bg-gradient-to-r from-indigo-950 via-indigo-900 to-indigo-950 text-white text-sm font-semibold"
       >
         {selectedGroup && (
@@ -734,7 +734,7 @@ export const PaymentManager: React.FC = () => {
                   {formatPhoneNumber(selectedGroup.passengerPhone)}
                 </span>
               </div>
-              <div className="text-right py-2.5 flex items-center justify-center min-w-[140px]">
+              <div className="text-right py-2.5 flex items-center justify-center min-w-35">
                 <span className="ml-2 text-lg font-bold tracking-tight">
                   Tổng thực thu:
                 </span>
@@ -766,7 +766,7 @@ export const PaymentManager: React.FC = () => {
                         className="relative pl-6 animate-in slide-in-from-left duration-300"
                       >
                         <div
-                          className={`absolute -left-[11px] top-0 w-5 h-5 rounded-full border-4 border-white shadow-md flex items-center justify-center ${
+                          className={`absolute -left-2.75 top-0 w-5 h-5 rounded-full border-4 border-white shadow-md flex items-center justify-center ${
                             isPositive ? "bg-emerald-500" : "bg-red-500"
                           }`}
                         >

@@ -419,7 +419,7 @@ export const Layout: React.FC<LayoutProps> = ({
                   <Popover
                     align="right"
                     trigger={
-                      <div className="flex items-center justify-between gap-3 h-9 px-2 md:px-3 border border-slate-200 rounded-md bg-white hover:bg-slate-50 hover:border-slate-300 transition-colors select-none cursor-pointer min-w-[140px] md:min-w-[200px] max-w-[240px] md:max-w-[340px]">
+                      <div className="flex items-center justify-between gap-3 h-9 px-2 md:px-3 border border-slate-200 rounded-md bg-white hover:bg-slate-50 hover:border-slate-300 transition-colors select-none cursor-pointer min-w-35 md:min-w-50 max-w-60 md:max-w-85">
                         <div className="flex items-center gap-2 overflow-hidden">
                           <MapPin
                             size={16}
@@ -445,7 +445,7 @@ export const Layout: React.FC<LayoutProps> = ({
                       </div>
                     }
                     content={(close) => (
-                      <div className="w-[300px] md:w-[360px] max-h-[400px] overflow-y-auto bg-white rounded-lg border border-slate-200 shadow-xl p-1.5">
+                      <div className="w-75 md:w-90 max-h-100 overflow-y-auto bg-white rounded-lg border border-slate-200 shadow-xl p-1.5">
                         {tripOptions.length === 0 ? (
                           <div className="p-8 text-center text-slate-500">
                             <BusFront

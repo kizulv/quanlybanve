@@ -746,7 +746,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
   return (
     <>
       <div className="bg-indigo-950 rounded-xl shadow-lg border border-indigo-900 flex flex-col overflow-visible shrink-0 transition-colors duration-300">
-        <div className="px-3 h-[40px] bg-gradient-to-r from-indigo-950 via-indigo-900 to-indigo-950 border-b border-indigo-900 flex items-center justify-between shrink-0 rounded-t-xl">
+        <div className="px-3 h-10 bg-linear-to-r from-indigo-950 via-indigo-900 to-indigo-950 border-b border-indigo-900 flex items-center justify-between shrink-0 rounded-t-xl">
           <div className="flex items-center gap-2 text-sm font-bold text-white">
             <Ticket size={16} className="text-yellow-400" />
             {editingBooking ? "Chỉnh sửa" : "Đặt vé mới"}
@@ -889,7 +889,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
                 />
                 <Phone
                   size={12}
-                  className={`absolute left-2 top-[9px] ${
+                  className={`absolute left-2 top-2.25 ${
                     phoneError ? "text-red-500" : "text-indigo-400"
                   }`}
                 />
@@ -907,7 +907,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
                         <X size={12} />
                       </button>
                     </div>
-                    <div className="max-h-[200px] overflow-y-auto">
+                    <div className="max-h-50 overflow-y-auto">
                       {passengerHistory.map((item, idx) => (
                         <div
                           key={idx}
@@ -969,12 +969,12 @@ export const BookingForm: React.FC<BookingFormProps> = ({
                     {f === "pickup" ? (
                       <MapPin
                         size={12}
-                        className="absolute left-2 top-[9px] text-indigo-400"
+                        className="absolute left-2 top-2.25 text-indigo-400"
                       />
                     ) : (
                       <Locate
                         size={12}
-                        className="absolute left-2 top-[9px] text-indigo-400"
+                        className="absolute left-2 top-2.25 text-indigo-400"
                       />
                     )}
                   </div>
@@ -1000,7 +1000,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
             />
             <Notebook
               size={12}
-              className="absolute left-2 top-[9px] text-indigo-400"
+              className="absolute left-2 top-2.25 text-indigo-400"
             />
           </div>
         </div>

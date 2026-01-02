@@ -660,7 +660,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
               <div className="min-h-full min-w-full flex flex-col justify-center items-center gap-6">
                 {type === BusType.CABIN ? (
                   <div className="flex gap-4 md:gap-12">
-                    <div className="bg-white rounded-2xl border border-slate-300 w-[180px] overflow-hidden shadow-sm">
+                    <div className="bg-white rounded-2xl border border-slate-300 w-45 overflow-hidden shadow-sm">
                       <div className="bg-slate-50 border-b py-2 text-center text-[10px] font-bold text-slate-500">
                         DÃY B (PHÒNG LẺ)
                       </div>
@@ -674,7 +674,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
                       </div>
                     </div>
                     {config.hasFloorSeats && (
-                      <div className="w-[80px] bg-slate-200/50 rounded-xl border border-dashed border-slate-300 flex flex-col items-center p-2 gap-2">
+                      <div className="w-20 bg-slate-200/50 rounded-xl border border-dashed border-slate-300 flex flex-col items-center p-2 gap-2">
                         <div className="text-[9px] font-bold text-slate-400 uppercase mb-1">
                           SÀN
                         </div>
@@ -688,7 +688,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
                         ))}
                       </div>
                     )}
-                    <div className="bg-white rounded-2xl border border-slate-300 w-[180px] overflow-hidden shadow-sm">
+                    <div className="bg-white rounded-2xl border border-slate-300 w-45 overflow-hidden shadow-sm">
                       <div className="bg-slate-50 border-b py-2 text-center text-[10px] font-bold text-slate-500">
                         DÃY A (PHÒNG CHẴN)
                       </div>
@@ -708,7 +708,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
                       {[1, 2].map((floor) => (
                         <div
                           key={floor}
-                          className="bg-white rounded-2xl border border-slate-300 w-[200px] overflow-hidden shadow-sm"
+                          className="bg-white rounded-2xl border border-slate-300 w-50 overflow-hidden shadow-sm"
                         >
                           <div className="bg-slate-50 border-b py-2 text-center text-[10px] font-bold text-slate-500">
                             TẦNG {floor}
@@ -744,7 +744,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
                       ))}
                     </div>
                     {config.hasFloorSeats && (
-                      <div className="w-full max-w-[420px] bg-slate-200/50 rounded-xl border border-dashed border-slate-300 p-4">
+                      <div className="w-full max-w-105 bg-slate-200/50 rounded-xl border border-dashed border-slate-300 p-4">
                         <div className="text-center mb-3 text-[9px] font-bold text-slate-400 uppercase">
                           DÃY VÉ SÀN NẰM (GIỮA LỐI ĐI)
                         </div>

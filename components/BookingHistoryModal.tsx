@@ -162,7 +162,7 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
                   {trip.licensePlate}
                 </span>
                 <span className="flex items-center text-xs text-slate-400 tracking-tight ml-auto">
-                  <CalendarIcon size={11} className="mr-1 mb-[1px]" />{" "}
+                  <CalendarIcon size={11} className="mr-1 mb-px" />{" "}
                   {formatDate(trip.tripDate)}
                 </span>
               </div>
@@ -204,7 +204,7 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
                       {change.route}
                     </span>
                     <span className="flex items-center text-xs text-slate-400 tracking-tight ml-auto ">
-                      <CalendarIcon size={11} className="mr-1 mb-[1px]" />{" "}
+                      <CalendarIcon size={11} className="mr-1 mb-px" />{" "}
                       {formatDate(change.date)}
                     </span>
                   </div>
@@ -273,7 +273,7 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
                 {details.route}
               </span>
               <div className="flex items-center text-xs text-slate-400 tracking-tight ml-auto">
-                <CalendarIcon size={11} className="mr-1 mb-[1px]" />{" "}
+                <CalendarIcon size={11} className="mr-1 mb-px" />{" "}
                 {formatDate(details.date)}
               </div>
             </div>
@@ -282,7 +282,7 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">
                   Từ ghế
                 </span>
-                <span className="font-black text-slate-500 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-xs text-sm min-w-[45px] text-center">
+                <span className="font-black text-slate-500 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-xs text-sm min-w-11.25 text-center">
                   {details.from}
                 </span>
               </div>
@@ -293,7 +293,7 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
                 <span className="text-[9px] font-black text-purple-400 uppercase tracking-tighter">
                   Sang ghế
                 </span>
-                <span className="font-black text-purple-700 bg-white px-3 py-1.5 rounded-xl border border-purple-300 shadow-md text-sm min-w-[45px] text-center">
+                <span className="font-black text-purple-700 bg-white px-3 py-1.5 rounded-xl border border-purple-300 shadow-md text-sm min-w-11.25 text-center">
                   {details.to}
                 </span>
               </div>
@@ -374,7 +374,7 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title="Lịch sử hoạt động"
-      className="max-w-[700px] bg-none"
+      className="max-w-175 bg-none"
       headerClassName="px-4 h-[40px] border-b flex items-center justify-between shrink-0 rounded-t-xl bg-gradient-to-r from-indigo-950 via-indigo-900 to-indigo-950 text-white text-sm font-semibold"
     >
       <div className="space-y-5 max-h-[75vh] overflow-y-auto bg-white">
@@ -386,7 +386,7 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
                 {booking.passenger.phone}
               </span>
             </div>
-            <div className="text-right py-2.5 flex items-center justify-center min-w-[140px]">
+            <div className="text-right py-2.5 flex items-center justify-center min-w-35">
               <span className="ml-2 text-lg font-bold tracking-tight">
                 Tổng số vé hiện tại:
               </span>
@@ -434,7 +434,7 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
                     className="relative pl-6 animate-in slide-in-from-left duration-300"
                   >
                     <div
-                      className={`absolute -left-[11px] top-0 w-5 h-5 rounded-full border-4 border-white shadow-md flex items-center justify-center ${colorClasses} ${
+                      className={`absolute -left-2.75 top-0 w-5 h-5 rounded-full border-4 border-white shadow-md flex items-center justify-center ${colorClasses} ${
                         isLatest ? "ring-4 ring-primary/10" : ""
                       }`}
                     >

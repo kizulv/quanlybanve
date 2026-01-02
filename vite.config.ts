@@ -11,8 +11,12 @@ export default defineConfig(({ mode }) => {
       allowedHosts: [
         "vetet.pcthanh.com",
         "banve.pcthanh.com",
-        "*.nhaxetrungdung.com",
+        "vetet.nhaxetrungdung.com",
       ],
+      hmr: {
+        protocol: "wss",
+        clientPort: 443,
+      },
     },
     plugins: [react()],
     define: {

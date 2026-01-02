@@ -319,7 +319,7 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
           <Button
             onClick={handleSubmit}
             disabled={isSaving || !selectedRouteId || !selectedBusId}
-            className="min-w-[120px]"
+            className="min-w-30"
           >
             {isSaving ? (
               <Loader2 className="animate-spin mr-2" size={16} />
@@ -408,7 +408,7 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
                 <p>Không tìm thấy xe phù hợp.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-3 max-h-[250px] overflow-y-auto pr-1">
+              <div className="grid grid-cols-2 gap-3 max-h-62.5 overflow-y-auto pr-1">
                 {filteredBuses.map((bus) => (
                   <button
                     key={bus.id}

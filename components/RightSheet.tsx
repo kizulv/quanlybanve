@@ -194,13 +194,13 @@ export const RightSheet: React.FC<RightSheetProps> = ({
             </div>
             <div className="flex items-center justify-center gap-4 py-1">
               <div className="flex flex-col items-center gap-1">
-                <span className="font-black text-slate-500 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-xs text-sm min-w-[45px] text-center">
+                <span className="font-black text-slate-500 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-xs text-sm min-w-11.25 text-center">
                   {lastUndoAction.label1}
                 </span>
               </div>
               <ArrowRightLeft size={16} className="text-purple-400" />
               <div className="flex flex-col items-center gap-1">
-                <span className="font-black text-purple-700 bg-white px-3 py-1.5 rounded-xl border border-purple-300 shadow-md text-sm min-w-[45px] text-center">
+                <span className="font-black text-purple-700 bg-white px-3 py-1.5 rounded-xl border border-purple-300 shadow-md text-sm min-w-11.25 text-center">
                   {lastUndoAction.label2}
                 </span>
               </div>
@@ -400,7 +400,7 @@ export const RightSheet: React.FC<RightSheetProps> = ({
                                         <div className="flex items-center gap-1.5  text-slate-700 text-[12px] whitespace-nowrap overflow-hidden text-ellipsis relative">
                                           {item.route}
                                           {item.isEnhanced && (
-                                            <span className="absolute top-[2px] right-2 inline-flex items-center text-[8px] font-black bg-amber-100 text-amber-700 px-1 py-0.5 rounded border border-amber-200 leading-none">
+                                            <span className="absolute top-0.5 right-2 inline-flex items-center text-[8px] font-black bg-amber-100 text-amber-700 px-1 py-0.5 rounded border border-amber-200 leading-none">
                                               <Zap
                                                 size={8}
                                                 className="mr-0.5 fill-amber-700"
@@ -431,7 +431,7 @@ export const RightSheet: React.FC<RightSheetProps> = ({
                                         {item.seatIds.map((s) => (
                                           <Badge
                                             key={s}
-                                            className="bg-indigo-600 text-white border-transparent text-[9px] font-bold px-[6px] py-0 h-4 shadow-sm"
+                                            className="bg-indigo-600 text-white border-transparent text-[9px] font-bold px-1.5 py-0 h-4 shadow-sm"
                                           >
                                             {s}
                                           </Badge>
