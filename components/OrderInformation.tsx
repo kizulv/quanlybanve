@@ -482,28 +482,28 @@ export const OrderInformation: React.FC<OrderInformationProps> = ({
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {change.kept?.map((s: string) => (
-                  <Badge
+                  <span
                     key={s}
-                    className="bg-slate-50 text-slate-600 border-slate-200 font-bold text-[10px] px-2 rounded"
+                    className="rounded-full w-8 text-center border bg-slate-100 text-slate-600 border-slate-300 hover:bg-slate-100 text-[10px] font-black px-2 py-0.5 rounded"
                   >
                     {s}
-                  </Badge>
+                  </span>
                 ))}
                 {change.removed?.map((s: string) => (
-                  <Badge
+                  <span
                     key={s}
-                    className="bg-red-50 text-red-400 border-red-100 line-through font-bold text-[10px] px-2 rounded"
+                    className="rounded-full w-8 text-center bg-red-50 border border-red-300 text-red-400 line-through font-bold text-[10px] py-0.5 px-2"
                   >
                     {s}
-                  </Badge>
+                  </span>
                 ))}
                 {change.added?.map((s: string) => (
-                  <Badge
+                  <span
                     key={s}
-                    className="bg-emerald-50 text-emerald-700 border-emerald-200 font-black text-[10px] px-2 rounded"
+                    className="rounded-full w-8 bg-emerald-50 text-emerald-700 border border-emerald-300 font-black text-[10px] py-0.5 px-2"
                   >
                     {s}
-                  </Badge>
+                  </span>
                 ))}
               </div>
             </div>
@@ -683,7 +683,7 @@ export const OrderInformation: React.FC<OrderInformationProps> = ({
                             {item.tickets.map((t) => (
                               <div
                                 key={t.seatId}
-                                className="flex flex-col bg-white border-2 border-slate-300 rounded px-4 py-2 hover:border-primary transition-all duration-300 group/ticket"
+                                className="flex flex-col bg-white border-2 border-slate-300 rounded py-2 px-3 md:px-4 hover:border-primary transition-all duration-300 group/ticket"
                               >
                                 <div className="flex justify-between items-center">
                                   <span className="text-xl font-black text-slate-900 group-hover/ticket:scale-110 transition-transform">

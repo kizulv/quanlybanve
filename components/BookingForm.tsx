@@ -307,7 +307,9 @@ export const BookingForm: React.FC<BookingFormProps> = ({
       );
       setTrips((prev) => prev.map((t) => updatedTripsMap.get(t.id) || t));
       setBookings((prev) => [
-        ...prev.filter((b) => !result.bookings.some((nb) => nb.id === b.id)),
+        ...prev.filter(
+          (b) => !result.bookings.some((nb: Booking) => nb.id === b.id)
+        ),
         ...result.bookings,
       ]);
 
@@ -333,7 +335,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
       toast({
         type: "success",
         title: "Thành công",
-        message: "Đã tạo đơn hàng thành công.",
+        message: "Đã đặt vé thành công.",
       });
 
       return savedBooking;
@@ -341,7 +343,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
       toast({
         type: "error",
         title: "Lỗi",
-        message: "Có lỗi xảy ra khi tạo đơn.",
+        message: "Có lỗi xảy ra khi đặt vé.",
       });
       throw e;
     }
@@ -463,7 +465,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
       toast({
         type: "success",
         title: "Thành công",
-        message: "Đã lưu thay đổi đơn hàng.",
+        message: "Đã lưu thay đổi thông tin đặt vé.",
       });
 
       return savedBooking;
@@ -504,7 +506,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
           const oldItem = editingBooking.items.find((i) => i.tripId === tripId);
           const tripObj = trips.find((t) => t.id === tripId);
 
-          const getLabel = (id) => {
+          const getLabel = (id: string) => {
             if (tripObj) {
               const s = tripObj.seats.find((st) => st.id === id);
               if (s) return s.label;
@@ -652,7 +654,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
       editingBooking ||
       (pendingPaymentContext?.type === "update" &&
       pendingPaymentContext.bookingIds?.[0]
-        ? bookings.find((b) => b.id === pendingPaymentContext.bookingIds[0])
+        ? bookings.find((b) => b.id === pendingPaymentContext.bookingIds?.[0])
         : null);
 
     if (targetBooking) {
@@ -751,7 +753,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={onCancelSelection}
+              onClick={() => onCancelSelection()}
               disabled={selectionBasket.length === 0 && !editingBooking}
               className="text-indigo-300 hover:text-white hover:bg-indigo-800 p-1.5 rounded-full transition-colors disabled:opacity-30"
             >

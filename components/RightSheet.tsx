@@ -139,7 +139,7 @@ export const RightSheet: React.FC<RightSheetProps> = ({
         return (
           <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 space-y-3">
             <div className="flex items-center gap-2 text-emerald-700 font-black text-xs uppercase tracking-wider">
-              <PlusCircle size={14} /> Vừa tạo đơn hàng mới
+              <PlusCircle size={14} /> Vừa mới đặt vé
             </div>
             <div className="flex flex-col gap-1.5">
               <div className="text-sm font-bold text-slate-800 flex items-center gap-2">
@@ -158,7 +158,7 @@ export const RightSheet: React.FC<RightSheetProps> = ({
               </div>
             </div>
             <p className="text-[11px] text-emerald-600/80 font-medium italic border-t border-emerald-100 pt-2">
-              Hành động hoàn tác sẽ **XÓA** đơn hàng này và trả lại ghế trống.
+              Hành động hoàn tác sẽ **XÓA** vé đặt này và trả lại ghế trống.
             </p>
           </div>
         );
@@ -166,7 +166,7 @@ export const RightSheet: React.FC<RightSheetProps> = ({
         return (
           <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 space-y-3">
             <div className="flex items-center gap-2 text-blue-700 font-black text-xs uppercase tracking-wider">
-              <RefreshCw size={14} /> Vừa cập nhật đơn hàng
+              <RefreshCw size={14} /> Vừa cập nhật vé đặt
             </div>
             <div className="flex flex-col gap-1.5">
               <div className="text-sm font-bold text-slate-800 flex items-center gap-2">

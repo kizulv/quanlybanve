@@ -3,7 +3,7 @@ import { Printer, FileText, Layout, Check } from "lucide-react";
 import { Button } from "./ui/Button";
 import { formatCurrency } from "../utils/formatters";
 import { formatLunarDate } from "../utils/dateUtils";
-import { BASE_URL } from "../constants";
+import { ORDER_URL } from "../constants";
 import QRCode from "qrcode";
 
 interface BookingPrintProps {
@@ -59,7 +59,7 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
     // Tạo các mã QR trước khi render HTML
     const qrDataUrls = await Promise.all(
       items.map(async (trip) => {
-        const qrData = `${BASE_URL}?bookingId=${bookingId || ""}`;
+        const qrData = `${ORDER_URL}?bookingId=${bookingId || ""}`;
 
         try {
           return await QRCode.toDataURL(qrData, {

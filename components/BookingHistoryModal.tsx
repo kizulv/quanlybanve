@@ -69,10 +69,10 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
   const getActionTheme = (action: string) => {
     switch (action) {
       case "CREATE":
-        return { icon: <Plus size={14} />, color: "emerald", label: "Tạo đơn" };
+        return { icon: <Plus size={14} />, color: "emerald", label: "Đặt vé" };
       case "DELETE":
       case "CANCEL":
-        return { icon: <Trash2 size={14} />, color: "red", label: "Hủy đơn" };
+        return { icon: <Trash2 size={14} />, color: "red", label: "Hủy vé" };
       case "UPDATE":
         return { icon: <Edit size={14} />, color: "blue", label: "Cập nhật" };
       case "SWAP":

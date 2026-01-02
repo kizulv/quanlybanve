@@ -4,26 +4,27 @@ import react from "@vitejs/plugin-react";
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
-  console.log("Vite Config Env Check:", {
-    mode,
-    VITE_APP_DOMAIN: env.VITE_APP_DOMAIN,
-    VITE_APP_SUBDOMAIN: env.VITE_APP_SUBDOMAIN,
-  });
   return {
     server: {
       port: 3000,
       host: "0.0.0.0",
-      allowedHosts: ["vetet.pcthanh.com"],
+      allowedHosts: [
+        "vetet.pcthanh.com",
+        "banve.pcthanh.com",
+        "*.nhaxetrungdung.com",
+      ],
     },
     plugins: [react()],
     define: {
       "process.env.GEMINI_API_KEY": JSON.stringify(env.GEMINI_API_KEY),
-      "import.meta.env.VITE_APP_DOMAIN": JSON.stringify(
-        env.VITE_APP_DOMAIN || "pcthanh.com"
+      "import.meta.env.VITE_APP_MAIN_DOMAIN": JSON.stringify(
+        env.VITE_APP_MAIN_DOMAIN
       ),
-      "import.meta.env.VITE_APP_SUBDOMAIN": JSON.stringify(
-        env.VITE_APP_SUBDOMAIN || "vetet"
+      "import.meta.env.VITE_APP_ORDER_DOMAIN": JSON.stringify(
+        env.VITE_APP_ORDER_DOMAIN
       ),
+      "import.meta.env.MONGO_URI": JSON.stringify(env.MONGO_URI),
+      "import.meta.env.VITE_API_URL": JSON.stringify(env.VITE_API_URL),
     },
     resolve: {
       alias: {

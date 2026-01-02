@@ -23,7 +23,7 @@ import {
 import { BusFront, Loader2, ArrowRightLeft } from "lucide-react";
 import { api } from "./lib/api";
 import { isSameDay } from "./utils/dateUtils";
-import { SUBDOMAIN } from "./constants";
+import { ORDER_DOMAIN } from "./constants";
 
 function AppContent() {
   const { toast } = useToast();
@@ -59,7 +59,8 @@ function AppContent() {
   useEffect(() => {
     const hostname = window.location.hostname;
 
-    if (SUBDOMAIN && hostname.includes(`${SUBDOMAIN}.`)) {
+    // Check if accessing via the specific order tracking domain
+    if (hostname.includes(ORDER_DOMAIN)) {
       setActiveTab("order-info");
     }
 

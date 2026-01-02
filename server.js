@@ -1,10 +1,10 @@
 import express from "express";
 import mongoose from "mongoose";
+import { defineConfig, loadEnv } from "vite";
 import cors from "cors";
 import bodyParser from "body-parser";
 
 const app = express();
-const PORT = process.env.PORT || 5001;
 
 // Middleware
 app.use(
@@ -13,6 +13,11 @@ app.use(
     credentials: true,
   })
 );
+
+// Request Logger
+app.use((req, res, next) => {
+  next();
+});
 
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Private-Network", "true");
@@ -25,10 +30,15 @@ app.use((req, res, next) => {
 
 app.use(bodyParser.json());
 
-// MongoDB Connection
-const MONGO_URI =
-  process.env.MONGO_URI ||
-  "mongodb://admin:123a456S%40@192.168.31.37:27017/ticketManager?authSource=admin";
+// Tải biến môi trường từ .env
+const env = loadEnv(process.env.NODE_ENV || "development", process.cwd(), "");
+const MONGO_URI = env.MONGO_URI;
+const VITE_API_URL = env.VITE_API_URL || "http://localhost:5001/api";
+
+// Trích xuất port từ VITE_API_URL
+const urlPort =
+  VITE_API_URL.match(/:(\d+)\//)?.[1] || VITE_API_URL.match(/:(\d+)$/)?.[1];
+const PORT = process.env.PORT || urlPort || 5001;
 
 mongoose
   .connect(MONGO_URI, {
@@ -772,7 +782,7 @@ app.put("/api/bookings/:id", async (req, res) => {
     const summaryText =
       summaryParts.length > 0
         ? summaryParts.join(" | ")
-        : "Cập nhật thông tin đơn hàng";
+        : "Cập nhật thông tin đặt vé";
 
     if (
       changes.length > 0 ||
@@ -825,7 +835,7 @@ app.post("/api/bookings/swap", async (req, res) => {
       }
       return res
         .status(404)
-        .json({ error: "Ghế nguồn không có đơn hàng thực tế" });
+        .json({ error: "Ghế nguồn không có số điện thoại thực tế" });
     }
 
     const booking2 = await Booking.findOne({
@@ -1301,7 +1311,7 @@ app.delete("/api/bookings/:id", async (req, res) => {
     if (!booking) return res.status(404).json({ error: "Booking not found" });
 
     // DESCRIPTION CHI TIẾT KHI XÓA
-    const delDesc = `Hủy toàn bộ đơn hàng (${booking.totalTickets} vé) - SĐT: ${booking.passenger.phone}`;
+    const delDesc = `Hủy toàn bộ vé đặt (${booking.totalTickets} vé) - SĐT: ${booking.passenger.phone}`;
 
     await logBookingAction(booking._id, "DELETE", delDesc, {
       trips: booking.items.map((i) => ({
@@ -1467,7 +1477,7 @@ app.post("/api/maintenance/fix-seats", async (req, res) => {
               date: tripDate,
               seat: s.label,
               action: "Xử lý trùng ghế",
-              details: `Giữ lại đơn: ${winner.phone}, Loại bỏ ${losers.length} đơn trùng.`,
+              details: `Giữ lại vé: ${winner.phone}, Loại bỏ ${losers.length} vé trùng.`,
             });
           }
 
@@ -1501,9 +1511,8 @@ app.post("/api/maintenance/fix-seats", async (req, res) => {
                 route: trip.route,
                 date: tripDate,
                 seat: s.label,
-                action: "Giải phóng ghế ma",
-                details:
-                  "Đưa ghế về trạng thái Trống (không có đơn hàng thực).",
+                action: "Giải phóng ghế lỗi",
+                details: "Đưa ghế về trạng thái Trống.",
               });
               return { ...s, status: "available" };
             }
@@ -1540,7 +1549,7 @@ app.post("/api/maintenance/fix-payments", async (req, res) => {
           date: payment.timestamp.toLocaleDateString("vi-VN"),
           seat: (payment.details?.seats || []).join(", "),
           action: "Xóa giao dịch lỗi",
-          details: `Giao dịch ${payment.totalAmount.toLocaleString()}đ bị xóa vì đơn hàng đang ở trạng thái HOLD.`,
+          details: `Giao dịch ${payment.totalAmount.toLocaleString()}đ bị xóa vì vé đặt đang ở trạng thái HOLD.`,
         });
       } else if (!payment.bookingId) {
         await Payment.findByIdAndDelete(payment._id);
@@ -1550,7 +1559,7 @@ app.post("/api/maintenance/fix-payments", async (req, res) => {
           date: payment.timestamp.toLocaleDateString("vi-VN"),
           seat: (payment.details?.seats || []).join(", "),
           action: "Xóa giao dịch mồ côi",
-          details: `Giao dịch ${payment.totalAmount.toLocaleString()}đ bị xóa vì không tìm thấy đơn hàng gốc.`,
+          details: `Giao dịch ${payment.totalAmount.toLocaleString()}đ bị xóa vì không tìm thấy vé đặt gốc.`,
         });
       }
     }

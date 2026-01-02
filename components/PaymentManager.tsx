@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from "react";
 import { api } from "../lib/api";
 import { Badge } from "./ui/Badge";
@@ -363,7 +362,7 @@ export const PaymentManager: React.FC = () => {
     const prevMap = new Map();
     prevTrips.forEach((t) => prevMap.set(getTripKey(t), t));
     const currMap = new Map();
-    currTrips.forEach((t) => currMap.set(getTripKey(t), t));
+    currTrips.forEach((t: any) => currMap.set(getTripKey(t), t));
 
     const allKeys = new Set([...prevMap.keys(), ...currMap.keys()]);
     const results: any[] = [];
