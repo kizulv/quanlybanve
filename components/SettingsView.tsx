@@ -88,6 +88,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [paymentMaintenanceResults, setPaymentMaintenanceResults] = useState<{
     logs: MaintenanceLog[];
     deletedCount: number;
+    fixedCount: number;
   } | null>(null);
 
   // Stats
@@ -217,6 +218,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       setPaymentMaintenanceResults({
         logs: result.logs || [],
         deletedCount: result.deletedCount || 0,
+        fixedCount: result.fixedCount || 0,
       });
 
       if (result.deletedCount > 0) {
@@ -913,10 +915,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                             Kết quả bảo trì dòng tiền
                           </h5>
                         </div>
-                        <div>
+                        <div className="flex gap-2 flex-wrap">
+                          <Badge className="bg-red-100 text-red-700 border-red-200 font-bold px-3 py-1.5">
+                            Đã xóa: {paymentMaintenanceResults.deletedCount}
+                          </Badge>
                           <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 font-bold px-3 py-1.5">
-                            Tổng giao dịch đã xóa:{" "}
-                            {paymentMaintenanceResults.deletedCount}
+                            Đã đối soát: {paymentMaintenanceResults.fixedCount}
                           </Badge>
                         </div>
                       </div>
@@ -961,7 +965,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                                       </div>
                                     </td>
                                     <td className="px-6 py-4">
-                                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-tight border bg-red-50 text-red-700 border-red-200">
+                                      <span
+                                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-tight border ${
+                                          log.action.includes("Xóa")
+                                            ? "bg-red-50 text-red-700 border-red-200"
+                                            : log.action.includes("Chỉnh") ||
+                                              log.action.includes("Sửa")
+                                            ? "bg-amber-50 text-amber-700 border-amber-200"
+                                            : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                        }`}
+                                      >
                                         {log.action}
                                       </span>
                                     </td>

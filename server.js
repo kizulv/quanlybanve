@@ -109,7 +109,9 @@ const ticketDetailSchema = new mongoose.Schema(
     dropoff: String,
     note: String,
     name: String, // NEW
-    phone: String, // NEW
+    phone: String,
+    status: String, // NEW: Individual ticket status
+    exactBed: { type: Boolean, default: false }, // ✅ Xếp đúng giường
   },
   { _id: false }
 );
@@ -498,27 +500,41 @@ app.post("/api/bookings", async (req, res) => {
         trip.name?.toLowerCase().includes("tăng cường") ||
         trip.route?.toLowerCase().includes("tăng cường");
 
+      // VALIDATION: Đảm bảo có tickets với giá chính thức khi trạng thái là payment
+      if (finalStatus === "payment" && !item.tickets) {
+        return res.status(400).json({
+          error: "Missing ticket details",
+          message:
+            "Khi thanh toán, phải cung cấp thông tin vé chi tiết (tickets) với giá chính thức.",
+        });
+      }
+
       const tickets =
         item.tickets ||
         item.seats.map((s) => ({
           seatId: s.id,
           price:
             finalStatus === "payment"
-              ? s.price
+              ? s.price // Chỉ dùng làm fallback nếu không có tickets (đã validate ở trên)
               : finalStatus === "hold"
               ? 0
               : 0,
+          status:
+            finalStatus === "payment"
+              ? "payment"
+              : finalStatus === "hold"
+              ? "hold"
+              : "booking",
           pickup: passenger.pickupPoint || "",
           dropoff: passenger.dropoffPoint || "",
           note: "",
-          name: passenger.name || "", // Default from booking passenger
-          phone: passenger.phone || "", // Default from booking passenger
+          name: passenger.name || "",
+          phone: passenger.phone || "",
         }));
 
       const seatIds = tickets.map((t) => t.seatId);
       const itemPrice = tickets.reduce((sum, t) => sum + (t.price || 0), 0);
-      calculatedTotalPrice +=
-        item.price || item.seats.reduce((s, ss) => s + ss.price, 0);
+      calculatedTotalPrice += itemPrice; // Sử dụng itemPrice thay vì fallback
       calculatedTotalTickets += seatIds.length;
 
       bookingItems.push({
@@ -541,19 +557,24 @@ app.post("/api/bookings", async (req, res) => {
       });
     }
 
-    const targetSeatStatus =
-      finalStatus === "payment"
-        ? "sold"
-        : finalStatus === "hold"
-        ? "held"
-        : "booked";
-
     for (const item of bookingItems) {
       const trip = await Trip.findById(item.tripId);
       if (trip) {
-        trip.seats = trip.seats.map((s) =>
-          item.seatIds.includes(s.id) ? { ...s, status: targetSeatStatus } : s
-        );
+        trip.seats = trip.seats.map((s) => {
+          const ticket = item.tickets.find(
+            (t) => String(t.seatId) === String(s.id)
+          );
+          if (ticket) {
+            const targetStatus =
+              ticket.status === "payment"
+                ? "sold"
+                : ticket.status === "hold"
+                ? "held"
+                : "booked";
+            return { ...s, status: targetStatus };
+          }
+          return s;
+        });
         trip.markModified("seats");
         await trip.save();
         updatedTrips.push(trip);
@@ -642,26 +663,40 @@ app.put("/api/bookings/:id", async (req, res) => {
         trip.name?.toLowerCase().includes("tăng cường") ||
         trip.route?.toLowerCase().includes("tăng cường");
 
+      // VALIDATION: Đảm bảo có tickets với giá chính thức khi trạng thái là payment
+      if (finalStatus === "payment" && !item.tickets) {
+        return res.status(400).json({
+          error: "Missing ticket details",
+          message:
+            "Khi thanh toán, phải cung cấp thông tin vé chi tiết (tickets) với giá chính thức.",
+        });
+      }
+
       const tickets =
         item.tickets ||
         item.seats.map((s) => ({
           seatId: s.id,
           price:
             finalStatus === "payment"
-              ? s.price
+              ? s.price // Chỉ dùng làm fallback nếu không có tickets (đã validate ở trên)
               : finalStatus === "hold"
               ? 0
               : 0,
+          status:
+            finalStatus === "payment"
+              ? "payment"
+              : finalStatus === "hold"
+              ? "hold"
+              : "booking",
           pickup: passenger.pickupPoint || "",
           dropoff: passenger.dropoffPoint || "",
           note: "",
-          name: passenger.name || "", // Default from booking passenger
-          phone: passenger.phone || "", // Default from booking passenger
+          name: passenger.name || "",
+          phone: passenger.phone || "",
         }));
       const seatIds = tickets.map((t) => t.seatId);
       const itemPrice = tickets.reduce((sum, t) => sum + (t.price || 0), 0);
-      calculatedTotalPrice +=
-        item.price || item.seats.reduce((s, ss) => s + ss.price, 0);
+      calculatedTotalPrice += itemPrice; // Sử dụng itemPrice thay vì fallback
       calculatedTotalTickets += seatIds.length;
 
       bookingItems.push({
@@ -711,21 +746,24 @@ app.put("/api/bookings/:id", async (req, res) => {
       }
     }
 
-    const targetSeatStatus =
-      finalStatus === "payment"
-        ? "sold"
-        : finalStatus === "hold"
-        ? "held"
-        : "booked";
-
     for (const item of bookingItems) {
       const trip = await Trip.findById(item.tripId);
       if (trip) {
-        trip.seats = trip.seats.map((s) =>
-          item.seatIds.includes(String(s.id))
-            ? { ...s, status: targetSeatStatus }
-            : s
-        );
+        trip.seats = trip.seats.map((s) => {
+          const ticket = item.tickets.find(
+            (t) => String(t.seatId) === String(s.id)
+          );
+          if (ticket) {
+            const targetStatus =
+              ticket.status === "payment"
+                ? "sold"
+                : ticket.status === "hold"
+                ? "held"
+                : "booked";
+            return { ...s, status: targetStatus };
+          }
+          return s;
+        });
         trip.markModified("seats");
         await trip.save();
       }
@@ -1084,7 +1122,8 @@ app.post("/api/bookings/transfer", async (req, res) => {
 app.patch("/api/bookings/:id/tickets/:seatId", async (req, res) => {
   try {
     const { id, seatId } = req.params;
-    const { pickup, dropoff, note, phone, name, action, payment } = req.body;
+    const { pickup, dropoff, note, phone, name, exactBed, action, payment } =
+      req.body;
     const booking = await Booking.findById(id);
     if (!booking) return res.status(404).json({ error: "Booking not found" });
 
@@ -1164,6 +1203,12 @@ app.patch("/api/bookings/:id/tickets/:seatId", async (req, res) => {
         booking.passenger.name = name;
       }
     }
+    if (exactBed !== undefined && targetTicket.exactBed !== exactBed) {
+      const oldState = targetTicket.exactBed ? "Có" : "Không";
+      const newState = exactBed ? "Có" : "Không";
+      changes.push(`Xếp đúng giường: ${oldState} -> ${newState}`);
+      targetTicket.exactBed = exactBed;
+    }
 
     if (changes.length > 0) {
       await logBookingAction(
@@ -1185,6 +1230,7 @@ app.patch("/api/bookings/:id/tickets/:seatId", async (req, res) => {
 
       const paidAmount = (payment.paidCash || 0) + (payment.paidTransfer || 0);
       targetTicket.price = paidAmount;
+      targetTicket.status = "payment"; // ✅ Cập nhật trạng thái ghế sang payment
 
       const paymentRec = new Payment({
         bookingId: booking._id,
@@ -1558,6 +1604,9 @@ app.post("/api/maintenance/fix-payments", async (req, res) => {
   try {
     const logs = [];
     let deletedCount = 0;
+    let fixedCount = 0;
+
+    // 1. Kiểm tra Giao dịch mồ côi hoặc đơn HOLD
     const allPayments = await Payment.find().populate("bookingId");
 
     for (const payment of allPayments) {
@@ -1584,7 +1633,75 @@ app.post("/api/maintenance/fix-payments", async (req, res) => {
       }
     }
 
-    res.json({ success: true, deletedCount, logs });
+    // 2. Đối soát trạng thái Booking với Payment thực tế
+    const allBookings = await Booking.find({ status: { $ne: "cancelled" } });
+
+    for (const booking of allBookings) {
+      const payments = await Payment.find({ bookingId: booking._id });
+      const totalPaid = payments.reduce(
+        (sum, p) => sum + (p.totalAmount || 0),
+        0
+      );
+
+      let isModified = false;
+      const oldStatus = booking.status;
+
+      // Trường hợp: Trạng thái 'payment' nhưng không có tiền thực thu
+      if (booking.status === "payment" && totalPaid <= 0) {
+        booking.status = "booking";
+        isModified = true;
+        logs.push({
+          route: booking.items[0]?.route || "N/A",
+          date: booking.createdAt.split("T")[0],
+          seat: booking.items.flatMap((i) => i.seatIds).join(", "),
+          action: "Chỉnh trạng thái",
+          details: `Chuyển đơn từ Đã thanh toán -> Chờ thanh toán (Thực thu: ${totalPaid.toLocaleString()}đ).`,
+        });
+      }
+
+      // Trường hợp: Trạng thái 'booking' nhưng đã có tiền thực thu > 0
+      if (booking.status === "booking" && totalPaid > 0) {
+        booking.status = "payment";
+        isModified = true;
+        logs.push({
+          route: booking.items[0]?.route || "N/A",
+          date: booking.createdAt.split("T")[0],
+          seat: booking.items.flatMap((i) => i.seatIds).join(", "),
+          action: "Đồng bộ thanh toán",
+          details: `Chuyển đơn từ Chờ thanh toán -> Đã thanh toán (Thành công khớp dòng tiền ${totalPaid.toLocaleString()}đ).`,
+        });
+      }
+
+      // 3. Đối soát totalPrice
+      let calculatedTotalPrice = 0;
+      booking.items.forEach((item) => {
+        const itemPrice = (item.tickets || []).reduce(
+          (sum, t) => sum + (t.price || 0),
+          0
+        );
+        calculatedTotalPrice += itemPrice;
+      });
+
+      if (Math.abs(booking.totalPrice - calculatedTotalPrice) > 1) {
+        const oldPrice = booking.totalPrice;
+        booking.totalPrice = calculatedTotalPrice;
+        isModified = true;
+        logs.push({
+          route: booking.items[0]?.route || "N/A",
+          date: booking.createdAt.split("T")[0],
+          seat: booking.items.flatMap((i) => i.seatIds).join(", "),
+          action: "Sửa lỗi tổng tiền",
+          details: `Tính lại tổng tiền vé: ${oldPrice.toLocaleString()}đ -> ${calculatedTotalPrice.toLocaleString()}đ.`,
+        });
+      }
+
+      if (isModified) {
+        await booking.save();
+        fixedCount++;
+      }
+    }
+
+    res.json({ success: true, deletedCount, fixedCount, logs });
   } catch (e) {
     console.error("Payment Maintenance Error:", e);
     res.status(500).json({ error: e.message });

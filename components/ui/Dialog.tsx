@@ -91,7 +91,7 @@ export const Dialog: React.FC<DialogProps> = ({
         <div className="flex-1 overflow-y-auto min-h-0">{children}</div>
 
         {footer && (
-          <div className="px-4 py-3 border-t border-slate-100/10 shrink-0">
+          <div className="px-4 py-3 border-t border-slate-200 shrink-0">
             {footer}
           </div>
         )}

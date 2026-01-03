@@ -31,6 +31,7 @@ export interface Passenger {
   note?: string;
   pickupPoint?: string;
   dropoffPoint?: string;
+  exactBed?: boolean; // ✅ Xếp đúng giường
 }
 
 // Detailed Ticket Info stored in DB
@@ -42,6 +43,8 @@ export interface TicketDetail {
   note?: string; // NEW: Ghi chú riêng cho từng vé
   name?: string; // NEW: Tên riêng cho vé
   phone?: string; // NEW: SĐT riêng cho vé
+  status?: "booking" | "payment" | "hold"; // NEW: Trạng thái riêng cho vé
+  exactBed?: boolean; // ✅ Xếp đúng giường
 }
 
 // New Interface for Line Items

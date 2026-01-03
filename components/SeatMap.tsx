@@ -14,6 +14,11 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { formatCurrency } from "../utils/formatters";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "./ui/Collapsible";
 
 interface SeatMapProps {
   seats: Seat[];
@@ -120,6 +125,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
     let displayDropoff = booking?.passenger?.dropoffPoint || "";
     let displayNote = booking?.passenger?.note || "";
     let displayName = booking?.passenger?.name || "";
+    let displayExactBed = false; // ✅ Init exactBed
 
     if (hasInfo && booking && bookingItem) {
       const rawPhone = booking.passenger.phone;
@@ -139,6 +145,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
           displayPrice = ticket.price;
           displayPickup = ticket.pickup || displayPickup;
           displayDropoff = ticket.dropoff || displayDropoff;
+          if (ticket.exactBed) displayExactBed = true; // ✅ Load exactBed
           if (ticket.note !== undefined && ticket.note !== null)
             displayNote = ticket.note;
 
@@ -200,18 +207,25 @@ export const SeatMap: React.FC<SeatMapProps> = ({
           {isSwapping && <RefreshCw size={10} className="animate-spin" />}
           {!isSwapping &&
             (seat.status === SeatStatus.SOLD ||
-              seat.status === SeatStatus.BOOKED) &&
-            displayPrice > 0 && (
+              seat.status === SeatStatus.BOOKED) && (
               <div className="mt-auto flex justify-end">
-                <span
-                  className={`text-[9px] md:text-[10px] font-bold px-1 rounded border shadow-sm ${
-                    seat.status === SeatStatus.SOLD
-                      ? "text-green-700 bg-yellow-300 border-green-200/50"
-                      : "text-yellow-800 bg-yellow-200 border-yellow-300/50"
-                  }`}
-                >
-                  {formatCurrency(displayPrice)}
-                </span>
+                {displayExactBed ? (
+                  <span className="text-[8px] font-bold px-1 rounded border shadow-sm text-white bg-amber-500 border-amber-600">
+                    Xếp đúng
+                  </span>
+                ) : (
+                  displayPrice > 0 && (
+                    <span
+                      className={`text-[9px] md:text-[10px] font-bold px-1 rounded border shadow-sm ${
+                        seat.status === SeatStatus.SOLD
+                          ? "text-green-700 bg-yellow-300 border-green-200/50"
+                          : "text-yellow-800 bg-yellow-200 border-yellow-300/50"
+                      }`}
+                    >
+                      {formatCurrency(displayPrice)}
+                    </span>
+                  )
+                )}
               </div>
             )}
           {!isSwapping && seat.status === SeatStatus.SELECTED && (
@@ -275,7 +289,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
                   <div className="flex items-center gap-0.5 min-w-0">
                     <span className="truncate">{formattedPhone}</span>
                     {groupTotal > 1 && (
-                      <span className="shrink-0 bg-white/50 px-0.5 rounded text-[7px] font-normal border opacity-70">
+                      <span className="shrink-0 bg-white/50 px-0.5 rounded text-[8px] ml-0.5 font-normal border opacity-70">
                         {groupIndex}/{groupTotal}
                       </span>
                     )}
@@ -408,7 +422,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
 
   const renderFloorColumn = (title: string = "DÃY SÀN") => {
     return (
-      <div className="relative overflow-hidden flex flex-col w-full md:w-1/5">
+      <div className="relative overflow-hidden flex flex-col w-full">
         <div className="text-center">
           <span className="text-xs font-black text-white uppercase tracking-widest">
             SÀN
@@ -557,7 +571,36 @@ export const SeatMap: React.FC<SeatMapProps> = ({
       <div className="flex flex-col p-3">
         <div className="flex flex-col md:flex-row w-full gap-4 justify-center items-start">
           {renderCabinColumn(0, "DÃY B")}
-          {renderFloorColumn("SÀN")}
+
+          {/* Mobile: Collapsible Floor */}
+          <div className="w-full md:hidden">
+            <Collapsible defaultOpen={false}>
+              <CollapsibleTrigger className="bg-indigo-50 hover:bg-indigo-100 p-2 rounded-lg font-bold text-indigo-700 text-[10px] uppercase tracking-wider w-full mb-2 flex justify-center border border-indigo-200">
+                <span>Ghế Sàn (Chạm để xem)</span>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                {renderFloorColumn("SÀN")}
+              </CollapsibleContent>
+            </Collapsible>
+          </div>
+
+          {/* Desktop: Standard Floor */}
+          <div className="hidden md:flex w-full md:w-1/5 justify-center">
+            {/* Note: We wrap in a div and use flex/justify-center to mimic the original layout's behavior if needed, 
+                 but renderFloorColumn returns a container with w-full md:w-1/5 already options. 
+                 Actually, reusing renderFloorColumn directly is better but we need to ensure layout width.
+                 renderFloorColumn returns: <div className="... w-full md:w-1/5">
+                 So we can just invoke it, but we need to hide it on mobile.
+                 However, the function returns a fragment root div. I cannot apply className to it from outside easily 
+                 unless passed as argument.
+                 Let's modify renderFloorColumn to accept className or just wrap it.
+                 Wrapper approach: <div className="hidden md:contents"> {renderFloorColumn()} </div> 
+                 'contents' display might work to preserve direct grid behavior, but here it is flex row.
+                 Let's inspect renderFloorColumn again.
+             */}
+            {renderFloorColumn("SÀN")}
+          </div>
+
           {renderCabinColumn(1, "DÃY A")}
         </div>
         {renderOverflowSection()}
@@ -571,7 +614,20 @@ export const SeatMap: React.FC<SeatMapProps> = ({
         {renderSleeperDeck(1)}
         {renderSleeperDeck(2)}
       </div>
-      {renderSleeperFloorSection()}
+
+      {/* Mobile: Collapsible Floor */}
+      <div className="w-full md:hidden">
+        <Collapsible defaultOpen={false}>
+          <CollapsibleTrigger className="bg-indigo-50 hover:bg-indigo-100 p-2 rounded-lg font-bold text-indigo-700 text-[10px] uppercase tracking-wider w-full mb-2 flex justify-center border border-indigo-200 mt-4">
+            <span>Ghế Sàn (Chạm để xem)</span>
+          </CollapsibleTrigger>
+          <CollapsibleContent>{renderSleeperFloorSection()}</CollapsibleContent>
+        </Collapsible>
+      </div>
+
+      {/* Desktop: Standard Floor */}
+      <div className="hidden md:block">{renderSleeperFloorSection()}</div>
+
       {renderOverflowSection()}
     </div>
   );

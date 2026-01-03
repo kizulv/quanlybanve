@@ -154,6 +154,7 @@ export const api = {
         note?: string;
         phone?: string;
         name?: string;
+        exactBed?: boolean; // ✅ Xếp đúng giường
         action?: string;
         payment?: any;
       }

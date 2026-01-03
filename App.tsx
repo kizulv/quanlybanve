@@ -159,9 +159,28 @@ function AppContent() {
         )
     );
     if (!booking) return SeatStatus.AVAILABLE;
-    if (booking.status === "payment") return SeatStatus.SOLD;
-    if (booking.status === "hold") return SeatStatus.HELD;
-    return SeatStatus.BOOKED;
+
+    const tripItem = booking.items.find((i) => i.tripId === tripId);
+    if (
+      tripItem &&
+      tripItem.seatIds.some((sid) => String(sid) === String(seatId))
+    ) {
+      // Ưu tiên trạng thái của từng vé nếu có
+      const ticket = tripItem.tickets?.find(
+        (t) => String(t.seatId) === String(seatId)
+      );
+      if (ticket?.status) {
+        if (ticket.status === "payment") return SeatStatus.SOLD;
+        if (ticket.status === "hold") return SeatStatus.HELD;
+        return SeatStatus.BOOKED;
+      }
+
+      // Fallback về trạng thái của đơn hàng
+      if (booking.status === "payment") return SeatStatus.SOLD;
+      if (booking.status === "hold") return SeatStatus.HELD;
+      return SeatStatus.BOOKED;
+    }
+    return SeatStatus.AVAILABLE; // Should not be reached if booking was found and seat is in tripItem
   };
 
   // -- HANDLERS --
@@ -334,7 +353,8 @@ function AppContent() {
     suppressToast: boolean = false,
     forceClear: boolean = false
   ) => {
-    if (editingBooking && !forceClear) {
+    // Nếu không phải forceClear và đang có đơn hàng đang sửa, thực hiện logic hồi phục trạng thái ghế
+    if (!forceClear && editingBooking) {
       const savedBooking = editingBooking;
       setEditingBooking(null);
       setTrips((prevTrips) =>
@@ -351,10 +371,26 @@ function AppContent() {
               if (
                 bookingSeatIds.some((sid) => String(sid) === String(seat.id))
               ) {
+                // Tìm ticket tương ứng với ghế này để lấy trạng thái chính xác
+                const ticket = bookingItem?.tickets?.find(
+                  (t) => String(t.seatId) === String(seat.id)
+                );
+
                 let status = SeatStatus.BOOKED;
-                if (savedBooking.status === "payment") status = SeatStatus.SOLD;
-                else if (savedBooking.status === "hold")
-                  status = SeatStatus.HELD;
+
+                if (ticket?.status) {
+                  // Ưu tiên dùng ticket.status (trạng thái riêng của từng ghế)
+                  if (ticket.status === "payment") status = SeatStatus.SOLD;
+                  else if (ticket.status === "hold") status = SeatStatus.HELD;
+                  else status = SeatStatus.BOOKED;
+                } else {
+                  // Fallback về booking.status nếu không có ticket (dữ liệu cũ)
+                  if (savedBooking.status === "payment")
+                    status = SeatStatus.SOLD;
+                  else if (savedBooking.status === "hold")
+                    status = SeatStatus.HELD;
+                }
+
                 return { ...seat, status };
               }
 
@@ -503,6 +539,7 @@ function AppContent() {
                 setSelectedDate(d);
                 setSelectedTripId(id);
               }}
+              onRefreshData={refreshData}
             />
             <ManifestList
               tripBookings={tripBookings}
@@ -565,6 +602,7 @@ function AppContent() {
               note: p.note,
               phone: p.phone,
               name: p.name,
+              exactBed: p.exactBed, // ✅ Truyền exactBed
               action: extra?.action,
               payment: extra?.payment,
             });

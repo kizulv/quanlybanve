@@ -46,6 +46,7 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
         price: number;
         note: string;
         status: "sold" | "booked" | "held";
+        exactBed?: boolean; // ✅ Xếp đúng giường
         groupIndex?: number;
         groupTotal?: number;
       }
@@ -77,6 +78,7 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
           // FIX: Ưu tiên ghi chú của từng vé, sau đó mới đến ghi chú chung của khách hàng
           note: ticket?.note || booking.passenger.note || "",
           status: status,
+          exactBed: ticket?.exactBed, // ✅ Load exactBed
           groupIndex,
           groupTotal,
         });
@@ -184,10 +186,12 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
           </div>
           ${
             data.price > 0
-              ? `<div class="absolute bottom-0.5 right-1 font-black text-[8px] bg-white/60 px-0.5 rounded">${
+              ? `<div class="absolute bottom-0.5 right-1 font-black text-[8px] bg-white/60 px-0.5 py-1 rounded">Đã TT: ${
                   data.price / 1000
                 }</div>`
-              : ""
+              : `<div class="absolute bottom-0.5 right-1 font-black text-[8px] py-1 bg-slate-100 px-0.5 rounded">Chưa TT${
+                  data.exactBed ? " - Xếp đúng" : ""
+                }</div>`
           }
         </div>
       `;

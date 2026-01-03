@@ -18,7 +18,13 @@ import {
   X,
   Printer,
 } from "lucide-react";
-import { BusTrip, Seat, Booking, Bus as BusTypeData } from "../types";
+import {
+  BusTrip,
+  Seat,
+  Booking,
+  Bus as BusTypeData,
+  SeatStatus,
+} from "../types";
 import { formatLunarDate } from "../utils/dateUtils";
 import {
   getStandardizedLocation,
@@ -32,6 +38,12 @@ interface SeatOverride {
   price?: number;
   pickup?: string;
   dropoff?: string;
+  isPaid?: boolean; // NEW: Track if this seat is selected for payment
+  status?: "booking" | "payment" | "hold"; // NEW: Track ticket status
+}
+
+interface PaymentSeat extends Seat {
+  diffStatus?: "kept" | "added" | "removed";
 }
 
 interface PaymentItem {
@@ -41,7 +53,7 @@ interface PaymentItem {
   route: string;
   licensePlate: string;
   busPhoneNumber: string;
-  seats: Seat[];
+  seats: PaymentSeat[];
   pickup: string;
   dropoff: string;
   basePrice: number;
@@ -58,7 +70,13 @@ interface PaymentModalProps {
   ) => Promise<Booking | void>;
   selectionBasket: { trip: BusTrip; seats: Seat[] }[];
   editingBooking?: Booking | null;
-  bookingForm: { phone: string; pickup: string; dropoff: string; note: string };
+  bookingForm: {
+    phone: string;
+    pickup: string;
+    dropoff: string;
+    note: string;
+    exactBed?: boolean;
+  };
   buses: BusTypeData[];
   paidCash: number;
   paidTransfer: number;
@@ -89,26 +107,147 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const [localProcessing, setLocalProcessing] = useState(false);
   const [stableItems, setStableItems] = useState<PaymentItem[]>([]);
 
-  // Chụp lại dữ liệu một lần duy nhất khi mở Modal để tránh dữ liệu bị biến mất sau khi lưu
   useEffect(() => {
     if (isOpen && selectionBasket.length > 0 && stableItems.length === 0) {
-      const initialItems = selectionBasket.map((item) => {
-        const busObj = buses.find((b) => b.plate === item.trip.licensePlate);
-        return {
-          tripId: item.trip.id,
-          tripName: item.trip.name,
-          tripDate: item.trip.departureTime,
-          route: item.trip.route,
-          licensePlate: item.trip.licensePlate,
-          busPhoneNumber: busObj?.phoneNumber || "---",
-          seats: item.seats,
-          pickup: bookingForm.pickup || "",
-          dropoff: bookingForm.dropoff || "",
-          basePrice: item.trip.basePrice || 0,
-        };
-      });
+      // 1. Thu thập tất cả tripIds liên quan (từ selectionBasket và editingBooking)
+      const allTripIds = new Set<string>();
+      selectionBasket.forEach((item) => allTripIds.add(item.trip.id));
+      if (editingBooking) {
+        editingBooking.items.forEach((item) => allTripIds.add(item.tripId));
+      }
+
+      // 2. Tạo stableItems bao gồm cả ghế mới, cũ và hủy
+      const initialItems: PaymentItem[] = Array.from(allTripIds).map(
+        (tripId) => {
+          const basketItem = selectionBasket.find(
+            (item) => item.trip.id === tripId
+          );
+          const bookingItem = editingBooking?.items.find(
+            (item) => item.tripId === tripId
+          );
+
+          // Lấy thông tin chuyến xe từ basket hoặc từ list trips (cần backup nếu basket không có)
+          const tripInfo = basketItem?.trip || {
+            id: tripId,
+            name: bookingItem?.route || "Chuyến xe", // Fallback if trip not in basket
+            departureTime: bookingItem?.tripDate || new Date().toISOString(),
+            route: bookingItem?.route || "---",
+            licensePlate: bookingItem?.licensePlate || "---",
+            basePrice: 0, // Will be updated if available
+          };
+
+          const busObj = buses.find((b) => b.plate === tripInfo.licensePlate);
+
+          // Phân loại ghế
+          const basketSeats = basketItem?.seats || [];
+          const originalSeatIds = bookingItem?.seatIds || [];
+
+          const allSeats: PaymentSeat[] = [];
+
+          // Ghế "Kept" hoặc "Added" (có trong basket)
+          basketSeats.forEach((seat) => {
+            const isOriginal = originalSeatIds.some(
+              (oid) => String(oid) === String(seat.id)
+            );
+            allSeats.push({
+              ...seat,
+              diffStatus: isOriginal ? "kept" : "added",
+            });
+          });
+
+          // Ghế "Removed" (có trong booking cũ nhưng không có trong basket mới)
+          originalSeatIds.forEach((oid) => {
+            const inBasket = basketSeats.some(
+              (bs) => String(bs.id) === String(oid)
+            );
+            if (!inBasket) {
+              const originalTicket = bookingItem?.tickets?.find(
+                (t) => String(t.seatId) === String(oid)
+              );
+              allSeats.push({
+                id: String(oid),
+                label: String(oid), // Use ID as label if we don't have snapshot
+                status: SeatStatus.AVAILABLE, // Trở thành trống
+                price: originalTicket?.price || 0,
+                diffStatus: "removed",
+                floor: 1, // Dummy
+              } as PaymentSeat);
+            }
+          });
+
+          return {
+            tripId: tripId,
+            tripName: tripInfo.name,
+            tripDate: tripInfo.departureTime,
+            route: tripInfo.route,
+            licensePlate: tripInfo.licensePlate,
+            busPhoneNumber: busObj?.phoneNumber || "---",
+            seats: allSeats,
+            pickup: bookingForm.pickup || "",
+            dropoff: bookingForm.dropoff || "",
+            basePrice: tripInfo.basePrice || 0,
+          };
+        }
+      );
+
       setStableItems(initialItems);
-      setSeatOverrides(initialOverrides || {});
+
+      // 3. Initialize overrides
+      const overrides: Record<string, SeatOverride> = {
+        ...(initialOverrides || {}),
+      };
+
+      if (editingBooking) {
+        editingBooking.items.forEach((item) => {
+          item.tickets?.forEach((ticket) => {
+            const key = `${item.tripId}_${ticket.seatId}`;
+            if (!overrides[key]) overrides[key] = {};
+
+            // Nếu vẫn còn giữ ghế này, mặc định isPaid dựa trên giá
+            const stillExists = initialItems.some(
+              (ii) =>
+                ii.tripId === item.tripId &&
+                ii.seats.some(
+                  (s) =>
+                    s.id === String(ticket.seatId) && s.diffStatus !== "removed"
+                )
+            );
+
+            if (stillExists) {
+              overrides[key].isPaid = (ticket.price || 0) > 0;
+            } else {
+              overrides[key].isPaid = false; // Ghế bị xóa thì không thu tiền
+            }
+
+            overrides[key].status = ticket.status || "booking";
+            overrides[key].price = ticket.price;
+            overrides[key].pickup = ticket.pickup;
+            overrides[key].dropoff = ticket.dropoff;
+          });
+        });
+
+        // Đảm bảo các ghế mới thêm cũng có isPaid mặc định
+        initialItems.forEach((item) => {
+          item.seats
+            .filter((s) => s.diffStatus === "added")
+            .forEach((seat) => {
+              const key = `${item.tripId}_${seat.id}`;
+              if (!overrides[key]) {
+                overrides[key] = { isPaid: (seat.price || 0) > 0 };
+              }
+            });
+        });
+      } else {
+        selectionBasket.forEach((item) => {
+          item.seats.forEach((seat) => {
+            const key = `${item.trip.id}_${seat.id}`;
+            if (!overrides[key]) overrides[key] = {};
+            overrides[key].isPaid = (seat.price || 0) > 0;
+          });
+        });
+      }
+
+      setSeatOverrides(overrides);
     }
 
     if (!isOpen) {
@@ -129,43 +268,74 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     const key = `${tripId}_${seat.id}`;
     const override = seatOverrides[key];
 
-    let displayPrice =
-      override?.price !== undefined ? override.price : seat.price;
-    if (displayPrice === 0) {
-      displayPrice = tripBasePrice;
-    }
+    const isPaid = override?.isPaid ?? seat.price > 0;
+
+    // Xác định xem ghế này có phải đã thanh toán từ trước không (trong DB)
+    const isAlreadyPaid =
+      editingBooking?.items
+        .find((i) => i.tripId === tripId)
+        ?.tickets?.find((t) => String(t.seatId) === String(seat.id))?.status ===
+      "payment";
 
     return {
-      price: displayPrice,
-      pickup: override?.pickup !== undefined ? override.pickup : defaultPickup,
-      dropoff:
-        override?.dropoff !== undefined ? override.dropoff : defaultDropoff,
+      price: override?.price ?? seat.price,
+      pickup: override?.pickup ?? defaultPickup,
+      dropoff: override?.dropoff ?? defaultDropoff,
+      isPaid,
+      isAlreadyPaid,
       isPriceChanged:
         override?.price !== undefined && override.price !== seat.price,
     };
   };
 
-  const { finalTotal } = useMemo(() => {
-    let final = 0;
+  const toggleSeatPayment = (tripId: string, seatId: string) => {
+    if (isSaved) setIsSaved(false);
+    const key = `${tripId}_${seatId}`;
+
+    // Không cho phép bỏ tích nếu ghế đã ở trạng thái payment trong DB
+    const isAlreadyPaid =
+      editingBooking?.items
+        .find((i) => i.tripId === tripId)
+        ?.tickets?.find((t) => String(t.seatId) === String(seatId))?.status ===
+      "payment";
+    if (isAlreadyPaid) return;
+
+    setSeatOverrides((prev) => {
+      const current = prev[key] || {};
+      return {
+        ...prev,
+        [key]: {
+          ...current,
+          isPaid: !current.isPaid,
+        },
+      };
+    });
+  };
+
+  const finalTotal = useMemo(() => {
+    let total = 0;
     stableItems.forEach((trip) => {
       trip.seats.forEach((seat) => {
-        const { price } = getSeatValues(
+        const { price, isPaid } = getSeatValues(
           trip.tripId,
           seat,
           trip.pickup,
           trip.dropoff,
           trip.basePrice
         );
-        final += price;
+        if (isPaid) total += price;
       });
     });
-    return { finalTotal: final };
-  }, [stableItems, seatOverrides]);
+    return total;
+  }, [stableItems, seatOverrides, editingBooking]);
 
-  const previouslyPaid = editingBooking
-    ? (editingBooking.payment?.paidCash || 0) +
+  const previouslyPaid = useMemo(() => {
+    if (!editingBooking) return 0;
+    return (
+      (editingBooking.payment?.paidCash || 0) +
       (editingBooking.payment?.paidTransfer || 0)
-    : 0;
+    );
+  }, [editingBooking]);
 
   const currentInputTotal = paidCash + paidTransfer;
   const remainingBalance = finalTotal - currentInputTotal;
@@ -190,10 +360,18 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     setSeatOverrides((prev) => {
       const current = prev[key] || {};
       let newValue: string | number = value;
+      let extraChanges: Partial<SeatOverride> = {};
+
       if (field === "price") {
         newValue = parseCurrency(value);
+        // Tự động tích nếu > 0, bỏ tích nếu = 0
+        extraChanges.isPaid = (newValue as number) > 0;
       }
-      return { ...prev, [key]: { ...current, [field]: newValue } };
+
+      return {
+        ...prev,
+        [key]: { ...current, [field]: newValue, ...extraChanges },
+      };
     });
   };
 
@@ -250,10 +428,19 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     }
 
     const finalOverrides: Record<string, SeatOverride> = { ...seatOverrides };
+    const filteredItems = stableItems
+      .map((trip) => ({
+        ...trip,
+        seats: trip.seats.filter((s) => s.diffStatus !== "removed") as Seat[],
+      }))
+      .filter((trip) => trip.seats.length > 0);
+
     stableItems.forEach((trip) => {
       trip.seats.forEach((seat) => {
+        if (seat.diffStatus === "removed") return; // Bỏ qua ghế đã xóa
+
         const key = `${trip.tripId}_${seat.id}`;
-        const { price } = getSeatValues(
+        const { price, isPaid } = getSeatValues(
           trip.tripId,
           seat,
           trip.pickup,
@@ -262,6 +449,8 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         );
         if (!finalOverrides[key]) finalOverrides[key] = {};
         finalOverrides[key].price = price;
+        // Cập nhật trạng thái vé dựa trên việc có được chọn thanh toán hay không
+        finalOverrides[key].status = isPaid ? "payment" : "booking";
       });
     });
 
@@ -270,7 +459,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         finalTotal,
         finalOverrides,
         noteSuffix,
-        stableItems
+        filteredItems
       );
       if (result) {
         setSavedBooking(result as Booking);
@@ -295,6 +484,172 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     (isSaved && (!!savedBooking || !!editingBooking)) ||
     (editingBooking && !hasChanges && isBalanceMatched);
 
+  const renderSeatRow = (trip: PaymentItem, seat: PaymentSeat) => {
+    const { price, pickup, dropoff, isPaid, isAlreadyPaid, isPriceChanged } =
+      getSeatValues(
+        trip.tripId,
+        seat,
+        trip.pickup,
+        trip.dropoff,
+        trip.basePrice
+      );
+
+    const isRemoved = seat.diffStatus === "removed";
+    const isAdded = seat.diffStatus === "added";
+
+    return (
+      <div
+        key={seat.id}
+        className={`flex flex-col sm:flex-row gap-2 items-start sm:items-center transition-colors pb-2 border-b border-slate-200 last:border-0 ${
+          isRemoved ? "opacity-60 rounded" : ""
+        } ${isAdded ? "rounded" : ""}`}
+      >
+        <div className="flex items-center gap-3 w-full">
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium ml-6">Số vé</label>
+            <div className="relative">
+              <div className="flex items-center gap-2">
+                <input
+                  title={
+                    isAlreadyPaid
+                      ? "Đã thanh toán"
+                      : isRemoved
+                      ? "Vé đã hủy"
+                      : ""
+                  }
+                  type="checkbox"
+                  checked={isPaid}
+                  disabled={isAlreadyPaid || isRemoved}
+                  onChange={() => toggleSeatPayment(trip.tripId, seat.id)}
+                  className={`w-4 h-4 rounded border-indigo-700 bg-indigo-950 text-yellow-500 focus:ring-yellow-500 focus:ring-offset-indigo-950 ${
+                    isAlreadyPaid || isRemoved
+                      ? "opacity-50 cursor-not-allowed"
+                      : "cursor-pointer"
+                  }`}
+                />
+                <span
+                  className={`flex items-center justify-center w-10 h-7 font-bold text-xs rounded border ${
+                    isRemoved
+                      ? "bg-red-100 text-red-700 border-red-500"
+                      : isAdded
+                      ? "bg-green-100 text-green-700 border-green-500"
+                      : "bg-slate-50 text-slate-700 border-slate-300"
+                  }`}
+                >
+                  {seat.label}
+                </span>
+              </div>
+            </div>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium ml-0.5">Điểm đón</label>
+            <div className="relative">
+              <Locate
+                size={10}
+                className="absolute left-1.5 top-1/2 -translate-y-1/2 text-slate-500"
+              />
+              <input
+                value={pickup}
+                disabled={isRemoved}
+                onChange={(e) =>
+                  handleOverrideChange(
+                    trip.tripId,
+                    seat.id,
+                    "pickup",
+                    e.target.value
+                  )
+                }
+                onBlur={(e) =>
+                  handleLocationBlur(
+                    trip.tripId,
+                    seat.id,
+                    "pickup",
+                    e.target.value
+                  )
+                }
+                className={`w-full h-7 pl-5 pr-2 border bg-slate-50 text-slate-700 border-slate-300 rounded text-xs outline-none focus:ring-1  ${
+                  isRemoved ? "opacity-50" : ""
+                }`}
+              />
+            </div>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium ml-0.5">Điểm trả</label>
+            <div className="relative">
+              <MapPin
+                size={10}
+                className="absolute left-1.5 top-1/2 -translate-y-1/2 "
+              />
+              <input
+                value={dropoff}
+                disabled={isRemoved}
+                onChange={(e) =>
+                  handleOverrideChange(
+                    trip.tripId,
+                    seat.id,
+                    "dropoff",
+                    e.target.value
+                  )
+                }
+                onBlur={(e) =>
+                  handleLocationBlur(
+                    trip.tripId,
+                    seat.id,
+                    "dropoff",
+                    e.target.value
+                  )
+                }
+                className={`w-full h-7 pl-5 pr-2 border bg-slate-50 text-slate-700 border-slate-300 rounded text-xs outline-none focus:ring-1 focus:ring-indigo-500/30 ${
+                  isRemoved ? "opacity-50" : ""
+                }`}
+              />
+            </div>
+          </div>
+          <div className="flex-1 flex flex-col gap-1">
+            <label className="text-xs font-medium ml-0.5">
+              Giá vé {isRemoved && "(Hoàn trả)"}
+            </label>
+            <div className="relative">
+              <CurrencyInput
+                value={price.toString()}
+                disabled={isRemoved}
+                onChange={(e) =>
+                  handleOverrideChange(
+                    trip.tripId,
+                    seat.id,
+                    "price",
+                    e.target.value
+                  )
+                }
+                className={`w-full h-7 pl-5 pr-2 border bg-slate-50 text-slate-700 border-slate-300 rounded text-xs outline-none focus:ring-1 focus:ring-indigo-500/30 text-right font-bold ${
+                  isPriceChanged ? "border-yellow-500/50 text-yellow-400" : ""
+                } ${isRemoved ? "text-red-300 border-red-900/50" : ""}`}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const printableItems = useMemo(() => {
+    return stableItems
+      .map((trip) => ({
+        ...trip,
+        seats: trip.seats.filter((seat) => {
+          const { price, isPaid } = getSeatValues(
+            trip.tripId,
+            seat,
+            trip.pickup,
+            trip.dropoff,
+            trip.basePrice
+          );
+          return isPaid && price > 0;
+        }),
+      }))
+      .filter((trip) => trip.seats.length > 0);
+  }, [stableItems, seatOverrides, editingBooking]);
+
   return (
     <Dialog
       isOpen={isOpen}
@@ -304,27 +659,28 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           ? "Cập nhật thanh toán"
           : "Thanh toán & Xuất vé"
       }
-      className="max-w-5xl bg-indigo-950 text-white border-indigo-900"
-      headerClassName="px-4 h-[40px] border-b border-indigo-900 flex items-center justify-between shrink-0 rounded-t-xl bg-gradient-to-r from-indigo-950 via-indigo-900 to-indigo-950 text-white text-sm font-semibold"
+      className="max-w-5xl bg-white text-slate-900 border-indigo-900"
+      headerClassName="px-4 h-[40px] border-b border-indigo-900 flex items-center justify-between shrink-0 rounded-t-xl bg-gradient-to-r from-indigo-950 via-indigo-900 to-indigo-950 text-white text-xs font-semibold"
       footer={
-        <div className="flex flex-row justify-between items-center w-full px-2">
+        <div className="flex flex-row justify-between items-center w-full px-2 ">
           <div className="flex gap-3">
             <Button
               variant="outline"
               onClick={onClose}
-              className="border-indigo-800 text-white hover:bg-indigo-600 hover:text-white bg-transparent h-10 px-6 text-xs font-bold min-w-25"
+              className="bg-indigo-950 border-indigo-950 text-white hover:bg-indigo-900 hover:text-white h-8 px-6 text-xs font-bold min-w-25"
             >
               {isSaved ? "Đóng" : "Hủy bỏ"}
             </Button>
 
             <Button
+              variant="outline"
               onClick={handleConfirmClick}
               disabled={!isCompleteBtnActive}
-              className={`h-10 px-8 font-bold text-xs shadow-lg transition-all min-w-35 border text-white
+              className={`h-8 font-bold text-xs shadow-lg transition-all min-w-35 border text-white
                 ${
                   !isCompleteBtnActive
-                    ? "bg-indigo-900/50 opacity-40 cursor-not-allowed border-indigo-900 shadow-none"
-                    : "bg-indigo-600 hover:bg-indigo-500 border-indigo-700 shadow-indigo-500/20 active:scale-95"
+                    ? "bg-slate-700 opacity-40 cursor-not-allowed border-slate-700 shadow-none"
+                    : "bg-indigo-950 border-indigo-950 text-white hover:bg-indigo-900 hover:text-white shadow-slate-500/20 active:scale-95"
                 }`}
             >
               {localProcessing || isProcessing
@@ -336,7 +692,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           </div>
 
           <BookingPrint
-            items={stableItems}
+            items={printableItems}
             bookingForm={
               savedBooking
                 ? { phone: savedBooking.passenger.phone }
@@ -353,7 +709,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       }
     >
       <div className="flex flex-col md:flex-row h-full md:h-137.5">
-        <div className="flex-1 overflow-y-auto p-4 bg-indigo-950/50">
+        <div className="flex-1 overflow-y-auto p-4 bg-white">
           {stableItems.length === 0 && (
             <div className="text-center py-10 text-indigo-400 italic text-sm">
               Không có dữ liệu vé.
@@ -366,19 +722,19 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               return (
                 <div
                   key={trip.tripId}
-                  className="bg-indigo-900/40 rounded border border-indigo-800 overflow-hidden"
+                  className="rounded border border-slate-200 overflow-hidden"
                 >
-                  <div className="bg-indigo-900/60 px-3 py-2 border-b border-indigo-800 flex flex-wrap items-center justify-between gap-2">
+                  <div className=" px-3 py-2 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <Bus size={14} className="text-indigo-400" />
-                      <span className="font-bold text-xs text-white">
+                      <Bus size={14} className="text-slate-900" />
+                      <span className="font-bold text-xs text-slate-900">
                         {trip.route}
                       </span>
-                      <span className="text-[10px] text-indigo-300 hidden sm:inline">
+                      <span className="text-xs text-slate-900 hidden sm:inline">
                         ({trip.licensePlate || "Chưa có biển số"})
                       </span>
                     </div>
-                    <div className="flex items-center gap-2 text-[10px] text-indigo-300">
+                    <div className="flex items-center gap-2 text-xs">
                       <Calendar size={12} />
                       <span>
                         Ngày {tripDate.getDate()}/{tripDate.getMonth() + 1}/
@@ -387,122 +743,34 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                     </div>
                   </div>
 
-                  <div className="p-3 space-y-2">
-                    {trip.seats.map((seat) => {
-                      const { price, pickup, dropoff, isPriceChanged } =
-                        getSeatValues(
-                          trip.tripId,
-                          seat,
-                          trip.pickup,
-                          trip.dropoff,
-                          trip.basePrice
-                        );
-                      return (
-                        <div
-                          key={seat.id}
-                          className="flex flex-col sm:flex-row gap-2 items-start sm:items-center transition-colors"
-                        >
-                          <div className="shrink-0">
-                            <span className="inline-flex items-center justify-center w-12 h-[24.5px] bg-indigo-800 text-white font-bold text-xs rounded border border-indigo-700 shadow-sm">
-                              {seat.label}
-                            </span>
-                          </div>
-
-                          <div className="flex-1 grid grid-cols-2 gap-2 w-full">
-                            <div className="relative group">
-                              <div className="absolute left-2.5 top-2.25 pointer-events-none">
-                                <MapPin
-                                  size={10}
-                                  className="text-indigo-400 group-focus-within:text-yellow-400 transition-colors"
-                                />
-                              </div>
-                              <input
-                                type="text"
-                                className="w-full pl-6 pr-2 py-1 text-[11px] bg-indigo-950 border border-indigo-800 rounded focus:border-yellow-400 focus:outline-none text-white placeholder-indigo-500/50 transition-colors"
-                                placeholder="Điểm đón"
-                                value={pickup}
-                                onChange={(e) =>
-                                  handleOverrideChange(
-                                    trip.tripId,
-                                    seat.id,
-                                    "pickup",
-                                    e.target.value
-                                  )
-                                }
-                                onBlur={(e) =>
-                                  handleLocationBlur(
-                                    trip.tripId,
-                                    seat.id,
-                                    "pickup",
-                                    e.target.value
-                                  )
-                                }
-                              />
-                            </div>
-
-                            <div className="relative group">
-                              <div className="absolute left-2.5 top-2.25 pointer-events-none">
-                                <Locate
-                                  size={10}
-                                  className="text-indigo-400 group-focus-within:text-yellow-400 transition-colors"
-                                />
-                              </div>
-                              <input
-                                type="text"
-                                className="w-full pl-6 pr-2 py-1 text-[11px] bg-indigo-950 border border-indigo-800 rounded focus:border-yellow-400 focus:outline-none text-white placeholder-indigo-500/50 transition-colors "
-                                placeholder="Điểm trả"
-                                value={dropoff}
-                                onChange={(e) =>
-                                  handleOverrideChange(
-                                    trip.tripId,
-                                    seat.id,
-                                    "dropoff",
-                                    e.target.value
-                                  )
-                                }
-                                onBlur={(e) =>
-                                  handleLocationBlur(
-                                    trip.tripId,
-                                    seat.id,
-                                    "dropoff",
-                                    e.target.value
-                                  )
-                                }
-                              />
-                            </div>
-                          </div>
-
-                          <div className="w-full sm:w-28 relative shrink-0">
-                            <CurrencyInput
-                              title="Giá vé"
-                              className={`w-full text-right font-bold text-xs bg-indigo-950 border rounded px-2 py-1 pr-3 focus:outline-none transition-colors ${
-                                isPriceChanged || seat.price === 0
-                                  ? "text-yellow-400 border-yellow-500/50 ring-1 ring-yellow-500/20"
-                                  : "text-white border-indigo-800"
-                              }`}
-                              value={price}
-                              onChange={(e) =>
-                                handleOverrideChange(
-                                  trip.tripId,
-                                  seat.id,
-                                  "price",
-                                  e.target.value
-                                )
-                              }
-                            />
-                            <span
-                              className={`absolute right-1 top-1.75 text-[10px] pointer-events-none hidden sm:block  ${
-                                isPriceChanged || seat.price === 0
-                                  ? "text-yellow-400 font-semibold"
-                                  : "text-white"
-                              }`}
-                            >
-                              đ
-                            </span>
-                          </div>
+                  <div className="p-3 space-y-4">
+                    {/* 1. Vé Ổn Định (Kept) */}
+                    {trip.seats.filter((s) => s.diffStatus === "kept").length >
+                      0 && (
+                      <div className="space-y-2">
+                        <div className="text-[10px] font-bold  uppercase tracking-wider flex items-center gap-1.5 mb-1">
+                          <CheckCircle2 size={10} />
+                          Vé hiện tại
                         </div>
-                      );
-                    })}
+                        {trip.seats
+                          .filter((s) => s.diffStatus === "kept")
+                          .map((seat) => renderSeatRow(trip, seat))}
+                      </div>
+                    )}
+
+                    {/* 2. Vé Thay Đổi (Added / Removed) */}
+                    {trip.seats.filter((s) => s.diffStatus !== "kept").length >
+                      0 && (
+                      <div className="space-y-2 pt-2 border-t border-slate-200">
+                        <div className="text-[10px] font-bold  uppercase tracking-wider flex items-center gap-1.5 mb-1">
+                          <History size={10} />
+                          Thay đổi (Mới / Hủy)
+                        </div>
+                        {trip.seats
+                          .filter((s) => s.diffStatus !== "kept")
+                          .map((seat) => renderSeatRow(trip, seat))}
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -510,27 +778,27 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           </div>
         </div>
 
-        <div className="w-full md:w-90 bg-indigo-900/20 p-4 flex flex-col gap-4 shrink-0 border-t md:border-t-0 md:border-l border-indigo-900 shadow-xl overflow-y-auto">
-          <div className="bg-indigo-900/50 rounded p-4 border border-indigo-800 shadow-inner space-y-3">
-            <div className="flex items-center gap-2 mb-2 text-indigo-300 text-xs font-bold uppercase tracking-wider">
+        <div className="w-full md:w-90 p-4 flex flex-col gap-4 shrink-0 border-t md:border-t-0 md:border-l border-slate-200 overflow-y-auto">
+          <div className="rounded p-4 border border-slate-200 space-y-3">
+            <div className="flex items-center gap-2 mb-2 text-xs font-bold uppercase tracking-wider">
               <Calculator size={14} /> Tổng thanh toán
             </div>
 
             {editingBooking && (
-              <div className="space-y-2 pb-3 border-b border-indigo-800/50">
+              <div className="space-y-2 pb-3 border-b border-slate-200">
                 <div className="flex justify-between items-center text-xs">
-                  <span className="text-indigo-400 flex items-center gap-1">
+                  <span className=" flex items-center gap-1">
                     <History size={12} /> Đã thanh toán:
                   </span>
-                  <span className="text-indigo-300 decoration-slate-500 line-through decoration-1">
+                  <span className="text-slate-400 decoration-slate-400 line-through decoration-1">
                     {formatCurrency(previouslyPaid)} đ
                   </span>
                 </div>
                 <div className="flex justify-between items-center text-xs">
-                  <span className="text-yellow-500 flex items-center gap-1">
+                  <span className="flex items-center gap-1">
                     <TrendingUp size={12} /> Tổng tiền mới:
                   </span>
-                  <span className="font-bold text-yellow-400">
+                  <span className="font-bold ">
                     {formatCurrency(finalTotal)} đ
                   </span>
                 </div>
@@ -538,14 +806,10 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             )}
 
             <div className="flex justify-between items-center">
-              <span className="text-xs text-indigo-400 font-medium">
-                Cần thanh toán
-              </span>
-              <span className="text-xl font-bold text-yellow-400 tracking-tight">
+              <span className="text-xs font-medium">Cần thanh toán</span>
+              <span className="text-xl font-bold text-slate-700 tracking-tight">
                 {formatCurrency(finalTotal)}{" "}
-                <span className="text-sm font-normal text-yellow-400/70">
-                  đ
-                </span>
+                <span className="text-sm font-normal text-slate-700">đ</span>
               </span>
             </div>
           </div>
@@ -554,10 +818,10 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             className={`p-2 rounded border shadow-sm animate-in fade-in slide-in-from-top-2 flex items-center gap-3 justify-between
                  ${
                    remainingBalance > 0
-                     ? "bg-amber-950/40 border-amber-700/50 text-amber-100"
+                     ? "bg-amber-50/20 border-amber-700/50 text-amber-400"
                      : isBalanceMatched
-                     ? "bg-green-950/40 border-green-700/50 text-green-100"
-                     : "bg-blue-950/40 border-blue-700/50 text-blue-100"
+                     ? "border-green-700/50 text-green-400"
+                     : "border-blue-700/50 text-blue-400"
                  }
              `}
           >
@@ -565,7 +829,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               <div
                 className={`p-2 rounded-full shrink-0 ${
                   remainingBalance > 0
-                    ? "bg-amber-50/20 text-amber-400"
+                    ? "bg-amber-50/20 "
                     : isBalanceMatched
                     ? "bg-green-500/20 text-green-400"
                     : "bg-blue-500/20 text-blue-400"
@@ -617,36 +881,36 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           </div>
 
           <div className="space-y-3 pt-2">
-            <div className="text-xs font-bold text-indigo-400 uppercase tracking-wider mb-2">
+            <div className="text-xs font-bold uppercase mb-2">
               Thanh toán hiện tại
             </div>
             <div className="relative group">
-              <div className="absolute top-2 left-3 text-indigo-400 pointer-events-none group-focus-within:text-green-500">
+              <div className="absolute top-2.5 left-3 pointer-events-none group-focus-within:text-green-500">
                 <DollarSign size={16} />
               </div>
               <CurrencyInput
                 name="paidCash"
                 value={paidCash}
                 onChange={handleMoneyChangeLocal}
-                className="w-full pl-9 pr-12 py-2 bg-indigo-950 border border-indigo-800 rounded text-right font-bold text-sm text-white focus:border-green-500 focus:outline-none transition-colors"
+                className="w-full pl-9 pr-8 py-2 border border-slate-300 rounded text-right font-bold text-sm  focus:border-green-500 focus:outline-none transition-colors"
                 placeholder="0"
               />
-              <span className="absolute top-2.5 right-3 text-[10px] text-indigo-500 pointer-events-none font-bold">
+              <span className="absolute top-3 right-3 text-[10px]  pointer-events-none font-bold">
                 TM
               </span>
             </div>
             <div className="relative group">
-              <div className="absolute top-2 left-3 text-indigo-400 pointer-events-none group-focus-within:text-blue-500">
+              <div className="absolute top-2.5 left-3 pointer-events-none group-focus-within:text-slate-500">
                 <CreditCard size={16} />
               </div>
               <CurrencyInput
                 name="paidTransfer"
                 value={paidTransfer}
                 onChange={handleMoneyChangeLocal}
-                className="w-full pl-9 pr-12 py-2 bg-indigo-950 border border-indigo-800 rounded text-right font-bold text-sm text-white focus:border-blue-500 focus:outline-none transition-colors"
+                className="w-full pl-9 pr-8 py-2  border border-slate-300 rounded text-right font-bold text-sm  focus:border-slate-400 focus:outline-none transition-colors"
                 placeholder="0"
               />
-              <span className="absolute top-2.5 right-3 text-[10px] text-indigo-500 pointer-events-none font-bold">
+              <span className="absolute top-3 right-3 text-[10px] pointer-events-none font-bold">
                 CK
               </span>
             </div>

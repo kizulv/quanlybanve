@@ -71,6 +71,8 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
     paidTransfer: 0,
   });
 
+  const [ticketPrice, setTicketPrice] = useState(0); // Giá vé có thể chỉnh sửa
+  const [exactBed, setExactBed] = useState(false); // ✅ Xếp đúng giường
   const [showHistory, setShowHistory] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -100,6 +102,8 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
                 : booking.passenger.note || "";
             initialPickup = ticket.pickup || initialPickup;
             initialDropoff = ticket.dropoff || initialDropoff;
+            // ✅ Khởi tạo exactBed từ ticket
+            setExactBed(ticket.exactBed || false);
           }
           // Prioritize ticket specific info if available
           const ticketName =
@@ -124,6 +128,9 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
           });
         }
 
+        // Khởi tạo giá vé
+        setTicketPrice(seatPrice);
+
         if (seat.status === SeatStatus.BOOKED) {
           setPaymentInput({ paidCash: seatPrice, paidTransfer: 0 });
         } else {
@@ -137,6 +144,8 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
           note: seat.note || "",
           name: "",
         });
+        setTicketPrice(0);
+        setExactBed(false);
       }
       setShowHistory(false);
     }
@@ -191,6 +200,13 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
     }));
   };
 
+  const handleTicketPriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newPrice = parseCurrency(e.target.value);
+    setTicketPrice(newPrice);
+    // Tự động điền vào ô tiền mặt
+    setPaymentInput({ paidCash: newPrice, paidTransfer: 0 });
+  };
+
   const handleSaveOnly = async () => {
     setIsSaving(true);
     try {
@@ -199,6 +215,7 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
         phone: formatPhoneNumber(form.phone),
         pickupPoint: form.pickup,
         dropoffPoint: form.dropoff,
+        exactBed: exactBed, // ✅ Truyền exactBed
       });
     } finally {
       setIsSaving(false);
@@ -215,6 +232,7 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
           phone: formatPhoneNumber(form.phone),
           pickupPoint: form.pickup,
           dropoffPoint: form.dropoff,
+          exactBed: exactBed, // ✅ Truyền exactBed
         },
         { action: "PAY", payment: paymentInput }
       );
@@ -232,6 +250,7 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
           phone: formatPhoneNumber(form.phone),
           pickupPoint: form.pickup,
           dropoffPoint: form.dropoff,
+          exactBed: exactBed, // ✅ Truyền exactBed
         },
         { action: "REFUND" }
       );
@@ -390,6 +409,25 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
             </div>
           </div>
 
+          {/* ✅ Checkbox Xếp đúng giường - chỉ hiển thị cho ghế booking */}
+          {isBooked && (
+            <div className="flex items-center gap-2 p-2 bg-amber-50 border border-amber-200 rounded">
+              <input
+                type="checkbox"
+                id="exactBed"
+                checked={exactBed}
+                onChange={(e) => setExactBed(e.target.checked)}
+                className="w-4 h-4 text-amber-600 border-amber-300 rounded focus:ring-amber-500"
+              />
+              <label
+                htmlFor="exactBed"
+                className="text-xs font-semibold text-amber-700 cursor-pointer select-none"
+              >
+                Xếp đúng giường
+              </label>
+            </div>
+          )}
+
           <div className="flex gap-2 pt-2">
             <Button
               onClick={handleSaveOnly}
@@ -426,11 +464,20 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
           <div className="w-full md:w-70 bg-indigo-900/20 p-4 flex flex-col gap-4 border-t md:border-t-0 md:border-l border-indigo-900/50 shadow-xl overflow-y-auto animate-in fade-in duration-300">
             <div className="bg-indigo-900/50 rounded-lg p-3 border border-indigo-800 space-y-3 shadow-inner mt-2">
               <div className="flex items-center gap-2 text-indigo-400 text-[10px] font-black uppercase tracking-widest">
-                <Calculator size={12} /> Giá vé thu thực tế
+                <Tag size={12} /> Giá vé
               </div>
-              <div className="text-2xl font-black text-yellow-400 tracking-tight">
-                {formatCurrency(seatPrice)}{" "}
-                <span className="text-[10px] font-normal opacity-60">VNĐ</span>
+              <div className="relative">
+                <div className="absolute left-2.5 top-2.5 text-indigo-500">
+                  <DollarSign size={16} />
+                </div>
+                <CurrencyInput
+                  value={ticketPrice}
+                  onChange={handleTicketPriceChange}
+                  className="w-full pl-9 pr-3 py-2 bg-indigo-950 border border-indigo-800 rounded text-right font-black text-xl text-yellow-400 focus:border-yellow-500 outline-none transition-all"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-normal text-indigo-500">
+                  VNĐ
+                </span>
               </div>
             </div>
 

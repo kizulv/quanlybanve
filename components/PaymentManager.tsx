@@ -438,11 +438,11 @@ export const PaymentManager: React.FC = () => {
     <div className="mx-auto space-y-6 animate-in fade-in duration-500">
       {/* STATS CARDS */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm flex flex-col justify-between">
+        <div className="bg-white p-4 rounded-lg border border-slate-200 flex flex-col justify-between">
           <div className="flex justify-between items-center mb-6">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-green-50 text-green-600 flex items-center justify-center shadow-sm">
-                <DollarSign size={24} />
+            <div className="flex items-center gap-2">
+              <div className="w-10 h-10 rounded bg-green-50 text-green-600 flex items-center justify-center">
+                <DollarSign size={20} />
               </div>
               <div>
                 <h3 className="font-bold text-slate-800">
@@ -450,20 +450,20 @@ export const PaymentManager: React.FC = () => {
                     ? "Thống kê thu theo giai đoạn"
                     : "Tổng thu thanh toán"}
                 </h3>
-                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                <p className="text-[10px] text-slate-400 uppercase tracking-wider">
                   {dateRange.from ? getRangeLabel() : "Dòng tiền thực nhận"}
                 </p>
               </div>
             </div>
             <div className="text-right">
-              <p className="text-3xl font-black text-green-700 tracking-tight">
+              <p className="text-xl font-black text-green-700 tracking-tight">
                 {stats.grandTotal.toLocaleString("vi-VN")} đ
               </p>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-slate-50/80 p-4 rounded-xl border border-slate-100">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-slate-50/80 p-3 rounded border border-slate-100">
               <div className="text-[10px] font-bold text-slate-400 uppercase mb-1.5 flex items-center gap-1.5">
                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>{" "}
                 Tiền mặt
@@ -472,7 +472,7 @@ export const PaymentManager: React.FC = () => {
                 {stats.cashTotal.toLocaleString("vi-VN")} đ
               </p>
             </div>
-            <div className="bg-slate-50/80 p-4 rounded-xl border border-slate-100">
+            <div className="bg-slate-50/80 p-3 rounded border border-slate-100">
               <div className="text-[10px] font-bold text-slate-400 uppercase mb-1.5 flex items-center gap-1.5">
                 <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>{" "}
                 Chuyển khoản
@@ -484,11 +484,11 @@ export const PaymentManager: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm flex flex-col justify-between">
+        <div className="bg-white p-4 rounded-lg border border-slate-200 flex flex-col justify-between">
           <div className="flex justify-between items-center mb-6">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shadow-sm">
-                <Ticket size={24} />
+              <div className="w-10 h-10 rounded bg-blue-50 text-blue-600 flex items-center justify-center">
+                <Ticket size={20} />
               </div>
               <div>
                 <h3 className="font-bold text-slate-800">
@@ -496,7 +496,7 @@ export const PaymentManager: React.FC = () => {
                     ? "Lượng vé giai đoạn"
                     : "Thống kê số lượng vé"}
                 </h3>
-                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                <p className="text-[10px] text-slate-400 uppercase tracking-wider">
                   {dateRange.from
                     ? "Vé tạo mới trong giai đoạn"
                     : "Chỉ đếm các vé chưa hủy"}
@@ -504,11 +504,11 @@ export const PaymentManager: React.FC = () => {
               </div>
             </div>
             <div className="text-right">
-              <p className="text-xl font-black text-amber-600 tracking-tight">
+              <p className="text-sm font-black text-amber-600 tracking-tight">
                 Chưa thu: {stats.totalBooked}{" "}
                 <span className="text-xs font-bold uppercase">vé</span>
               </p>
-              <p className="text-2xl font-black text-blue-700 tracking-tight">
+              <p className="text-sm font-black text-blue-700 tracking-tight">
                 Đã thu: {stats.totalTickets}{" "}
                 <span className="text-sm font-bold uppercase">vé</span>
               </p>
@@ -516,7 +516,7 @@ export const PaymentManager: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-3 gap-3">
-            <div className="bg-indigo-50/40 p-3 rounded-xl border border-indigo-100 flex flex-col items-center shadow-sm">
+            <div className="bg-indigo-50/40 p-3 rounded border border-indigo-100 flex flex-col items-center">
               <p className="text-[10px] font-bold text-indigo-400 uppercase mb-1.5">
                 Xe Phòng VIP
               </p>
@@ -524,7 +524,7 @@ export const PaymentManager: React.FC = () => {
                 {stats.cabinTickets}
               </p>
             </div>
-            <div className="bg-sky-50/40 p-3 rounded-xl border border-sky-100 flex flex-col items-center shadow-sm">
+            <div className="bg-sky-50/40 p-3 rounded border border-sky-100 flex flex-col items-center">
               <p className="text-[10px] font-bold text-sky-500 uppercase mb-1.5">
                 Xe Thường
               </p>
@@ -532,7 +532,7 @@ export const PaymentManager: React.FC = () => {
                 {stats.sleeperTickets}
               </p>
             </div>
-            <div className="bg-amber-50/40 p-3 rounded-xl border border-amber-100 flex flex-col items-center shadow-sm">
+            <div className="bg-amber-50/40 p-3 rounded border border-amber-100 flex flex-col items-center">
               <p className="text-[10px] font-bold text-amber-500 uppercase mb-1.5">
                 Tăng cường
               </p>
@@ -552,7 +552,7 @@ export const PaymentManager: React.FC = () => {
             className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors"
           />
           <input
-            className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary placeholder-slate-400 transition-all h-10"
+            className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary placeholder-slate-400 transition-all h-10"
             placeholder="Tìm SĐT, Tên khách, Mã ghế... (Tìm trên toàn bộ dữ liệu)"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -565,7 +565,7 @@ export const PaymentManager: React.FC = () => {
             trigger={
               <Button
                 variant="outline"
-                className={`h-10 px-4 flex items-center gap-2 border-slate-200 hover:border-primary/50 hover:bg-slate-50 transition-all ${
+                className={`bg-white h-10 px-4 flex items-center gap-2 border-slate-200 hover:border-primary/50 hover:bg-slate-50 transition-all ${
                   dateRange.from
                     ? "border-primary text-primary bg-primary/5 font-bold"
                     : "text-slate-600"
@@ -603,7 +603,7 @@ export const PaymentManager: React.FC = () => {
         <Button
           onClick={fetchData}
           variant="outline"
-          className="bg-slate-900 text-white hover:text-white hover:bg-slate-800 rounded-lg h-10 px-6 flex items-center justify-center transition-all shadow-sm border-none"
+          className="bg-slate-800 text-white hover:text-white hover:bg-slate-900 rounded-lg h-10 px-6 flex items-center justify-center transition-all shadow-sm border-none"
         >
           <RotateCcw size={18} className="mr-2" />
           Làm mới
@@ -657,21 +657,21 @@ export const PaymentManager: React.FC = () => {
                           s.status === "refunded"
                             ? "bg-white hover:bg-white text-slate-500 border-slate-500 line-through decoration-slate-400 opacity-60"
                             : s.status === "paid"
-                            ? "bg-white hover:bg-white text-slate-500 border-slate-500 font-semibold"
-                            : "bg-orange-50 hover:bg-orange-50 text-orange-600 border-orange-200 font-bold shadow-sm";
+                            ? "bg-blue-50 hover:bg-blue-100 text-blue-600 border-blue-200 font-semibold"
+                            : "bg-orange-50 hover:bg-orange-50 text-orange-600 border-orange-200 font-semibold";
                         return (
-                          <Badge
+                          <span
                             key={i}
-                            className={`text-xs px-2 h-6 border ${badgeClass}`}
+                            className={`text-xs px-2 py-1 border rounded-full ${badgeClass}`}
                           >
                             {s.label}
-                          </Badge>
+                          </span>
                         );
                       })}
                     </div>
                   </td>
                   <td className="py-3 text-center">
-                    <Badge className="bg-slate-100 hover:bg-slate-200 text-slate-600 border-slate-200 text-[10px] px-2 font-black">
+                    <Badge className="bg-slate-100 hover:bg-slate-200 text-slate-600 border-slate-200 text-2.5 px-2 font-black">
                       {group.payments.length} Giao dịch
                     </Badge>
                   </td>

@@ -144,14 +144,26 @@ export const ManifestList: React.FC<ManifestListProps> = ({
                 </div>
                 <div className="flex justify-between items-start gap-2">
                   <div className="flex gap-1 text-[11px] text-slate-600 font-medium flex-wrap">
-                    {seatsToShow.map((s) => (
-                      <span
-                        key={s}
-                        className="bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200"
-                      >
-                        {s}
-                      </span>
-                    ))}
+                    {seatsToShow.map((s) => {
+                      // Tìm ticket tương ứng để lấy trạng thái
+                      const ticket = tripItem?.tickets?.find(
+                        (t) => String(t.seatId) === String(s)
+                      );
+                      const isPayment = ticket?.status === "payment";
+
+                      return (
+                        <span
+                          key={s}
+                          className={`px-1.5 py-0.5 rounded border font-semibold ${
+                            isPayment
+                              ? "bg-blue-50 border-blue-200 text-blue-700"
+                              : "bg-orange-50 border-orange-200 text-orange-700"
+                          }`}
+                        >
+                          {s}
+                        </span>
+                      );
+                    })}
                   </div>
                   <div
                     className={`text-xs font-black whitespace-nowrap ${

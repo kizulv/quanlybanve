@@ -249,42 +249,32 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
 
   return (
     <div className="flex items-center gap-2">
-      <div className="flex bg-indigo-950/40 border border-indigo-800/60 rounded-lg h-9">
+      <div className="flex rounded-lg h-9">
         <button
           onClick={() => setFormat("A5_LANDSCAPE")}
           disabled={disabled}
-          className={`flex items-center gap-2 px-4 rounded-md transition-all h-full ${
+          className={`flex items-center gap-1 px-4 rounded transition-all h-full ${
             format === "A5_LANDSCAPE"
-              ? "bg-indigo-600 text-white shadow-sm ring-1 ring-indigo-400/30"
-              : "text-indigo-400 hover:text-indigo-200 hover:bg-indigo-900/30"
+              ? "bg-indigo-950 border-indigo-950 text-white hover:bg-indigo-900 group-hover:text-white ring-1 ring-indigo-400/30 rounded-r-none"
+              : "bg-slate-50 text-slate-500 hover:text-slate-200 hover:bg-indigo-900 border border-indigo-800 rounded-r-none"
           }`}
           title="In khổ A5 ngang"
         >
-          <Layout
-            size={14}
-            className={
-              format === "A5_LANDSCAPE" ? "text-white" : "text-indigo-500"
-            }
-          />
-          <span className="text-[11px] tracking-tight">A5 Ngang</span>
+          <Layout size={14} />
+          <span className="text-xs">A5 Ngang</span>
         </button>
         <button
           onClick={() => setFormat("A4_PORTRAIT")}
           disabled={disabled}
-          className={`flex items-center gap-2 px-4 rounded-md transition-all h-full ${
+          className={`flex items-center gap-1 px-4 rounded transition-all h-full ${
             format === "A4_PORTRAIT"
-              ? "bg-indigo-600 text-white shadow-sm ring-1 ring-indigo-400/30"
-              : "text-indigo-400 hover:text-indigo-200 hover:bg-indigo-900/30"
+              ? "bg-indigo-950 border-indigo-950 text-white hover:bg-indigo-900 group-hover:text-white ring-1 ring-indigo-400/30 rounded-l-none"
+              : "bg-slate-50 text-slate-500 hover:text-slate-200 hover:bg-indigo-900 border border-indigo-800 rounded-l-none"
           }`}
           title="In khổ A4 đứng"
         >
-          <FileText
-            size={14}
-            className={
-              format === "A4_PORTRAIT" ? "text-white" : "text-indigo-500"
-            }
-          />
-          <span className="text-[11px] tracking-tight">A4 Đứng</span>
+          <FileText size={14} />
+          <span className="text-xs">A4 Đứng</span>
         </button>
       </div>
 
@@ -292,7 +282,7 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
         variant="outline"
         disabled={disabled}
         onClick={handlePrintReceipt}
-        className="border-indigo-700 text-indigo-100 hover:bg-indigo-600 hover:text-white bg-indigo-900/40 h-10 px-8 text-xs font-bold flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg shadow-indigo-900/20"
+        className="bg-indigo-950 border-indigo-950 text-white hover:bg-indigo-900 hover:text-white h-9 px-8 text-xs font-bold flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg"
       >
         <Printer size={18} />
         In phiếu

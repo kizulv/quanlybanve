@@ -60,6 +60,8 @@ interface SeatOverride {
   price?: number;
   pickup?: string;
   dropoff?: string;
+  status?: "booking" | "payment" | "hold";
+  exactBed?: boolean;
 }
 
 interface DiffSeat {
@@ -87,6 +89,7 @@ interface BookingFormProps {
   onCancelSelection: (suppressToast?: boolean, forceClear?: boolean) => void;
   onInitiateSwap?: (seat: Seat) => void;
   onNavigateToTrip?: (date: Date, tripId: string) => void;
+  onRefreshData?: () => Promise<void>;
 }
 
 export const BookingForm: React.FC<BookingFormProps> = ({
@@ -103,6 +106,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
   onCancelSelection,
   onInitiateSwap,
   onNavigateToTrip,
+  onRefreshData,
 }) => {
   const { toast } = useToast();
 
@@ -111,6 +115,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
     pickup: "",
     dropoff: "",
     note: "",
+    exactBed: false, // ✅ Xếp đúng giường
   });
   const [bookingMode, setBookingMode] = useState<
     "booking" | "payment" | "hold"
@@ -144,6 +149,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
       note?: { old: string; new: string };
     };
   } | null>(null);
+  const [hasSavedInModal, setHasSavedInModal] = useState(false);
 
   useEffect(() => {
     if (editingBooking) {
@@ -167,6 +173,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
         pickup: editingBooking.passenger.pickupPoint || "",
         dropoff: editingBooking.passenger.dropoffPoint || "",
         note: cleanNote,
+        exactBed: false, // Mặc định false khi load edit, người dùng có thể chỉnh lại
       });
 
       setModalPaymentInput({
@@ -174,7 +181,13 @@ export const BookingForm: React.FC<BookingFormProps> = ({
         paidTransfer: editingBooking.payment?.paidTransfer || 0,
       });
     } else {
-      setBookingForm({ phone: "", pickup: "", dropoff: "", note: "" });
+      setBookingForm({
+        phone: "",
+        pickup: "",
+        dropoff: "",
+        note: "",
+        exactBed: false,
+      });
       setBookingMode("booking");
       setPhoneError(null);
     }
@@ -249,7 +262,12 @@ export const BookingForm: React.FC<BookingFormProps> = ({
     explicitStatus?: "booking" | "payment" | "hold",
     explicitItems?: any[]
   ) => {
-    if (selectionBasket.length === 0) {
+    const useItems =
+      explicitItems && explicitItems.length > 0
+        ? explicitItems
+        : selectionBasket;
+
+    if (useItems.length === 0) {
       toast({
         type: "warning",
         title: "Chưa chọn ghế",
@@ -282,19 +300,30 @@ export const BookingForm: React.FC<BookingFormProps> = ({
       (isPaid ? "payment" : bookingMode === "hold" ? "hold" : "booking");
 
     try {
-      const bookingItems = selectionBasket.map((item) => ({
-        tripId: item.trip.id,
+      const bookingItems = useItems.map((item: any) => ({
+        tripId: item.tripId || item.trip?.id,
         seats: item.seats,
-        tickets: item.seats.map((s) => {
-          const override = overrides[`${item.trip.id}_${s.id}`];
+        tickets: item.seats.map((s: Seat) => {
+          const tripId = item.tripId || item.trip?.id;
+          const override = overrides[`${tripId}_${s.id}`];
           return {
             seatId: s.id,
             price:
               status === "booking" || status === "hold"
                 ? 0
                 : override?.price ?? s.price,
+            status:
+              override?.status ||
+              (status === "payment"
+                ? "payment"
+                : status === "hold"
+                ? "hold"
+                : "booking"),
             pickup: override?.pickup ?? passenger.pickupPoint ?? "",
             dropoff: override?.dropoff ?? passenger.dropoffPoint ?? "",
+            name: passenger.name || "",
+            phone: passenger.phone || "",
+            exactBed: override?.exactBed ?? bookingForm.exactBed, // ✅ Xếp đúng giường
           };
         }),
       }));
@@ -341,6 +370,10 @@ export const BookingForm: React.FC<BookingFormProps> = ({
         message: "Đã đặt vé thành công.",
       });
 
+      if (onRefreshData) {
+        await onRefreshData();
+      }
+
       return savedBooking;
     } catch (e) {
       toast({
@@ -386,8 +419,18 @@ export const BookingForm: React.FC<BookingFormProps> = ({
                 status === "booking" || status === "hold"
                   ? 0
                   : override?.price ?? s.price,
+              status:
+                override?.status ||
+                (status === "payment"
+                  ? "payment"
+                  : status === "hold"
+                  ? "hold"
+                  : "booking"),
               pickup: override?.pickup ?? passenger.pickupPoint ?? "",
               dropoff: override?.dropoff ?? passenger.dropoffPoint ?? "",
+              name: passenger.name || "",
+              phone: passenger.phone || "",
+              exactBed: override?.exactBed ?? bookingForm.exactBed, // ✅ Xếp đúng giường
             };
           }),
         }));
@@ -397,6 +440,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
           seats: item.seats,
           tickets: item.seats.map((s) => {
             let price = s.price;
+            let tStatus: string | undefined;
             if (oldBooking) {
               const originalItem = oldBooking.items.find(
                 (i) => i.tripId === item.trip.id
@@ -404,15 +448,27 @@ export const BookingForm: React.FC<BookingFormProps> = ({
               const ticket = originalItem?.tickets?.find(
                 (t) => String(t.seatId) === String(s.id)
               );
-              if (ticket) price = ticket.price;
+              if (ticket) {
+                price = ticket.price;
+                tStatus = ticket.status;
+              }
             }
             const override = overrides[`${item.trip.id}_${s.id}`];
+
+            // Nếu explicitStatus là 'payment', có nghĩa là đang thanh toán từ Modal
+            // Chúng ta nên sử dụng trạng thái từ overrides nếu có truyền qua (cần cập nhật sau)
+            // Tạm thời, nếu status là 'payment' và là ghế mới hoặc chưa thanh toán, nó sẽ chuyển sang 'payment'
+            const finalTicketStatus =
+              override?.status ||
+              (status === "payment"
+                ? "payment"
+                : tStatus || (status === "hold" ? "hold" : "booking"));
+
             return {
               seatId: s.id,
               price:
-                status === "booking" || status === "hold"
-                  ? 0
-                  : override?.price ?? price,
+                finalTicketStatus === "payment" ? override?.price ?? price : 0,
+              status: finalTicketStatus,
               pickup: override?.pickup ?? passenger.pickupPoint ?? "",
               dropoff: override?.dropoff ?? passenger.dropoffPoint ?? "",
             };
@@ -450,8 +506,14 @@ export const BookingForm: React.FC<BookingFormProps> = ({
 
       const savedBooking = result.booking;
       setBookings((prev) =>
-        prev.map((b) => (b.id === targetBookingId ? savedBooking : b))
+        prev.map((b) => (b.id === targetBookingId ? result.booking : b))
       );
+      onCancelSelection(true, true);
+      toast({ type: "success", title: "Cập nhật thành công" });
+
+      if (onRefreshData) {
+        await onRefreshData();
+      }
 
       const updatedTripsMap = new Map<string, BusTrip>(
         result.updatedTrips.map((t: BusTrip) => [t.id, t])
@@ -683,15 +745,39 @@ export const BookingForm: React.FC<BookingFormProps> = ({
       resultBooking = await processBooking(
         modalPaymentInput,
         overrides,
-        noteSuffix
+        noteSuffix,
+        undefined,
+        passedItems
       );
     }
 
-    // Reset form states after successful payment
-    setEditingBooking(null);
-    onCancelSelection(true, true);
-    setBookingForm({ phone: "", pickup: "", dropoff: "", note: "" });
-    setBookingMode("booking");
+    // Cập nhật lại ngữ cảnh để nếu người dùng nhấn Hoàn tất lần nữa (do sửa sai),
+    // nó sẽ thực hiện update thay vì create mới (nếu là đơn mới)
+    if (resultBooking) {
+      setHasSavedInModal(true);
+      setPendingPaymentContext({
+        type: "update",
+        bookingIds: [resultBooking.id],
+        totalPrice: resultBooking.totalPrice,
+      });
+      // Quan trọng: Phải giữ lại editingBooking để logic recovery hoạt động chính xác cho lần nhấn tiếp theo
+      setEditingBooking(resultBooking as Booking);
+    }
+
+    // KHÔNG reset form states ngay lập tức nếu modal vẫn mở?
+    // Thực tế onCancelSelection(true, true) sẽ làm mất selectionBasket.
+    // Nếu chúng ta muốn hỗ trợ sửa lỗi, chúng ta nên giữ lại trạng thái này.
+    // Tuy nhiên, vì chúng ta có passedItems (stableItems) trong modal,
+    // nên kể cả khi selectionBasket bị xóa, lần gọi confirm tiếp theo vẫn có dữ liệu ghế.
+
+    // Reset form states sau khi thanh toán thành công (nhưng tạm giữ editingBooking như trên)
+    // QUAN TRỌNG: Không nên xóa thông tin form và selectionBasket ngay lập tức
+    // nếu chúng ta muốn cho phép người dùng sửa lỗi ngay tại modal.
+    // Chúng ta sẽ xóa khi modal đóng hoặc khi bắt đầu một đơn hàng mới.
+
+    // onCancelSelection(true, true);
+    // setBookingForm({ phone: "", pickup: "", dropoff: "", note: "" });
+    // setBookingMode("booking");
     setPhoneError(null);
     setUpdateSummary(null);
 
@@ -945,7 +1031,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
                   <div key={f} className="relative">
                     <input
                       name={f}
-                      value={bookingForm[f as keyof typeof bookingForm]}
+                      value={bookingForm[f as "pickup" | "dropoff"] || ""}
                       onChange={(e) =>
                         setBookingForm((p) => ({
                           ...p,
@@ -956,9 +1042,13 @@ export const BookingForm: React.FC<BookingFormProps> = ({
                       }
                       onBlur={() =>
                         setBookingForm((p) => {
-                          const v = p[f as keyof typeof bookingForm];
-                          const s = getStandardizedLocation(v);
-                          return s !== v ? { ...p, [f]: s } : p;
+                          const key = f as keyof typeof bookingForm;
+                          if (key === "pickup" || key === "dropoff") {
+                            const v = p[key] as string;
+                            const s = getStandardizedLocation(v);
+                            return s !== v ? { ...p, [key]: s } : p;
+                          }
+                          return p;
                         })
                       }
                       className="w-full pl-6 pr-2 py-1.5 text-xs rounded border text-white placeholder-indigo-400 bg-indigo-950 border-indigo-800 focus:border-yellow-400 outline-none"
@@ -978,6 +1068,28 @@ export const BookingForm: React.FC<BookingFormProps> = ({
                   </div>
                 ))}
               </div>
+              {bookingMode === "booking" && (
+                <div className="flex items-center gap-2 mt-2 ml-1 mb-1">
+                  <input
+                    type="checkbox"
+                    id="bookingForm_exactBed"
+                    checked={bookingForm.exactBed}
+                    onChange={(e) =>
+                      setBookingForm((p) => ({
+                        ...p,
+                        exactBed: e.target.checked,
+                      }))
+                    }
+                    className="w-3.5 h-3.5 rounded border-indigo-600 bg-indigo-950 text-amber-500 focus:ring-offset-0 focus:ring-1 focus:ring-amber-500/50"
+                  />
+                  <label
+                    htmlFor="bookingForm_exactBed"
+                    className="text-xs font-medium text-amber-500 cursor-pointer select-none py-2"
+                  >
+                    Xếp đúng giường
+                  </label>
+                </div>
+              )}
             </>
           ) : (
             <div className="text-center py-2 bg-indigo-900/30 rounded border border-indigo-800 border-dashed text-xs text-indigo-300 mb-2">
@@ -1051,7 +1163,23 @@ export const BookingForm: React.FC<BookingFormProps> = ({
 
       <PaymentModal
         isOpen={isPaymentModalOpen}
-        onClose={() => setIsPaymentModalOpen(false)}
+        onClose={() => {
+          setIsPaymentModalOpen(false);
+          // Nếu đã lưu thành công ít nhất một lần trong modal này, thực hiện dọn dẹp khi đóng
+          if (hasSavedInModal) {
+            onCancelSelection(true, true);
+            setBookingForm({
+              phone: "",
+              pickup: "",
+              dropoff: "",
+              note: "",
+              exactBed: false,
+            });
+            setBookingMode("booking");
+            setEditingBooking(null);
+            setHasSavedInModal(false);
+          }
+        }}
         onConfirm={handleConfirmPayment}
         selectionBasket={selectionBasket}
         editingBooking={editingBooking}
