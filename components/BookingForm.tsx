@@ -289,7 +289,10 @@ export const BookingForm: React.FC<BookingFormProps> = ({
           const override = overrides[`${item.trip.id}_${s.id}`];
           return {
             seatId: s.id,
-            price: status === "booking" ? 0 : override?.price ?? s.price,
+            price:
+              status === "booking" || status === "hold"
+                ? 0
+                : override?.price ?? s.price,
             pickup: override?.pickup ?? passenger.pickupPoint ?? "",
             dropoff: override?.dropoff ?? passenger.dropoffPoint ?? "",
           };
@@ -379,7 +382,10 @@ export const BookingForm: React.FC<BookingFormProps> = ({
             const override = overrides[`${item.tripId}_${s.id}`];
             return {
               seatId: s.id,
-              price: status === "booking" ? 0 : override?.price ?? s.price,
+              price:
+                status === "booking" || status === "hold"
+                  ? 0
+                  : override?.price ?? s.price,
               pickup: override?.pickup ?? passenger.pickupPoint ?? "",
               dropoff: override?.dropoff ?? passenger.dropoffPoint ?? "",
             };
@@ -403,7 +409,10 @@ export const BookingForm: React.FC<BookingFormProps> = ({
             const override = overrides[`${item.trip.id}_${s.id}`];
             return {
               seatId: s.id,
-              price: status === "booking" ? 0 : override?.price ?? price,
+              price:
+                status === "booking" || status === "hold"
+                  ? 0
+                  : override?.price ?? price,
               pickup: override?.pickup ?? passenger.pickupPoint ?? "",
               dropoff: override?.dropoff ?? passenger.dropoffPoint ?? "",
             };
@@ -717,7 +726,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
     const isPriceChanged =
       Math.abs(totalBasketPrice - (editingBooking.totalPrice || 0)) >= 1;
 
-    if (isPriceChanged) {
+    if (isPriceChanged && bookingMode === "payment") {
       setModalInitialOverrides(overrides);
       setPendingPaymentContext({
         type: "update",
@@ -1228,7 +1237,9 @@ export const BookingForm: React.FC<BookingFormProps> = ({
               }
               onClick={handleProceedUpdate}
             >
-              {updateSummary?.diffPrice && updateSummary.diffPrice < 0
+              {bookingMode !== "payment"
+                ? "Đồng ý lưu"
+                : updateSummary?.diffPrice && updateSummary.diffPrice < 0
                 ? "Hoàn tiền"
                 : updateSummary?.diffPrice && updateSummary.diffPrice > 0
                 ? "Thanh toán"

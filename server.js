@@ -502,7 +502,12 @@ app.post("/api/bookings", async (req, res) => {
         item.tickets ||
         item.seats.map((s) => ({
           seatId: s.id,
-          price: finalStatus === "payment" ? s.price : 0,
+          price:
+            finalStatus === "payment"
+              ? s.price
+              : finalStatus === "hold"
+              ? 0
+              : 0,
           pickup: passenger.pickupPoint || "",
           dropoff: passenger.dropoffPoint || "",
           note: "",
@@ -641,7 +646,12 @@ app.put("/api/bookings/:id", async (req, res) => {
         item.tickets ||
         item.seats.map((s) => ({
           seatId: s.id,
-          price: finalStatus === "payment" ? s.price : 0,
+          price:
+            finalStatus === "payment"
+              ? s.price
+              : finalStatus === "hold"
+              ? 0
+              : 0,
           pickup: passenger.pickupPoint || "",
           dropoff: passenger.dropoffPoint || "",
           note: "",

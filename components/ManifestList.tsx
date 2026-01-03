@@ -20,10 +20,11 @@ export const ManifestList: React.FC<ManifestListProps> = ({
   const [manifestSearch, setManifestSearch] = useState("");
 
   const filteredManifest = useMemo(() => {
-    if (!manifestSearch.trim()) return tripBookings;
+    const baseList = tripBookings.filter((b) => b.status !== "hold");
+    if (!manifestSearch.trim()) return baseList;
 
     const query = manifestSearch.toLowerCase();
-    return tripBookings.filter((b) => {
+    return baseList.filter((b) => {
       const phoneMatch = b.passenger.phone.includes(query);
       const nameMatch = (b.passenger.name || "").toLowerCase().includes(query);
       const seatMatch = b.items.some(
@@ -47,7 +48,10 @@ export const ManifestList: React.FC<ManifestListProps> = ({
       <div className="px-3 py-2.5 bg-white border-b border-slate-100 flex justify-between items-center shrink-0">
         <div className="flex items-center gap-1.5 text-slate-800 font-bold text-xs">
           <Users size={14} className="text-slate-400" />
-          <span>Danh sách khách ({tripBookings.length})</span>
+          <span>
+            Danh sách khách (
+            {tripBookings.filter((b) => b.status !== "hold").length})
+          </span>
         </div>
         <ManifestPrint
           selectedTrip={selectedTrip}
