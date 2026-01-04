@@ -154,7 +154,7 @@ export const ManifestList: React.FC<ManifestListProps> = ({
                       return (
                         <span
                           key={s}
-                          className={`px-2 py-0.5 rounded border font-semibold ${
+                          className={`w-7 h-6 flex items-center justify-center py-0.5 rounded border font-semibold ${
                             isPayment
                               ? "bg-blue-50 border-blue-200 text-blue-700"
                               : "bg-amber-50 border-amber-200 text-amber-600"

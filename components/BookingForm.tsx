@@ -692,12 +692,6 @@ export const BookingForm: React.FC<BookingFormProps> = ({
   const handleManualPaymentForEdit = () => {
     if (!editingBooking) return;
     setBookingMode("payment");
-    // [FIX] Ensure payment input is fresh from editingBooking
-    setModalPaymentInput({
-      paidCash: editingBooking.payment?.paidCash || 0,
-      paidTransfer: editingBooking.payment?.paidTransfer || 0,
-    });
-
     const overrides: Record<string, SeatOverride> = {};
     editingBooking.items.forEach((i) =>
       i.tickets?.forEach(
@@ -791,13 +785,6 @@ export const BookingForm: React.FC<BookingFormProps> = ({
   };
 
   const handleProceedUpdate = async () => {
-    // [PATCH] Check if we need to open Payment Modal for Refund or Extra Payment
-    if (updateSummary && updateSummary.diffPrice !== 0 && editingBooking) {
-      setUpdateSummary(null); // Close the summary dialog
-      handleManualPaymentForEdit(); // Open payment modal
-      return;
-    }
-
     setUpdateSummary(null);
     if (!editingBooking) return;
     const noteSuffix =
@@ -1097,7 +1084,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
                   />
                   <label
                     htmlFor="bookingForm_exactBed"
-                    className="text-xs font-medium text-amber-500 cursor-pointer select-none py-2"
+                    className="text-xs font-medium text-amber-500 cursor-pointer select-none"
                   >
                     Xếp đúng giường
                   </label>

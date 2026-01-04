@@ -267,7 +267,7 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
       } text-white border-indigo-900 rounded-xl overflow-hidden transition-all duration-300`}
       headerClassName="h-[40px] bg-gradient-to-r from-indigo-950 via-indigo-900 to-indigo-950 border-indigo-900 text-white text-xs font-semibold"
       footer={
-        <div className="flex justify-between gap-2 pt-2">
+        <div className="flex justify-between gap-2">
           {isHeld && (
             <Button
               onClick={handleRefundSeat}
@@ -293,7 +293,7 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
             onClick={handleSaveOnly}
             disabled={isSaving}
             variant="custom"
-            className="w-62 bg-indigo-600 hover:bg-indigo-500 text-white font-bold h-9 text-xs border border-indigo-700 shadow-sm"
+            className="w-62 bg-slate-950 hover:bg-slate-900 text-white font-bold h-9 text-xs border border-slate-900 shadow-sm"
           >
             <Save size={14} className="mr-1" /> Cập nhật
           </Button>
@@ -302,18 +302,18 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
     >
       <div className="flex flex-col md:flex-row h-full">
         {/* LEFT: Customer Info */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50">
-          <div className="space-y-3">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50 text-slate-700">
+          <div className="space-y-3 bg-white p-4 rounded border border-slate-200">
             <div className="space-y-1">
-              <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-1">
+              <label className="text-[10px] font-black uppercase tracking-widest ml-1">
                 Số điện thoại
               </label>
               <div className="relative">
-                <div className="absolute left-2.5 top-2 pointer-events-none text-indigo-500">
+                <div className="absolute left-2.5 top-2 pointer-events-none ">
                   <Phone size={14} />
                 </div>
                 <input
-                  className="w-full pl-8 pr-3 py-1.5 bg-indigo-900/30 border border-indigo-800 rounded text-xs text-white placeholder-indigo-700 focus:border-yellow-500 outline-none transition-all"
+                  className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded text-xs  placeholder-slate-400 focus:border-yellow-500 outline-none transition-all"
                   placeholder="09xx xxx xxx"
                   value={form.phone}
                   onChange={(e) => {
@@ -327,7 +327,7 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
                   onBlur={() => setTimeout(() => setShowHistory(false), 200)}
                 />
                 {showHistory && passengerHistory.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-lg shadow-2xl border border-slate-200 z-50 overflow-hidden animate-in fade-in zoom-in-95">
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded shadow-2xl border border-slate-200 z-50 overflow-hidden animate-in fade-in zoom-in-95">
                     {passengerHistory.map((item, idx) => (
                       <div
                         key={idx}
@@ -359,15 +359,15 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-1">
+                <label className="text-[10px] font-black uppercase tracking-widest ml-1">
                   Điểm đón
                 </label>
                 <div className="relative">
-                  <div className="absolute left-2.5 top-2 pointer-events-none text-indigo-500">
+                  <div className="absolute left-2.5 top-2 pointer-events-none">
                     <MapPin size={14} />
                   </div>
                   <input
-                    className="w-full pl-8 pr-3 py-1.5 bg-indigo-900/30 border border-indigo-800 rounded text-xs text-white placeholder-indigo-700 focus:border-yellow-500 outline-none transition-all"
+                    className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded text-xs text-slate-700 placeholder-slate-400 focus:border-yellow-500 outline-none transition-all"
                     placeholder="Bến đi"
                     value={form.pickup}
                     onChange={(e) =>
@@ -383,15 +383,15 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
                 </div>
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-1">
+                <label className="text-[10px] font-black uppercase tracking-widest ml-1">
                   Điểm trả
                 </label>
                 <div className="relative">
-                  <div className="absolute left-2.5 top-2 pointer-events-none text-indigo-500">
+                  <div className="absolute left-2.5 top-2 pointer-events-none">
                     <Locate size={14} />
                   </div>
                   <input
-                    className="w-full pl-8 pr-3 py-1.5 bg-indigo-900/30 border border-indigo-800 rounded text-xs text-white placeholder-indigo-700 focus:border-yellow-500 outline-none transition-all"
+                    className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded text-xs text-slate-700 placeholder-slate-400 focus:border-yellow-500 outline-none transition-all"
                     placeholder="Bến đến"
                     value={form.dropoff}
                     onChange={(e) =>
@@ -409,15 +409,15 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
             </div>
 
             <div className="space-y-1">
-              <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-1">
+              <label className="text-[10px] font-black uppercase tracking-widest ml-1">
                 Ghi chú
               </label>
               <div className="relative">
-                <div className="absolute left-2.5 top-2 pointer-events-none text-indigo-500">
+                <div className="absolute left-2.5 top-2 pointer-events-none">
                   <Notebook size={14} />
                 </div>
                 <textarea
-                  className="w-full pl-8 pr-3 py-1.5 bg-indigo-900/30 border border-indigo-800 rounded text-xs text-white placeholder-indigo-700 focus:border-yellow-500 outline-none transition-all h-8 resize-none"
+                  className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded text-xs text-slate-700 placeholder-slate-400 focus:border-yellow-500 outline-none transition-all h-8 resize-none"
                   placeholder="Ghi chú riêng cho ghế..."
                   value={form.note}
                   onChange={(e) => setForm({ ...form, note: e.target.value })}
@@ -434,11 +434,11 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
                 id="exactBed"
                 checked={exactBed}
                 onChange={(e) => setExactBed(e.target.checked)}
-                className="w-4 h-4 text-amber-600 border-amber-300 rounded focus:ring-amber-500"
+                className="w-4 h-4 text-amber-700 border-amber-400 rounded focus:ring-amber-500"
               />
               <label
                 htmlFor="exactBed"
-                className="text-xs font-semibold text-amber-700 cursor-pointer select-none"
+                className="text-xs font-semibold text-amber-900 cursor-pointer select-none"
               >
                 Xếp đúng giường
               </label>
@@ -448,65 +448,57 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
 
         {/* RIGHT: Financial Actions */}
         {showRightPanel && (
-          <div className="w-full md:w-70 bg-white p-4 flex flex-col gap-4 border-t md:border-t-0 md:border-l  overflow-y-auto animate-in fade-in duration-300">
-            <div className="bg-indigo-900/50 rounded-lg p-3 border border-indigo-800 space-y-3 shadow-inner mt-2">
-              <div className="flex items-center gap-2 text-indigo-400 text-[10px] font-black uppercase tracking-widest">
-                <Tag size={12} /> Giá vé
-              </div>
-              <div className="relative">
-                <div className="absolute left-2.5 top-2.5 text-indigo-500">
-                  <DollarSign size={16} />
+          <div className="w-full md:w-70 bg-white p-4 flex flex-col gap-4 border-t md:border-t-0 md:border-l border-slate-200 overflow-y-auto animate-in fade-in duration-300 text-slate-700 ">
+            <div className="flex-1 space-y-3">
+              <div className="rounded space-y-1">
+                <div className="relative">
+                  <div className="absolute left-2.5 top-2.5 pointer-events-none text-sm font-black uppercase">
+                    Giá vé
+                  </div>
+                  <CurrencyInput
+                    value={ticketPrice}
+                    onChange={handleTicketPriceChange}
+                    className="w-full pl-9 pr-9.5 py-1 bg-slate-50 border border-slate-200 rounded text-right font-black text-lg focus:border-yellow-500 focus:outline-none transition-all"
+                  />
+                  <span className="absolute right-2 top-3 text-xs font-black">
+                    VNĐ
+                  </span>
                 </div>
-                <CurrencyInput
-                  value={ticketPrice}
-                  onChange={handleTicketPriceChange}
-                  className="w-full pl-9 pr-3 py-2 bg-indigo-950 border border-indigo-800 rounded text-right font-black text-xl text-yellow-400 focus:border-yellow-500 outline-none transition-all"
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-normal text-indigo-500">
-                  VNĐ
-                </span>
+              </div>
+              <div className="space-y-3 animate-in fade-in slide-in-from-right-2 duration-300">
+                <div className="text-[10px] font-black  uppercase tracking-widest px-1 flex items-center gap-2">
+                  <CreditCard size={14} className="" /> Thu tiền
+                </div>
+
+                <div className="space-y-2">
+                  <div className="relative group">
+                    <div className="absolute left-2.5 top-2 group-focus-within:text-green-500 transition-colors text-[9px] font-black">
+                      TM
+                    </div>
+                    <CurrencyInput
+                      title="Số tiền thu bằng tiền mặt"
+                      name="paidCash"
+                      className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded text-right font-bold text-xs  focus:border-green-500 focus:text-green-500 outline-none transition-all"
+                      value={paymentInput.paidCash}
+                      onChange={handleMoneyChange}
+                    />
+                  </div>
+                  <div className="relative group">
+                    <div className="absolute left-2.5 top-2 group-focus-within:text-blue-500 transition-colors text-[9px] font-black">
+                      CK
+                    </div>
+                    <CurrencyInput
+                      title="Số tiền thu bằng chuyển khoản"
+                      name="paidTransfer"
+                      className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded text-right font-bold text-xs  focus:border-blue-500 focus:text-blue-500 outline-none transition-all"
+                      value={paymentInput.paidTransfer}
+                      onChange={handleMoneyChange}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
-
-            <div className="space-y-3 animate-in fade-in slide-in-from-right-2 duration-300 mt-0.5">
-              <div className="text-[10px] font-black text-indigo-400 uppercase tracking-widest px-1 flex items-center gap-2">
-                <CreditCard size={12} className="text-emerald-400" /> Thu tiền
-                lẻ ghế này
-              </div>
-
-              <div className="space-y-2">
-                <div className="relative group">
-                  <div className="absolute left-2.5 top-2 text-indigo-500 group-focus-within:text-green-500 transition-colors">
-                    <DollarSign size={14} />
-                  </div>
-                  <CurrencyInput
-                    title="Số tiền thu bằng tiền mặt"
-                    name="paidCash"
-                    className="w-full pl-8 pr-10 py-1.5 bg-indigo-950 border border-indigo-800 rounded text-right font-bold text-xs text-white focus:border-green-500 outline-none transition-all"
-                    value={paymentInput.paidCash}
-                    onChange={handleMoneyChange}
-                  />
-                  <span className="absolute right-2.5 top-2 text-[9px] font-black text-indigo-700">
-                    TM
-                  </span>
-                </div>
-                <div className="relative group">
-                  <div className="absolute left-2.5 top-2 text-indigo-500 group-focus-within:text-blue-500 transition-colors">
-                    <CreditCard size={14} />
-                  </div>
-                  <CurrencyInput
-                    title="Số tiền thu bằng chuyển khoản"
-                    name="paidTransfer"
-                    className="w-full pl-8 pr-10 py-1.5 bg-indigo-950 border border-indigo-800 rounded text-right font-bold text-xs text-white focus:border-blue-500 outline-none transition-all"
-                    value={paymentInput.paidTransfer}
-                    onChange={handleMoneyChange}
-                  />
-                  <span className="absolute right-2.5 top-2 text-[9px] font-black text-indigo-700">
-                    CK
-                  </span>
-                </div>
-              </div>
-
+            <div className="flex justify-end">
               <Button
                 onClick={handlePaySeat}
                 variant="custom"
@@ -514,7 +506,7 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
                   isSaving ||
                   paymentInput.paidCash + paymentInput.paidTransfer === 0
                 }
-                className="w-full bg-green-600 hover:bg-green-500 text-white font-black uppercase text-[10px] h-9 shadow-lg shadow-green-900/20 border border-green-700 mt-5"
+                className="w-full bg-indigo-950 hover:bg-indigo-900 text-white font-black uppercase text-[10px] h-9 shadow-lg  border border-indigo-800 mt-3"
               >
                 {isSaving ? (
                   <Loader2 className="animate-spin mr-2" size={14} />

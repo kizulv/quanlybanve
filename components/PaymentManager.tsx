@@ -662,7 +662,7 @@ export const PaymentManager: React.FC = () => {
                         return (
                           <span
                             key={i}
-                            className={`px-2 py-0.5 rounded border font-semibold ${badgeClass}`}
+                            className={`w-7 h-6 flex items-center justify-center py-0.5 rounded border font-semibold text-[11px] ${badgeClass}`}
                           >
                             {s.label}
                           </span>

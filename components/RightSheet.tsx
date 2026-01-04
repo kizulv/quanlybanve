@@ -469,7 +469,7 @@ export const RightSheet: React.FC<RightSheetProps> = ({
                                           return (
                                             <span
                                               key={s}
-                                              className={`px-1.5 py-0.5 rounded border font-semibold ${
+                                              className={`w-7 h-6 flex items-center justify-center py-0.5 rounded border font-semibold ${
                                                 isPaid
                                                   ? "bg-blue-50 border-blue-200 text-blue-700"
                                                   : "bg-amber-50 border-amber-200 text-amber-700"
