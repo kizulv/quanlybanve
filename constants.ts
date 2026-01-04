@@ -15,3 +15,7 @@ export const ORDER_URL = `https://${ORDER_DOMAIN}`;
 // export const MONGO_URI = import.meta.env.MONGO_URI;
 // Backward compatibility (if needed)
 export const BASE_URL = ORDER_URL;
+
+// Seat Configuration
+export const PRO_FLOOR_SEAT_COUNT_SLEEPER = 6;
+export const PRO_FLOOR_SEAT_COUNT_CABIN = 6;

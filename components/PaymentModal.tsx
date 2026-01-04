@@ -108,7 +108,11 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const [stableItems, setStableItems] = useState<PaymentItem[]>([]);
 
   useEffect(() => {
-    if (isOpen && selectionBasket.length > 0 && stableItems.length === 0) {
+    if (
+      isOpen &&
+      (selectionBasket.length > 0 || editingBooking) &&
+      stableItems.length === 0
+    ) {
       // 1. Thu thập tất cả tripIds liên quan (từ selectionBasket và editingBooking)
       const allTripIds = new Set<string>();
       selectionBasket.forEach((item) => allTripIds.add(item.trip.id));
@@ -659,7 +663,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           ? "Cập nhật thanh toán"
           : "Thanh toán & Xuất vé"
       }
-      className="max-w-5xl bg-white text-slate-900 border-indigo-900"
+      className="max-w-5xl text-slate-900 border-indigo-900"
       headerClassName="px-4 h-[40px] border-b border-indigo-900 flex items-center justify-between shrink-0 rounded-t-xl bg-gradient-to-r from-indigo-950 via-indigo-900 to-indigo-950 text-white text-xs font-semibold"
       footer={
         <div className="flex flex-row justify-between items-center w-full px-2 ">
@@ -709,14 +713,14 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       }
     >
       <div className="flex flex-col md:flex-row h-full md:h-137.5">
-        <div className="flex-1 overflow-y-auto p-4 bg-white">
+        <div className="flex-1 overflow-y-auto p-4 bg-slate-50">
           {stableItems.length === 0 && (
             <div className="text-center py-10 text-indigo-400 italic text-sm">
               Không có dữ liệu vé.
             </div>
           )}
 
-          <div className="space-y-4">
+          <div className="bg-white space-y-4">
             {stableItems.map((trip) => {
               const tripDate = new Date(trip.tripDate);
               return (

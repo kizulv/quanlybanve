@@ -91,6 +91,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     fixedCount: number;
   } | null>(null);
 
+  // Maintenance State (Floor Seats)
+  const [isFixingFloorSeats, setIsFixingFloorSeats] = useState(false);
+  const [floorFixResults, setFloorFixResults] = useState<{
+    logs: MaintenanceLog[];
+    busUpdateCount: number;
+    tripUpdateCount: number;
+  } | null>(null);
+
   // Stats
   const activeBusesCount = buses.filter((b) => b.status === "Hoạt động").length;
   const activeRoutesCount = routes.filter(
@@ -243,6 +251,42 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       });
     } finally {
       setIsFixingPayments(false);
+    }
+  };
+
+  const handleFixFloorSeats = async () => {
+    setIsFixingFloorSeats(true);
+    setFloorFixResults(null);
+    try {
+      const result = await api.maintenance.fixFloorSeats();
+      setFloorFixResults({
+        logs: result.logs || [],
+        busUpdateCount: result.busUpdateCount || 0,
+        tripUpdateCount: result.tripUpdateCount || 0,
+      });
+
+      if (result.logs && result.logs.length > 0) {
+        toast({
+          type: "success",
+          title: "Đã sửa cấu hình ghế sàn",
+          message: `Cập nhật ${result.busUpdateCount} xe và ${result.tripUpdateCount} chuyến.`,
+        });
+      } else {
+        toast({
+          type: "info",
+          title: "Không có lỗi",
+          message: "Tất cả xe giường đơn đã đúng cấu hình 6 ghế sàn.",
+        });
+      }
+      await onDataChange();
+    } catch (e) {
+      toast({
+        type: "error",
+        title: "Lỗi bảo trì",
+        message: "Không thể thực hiện sửa lỗi ghế sàn.",
+      });
+    } finally {
+      setIsFixingFloorSeats(false);
     }
   };
 
@@ -754,6 +798,20 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                           </>
                         ) : (
                           "Bắt đầu quét & sửa lỗi"
+                        )}
+                      </Button>
+                      <Button
+                        onClick={handleFixFloorSeats}
+                        disabled={isFixingFloorSeats}
+                        className="bg-indigo-600 hover:bg-indigo-700 h-12 px-8 font-bold text-base shadow-lg shadow-indigo-500/20"
+                      >
+                        {isFixingFloorSeats ? (
+                          <>
+                            <Loader2 className="animate-spin mr-2" size={18} />
+                            Đang sửa...
+                          </>
+                        ) : (
+                          "Sửa lỗi 12 ghế sàn -> 6"
                         )}
                       </Button>
                     </div>

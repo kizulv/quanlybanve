@@ -238,5 +238,7 @@ export const api = {
       fetchJson(`${API_URL}/maintenance/fix-seats/`, { method: "POST" }),
     fixPayments: () =>
       fetchJson(`${API_URL}/maintenance/fix-payments/`, { method: "POST" }),
+    fixFloorSeats: () =>
+      fetchJson(`${API_URL}/maintenance/fix-floor-seats/`, { method: "POST" }),
   },
 };

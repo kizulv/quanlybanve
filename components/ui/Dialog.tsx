@@ -65,12 +65,7 @@ export const Dialog: React.FC<DialogProps> = ({
 
       {/* Modal Content */}
       <div
-        className={`
-          relative rounded-xl shadow-2xl w-full ${widthClass} ${bgClass}
-          flex flex-col max-h-[90vh] overflow-hidden 
-          animate-in zoom-in-95 fade-in duration-200
-          ${className}
-        `}
+        className={`relative rounded-xl shadow-2xl w-full ${widthClass} flex flex-col max-h-[90vh] overflow-hidden animate-in zoom-in-95 fade-in duration-200 ${className}`}
         role="dialog"
         aria-modal="true"
       >
@@ -88,10 +83,14 @@ export const Dialog: React.FC<DialogProps> = ({
           </Button>
         </div>
 
-        <div className="flex-1 overflow-y-auto min-h-0">{children}</div>
+        <div className={`flex-1 overflow-y-auto min-h-0 ${bgClass}`}>
+          {children}
+        </div>
 
         {footer && (
-          <div className="px-4 py-3 border-t border-slate-200 shrink-0">
+          <div
+            className={`px-4 py-3 border-t border-slate-200 shrink-0 ${bgClass}`}
+          >
             {footer}
           </div>
         )}

@@ -250,7 +250,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
 
   const toggleFloorSeats = (checked: boolean) => {
     let newActive = [...config.activeSeats];
-    const count = type === BusType.CABIN ? 6 : 12; // Quy tắc: Phòng 6, Giường 12
+    const count = 6; // Fixed: Both Cabin and Sleeper now have 6 floor seats
     if (checked) {
       for (let i = 0; i < count; i++) {
         const key = `1-floor-${i}`;
@@ -564,9 +564,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
                       <span className="text-xs font-bold text-slate-700">
                         Vé nằm SÀN
                       </span>
-                      <span className="text-[10px] text-slate-500">
-                        {type === BusType.CABIN ? "6 chỗ" : "12 chỗ"}
-                      </span>
+                      <span className="text-[10px] text-slate-500">6 chỗ</span>
                     </div>
                     <div
                       onClick={() => toggleFloorSeats(!config.hasFloorSeats)}

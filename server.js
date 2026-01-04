@@ -1568,23 +1568,31 @@ app.post("/api/maintenance/fix-seats", async (req, res) => {
 
     const bookingOccupancy = new Map();
     allBookings.forEach((b) => {
-      b.items.forEach((item) => {
-        const tickets = item.tickets || [];
+      if (b.items && Array.isArray(b.items)) {
+        b.items.forEach((item) => {
+          const tickets = item.tickets || [];
+          // Fix: Derive seatIds from tickets if not present (as schema removed seatIds)
+          const seatIds =
+            item.seatIds && item.seatIds.length > 0
+              ? item.seatIds
+              : tickets.map((t) => t.seatId);
 
-        item.seatIds.forEach((seatId) => {
-          const key = `${item.tripId}_${seatId}`;
-          const ticketDetail = tickets.find((t) => t.seatId === seatId);
+          seatIds.forEach((seatId) => {
+            if (!seatId) return;
+            const key = `${item.tripId}_${seatId}`;
+            const ticketDetail = tickets.find((t) => t.seatId === seatId);
 
-          if (!bookingOccupancy.has(key)) bookingOccupancy.set(key, []);
-          bookingOccupancy.get(key).push({
-            bookingId: b._id.toString(),
-            phone: b.passenger?.phone,
-            ticketStatus: ticketDetail ? ticketDetail.status : "booking", // NEW: Use ticket status
-            ticketPrice: ticketDetail ? ticketDetail.price : 0,
-            updatedAt: b.updatedAt,
+            if (!bookingOccupancy.has(key)) bookingOccupancy.set(key, []);
+            bookingOccupancy.get(key).push({
+              bookingId: b._id.toString(),
+              phone: b.passenger?.phone,
+              ticketStatus: ticketDetail ? ticketDetail.status : "booking", // NEW: Use ticket status
+              ticketPrice: ticketDetail ? ticketDetail.price : 0,
+              updatedAt: b.updatedAt,
+            });
           });
         });
-      });
+      }
     });
 
     for (const trip of allTrips) {
@@ -1808,6 +1816,113 @@ app.post("/api/maintenance/fix-payments", async (req, res) => {
     res.json({ success: true, deletedCount, fixedCount, logs });
   } catch (e) {
     console.error("Payment Maintenance Error:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post("/api/maintenance/fix-floor-seats", async (req, res) => {
+  try {
+    const logs = [];
+    let busUpdateCount = 0;
+    let tripUpdateCount = 0;
+
+    // 1. Fix Bus Configurations
+    const sleeperBuses = await Bus.find({ type: "SLEEPER" });
+    for (const bus of sleeperBuses) {
+      let isModified = false;
+
+      // Ensure config exists
+      if (!bus.layoutConfig) continue;
+
+      // Fix count
+      if (
+        bus.layoutConfig.floorSeatCount > 6 ||
+        bus.layoutConfig.floorSeatCount === undefined
+      ) {
+        if (bus.layoutConfig.hasFloorSeats) {
+          bus.layoutConfig.floorSeatCount = 6;
+          isModified = true;
+        }
+      }
+
+      // Fix activeSeats (remove 1-floor-6 to 1-floor-11)
+      const invalidSeats = [
+        "1-floor-6",
+        "1-floor-7",
+        "1-floor-8",
+        "1-floor-9",
+        "1-floor-10",
+        "1-floor-11",
+      ];
+      const originalCount = bus.layoutConfig.activeSeats.length;
+      bus.layoutConfig.activeSeats = bus.layoutConfig.activeSeats.filter(
+        (s) => !invalidSeats.includes(s)
+      );
+
+      if (bus.layoutConfig.activeSeats.length !== originalCount) {
+        isModified = true;
+      }
+
+      if (isModified) {
+        bus.markModified("layoutConfig");
+        await bus.save();
+        busUpdateCount++;
+        logs.push({
+          route: "N/A",
+          date: new Date().toLocaleDateString("vi-VN"),
+          seat: "Cấu hình xe",
+          action: "Sửa cấu hình Bus",
+          details: `Cập nhật xe ${bus.plate}: Giới hạn 6 ghế sàn.`,
+        });
+      }
+    }
+
+    // 2. Fix Existing Trips
+    const sleeperTrips = await Trip.find({ type: "SLEEPER" });
+    for (const trip of sleeperTrips) {
+      if (!trip.seats) continue;
+
+      const initialLength = trip.seats.length;
+
+      // Filter out seats that are floor seats AND (have high IDs OR high labels)
+      trip.seats = trip.seats.filter((s) => {
+        if (!s.isFloorSeat) return true;
+
+        // Helper to extract number from "Sàn X" or "1-floor-X"
+        const isHighIndex = (() => {
+          if (s.id.includes("1-floor-")) {
+            const part = parseInt(s.id.split("1-floor-")[1]);
+            if (!isNaN(part) && part >= 6) return true;
+          }
+          if (s.label.includes("Sàn")) {
+            const part = parseInt(s.label.split("Sàn")[1].trim());
+            if (!isNaN(part) && part > 6) return true;
+          }
+          return false;
+        })();
+
+        return !isHighIndex;
+      });
+
+      if (trip.seats.length !== initialLength) {
+        trip.markModified("seats");
+        await trip.save();
+        tripUpdateCount++;
+        logs.push({
+          route: trip.route,
+          date: trip.departureTime.split(" ")[0],
+          seat: "Sơ đồ ghế",
+          action: "Xóa ghế thừa",
+          details: `Chuyến ${trip.licensePlate} (${trip.departureTime}): Xóa ${
+            initialLength - trip.seats.length
+          } ghế sàn thừa (Sàn 7-12).`,
+        });
+      }
+    }
+
+    res.json({ success: true, busUpdateCount, tripUpdateCount, logs });
+  } catch (e) {
+    console.error("Floor Seat Fix Error:", e);
     res.status(500).json({ error: e.message });
   }
 });

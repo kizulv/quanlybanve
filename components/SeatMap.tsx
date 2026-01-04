@@ -382,7 +382,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
           </span>
         </div>
 
-        <div className="p-3 flex flex-col items-center gap-3">
+        <div className="md:p-3 flex flex-col items-center gap-3">
           <div className="flex gap-4 p-1.5 bg-slate-100 text-[9px] font-black text-slate-400 uppercase w-full justify-around rounded-lg">
             <span>Tầng 1</span>
             <span>Tầng 2</span>
@@ -479,7 +479,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
           </span>
         </div>
 
-        <div className="p-3 md:p-4 flex flex-col items-center flex-1">
+        <div className="md:p-4 flex flex-col items-center flex-1">
           <div
             className="grid gap-2 md:gap-3 w-full"
             style={{ gridTemplateColumns: `repeat(${standardCols}, 1fr)` }}
@@ -545,22 +545,23 @@ export const SeatMap: React.FC<SeatMapProps> = ({
   const renderSleeperFloorSection = () => {
     if (floorSeats.length === 0) return null;
     return (
-      <div className="p-4 pt-2 bg-slate-50 rounded md:rounded-none">
+      <div className="md:p-4 p-2 pt-2 bg-slate-50 rounded md:rounded-none">
         <div className="text-center mb-4 hidden md:block">
           <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
             SÀN
           </span>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3 justify-items-center">
-          {floorSeats
-            .sort((a, b) =>
-              a.label.localeCompare(b.label, undefined, { numeric: true })
-            )
-            .map((s) => (
-              <div key={s.id} className="w-full">
-                {renderSeat(s, false, "w-full h-[90px] rounded-lg shadow-sm")}
-              </div>
-            ))}
+        <div className="flex justify-center">
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-3 w-full">
+            {floorSeats
+              .sort((a, b) =>
+                a.label.localeCompare(b.label, undefined, { numeric: true })
+              )
+              .slice(0, 6)
+              .map((s) =>
+                renderSeat(s, false, "w-full h-[90px] rounded-lg shadow-sm")
+              )}
+          </div>
         </div>
       </div>
     );
@@ -572,7 +573,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
           {renderCabinColumn(0, "DÃY B")}
 
           {/* Mobile: Collapsible Floor */}
-          <div className="w-full md:hidden px-3">
+          <div className="w-full md:hidden md:px-3 mt-3 md:mt-0">
             <Collapsible defaultOpen={false}>
               <CollapsibleTrigger className="bg-slate-50 hover:bg-indigo-100 p-2 rounded font-bold text-slate-500 text-[10px] uppercase tracking-wider w-full mb-2 flex justify-center border border-slate-200">
                 <span>Ghế Sàn (Chạm để xem)</span>
@@ -608,14 +609,14 @@ export const SeatMap: React.FC<SeatMapProps> = ({
   }
 
   return (
-    <div className="flex flex-col py-4 px-2 md:px-0">
+    <div className="flex flex-col md:py-4 p-3 md:px-0">
       <div className="flex flex-col md:flex-row w-full gap-4 md:gap-6 justify-center items-start">
         {renderSleeperDeck(1)}
         {renderSleeperDeck(2)}
       </div>
 
       {/* Mobile: Collapsible Floor */}
-      <div className="w-full md:hidden px-3 md: ">
+      <div className="w-full md:hidden md:px-3 ">
         <Collapsible defaultOpen={false}>
           <CollapsibleTrigger className="bg-slate-50 hover:bg-indigo-100 p-2 rounded font-bold text-slate-500 text-[10px] uppercase tracking-wider w-full mb-2 flex justify-center border border-slate-200 mt-4">
             <span>Ghế Sàn (Chạm để xem)</span>

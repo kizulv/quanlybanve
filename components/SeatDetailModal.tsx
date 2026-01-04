@@ -8,22 +8,10 @@ import {
   Locate,
   Notebook,
   Phone,
-  History,
-  X,
-  Clock,
-  ArrowRight,
-  AlertCircle,
-  Lock,
   CreditCard,
-  Banknote,
+  Loader2,
   DollarSign,
-  ShieldCheck,
-  RotateCcw,
-  User,
-  Calculator,
-  AlertTriangle,
   CheckCircle2,
-  ChevronRight,
   Tag,
   Trash2,
 } from "lucide-react";
@@ -276,16 +264,45 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
       }`}
       className={`${
         !showRightPanel ? "max-w-md" : "max-w-3xl"
-      } bg-indigo-950 text-white border-indigo-900 rounded-xl overflow-hidden transition-all duration-300`}
-      headerClassName="h-[40px] bg-gradient-to-r from-indigo-950 via-indigo-900 to-indigo-950 border-indigo-900 text-white"
+      } text-white border-indigo-900 rounded-xl overflow-hidden transition-all duration-300`}
+      headerClassName="h-[40px] bg-gradient-to-r from-indigo-950 via-indigo-900 to-indigo-950 border-indigo-900 text-white text-xs font-semibold"
+      footer={
+        <div className="flex justify-between gap-2 pt-2">
+          {isHeld && (
+            <Button
+              onClick={handleRefundSeat}
+              disabled={isSaving}
+              variant="custom"
+              className="bg-red-600 hover:bg-red-500 text-white font-bold h-9 text-xs border border-red-700 shadow-sm"
+            >
+              <Trash2 size={14} className="mr-1" /> Hủy giữ chỗ
+            </Button>
+          )}
+
+          {isBooked && (
+            <Button
+              onClick={handleRefundSeat}
+              disabled={isSaving}
+              variant="custom"
+              className="bg-red-900 hover:bg-red-800 text-red-100 font-bold h-9 text-xs border border-red-900 shadow-sm"
+            >
+              <Trash2 size={14} className="mr-1" /> Hủy vé
+            </Button>
+          )}
+          <Button
+            onClick={handleSaveOnly}
+            disabled={isSaving}
+            variant="custom"
+            className="w-62 bg-indigo-600 hover:bg-indigo-500 text-white font-bold h-9 text-xs border border-indigo-700 shadow-sm"
+          >
+            <Save size={14} className="mr-1" /> Cập nhật
+          </Button>
+        </div>
+      }
     >
-      <div className="flex flex-col md:flex-row h-full md:h-75">
+      <div className="flex flex-col md:flex-row h-full">
         {/* LEFT: Customer Info */}
-        <div
-          className={`flex-1 overflow-y-auto p-4 ${
-            showRightPanel ? "border-r border-indigo-900/50" : ""
-          } bg-indigo-950 space-y-4`}
-        >
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50">
           <div className="space-y-3">
             <div className="space-y-1">
               <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-1">
@@ -427,41 +444,11 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
               </label>
             </div>
           )}
-
-          <div className="flex gap-2 pt-2">
-            <Button
-              onClick={handleSaveOnly}
-              disabled={isSaving}
-              className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold h-9 text-xs border border-indigo-700 shadow-sm"
-            >
-              <Save size={14} className="mr-1" /> Cập nhật
-            </Button>
-
-            {isHeld && (
-              <Button
-                onClick={handleRefundSeat}
-                disabled={isSaving}
-                className="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold h-9 text-xs border border-red-700 shadow-sm"
-              >
-                <Trash2 size={14} className="mr-1" /> Hủy giữ chỗ
-              </Button>
-            )}
-
-            {isBooked && (
-              <Button
-                onClick={handleRefundSeat}
-                disabled={isSaving}
-                className="flex-1 bg-red-900/40 hover:bg-red-800 text-red-100 font-bold h-9 text-xs border border-red-900 shadow-sm"
-              >
-                <Trash2 size={14} className="mr-1" /> Hủy vé
-              </Button>
-            )}
-          </div>
         </div>
 
         {/* RIGHT: Financial Actions */}
         {showRightPanel && (
-          <div className="w-full md:w-70 bg-indigo-900/20 p-4 flex flex-col gap-4 border-t md:border-t-0 md:border-l border-indigo-900/50 shadow-xl overflow-y-auto animate-in fade-in duration-300">
+          <div className="w-full md:w-70 bg-white p-4 flex flex-col gap-4 border-t md:border-t-0 md:border-l  overflow-y-auto animate-in fade-in duration-300">
             <div className="bg-indigo-900/50 rounded-lg p-3 border border-indigo-800 space-y-3 shadow-inner mt-2">
               <div className="flex items-center gap-2 text-indigo-400 text-[10px] font-black uppercase tracking-widest">
                 <Tag size={12} /> Giá vé
@@ -522,11 +509,12 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
 
               <Button
                 onClick={handlePaySeat}
+                variant="custom"
                 disabled={
                   isSaving ||
                   paymentInput.paidCash + paymentInput.paidTransfer === 0
                 }
-                className="w-full bg-green-600 hover:bg-green-500 text-white font-black uppercase text-[10px] h-9 shadow-lg shadow-green-900/20 border border-green-700"
+                className="w-full bg-green-600 hover:bg-green-500 text-white font-black uppercase text-[10px] h-9 shadow-lg shadow-green-900/20 border border-green-700 mt-5"
               >
                 {isSaving ? (
                   <Loader2 className="animate-spin mr-2" size={14} />
@@ -542,33 +530,3 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
     </Dialog>
   );
 };
-
-const Loader2 = ({
-  className,
-  size = 16,
-}: {
-  className?: string;
-  size?: number;
-}) => (
-  <svg
-    className={`animate-spin ${className}`}
-    style={{ width: size, height: size }}
-    xmlns="http://www.w3.org/2000/svg"
-    fill="none"
-    viewBox="0 0 24 24"
-  >
-    <circle
-      className="opacity-25"
-      cx="12"
-      cy="12"
-      r="10"
-      stroke="currentColor"
-      strokeWidth="4"
-    ></circle>
-    <path
-      className="opacity-75"
-      fill="currentColor"
-      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-    ></path>
-  </svg>
-);

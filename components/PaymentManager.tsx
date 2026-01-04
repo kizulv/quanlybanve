@@ -655,14 +655,14 @@ export const PaymentManager: React.FC = () => {
                       {group.tripInfo.seats.map((s, i) => {
                         let badgeClass =
                           s.status === "refunded"
-                            ? "bg-white hover:bg-white text-slate-500 border-slate-500 line-through decoration-slate-400 opacity-60"
+                            ? "bg-white text-slate-500 border-slate-500 line-through decoration-slate-400 opacity-60"
                             : s.status === "paid"
-                            ? "bg-blue-50 hover:bg-blue-100 text-blue-600 border-blue-200 font-semibold"
-                            : "bg-orange-50 hover:bg-orange-50 text-orange-600 border-orange-200 font-semibold";
+                            ? "bg-blue-50 border-blue-200 text-blue-700"
+                            : "bg-amber-50 border-amber-200 text-amber-600";
                         return (
                           <span
                             key={i}
-                            className={`text-xs px-2 py-1 border rounded-full ${badgeClass}`}
+                            className={`px-2 py-0.5 rounded border font-semibold ${badgeClass}`}
                           >
                             {s.label}
                           </span>

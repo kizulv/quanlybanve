@@ -125,7 +125,8 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
       ? "size: A4 landscape; margin: 3mm;"
       : "size: A4 portrait; margin: 0;";
     const A4_margin = isCabin ? "margin-left: 20mm;" : "margin-top: 0;";
-    const Manifest_RecordHight = isCabin ? "h-[98px]" : "h-[88px]";
+    const A4_LayoutHeight = isCabin ? "h-[170px]" : "h-[190px]";
+    const Manifest_RecordHight = isCabin ? "h-[98px]" : "h-[108px]";
     const Manifest_SeatFontSize = isCabin ? "text-[12px]" : "text-[10px]";
     let layoutHtml = "";
 
@@ -301,7 +302,7 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
         )
         .sort((a, b) => (a.col || 0) - (b.col || 0));
 
-      layoutHtml = `<div class="grid grid-cols-2 gap-4 max-h-[170mm] overflow-hidden">`;
+      layoutHtml = `<div class="grid grid-cols-2 gap-4 h-[190mm] overflow-hidden">`;
       [1, 2].forEach((floor) => {
         layoutHtml += `
           <div class="bg-white">
@@ -359,13 +360,16 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
 
       if (floorSeats.length > 0) {
         layoutHtml += `
-          <div class="pt-2">
-            <div class="text-center font-black text-2.5 uppercase mb-1.5 tracking-widest text-slate-500">SÀN</div>
-            <div class="grid grid-cols-6 gap-1.5">
-              ${floorSeats.map((s) => renderSeatHtml(s)).join("")}
+            <div class="pt-2">
+              <div class="text-center font-black text-2.5 uppercase mb-1.5 tracking-widest text-slate-500">SÀN</div>
+              <div class="grid grid-cols-6 gap-1.5 justify-center">
+                ${floorSeats
+                  .slice(0, 6)
+                  .map((s) => renderSeatHtml(s))
+                  .join("")}
+              </div>
             </div>
-          </div>
-        `;
+          `;
       }
     }
 
