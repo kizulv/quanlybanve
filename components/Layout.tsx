@@ -334,7 +334,7 @@ export const Layout: React.FC<LayoutProps> = ({
         }`}
       >
         {/* Header - Updated for 2 rows on mobile */}
-        <header className="h-auto md:h-16 bg-white border-b border-slate-200 flex flex-col md:flex-row md:items-center justify-between sticky top-0 z-30 shadow-sm">
+        <header className="h-auto md:h-16 bg-white border-b border-slate-200 flex flex-col md:flex-row md:items-center justify-between sticky top-0 z-30">
           {/* Row 1: Menu + Title + Direction (Mobile Center) + Right Actions */}
           <div className="flex items-center justify-between h-16 px-4 md:px-8 w-full md:w-auto md:flex-1 min-w-0">
             <div className="flex items-center gap-2 md:gap-4 min-w-0">

@@ -267,7 +267,11 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
       } text-white border-indigo-900 rounded-xl overflow-hidden transition-all duration-300`}
       headerClassName="h-[40px] bg-gradient-to-r from-indigo-950 via-indigo-900 to-indigo-950 border-indigo-900 text-white text-xs font-semibold"
       footer={
-        <div className="flex justify-between gap-2">
+        <div
+          className={`flex gap-2 pt-2 ${
+            isHeld || isBooked ? "justify-between" : "justify-center"
+          }`}
+        >
           {isHeld && (
             <Button
               onClick={handleRefundSeat}
@@ -284,7 +288,7 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
               onClick={handleRefundSeat}
               disabled={isSaving}
               variant="custom"
-              className="bg-red-900 hover:bg-red-800 text-red-100 font-bold h-9 text-xs border border-red-900 shadow-sm"
+              className="bg-red-700 hover:bg-red-800 text-white font-bold h-9 text-xs border border-red-700 shadow-sm"
             >
               <Trash2 size={14} className="mr-1" /> Hủy vé
             </Button>
@@ -293,7 +297,7 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
             onClick={handleSaveOnly}
             disabled={isSaving}
             variant="custom"
-            className="w-62 bg-slate-950 hover:bg-slate-900 text-white font-bold h-9 text-xs border border-slate-900 shadow-sm"
+            className="w-62 bg-indigo-950 hover:bg-indigo-900 text-white font-bold h-9 text-xs border border-indigo-900 shadow-sm"
           >
             <Save size={14} className="mr-1" /> Cập nhật
           </Button>
@@ -506,7 +510,7 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
                   isSaving ||
                   paymentInput.paidCash + paymentInput.paidTransfer === 0
                 }
-                className="w-full bg-indigo-950 hover:bg-indigo-900 text-white font-black uppercase text-[10px] h-9 shadow-lg  border border-indigo-800 mt-3"
+                className="w-full bg-blue-900 hover:bg-blue-800 text-white font-black uppercase text-[10px] h-9 shadow-lg  border border-blue-800 mt-3"
               >
                 {isSaving ? (
                   <Loader2 className="animate-spin mr-2" size={14} />

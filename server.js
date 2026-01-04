@@ -1523,6 +1523,16 @@ app.get("/api/payments", async (req, res) => {
   }
 });
 
+app.post("/api/payments", async (req, res) => {
+  try {
+    const payment = new Payment(req.body);
+    await payment.save();
+    res.json(payment);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.put("/api/payments/:id", async (req, res) => {
   try {
     res.json(
@@ -1708,112 +1718,121 @@ app.post("/api/maintenance/fix-payments", async (req, res) => {
     const logs = [];
     let deletedCount = 0;
     let fixedCount = 0;
+    let mismatchCount = 0;
 
-    // 1. Kiểm tra Giao dịch mồ côi hoặc đơn HOLD
+    // 1. Lấy tất cả bookings và payments
+    const allBookings = await Booking.find({ status: { $ne: "cancelled" } });
     const allPayments = await Payment.find().populate("bookingId");
 
-    for (const payment of allPayments) {
-      if (payment.bookingId && payment.bookingId.status === "hold") {
-        await Payment.findByIdAndDelete(payment._id);
-        deletedCount++;
-        logs.push({
-          route: payment.details?.route || "N/A",
-          date: payment.timestamp.toLocaleDateString("vi-VN"),
-          seat: (payment.details?.seats || []).join(", "),
-          action: "Xóa giao dịch lỗi",
-          details: `Giao dịch ${payment.totalAmount.toLocaleString()}đ bị xóa vì vé đặt đang ở trạng thái HOLD.`,
-        });
-      } else if (!payment.bookingId) {
-        await Payment.findByIdAndDelete(payment._id);
-        deletedCount++;
-        logs.push({
-          route: payment.details?.route || "N/A",
-          date: payment.timestamp.toLocaleDateString("vi-VN"),
-          seat: (payment.details?.seats || []).join(", "),
-          action: "Xóa giao dịch mồ côi",
-          details: `Giao dịch ${payment.totalAmount.toLocaleString()}đ bị xóa vì không tìm thấy vé đặt gốc.`,
-        });
-      }
+    // 2. Xóa payments mồ côi (không có bookingId hoặc booking không tồn tại)
+    const orphanPayments = allPayments.filter((p) => !p.bookingId);
+    for (const payment of orphanPayments) {
+      await Payment.findByIdAndDelete(payment._id);
+      deletedCount++;
+      logs.push({
+        route: payment.details?.route || "N/A",
+        date: payment.timestamp.toLocaleDateString("vi-VN"),
+        seat: (payment.details?.labels || []).join(", ") || "N/A",
+        action: "Xóa payment mồ côi",
+        details: `Xóa payment ${payment.totalAmount.toLocaleString()}đ không có booking gốc.`,
+      });
     }
 
-    // 2. Đối soát trạng thái Booking với Payment thực tế
-    const allBookings = await Booking.find({ status: { $ne: "cancelled" } });
+    // 3. Xóa payments của booking HOLD (đơn HOLD không được phép có thanh toán)
+    const holdPayments = allPayments.filter(
+      (p) => p.bookingId && p.bookingId.status === "hold"
+    );
+    for (const payment of holdPayments) {
+      await Payment.findByIdAndDelete(payment._id);
+      deletedCount++;
+      logs.push({
+        route:
+          payment.details?.route || payment.bookingId.items[0]?.route || "N/A",
+        date: payment.timestamp.toLocaleDateString("vi-VN"),
+        seat: (payment.details?.labels || []).join(", ") || "N/A",
+        action: "Xóa payment HOLD",
+        details: `Xóa payment ${payment.totalAmount.toLocaleString()}đ vì booking đang ở trạng thái HOLD (SĐT: ${
+          payment.bookingId.passenger?.phone || "N/A"
+        }).`,
+      });
+    }
 
+    // 4. Phát hiện chênh lệch số tiền và sửa lỗi cho từng booking
     for (const booking of allBookings) {
+      // Tính tổng tiền payment thực tế
       const payments = await Payment.find({ bookingId: booking._id });
       const totalPaid = payments.reduce(
         (sum, p) => sum + (p.totalAmount || 0),
         0
       );
 
-      let isModified = false;
-      const oldStatus = booking.status;
-
-      // Trường hợp: Trạng thái 'payment' nhưng không có tiền thực thu
-      if (booking.status === "payment" && totalPaid <= 0) {
-        booking.status = "booking";
-        isModified = true;
-        logs.push({
-          route: booking.items[0]?.route || "N/A",
-          date: booking.createdAt.split("T")[0],
-          seat: booking.items
-            .flatMap((i) => i.tickets.map((t) => t.seatId))
-            .join(", "),
-          action: "Chỉnh trạng thái",
-
-          details: `Chuyển đơn từ Đã thanh toán -> Chờ thanh toán (Thực thu: ${totalPaid.toLocaleString()}đ).`,
-        });
-      }
-
-      // Trường hợp: Trạng thái 'booking' nhưng đã có tiền thực thu > 0
-      if (booking.status === "booking" && totalPaid > 0) {
-        booking.status = "payment";
-        isModified = true;
-        logs.push({
-          route: booking.items[0]?.route || "N/A",
-          date: booking.createdAt.split("T")[0],
-          seat: booking.items
-            .flatMap((i) => i.tickets.map((t) => t.seatId))
-            .join(", "),
-          action: "Đồng bộ thanh toán",
-
-          details: `Chuyển đơn từ Chờ thanh toán -> Đã thanh toán (Thành công khớp dòng tiền ${totalPaid.toLocaleString()}đ).`,
-        });
-      }
-
-      // 3. Đối soát totalPrice
-      let calculatedTotalPrice = 0;
-      booking.items.forEach((item) => {
+      // Tính tổng giá vé thực tế từ booking (từ tickets)
+      const actualBookingPrice = booking.items.reduce((sum, item) => {
         const itemPrice = (item.tickets || []).reduce(
-          (sum, t) => sum + (t.price || 0),
+          (s, t) => s + (t.price || 0),
           0
         );
-        calculatedTotalPrice += itemPrice;
-      });
+        return sum + itemPrice;
+      }, 0);
 
-      if (Math.abs(booking.totalPrice - calculatedTotalPrice) > 1) {
-        const oldPrice = booking.totalPrice;
-        booking.totalPrice = calculatedTotalPrice;
-        isModified = true;
+      // So sánh và phát hiện chênh lệch giữa payment và booking
+      const difference = totalPaid - actualBookingPrice;
+
+      if (Math.abs(difference) > 1) {
+        mismatchCount++;
+        const diffStr =
+          difference > 0
+            ? `Thừa ${Math.abs(difference).toLocaleString()}đ`
+            : `Thiếu ${Math.abs(difference).toLocaleString()}đ`;
+
+        // Lấy labels thực tế của ghế
+        const seatLabels = [];
+        for (const item of booking.items) {
+          const trip = await Trip.findById(item.tripId);
+          for (const ticket of item.tickets || []) {
+            const seat = trip?.seats?.find((s) => s.id === ticket.seatId);
+            seatLabels.push(seat?.label || ticket.seatId);
+          }
+        }
+
         logs.push({
           route: booking.items[0]?.route || "N/A",
           date: booking.createdAt.split("T")[0],
-          seat: booking.items
-            .flatMap((i) => i.tickets.map((t) => t.seatId))
-            .join(", "),
-          action: "Sửa lỗi tổng tiền",
-
-          details: `Tính lại tổng tiền vé: ${oldPrice.toLocaleString()}đ -> ${calculatedTotalPrice.toLocaleString()}đ.`,
+          seat: seatLabels.join(", ") || "N/A",
+          action: "Chênh lệch thanh toán",
+          details: `Giá vé: ${actualBookingPrice.toLocaleString()}đ, Đã thu: ${totalPaid.toLocaleString()}đ. ${diffStr}. SĐT: ${
+            booking.passenger?.phone || "N/A"
+          }`,
+          bookingId: booking._id.toString(),
+          actualPrice: actualBookingPrice,
+          paidAmount: totalPaid,
         });
       }
 
-      if (isModified) {
+      // 5. Sửa lỗi tổng tiền booking nếu totalPrice không khớp với tổng tickets
+      if (Math.abs(booking.totalPrice - actualBookingPrice) > 1) {
+        const oldPrice = booking.totalPrice;
+        booking.totalPrice = actualBookingPrice;
         await booking.save();
         fixedCount++;
+
+        logs.push({
+          route: booking.items[0]?.route || "N/A",
+          date: booking.createdAt.split("T")[0],
+          seat: "Tổng đơn",
+          action: "Sửa tổng tiền",
+          details: `Sửa totalPrice: ${oldPrice.toLocaleString()}đ → ${actualBookingPrice.toLocaleString()}đ`,
+        });
       }
     }
 
-    res.json({ success: true, deletedCount, fixedCount, logs });
+    res.json({
+      success: true,
+      deletedCount,
+      fixedCount,
+      mismatchCount,
+      logs,
+    });
   } catch (e) {
     console.error("Payment Maintenance Error:", e);
     res.status(500).json({ error: e.message });

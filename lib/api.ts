@@ -210,6 +210,12 @@ export const api = {
 
   payments: {
     getAll: () => fetchJson(`${API_URL}/payments/`),
+    create: (data: any) =>
+      fetchJson(`${API_URL}/payments/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      }),
     update: (id: string, updates: any) =>
       fetchJson(`${API_URL}/payments/${encodeURIComponent(id)}/`, {
         method: "PUT",

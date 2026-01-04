@@ -279,7 +279,7 @@ export const BookingPrint: React.FC<BookingPrintProps> = ({
       </div>
 
       <Button
-        variant="outline"
+        variant="custom"
         disabled={disabled}
         onClick={handlePrintReceipt}
         className="bg-indigo-950 border-indigo-950 text-white hover:bg-indigo-900 hover:text-white h-9 px-8 text-xs font-bold flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg"

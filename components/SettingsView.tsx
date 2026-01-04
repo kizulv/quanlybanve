@@ -44,6 +44,9 @@ interface MaintenanceLog {
   seat: string;
   action: string;
   details: string;
+  bookingId?: string;
+  actualPrice?: number;
+  paidAmount?: number;
 }
 
 interface SettingsViewProps {
@@ -89,6 +92,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     logs: MaintenanceLog[];
     deletedCount: number;
     fixedCount: number;
+    mismatchCount: number;
   } | null>(null);
 
   // Maintenance State (Floor Seats)
@@ -227,19 +231,24 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         logs: result.logs || [],
         deletedCount: result.deletedCount || 0,
         fixedCount: result.fixedCount || 0,
+        mismatchCount: result.mismatchCount || 0,
       });
 
-      if (result.deletedCount > 0) {
+      if (
+        result.deletedCount > 0 ||
+        result.mismatchCount > 0 ||
+        result.fixedCount > 0
+      ) {
         toast({
           type: "success",
-          title: "Đã dọn dẹp dòng tiền",
-          message: `Đã xóa ${result.deletedCount} giao dịch thanh toán không hợp lệ.`,
+          title: "Đã quét dòng tiền",
+          message: `Xóa: ${result.deletedCount}, Chênh lệch: ${result.mismatchCount}, Đã sửa: ${result.fixedCount}`,
         });
       } else {
         toast({
           type: "info",
           title: "Dòng tiền ổn định",
-          message: "Không tìm thấy giao dịch thanh toán nào gắn với đơn HOLD.",
+          message: "Không phát hiện vấn đề về thanh toán.",
         });
       }
       await onDataChange();
@@ -287,6 +296,62 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       });
     } finally {
       setIsFixingFloorSeats(false);
+    }
+  };
+
+  const handleFixMismatch = async (log: MaintenanceLog) => {
+    if (!log.bookingId || !log.actualPrice || log.paidAmount === undefined) {
+      toast({
+        type: "error",
+        title: "Lỗi",
+        message: "Thiếu thông tin để sửa chênh lệch.",
+      });
+      return;
+    }
+
+    const difference = log.paidAmount - log.actualPrice;
+    const confirmMsg =
+      difference > 0
+        ? `Tạo payment hoàn tiền ${Math.abs(
+            difference
+          ).toLocaleString()}đ (Thừa)?`
+        : `Tạo payment bù ${Math.abs(difference).toLocaleString()}đ (Thiếu)?`;
+
+    if (!window.confirm(confirmMsg)) return;
+
+    try {
+      // Tạo payment để bù chênh lệch
+      const paymentAmount = -difference; // Ngược dấu để cân bằng
+      await api.payments.create({
+        bookingId: log.bookingId,
+        totalAmount: paymentAmount,
+        cashAmount: paymentAmount,
+        transferAmount: 0,
+        type: paymentAmount > 0 ? "payment" : "refund",
+        transactionType: "incremental",
+        method: "cash",
+        note: `Bù chênh lệch thanh toán (${
+          difference > 0 ? "Thừa" : "Thiếu"
+        } ${Math.abs(difference).toLocaleString()}đ)`,
+        timestamp: new Date(),
+      });
+
+      toast({
+        type: "success",
+        title: "Đã sửa chênh lệch",
+        message: `Đã tạo payment ${
+          paymentAmount > 0 ? "bù" : "hoàn"
+        } ${Math.abs(paymentAmount).toLocaleString()}đ.`,
+      });
+
+      // Chạy lại fix payments để cập nhật kết quả
+      await handleFixPayments();
+    } catch (e) {
+      toast({
+        type: "error",
+        title: "Lỗi",
+        message: "Không thể tạo payment bù chênh lệch.",
+      });
     }
   };
 
@@ -936,11 +1001,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       Dọn dẹp giao dịch không hợp lệ (Payment Cleanup)
                     </h4>
                     <p className="text-slate-500 mb-6 leading-relaxed max-w-3xl">
-                      Tự động lọc và xóa bỏ các bản ghi thanh toán (Payment)
-                      liên quan đến đơn hàng đang ở trạng thái{" "}
-                      <strong>Hold (Giữ vé)</strong>. Theo quy tắc hệ thống, đơn
-                      giữ vé không được phép có giao dịch thanh toán để tránh
-                      sai lệch báo cáo doanh thu thực tế.
+                      Kiểm tra và phát hiện các vấn đề về dòng tiền:{" "}
+                      <strong>Chênh lệch số tiền</strong> giữa Payment History
+                      và Booking, <strong>Payments mồ côi</strong> không có đơn
+                      hàng, <strong>Payments lỗi</strong> của đơn HOLD, và{" "}
+                      <strong>Tổng tiền booking sai</strong>. Hệ thống sẽ tự
+                      động xóa các payment không hợp lệ và báo cáo chi tiết các
+                      chênh lệch cần xử lý thủ công.
                     </p>
                     <div className="flex flex-wrap gap-4 items-center">
                       <Button
@@ -977,8 +1044,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                           <Badge className="bg-red-100 text-red-700 border-red-200 font-bold px-3 py-1.5">
                             Đã xóa: {paymentMaintenanceResults.deletedCount}
                           </Badge>
+                          <Badge className="bg-amber-100 text-amber-700 border-amber-200 font-bold px-3 py-1.5">
+                            Chênh lệch:{" "}
+                            {paymentMaintenanceResults.mismatchCount}
+                          </Badge>
                           <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 font-bold px-3 py-1.5">
-                            Đã đối soát: {paymentMaintenanceResults.fixedCount}
+                            Đã sửa: {paymentMaintenanceResults.fixedCount}
                           </Badge>
                         </div>
                       </div>
@@ -1037,9 +1108,28 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                                       </span>
                                     </td>
                                     <td className="px-6 py-4">
-                                      <p className="text-xs text-slate-600 font-medium italic leading-relaxed">
-                                        {log.details}
-                                      </p>
+                                      <div className="flex flex-col gap-2">
+                                        <p className="text-xs text-slate-600 font-medium italic leading-relaxed">
+                                          {log.details}
+                                        </p>
+                                        {log.action.includes("Chênh lệch") &&
+                                          log.bookingId && (
+                                            <Button
+                                              size="sm"
+                                              variant="outline"
+                                              onClick={() =>
+                                                handleFixMismatch(log)
+                                              }
+                                              className="w-fit text-xs h-7 px-3 border-amber-300 text-amber-700 hover:bg-amber-50"
+                                            >
+                                              <Settings2
+                                                size={12}
+                                                className="mr-1.5"
+                                              />
+                                              Sửa chênh lệch
+                                            </Button>
+                                          )}
+                                      </div>
                                     </td>
                                   </tr>
                                 )

@@ -306,11 +306,20 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
     setSeatOverrides((prev) => {
       const current = prev[key] || {};
+      const newIsPaid = !current.isPaid;
+
+      // Lấy giá gốc của ghế
+      const trip = stableItems.find((t) => t.tripId === tripId);
+      const seat = trip?.seats.find((s) => s.id === seatId);
+      const originalPrice = seat?.price || 0;
+
       return {
         ...prev,
         [key]: {
           ...current,
-          isPaid: !current.isPaid,
+          isPaid: newIsPaid,
+          // Nếu bỏ tích → giá về 0, nếu tích lại → khôi phục giá gốc (hoặc giá đã override)
+          price: newIsPaid ? current.price ?? originalPrice : 0,
         },
       };
     });
@@ -669,7 +678,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         <div className="flex flex-row justify-between items-center w-full px-2 ">
           <div className="flex gap-3">
             <Button
-              variant="outline"
+              variant="custom"
               onClick={onClose}
               className="bg-indigo-950 border-indigo-950 text-white hover:bg-indigo-900 hover:text-white h-8 px-6 text-xs font-bold min-w-25"
             >
@@ -677,15 +686,14 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             </Button>
 
             <Button
-              variant="outline"
+              variant="custom"
               onClick={handleConfirmClick}
               disabled={!isCompleteBtnActive}
-              className={`h-8 font-bold text-xs shadow-lg transition-all min-w-35 border text-white
-                ${
-                  !isCompleteBtnActive
-                    ? "bg-slate-700 opacity-40 cursor-not-allowed border-slate-700 shadow-none"
-                    : "bg-indigo-950 border-indigo-950 text-white hover:bg-indigo-900 hover:text-white shadow-slate-500/20 active:scale-95"
-                }`}
+              className={`h-8 font-bold text-xs transition-all min-w-35 border text-white ${
+                !isCompleteBtnActive
+                  ? "bg-slate-700 opacity-40 cursor-not-allowed border-slate-700"
+                  : "bg-indigo-950 border-indigo-950 text-white hover:bg-indigo-900 hover:text-white shadow-slate-500/20 active:scale-95"
+              }`}
             >
               {localProcessing || isProcessing
                 ? "Đang xử lý..."

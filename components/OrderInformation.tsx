@@ -432,7 +432,7 @@ export const OrderInformation: React.FC<OrderInformationProps> = ({
                     <MapPin size={13} className="text-slate-600 mr-1" />{" "}
                     {trip.route}
                   </span>
-                  <span className="sm:hidden md:block bg-yellow-200 border border-yellow-300 rounded flex items-center h-5 px-2 text-[10px] text-slate-900 font-semibold tracking-wider">
+                  <span className="sm:hidden md:flex bg-yellow-200 border border-yellow-300 rounded items-center h-5 px-2 text-[10px] text-slate-900 font-semibold tracking-wider">
                     {trip.licensePlate}
                   </span>
                 </div>
