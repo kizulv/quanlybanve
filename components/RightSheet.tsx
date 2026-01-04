@@ -150,6 +150,7 @@ export const RightSheet: React.FC<RightSheetProps> = ({
                 {lastUndoAction.seatLabels.map((l) => (
                   <Badge
                     key={l}
+                    variant="custom"
                     className="bg-emerald-100 text-emerald-700 border-emerald-200 text-[10px] px-1.5 h-4"
                   >
                     {l}
@@ -215,29 +216,52 @@ export const RightSheet: React.FC<RightSheetProps> = ({
     }
   };
 
-  const renderStatusBadge = (status: string) => {
-    if (status === "cancelled") {
+  const renderStatusBadge = (booking: Booking, paid: number) => {
+    if (booking.totalTickets === 0) {
       return (
-        <Badge className="bg-red-50 hover:bg-red-50 text-red-600 border-red-100 text-[10px] px-1.5 h-5">
+        <Badge
+          variant="custom"
+          className="bg-red-50 hover:bg-red-50 text-red-600 border-red-100 text-[10px] px-1.5 h-5"
+        >
           Hủy vé
         </Badge>
       );
     }
-    // Logic hiển thị: payment (hoặc đã trả đủ tiền) -> Mua vé, booking -> Đặt vé
-    if (status === "payment") {
+
+    const hasHold = booking.items.some((item) =>
+      item.tickets?.some((t) => t.status === "hold")
+    );
+
+    if (paid > 0) {
       return (
-        <Badge className="bg-green-50 hover:bg-green-50 text-green-600 border-green-100 text-[10px] px-1.5 h-5">
+        <Badge
+          variant="custom"
+          className="bg-green-50 hover:bg-green-50 text-green-600 border-green-100 text-[10px] px-1.5 h-5"
+        >
           Mua vé
         </Badge>
       );
     }
-    if (status === "booking") {
+
+    if (hasHold) {
       return (
-        <Badge className="bg-amber-50 hover:bg-amber-50 text-amber-600 border-amber-100 text-[10px] px-1.5 h-5">
-          Đặt vé
+        <Badge
+          variant="custom"
+          className="bg-slate-50 hover:bg-slate-50 text-slate-600 border-slate-100 text-[10px] px-1.5 h-5"
+        >
+          Giữ vé
         </Badge>
       );
     }
+
+    return (
+      <Badge
+        variant="custom"
+        className="bg-amber-50 hover:bg-amber-50 text-amber-600 border-amber-100 text-[10px] px-1.5 h-5"
+      >
+        Đặt vé
+      </Badge>
+    );
   };
 
   return (
@@ -267,6 +291,7 @@ export const RightSheet: React.FC<RightSheetProps> = ({
 
               {onUndo && lastUndoAction && (
                 <Button
+                  variant="custom"
                   onClick={() => setIsUndoAlertOpen(true)}
                   className="text-white bg-red-500 hover:bg-red-600 border border-red-600 h-8 px-4 rounded-full font-black text-[11px] uppercase tracking-wider mr-5 shadow-lg shadow-red-500/20 animate-in zoom-in duration-300"
                 >
@@ -343,7 +368,7 @@ export const RightSheet: React.FC<RightSheetProps> = ({
                             <div
                               key={booking.id}
                               onClick={() => handleSelect(booking)}
-                              className="relative bg-white rounded-xl border border-slate-200 p-4 shadow-sm hover:shadow-md hover:border-primary/30 transition-all cursor-pointer group active:scale-[0.98]"
+                              className="relative bg-white rounded border border-slate-200 p-4 hover:shadow-md hover:border-primary/30 transition-all cursor-pointer group active:scale-[0.98]"
                             >
                               <div className="flex justify-between items-center mb-3 pb-3 border-b border-slate-200 border-dashed">
                                 <div className="flex flex-col gap-0.5 ">
@@ -375,11 +400,14 @@ export const RightSheet: React.FC<RightSheetProps> = ({
                                   </div>
                                 </div>
                                 <div className="flex flex-col justify-between items-end gap-1">
-                                  <Badge className="w-full flex items-center text-slate-600 text-xs bg-slate-100 hover:bg-slate-100 border-slate-200 px-1 h-5 justify-center font-bold">
+                                  <Badge
+                                    variant="custom"
+                                    className="w-full flex items-center text-slate-600 text-xs bg-slate-100 hover:bg-slate-100 border-slate-200 px-1 h-5 justify-center font-bold"
+                                  >
                                     {booking.totalTickets}
                                     {" vé"}
                                   </Badge>
-                                  {renderStatusBadge(booking.status)}
+                                  {renderStatusBadge(booking, paid)}
                                 </div>
                               </div>
 
@@ -427,15 +455,30 @@ export const RightSheet: React.FC<RightSheetProps> = ({
                                           </span>
                                         </div>
                                       </div>
-                                      <div className="flex flex-wrap justify-end gap-1 w-full">
-                                        {item.seatIds.map((s) => (
-                                          <Badge
-                                            key={s}
-                                            className="bg-indigo-600 text-white border-transparent text-[9px] font-bold px-1.5 py-0 h-4 shadow-sm"
-                                          >
-                                            {s}
-                                          </Badge>
-                                        ))}
+                                      <div className="flex flex-wrap justify-end gap-1 w-full text-xs">
+                                        {item.seatIds.map((s) => {
+                                          const ticket = item.tickets?.find(
+                                            (t) =>
+                                              String(t.seatId) === String(s)
+                                          );
+                                          const isPaid =
+                                            ticket?.status === "payment" ||
+                                            (!ticket?.status &&
+                                              booking.status === "payment");
+
+                                          return (
+                                            <span
+                                              key={s}
+                                              className={`px-1.5 py-0.5 rounded border font-semibold ${
+                                                isPaid
+                                                  ? "bg-blue-50 border-blue-200 text-blue-700"
+                                                  : "bg-amber-50 border-amber-200 text-amber-700"
+                                              }`}
+                                            >
+                                              {s}
+                                            </span>
+                                          );
+                                        })}
                                       </div>
                                     </div>
                                   );
@@ -445,7 +488,7 @@ export const RightSheet: React.FC<RightSheetProps> = ({
                               <div className="flex justify-between items-center pt-3 border-t border-slate-200 border-dashed">
                                 <button
                                   onClick={(e) => handleViewHistory(e, booking)}
-                                  className="flex items-center gap-1 text-[10px] font-bold text-slate-400 hover:text-slate-700 bg-slate-50 hover:bg-slate-100 px-2 py-1 rounded-lg transition-colors border border-transparent hover:border-slate-200"
+                                  className="flex items-center gap-1 text-[10px] font-normal text-slate-400 hover:text-slate-700 bg-slate-50 hover:bg-slate-100 px-2 py-1 rounded-lg transition-colors border border-transparent hover:border-slate-200"
                                 >
                                   <FileClock size={12} /> Lịch sử
                                 </button>
@@ -453,19 +496,22 @@ export const RightSheet: React.FC<RightSheetProps> = ({
                                 <div className="flex items-center gap-3">
                                   <div className="text-right">
                                     <div className="text-sm font-black text-slate-900">
-                                      {isFullyPaid ||
-                                      booking.status === "payment" ? (
-                                        <>
-                                          {booking.totalPrice.toLocaleString(
-                                            "vi-VN"
-                                          )}{" "}
-                                          <span className="text-[10px]">đ</span>
-                                        </>
-                                      ) : (
-                                        <span className="text-amber-600 font-bold">
-                                          Đã đặt vé
-                                        </span>
-                                      )}
+                                      <div className="text-sm font-black text-slate-900">
+                                        {paid > 0 ? (
+                                          <>
+                                            {booking.totalPrice.toLocaleString(
+                                              "vi-VN"
+                                            )}{" "}
+                                            <span className="text-[10px]">
+                                              đ
+                                            </span>
+                                          </>
+                                        ) : (
+                                          <span className="text-amber-600 font-semibold">
+                                            Đã đặt vé
+                                          </span>
+                                        )}
+                                      </div>
                                     </div>
                                   </div>
                                 </div>

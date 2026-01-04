@@ -53,7 +53,7 @@ export interface BookingItem {
   tripDate: string; // Snapshot
   route: string; // Snapshot
   licensePlate: string; // Snapshot
-  seatIds: string[]; // Kept for easy indexing
+  seatIds: string[]; // Derived from tickets (not stored)
   tickets: TicketDetail[]; // NEW: Detailed info per seat
   price: number; // Total price for these seats
   isEnhanced?: boolean; // NEW: Accurate snapshot for reporting
@@ -64,7 +64,7 @@ export interface Booking {
   id: string;
   passenger: Passenger;
   items: BookingItem[];
-  status: "booking" | "payment" | "hold" | "cancelled"; // UPDATED STATUSES
+  status: "booking" | "payment" | "hold" | "cancelled"; // Derived from tickets & payments (not stored)
   createdAt: string;
   updatedAt: string;
   totalPrice: number;

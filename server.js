@@ -122,8 +122,9 @@ const bookingItemSchema = new mongoose.Schema(
     tripDate: String,
     route: String,
     licensePlate: String,
-    seatIds: [String],
+    // seatIds: [String], // REMOVED: Derived from tickets
     tickets: [ticketDetailSchema],
+
     price: Number,
     isEnhanced: { type: Boolean, default: false },
     busType: String,
@@ -142,7 +143,8 @@ const bookingSchema = new mongoose.Schema(
       dropoffPoint: String,
     },
     items: [bookingItemSchema],
-    status: String,
+    // status: String, // REMOVED: Dynamic derivation
+
     createdAt: String,
     updatedAt: String,
     totalPrice: Number,
@@ -241,6 +243,37 @@ const logBookingAction = async (
   }
 };
 
+const deriveBookingStatus = async (booking) => {
+  if (!booking) return "booking";
+  if ((booking.totalTickets || 0) === 0) return "cancelled";
+
+  // Calculate totalPaid if not populated
+  let paidCash = 0;
+  let paidTransfer = 0;
+
+  if (booking.payment) {
+    paidCash = booking.payment.paidCash || 0;
+    paidTransfer = booking.payment.paidTransfer || 0;
+  } else {
+    const payments = await Payment.find({ bookingId: booking._id });
+    paidCash = payments.reduce((sum, p) => sum + (p.cashAmount || 0), 0);
+    paidTransfer = payments.reduce(
+      (sum, p) => sum + (p.transferAmount || 0),
+      0
+    );
+  }
+
+  const totalPaid = paidCash + paidTransfer;
+  // Use tickets to check hold status
+  const hasHoldTickets = booking.items?.some((item) =>
+    item.tickets?.some((t) => t.status === "hold")
+  );
+
+  if (totalPaid > 0) return "payment";
+  if (hasHoldTickets) return "hold";
+  return "booking";
+};
+
 const getBookingPayments = async (bookingId) => {
   const payments = await Payment.find({ bookingId });
   const paidCash = payments.reduce((sum, p) => sum + (p.cashAmount || 0), 0);
@@ -271,8 +304,13 @@ const processPaymentUpdate = async (booking, newPaymentState) => {
       const trip = await Trip.findById(i.tripId);
       const route = trip ? await Route.findById(trip.routeId) : null;
 
-      // Thu thập nhãn ghế cho báo cáo chính xác
-      const seatLabels = i.seatIds.map((sid) => {
+      // Thu thập nhãn ghế cho báo cáo chính xác (derive from tickets if seatIds is missing)
+      const seatIds =
+        i.seatIds && i.seatIds.length > 0
+          ? i.seatIds
+          : i.tickets.map((t) => t.seatId);
+
+      const seatLabels = seatIds.map((sid) => {
         const seat = trip?.seats?.find((s) => s.id === sid);
         return seat ? seat.label : sid;
       });
@@ -305,7 +343,7 @@ const processPaymentUpdate = async (booking, newPaymentState) => {
     note: type === "refund" ? "Hoàn tiền" : "Thanh toán/Cập nhật",
     timestamp: new Date(),
     details: {
-      seats: booking.items.flatMap((i) => i.seatIds),
+      seats: booking.items.flatMap((i) => i.tickets.map((t) => t.seatId)), // Derived from tickets
       labels: enrichedTrips.flatMap((et) => et.labels),
       tripDate: booking.items[0]?.tripDate,
       route: booking.items[0]?.route,
@@ -317,7 +355,7 @@ const processPaymentUpdate = async (booking, newPaymentState) => {
 };
 
 const getBookingsWithPayment = async (match = {}) => {
-  return await Booking.aggregate([
+  const bookings = await Booking.aggregate([
     { $match: match },
     {
       $lookup: {
@@ -338,6 +376,35 @@ const getBookingsWithPayment = async (match = {}) => {
     },
     { $project: { paymentRecords: 0, _id: 0, __v: 0 } },
   ]);
+
+  // Derive status and seatIds dynamically
+  return bookings.map((b) => {
+    // Derive seatIds for each item from tickets
+    if (b.items) {
+      b.items = b.items.map((item) => ({
+        ...item,
+        seatIds: item.tickets ? item.tickets.map((t) => t.seatId) : [],
+      }));
+    }
+
+    const totalPaid =
+      (b.payment?.paidCash || 0) + (b.payment?.paidTransfer || 0);
+    // Check if any ticket is in 'hold' status
+    const hasHoldTickets = b.items?.some((item) =>
+      item.tickets?.some((t) => t.status === "hold")
+    );
+
+    let status = "booking";
+    if (b.totalTickets === 0) {
+      status = "cancelled";
+    } else if (totalPaid > 0) {
+      status = "payment";
+    } else if (hasHoldTickets) {
+      status = "hold";
+    }
+
+    return { ...b, status };
+  });
 };
 
 // --- ROUTES ---
@@ -542,7 +609,7 @@ app.post("/api/bookings", async (req, res) => {
         tripDate: trip.departureTime,
         route: trip.route,
         licensePlate: trip.licensePlate,
-        seatIds,
+        // seatIds, // REMOVED
         tickets,
         price: itemPrice,
         isEnhanced,
@@ -584,7 +651,8 @@ app.post("/api/bookings", async (req, res) => {
     const booking = new Booking({
       passenger,
       items: bookingItems,
-      status: finalStatus,
+      // status: finalStatus, // REMOVED
+
       createdAt: now,
       updatedAt: now,
       totalPrice: calculatedTotalPrice,
@@ -620,7 +688,16 @@ app.put("/api/bookings/:id", async (req, res) => {
     if (!oldBooking)
       return res.status(404).json({ error: "Booking not found" });
 
-    // Thu thập danh sách ghế cũ để so sánh
+    // Derive old status
+    const oldStatus = await deriveBookingStatus(oldBooking);
+
+    // Thu thập danh sách ghế cũ để so sánh (Populate seatIds from tickets)
+    oldBooking.items.forEach((item) => {
+      if ((!item.seatIds || item.seatIds.length === 0) && item.tickets) {
+        item.seatIds = item.tickets.map((t) => t.seatId);
+      }
+    });
+
     const oldSeatMap = new Map();
     oldBooking.items.forEach((i) =>
       oldSeatMap.set(i.tripId, {
@@ -649,7 +726,7 @@ app.put("/api/bookings/:id", async (req, res) => {
     const bookingItems = [];
     const changes = [];
 
-    const totalPaid = (payment?.paidCash || 0) + (payment?.transfer || 0); // Corrected from payment?.paidTransfer
+    const totalPaid = (payment?.paidCash || 0) + (payment?.paidTransfer || 0); // Corrected property name
     const finalStatus =
       requestedStatus || (totalPaid > 0 ? "payment" : "booking");
 
@@ -704,7 +781,7 @@ app.put("/api/bookings/:id", async (req, res) => {
         tripDate: trip.departureTime,
         route: trip.route,
         licensePlate: trip.licensePlate,
-        seatIds,
+        // seatIds, // REMOVED
         tickets,
         price: itemPrice,
         busType: trip.type,
@@ -784,9 +861,9 @@ app.put("/api/bookings/:id", async (req, res) => {
       summaryParts.push(changeStr);
     }
 
-    if (oldBooking.status !== finalStatus) {
+    if (oldStatus !== finalStatus) {
       summaryParts.push(
-        `Chuyển trạng thái: ${oldBooking.status.toUpperCase()} -> ${finalStatus.toUpperCase()}`
+        `Chuyển trạng thái: ${oldStatus.toUpperCase()} -> ${finalStatus.toUpperCase()}`
       );
     }
 
@@ -836,11 +913,7 @@ app.put("/api/bookings/:id", async (req, res) => {
         ? summaryParts.join(" | ")
         : "Cập nhật thông tin đặt vé";
 
-    if (
-      changes.length > 0 ||
-      oldBooking.status !== finalStatus ||
-      passengerChanged
-    ) {
+    if (changes.length > 0 || oldStatus !== finalStatus || passengerChanged) {
       await logBookingAction(oldBooking._id, "UPDATE", summaryText, {
         changes,
       });
@@ -848,7 +921,8 @@ app.put("/api/bookings/:id", async (req, res) => {
 
     oldBooking.passenger = passenger;
     oldBooking.items = bookingItems;
-    oldBooking.status = finalStatus;
+    // oldBooking.status = finalStatus; // REMOVED
+
     oldBooking.totalPrice = calculatedTotalPrice;
     oldBooking.totalTickets = calculatedTotalTickets;
     oldBooking.updatedAt = new Date().toISOString();
@@ -873,9 +947,11 @@ app.post("/api/bookings/swap", async (req, res) => {
     if (!trip) return res.status(404).json({ error: "Trip not found" });
 
     const booking1 = await Booking.findOne({
-      status: { $ne: "cancelled" },
-      items: { $elemMatch: { tripId, seatIds: seatId1 } },
+      totalTickets: { $gt: 0 },
+      "items.tickets.seatId": seatId1,
+      "items.tripId": tripId,
     });
+
     if (!booking1) {
       const s1 = trip.seats.find((s) => String(s.id) === String(seatId1));
       if (s1 && s1.status !== "available") {
@@ -891,8 +967,9 @@ app.post("/api/bookings/swap", async (req, res) => {
     }
 
     const booking2 = await Booking.findOne({
-      status: { $ne: "cancelled" },
-      items: { $elemMatch: { tripId, seatIds: seatId2 } },
+      totalTickets: { $gt: 0 },
+      "items.tickets.seatId": seatId2,
+      "items.tripId": tripId,
     });
 
     if (booking2) {
@@ -1021,7 +1098,15 @@ app.post("/api/bookings/transfer", async (req, res) => {
     const sourceSeatIds = seatTransfers.map((st) => String(st.sourceSeatId));
     const targetSeatIds = seatTransfers.map((st) => String(st.targetSeatId));
 
+    // Populate seatIds for logic if missing
+    booking.items.forEach((item) => {
+      if ((!item.seatIds || item.seatIds.length === 0) && item.tickets) {
+        item.seatIds = item.tickets.map((t) => t.seatId);
+      }
+    });
+
     const sourceItem = booking.items.find((i) => i.tripId === fromTripId);
+
     if (!sourceItem)
       return res
         .status(404)
@@ -1045,11 +1130,12 @@ app.post("/api/bookings/transfer", async (req, res) => {
     await fromTrip.save();
 
     const targetSeatStatus =
-      booking.status === "payment"
+      currentStatus === "payment"
         ? "sold"
-        : booking.status === "hold"
+        : currentStatus === "hold"
         ? "held"
         : "booked";
+
     toTrip.seats = toTrip.seats.map((s) =>
       targetSeatIds.includes(s.id) ? { ...s, status: targetSeatStatus } : s
     );
@@ -1126,8 +1212,17 @@ app.patch("/api/bookings/:id/tickets/:seatId", async (req, res) => {
       req.body;
     const booking = await Booking.findById(id);
     if (!booking) return res.status(404).json({ error: "Booking not found" });
+    const currentStatus = await deriveBookingStatus(booking);
+
+    // Populate seatIds for logic if missing
+    booking.items.forEach((item) => {
+      if ((!item.seatIds || item.seatIds.length === 0) && item.tickets) {
+        item.seatIds = item.tickets.map((t) => t.seatId);
+      }
+    });
 
     let targetTicket = null;
+
     let targetItem = null;
 
     let changes = [];
@@ -1294,7 +1389,7 @@ app.patch("/api/bookings/:id/tickets/:seatId", async (req, res) => {
 
       const refundAmount = targetTicket.price || 0;
 
-      if (refundAmount > 0 && booking.status !== "hold") {
+      if (refundAmount > 0 && currentStatus !== "hold") {
         const paymentRec = new Payment({
           bookingId: booking._id,
           totalAmount: -refundAmount,
@@ -1344,7 +1439,7 @@ app.patch("/api/bookings/:id/tickets/:seatId", async (req, res) => {
         0
       );
 
-      if (booking.totalTickets === 0) booking.status = "cancelled";
+      // if (booking.totalTickets === 0) booking.status = "cancelled"; // REMOVED
 
       await logBookingAction(
         booking._id,
@@ -1463,7 +1558,7 @@ app.post("/api/settings", async (req, res) => {
 
 app.post("/api/maintenance/fix-seats", async (req, res) => {
   try {
-    const allBookings = await Booking.find({ status: { $ne: "cancelled" } });
+    const allBookings = await Booking.find({ totalTickets: { $gt: 0 } });
     const allTrips = await Trip.find();
 
     let fixedCount = 0;
@@ -1484,7 +1579,7 @@ app.post("/api/maintenance/fix-seats", async (req, res) => {
           bookingOccupancy.get(key).push({
             bookingId: b._id.toString(),
             phone: b.passenger?.phone,
-            bookingStatus: b.status,
+            ticketStatus: ticketDetail ? ticketDetail.status : "booking", // NEW: Use ticket status
             ticketPrice: ticketDetail ? ticketDetail.price : 0,
             updatedAt: b.updatedAt,
           });
@@ -1551,7 +1646,7 @@ app.post("/api/maintenance/fix-seats", async (req, res) => {
 
           if (activeBooking) {
             let targetStatus = "booked";
-            if (activeBooking.bookingStatus === "hold") {
+            if (activeBooking.ticketStatus === "hold") {
               targetStatus = "held";
             } else {
               targetStatus = activeBooking.ticketPrice > 0 ? "sold" : "booked";
@@ -1653,8 +1748,11 @@ app.post("/api/maintenance/fix-payments", async (req, res) => {
         logs.push({
           route: booking.items[0]?.route || "N/A",
           date: booking.createdAt.split("T")[0],
-          seat: booking.items.flatMap((i) => i.seatIds).join(", "),
+          seat: booking.items
+            .flatMap((i) => i.tickets.map((t) => t.seatId))
+            .join(", "),
           action: "Chỉnh trạng thái",
+
           details: `Chuyển đơn từ Đã thanh toán -> Chờ thanh toán (Thực thu: ${totalPaid.toLocaleString()}đ).`,
         });
       }
@@ -1666,8 +1764,11 @@ app.post("/api/maintenance/fix-payments", async (req, res) => {
         logs.push({
           route: booking.items[0]?.route || "N/A",
           date: booking.createdAt.split("T")[0],
-          seat: booking.items.flatMap((i) => i.seatIds).join(", "),
+          seat: booking.items
+            .flatMap((i) => i.tickets.map((t) => t.seatId))
+            .join(", "),
           action: "Đồng bộ thanh toán",
+
           details: `Chuyển đơn từ Chờ thanh toán -> Đã thanh toán (Thành công khớp dòng tiền ${totalPaid.toLocaleString()}đ).`,
         });
       }
@@ -1689,8 +1790,11 @@ app.post("/api/maintenance/fix-payments", async (req, res) => {
         logs.push({
           route: booking.items[0]?.route || "N/A",
           date: booking.createdAt.split("T")[0],
-          seat: booking.items.flatMap((i) => i.seatIds).join(", "),
+          seat: booking.items
+            .flatMap((i) => i.tickets.map((t) => t.seatId))
+            .join(", "),
           action: "Sửa lỗi tổng tiền",
+
           details: `Tính lại tổng tiền vé: ${oldPrice.toLocaleString()}đ -> ${calculatedTotalPrice.toLocaleString()}đ.`,
         });
       }

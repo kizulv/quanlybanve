@@ -209,20 +209,20 @@ export const SeatMap: React.FC<SeatMapProps> = ({
             (seat.status === SeatStatus.SOLD ||
               seat.status === SeatStatus.BOOKED) && (
               <div className="mt-auto flex justify-end">
-                {displayExactBed ? (
-                  <span className="text-[8px] font-bold px-1 rounded border shadow-sm text-white bg-amber-500 border-amber-600">
-                    Xếp đúng
+                {displayPrice > 0 ? (
+                  <span
+                    className={`text-[9px] md:text-[10px] font-bold px-1 rounded border shadow-sm ${
+                      seat.status === SeatStatus.SOLD
+                        ? "text-green-700 bg-yellow-300 border-green-200/50"
+                        : "text-yellow-800 bg-yellow-200 border-yellow-300/50"
+                    }`}
+                  >
+                    {formatCurrency(displayPrice)}
                   </span>
                 ) : (
-                  displayPrice > 0 && (
-                    <span
-                      className={`text-[9px] md:text-[10px] font-bold px-1 rounded border shadow-sm ${
-                        seat.status === SeatStatus.SOLD
-                          ? "text-green-700 bg-yellow-300 border-green-200/50"
-                          : "text-yellow-800 bg-yellow-200 border-yellow-300/50"
-                      }`}
-                    >
-                      {formatCurrency(displayPrice)}
+                  displayExactBed && (
+                    <span className="text-[9px] md:text-[10px] font-normal px-1 rounded border shadow-sm text-white bg-amber-300 border-amber-500">
+                      Xếp đúng
                     </span>
                   )
                 )}
@@ -355,7 +355,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-slate-300">
               <span className="text-[8px] uppercase font-bold tracking-tighter">
-                {isFloor ? "SÀN" : "Trống"}
+                Trống
               </span>
             </div>
           )}
@@ -423,13 +423,13 @@ export const SeatMap: React.FC<SeatMapProps> = ({
   const renderFloorColumn = (title: string = "DÃY SÀN") => {
     return (
       <div className="relative overflow-hidden flex flex-col w-full">
-        <div className="text-center">
+        <div className="text-center hidden md:block">
           <span className="text-xs font-black text-white uppercase tracking-widest">
             SÀN
           </span>
         </div>
-        <div className="p-3 flex flex-col items-center gap-3">
-          <div className="flex gap-4 p-1.5 bg-slate-100 text-[9px] font-black text-slate-400 uppercase w-full justify-around rounded-lg">
+        <div className="bg-slate-50 border border-slate-200 md:border-none md:bg-transparent md:rounded-none rounded p-3 flex flex-col items-center gap-3">
+          <div className="flex gap-4 p-1.5 bg-slate-200 md:bg-slate-100 text-[9px] font-black text-slate-400 uppercase w-full justify-around rounded-lg">
             <span>Sàn</span>
           </div>
           {floorSeats
@@ -545,8 +545,8 @@ export const SeatMap: React.FC<SeatMapProps> = ({
   const renderSleeperFloorSection = () => {
     if (floorSeats.length === 0) return null;
     return (
-      <div className="px-4 py-2 bg-slate-100/50 rounded-xl">
-        <div className="text-center mb-4">
+      <div className="p-4 pt-2 bg-slate-50 rounded md:rounded-none">
+        <div className="text-center mb-4 hidden md:block">
           <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
             SÀN
           </span>
@@ -565,17 +565,16 @@ export const SeatMap: React.FC<SeatMapProps> = ({
       </div>
     );
   };
-
   if (busType === BusType.CABIN) {
     return (
       <div className="flex flex-col p-3">
-        <div className="flex flex-col md:flex-row w-full gap-4 justify-center items-start">
+        <div className="flex flex-col md:flex-row w-full gap-2 md:gap-4 justify-center items-start">
           {renderCabinColumn(0, "DÃY B")}
 
           {/* Mobile: Collapsible Floor */}
-          <div className="w-full md:hidden">
+          <div className="w-full md:hidden px-3">
             <Collapsible defaultOpen={false}>
-              <CollapsibleTrigger className="bg-indigo-50 hover:bg-indigo-100 p-2 rounded-lg font-bold text-indigo-700 text-[10px] uppercase tracking-wider w-full mb-2 flex justify-center border border-indigo-200">
+              <CollapsibleTrigger className="bg-slate-50 hover:bg-indigo-100 p-2 rounded font-bold text-slate-500 text-[10px] uppercase tracking-wider w-full mb-2 flex justify-center border border-slate-200">
                 <span>Ghế Sàn (Chạm để xem)</span>
               </CollapsibleTrigger>
               <CollapsibleContent>
@@ -616,9 +615,9 @@ export const SeatMap: React.FC<SeatMapProps> = ({
       </div>
 
       {/* Mobile: Collapsible Floor */}
-      <div className="w-full md:hidden">
+      <div className="w-full md:hidden px-3 md: ">
         <Collapsible defaultOpen={false}>
-          <CollapsibleTrigger className="bg-indigo-50 hover:bg-indigo-100 p-2 rounded-lg font-bold text-indigo-700 text-[10px] uppercase tracking-wider w-full mb-2 flex justify-center border border-indigo-200 mt-4">
+          <CollapsibleTrigger className="bg-slate-50 hover:bg-indigo-100 p-2 rounded font-bold text-slate-500 text-[10px] uppercase tracking-wider w-full mb-2 flex justify-center border border-slate-200 mt-4">
             <span>Ghế Sàn (Chạm để xem)</span>
           </CollapsibleTrigger>
           <CollapsibleContent>{renderSleeperFloorSection()}</CollapsibleContent>

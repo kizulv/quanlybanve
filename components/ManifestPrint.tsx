@@ -70,6 +70,22 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
         const ticket = tripItem.tickets?.find((t) => t.seatId === seatId);
         const groupIndex = seatIds.indexOf(seatId) + 1;
 
+        // Determine granular status for this specific seat
+        let seatStatus: "sold" | "booked" | "held" = "booked";
+        if (ticket?.status === "hold") {
+          seatStatus = "held";
+        } else if (ticket?.status === "payment" || (ticket?.price || 0) > 0) {
+          seatStatus = "sold";
+        } else {
+          // Fallback to booking level status if ticket status is ambiguous but booking says payment
+          // actually, if price is 0, it should probably remain 'booked' even if booking is 'payment' (partial payment scenario?)
+          // But let's stick to the rule: Price > 0 = Sold/Payment.
+          seatStatus = "booked";
+        }
+
+        // Special case: Override if booking is strictly HOLD
+        if (booking.status === "hold") seatStatus = "held";
+
         seatDataMap.set(seatId, {
           phone: booking.passenger.phone,
           pickup: ticket?.pickup || booking.passenger.pickupPoint || "",
@@ -77,7 +93,7 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
           price: ticket?.price || 0,
           // FIX: Ưu tiên ghi chú của từng vé, sau đó mới đến ghi chú chung của khách hàng
           note: ticket?.note || booking.passenger.note || "",
-          status: status,
+          status: seatStatus,
           exactBed: ticket?.exactBed, // ✅ Load exactBed
           groupIndex,
           groupTotal,
@@ -108,8 +124,8 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
     const A4_landscape = isCabin
       ? "size: A4 landscape; margin: 3mm;"
       : "size: A4 portrait; margin: 0;";
-    const A4_margin = isCabin ? "ml-[20mm]" : "mt-0";
-    const Manifest_RecordHight = "h-[94px]";
+    const A4_margin = isCabin ? "margin-left: 20mm;" : "margin-top: 0;";
+    const Manifest_RecordHight = isCabin ? "h-[98px]" : "h-[88px]";
     const Manifest_SeatFontSize = isCabin ? "text-[12px]" : "text-[10px]";
     let layoutHtml = "";
 
@@ -146,7 +162,7 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
         return `
           <div class="border-2 flex flex-col p-1 relative overflow-hidden ${
             statusColors.held
-          } ${Manifest_RecordHight}">
+          } ${Manifest_RecordHight} ">
             <div class="flex justify-between items-center border-b border-black/5 pb-0.5 mb-1">
               <span class="font-black text-[11px] text-black leading-none">${label}</span>
             </div>
@@ -163,15 +179,24 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
       return `
         <div class="border-2 flex flex-col p-1 relative overflow-hidden ${
           statusColors[data.status]
-        } ${Manifest_RecordHight}">
+        } ${Manifest_RecordHight} ${data.exactBed ? "bg-slate-100" : ""}">
           <div class="flex justify-between items-center border-b border-black/5 pb-0.5 mb-1">
             <span class="font-black text-[11px] text-black leading-none">${label}</span>
+            ${
+              data.price > 0
+                ? `<div class="text-[8px] font-semibold">Đã TT: ${
+                    data.price / 1000
+                  }</div>`
+                : `<div class="font-semibold text-[8px]">${
+                    data.exactBed ? "Chưa TT - Xếp đúng chỗ" : ""
+                  }</div>`
+            }
           </div>
           <div class="flex-1 flex flex-col overflow-hidden text-center">
             <div class="flex justify-center">
-            <span class="font-black text-[12px] leading-tight mr-1">${
-              data.phone
-            }</span>
+            <span class="font-black ${Manifest_SeatFontSize} leading-tight mr-1">${
+        data.phone
+      }</span>
             ${
               data.groupTotal && data.groupTotal > 1
                 ? ` <span class="text-[10px] font-normal">(${data.groupIndex}/${data.groupTotal})</span>`
@@ -184,15 +209,6 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
               data.note || ""
             }</div>
           </div>
-          ${
-            data.price > 0
-              ? `<div class="absolute bottom-0.5 right-1 font-black text-[8px] bg-white/60 px-0.5 py-1 rounded">Đã TT: ${
-                  data.price / 1000
-                }</div>`
-              : `<div class="absolute bottom-0.5 right-1 font-black text-[8px] py-1 bg-slate-100 px-0.5 rounded">Chưa TT${
-                  data.exactBed ? " - Xếp đúng" : ""
-                }</div>`
-          }
         </div>
       `;
     };
@@ -207,14 +223,14 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
       const rows = [0, 1, 2, 3, 4, 5];
 
       layoutHtml = `
-        <div class="flex gap-6 w-full h-[165mm] overflow-hidden">
+        <div class="flex gap-6 w-full h-[170mm] overflow-hidden">
           <div class="flex-1 flex flex-col">
             <div class="text-sm font-bold py-1 px-2 mb-1.5 text-center uppercase tracking-wider">Dãy B</div>
             <div class="flex flex-col justify-around h-full">
               ${rows
                 .map(
                   (r) => `
-                <div class="grid grid-cols-2 gap-1.5">
+                <div class="grid grid-cols-2 gap-0.5">
                   ${renderSeatHtml(
                     colB.find((s) => s.row === r && s.floor === 1)
                   )}
@@ -315,11 +331,11 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
       layoutHtml += `</div>`;
 
       if (benchSeatsF1.length > 0 || benchSeatsF2.length > 0) {
-        layoutHtml += `<div class="pt-2 space-y-3">`;
+        layoutHtml += `<div class="pt-2 space-y-1">`;
         if (benchSeatsF1.length > 0) {
           layoutHtml += `
               <div>
-                <div class="grid gap-1.5" style="grid-template-columns: repeat(${
+                <div class="grid gap-1" style="grid-template-columns: repeat(${
                   benchSeatsF1.length
                 }, 1fr)">
                   ${benchSeatsF1.map((s) => renderSeatHtml(s)).join("")}
@@ -330,7 +346,7 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
         if (benchSeatsF2.length > 0) {
           layoutHtml += `
               <div class="">
-                <div class="grid gap-1.5" style="grid-template-columns: repeat(${
+                <div class="grid gap-1" style="grid-template-columns: repeat(${
                   benchSeatsF2.length
                 }, 1fr)">
                   ${benchSeatsF2.map((s) => renderSeatHtml(s)).join("")}
@@ -379,8 +395,8 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
           .container-page { width: 100%; margin: 0 auto; display: flex; flex-direction: column; }
         </style>
       </head>
-      <body class="p-0 ${A4_margin} flex flex-col h-full">
-        <div class="container-page px-4 max-w-[297mm]">
+      <body class="p-0 flex flex-col h-full" style="${A4_margin}">
+        <div class="container-page px-4 max-w-[297mm] bg-white pb-4">
           <div class="flex justify-between items-center border-b-2 border-black py-2 mb-1">
             <div class="flex flex-col">
               <h1 class="text-md font-black uppercase leading-tight">BẢNG KÊ TUYẾN: ${
