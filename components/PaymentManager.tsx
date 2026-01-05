@@ -662,7 +662,7 @@ export const PaymentManager: React.FC = () => {
                         return (
                           <span
                             key={i}
-                            className={`w-7 h-6 flex items-center justify-center py-0.5 rounded border font-semibold text-[11px] ${badgeClass}`}
+                            className={`min-w-7 h-6 px-2 flex items-center justify-center py-0.5 rounded border font-semibold text-[11px] ${badgeClass}`}
                           >
                             {s.label}
                           </span>
@@ -873,7 +873,7 @@ export const PaymentManager: React.FC = () => {
                                               : "text-slate-600 border-slate-200 shadow-sm"
                                           } px-2 py-0.5 text-[10px] flex items-center gap-1.5 rounded-lg`}
                                         >
-                                          {s.id}{" "}
+                                          {s.label || s.id}{" "}
                                           {s.price > 0 && (
                                             <span className="border-l pl-1.5 ml-0.5 border-slate-500 text-slate-400 font-normal text-xs">
                                               {s.price.toLocaleString("vi-VN")}

@@ -193,7 +193,7 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
                   ? `${c === 0 ? "B" : "A"}${r + 1}`
                   : `${newLayoutSeats.length + 1}`);
               newLayoutSeats.push({
-                id: label,
+                id: key, // ✅ Position-based ID
                 label,
                 floor: f as 1 | 2,
                 status: SeatStatus.AVAILABLE,
@@ -212,7 +212,7 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
           if (config.activeSeats.includes(key)) {
             const label = config.seatLabels?.[key] || `Sàn ${i + 1}`;
             newLayoutSeats.push({
-              id: label,
+              id: key, // ✅ Position-based ID
               label,
               floor: 1,
               status: SeatStatus.AVAILABLE,
@@ -234,7 +234,7 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
                   config.seatLabels?.[key] ||
                   (bus.type === BusType.CABIN ? `G${i + 1}` : `B${f}-${i + 1}`);
                 newLayoutSeats.push({
-                  id: label,
+                  id: key, // ✅ Position-based ID
                   label,
                   floor: f as 1 | 2,
                   status: SeatStatus.AVAILABLE,
@@ -310,39 +310,55 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title={initialData ? "Cập nhật chuyến xe" : "Tạo lịch chạy mới"}
-      className="max-w-4xl"
+      className="max-w-4xl text-slate-900 border-indigo-900"
+      headerClassName="px-4 h-[40px] border-b border-indigo-900 flex items-center justify-between shrink-0 rounded-t-xl bg-gradient-to-r from-indigo-950 via-indigo-900 to-indigo-950 text-white text-xs font-semibold"
       footer={
-        <>
-          <Button variant="outline" onClick={onClose} disabled={isSaving}>
+        <div className="flex gap-3 justify-between">
+          <Button
+            variant="custom"
+            onClick={onClose}
+            disabled={isSaving}
+            className="bg-indigo-950 border-indigo-950 text-white hover:bg-indigo-900 hover:text-white h-8 px-6 text-xs font-bold min-w-25"
+          >
             Hủy bỏ
           </Button>
           <Button
+            variant="custom"
             onClick={handleSubmit}
             disabled={isSaving || !selectedRouteId || !selectedBusId}
-            className="min-w-30"
+            className={`h-8 font-bold text-xs transition-all min-w-35 border text-white ${
+              isSaving || !selectedRouteId || !selectedBusId
+                ? "bg-slate-700 opacity-40 cursor-not-allowed border-slate-700"
+                : "bg-indigo-950 border-indigo-950 text-white hover:bg-indigo-900 hover:text-white shadow-slate-500/20 active:scale-95"
+            }`}
           >
             {isSaving ? (
-              <Loader2 className="animate-spin mr-2" size={16} />
+              <>
+                <Loader2 className="animate-spin mr-2" size={16} />
+                Đang lưu...
+              </>
             ) : (
-              <CheckCircle2 className="mr-2" size={16} />
+              <>
+                <CheckCircle2 className="mr-2" size={16} />
+                {initialData ? "Cập nhật" : "Lưu chuyến"}
+              </>
             )}
-            {initialData ? "Cập nhật" : "Lưu chuyến"}
           </Button>
-        </>
+        </div>
       }
     >
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4">
         <div className="space-y-5">
-          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-            <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-4 pb-2 border-b border-slate-200 text-sm">
-              <MapPin size={18} className="text-primary" /> Thông tin tuyến
+          <div className="bg-slate-50/50 p-5 rounded border border-slate-200">
+            <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-3 pb-2 border-b border-slate-200 text-xs">
+              <MapPin size={16} className="text-indigo-600" /> Thông tin tuyến
             </h3>
             <div className="mb-4">
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">
+              <label className="block text-xs font-medium text-slate-700 mb-1.5">
                 Chọn tuyến đường <span className="text-red-500">*</span>
               </label>
               <select
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 bg-white text-sm"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500/20 bg-white text-xs outline-none transition-colors"
                 value={selectedRouteId}
                 onChange={(e) => setSelectedRouteId(e.target.value)}
                 disabled={!!preSelectedRouteId && !initialData}
@@ -358,17 +374,17 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
+              <label className="block text-xs font-medium text-slate-700 mb-2">
                 Chiều chạy
               </label>
-              <div className="flex gap-3">
+              <div className="flex gap-4">
                 <button
                   type="button"
                   onClick={() => setDirection("outbound")}
-                  className={`flex-1 p-3 rounded-lg border-2 transition-all ${
+                  className={`flex-1 p-3 rounded border-2 transition-all ${
                     direction === "outbound"
-                      ? "bg-blue-50 border-blue-500 text-blue-700 shadow-sm"
-                      : "bg-white border-slate-200"
+                      ? "bg-blue-50 border-blue-500 text-blue-700"
+                      : "bg-white border-slate-200 hover:border-slate-300"
                   }`}
                 >
                   <div className="flex items-center gap-2 font-bold text-sm">
@@ -379,10 +395,10 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setDirection("inbound")}
-                  className={`flex-1 p-3 rounded-lg border-2 transition-all ${
+                  className={`flex-1 p-3 rounded border-2 transition-all ${
                     direction === "inbound"
-                      ? "bg-orange-50 border-orange-500 text-orange-700 shadow-sm"
-                      : "bg-white border-slate-200"
+                      ? "bg-orange-50 border-orange-500 text-orange-700"
+                      : "bg-white border-slate-200 hover:border-slate-300"
                   }`}
                 >
                   <div className="flex items-center gap-2 font-bold text-sm">
@@ -394,16 +410,16 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
+            <label className="block text-xs font-medium text-slate-700 mb-2">
               Chọn xe vận hành <span className="text-red-500">*</span>
             </label>
             {!selectedRouteId ? (
-              <div className="bg-slate-100 border border-slate-200 border-dashed rounded-lg p-8 flex flex-col items-center justify-center text-slate-400">
+              <div className="bg-slate-100 border border-slate-200 border-dashed rounded p-8 flex flex-col items-center justify-center text-slate-400">
                 <BusFront size={24} className="mb-2 opacity-50" />
                 <span className="text-sm">Vui lòng chọn tuyến đường trước</span>
               </div>
             ) : filteredBuses.length === 0 ? (
-              <div className="text-sm text-red-600 bg-red-50 p-4 rounded-lg border border-red-100 flex flex-col items-center gap-2 text-center">
+              <div className="text-sm text-red-600 bg-red-50 p-4 rounded border border-red-100 flex flex-col items-center gap-2 text-center">
                 <AlertTriangle size={24} />
                 <p>Không tìm thấy xe phù hợp.</p>
               </div>
@@ -414,17 +430,17 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
                     key={bus.id}
                     type="button"
                     onClick={() => setSelectedBusId(bus.id)}
-                    className={`relative flex flex-col items-start p-3 rounded-lg border transition-all text-left group ${
+                    className={`relative flex flex-col items-start p-3.5 rounded border transition-all text-left group ${
                       bus.id === selectedBusId
-                        ? "bg-primary/5 border-primary ring-1 ring-primary"
-                        : "bg-white border-slate-200"
+                        ? "bg-indigo-50 border-indigo-500 ring-1 ring-indigo-500"
+                        : "bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50"
                     }`}
                   >
                     <div className="flex items-start justify-between w-full mb-1">
                       <span
                         className={`font-bold text-sm ${
                           bus.id === selectedBusId
-                            ? "text-primary"
+                            ? "text-indigo-700"
                             : "text-slate-800"
                         }`}
                       >
@@ -452,49 +468,49 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
           </div>
         </div>
         <div className="space-y-5">
-          <div className="bg-white p-4 rounded-xl border border-slate-200 h-full flex flex-col shadow-sm">
-            <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-4 pb-2 border-b border-slate-200 text-sm">
-              <Clock size={18} className="text-primary" /> Thời gian & Giá vé
+          <div className="bg-white p-5 rounded border border-slate-200 h-full flex flex-col">
+            <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-3 pb-2 border-b border-slate-200 text-xs">
+              <Clock size={16} className="text-indigo-600" /> Thời gian & Giá vé
             </h3>
             <div className="space-y-5 flex-1">
-              <div className="bg-blue-50 text-blue-800 px-4 py-3 rounded-lg flex items-center gap-3 border border-blue-100">
-                <Calendar className="text-blue-600" size={24} />
+              <div className="bg-indigo-50 text-indigo-800 px-4 py-3 rounded flex items-center gap-3 border border-indigo-100">
+                <Calendar className="text-indigo-600" size={20} />
                 <div>
-                  <div className="text-xs font-semibold uppercase tracking-wider text-blue-600/80">
+                  <div className="text-[10px] font-semibold uppercase tracking-wider text-indigo-600/80">
                     Ngày khởi hành
                   </div>
-                  <div className="font-bold text-lg leading-none">
+                  <div className="font-bold text-base leading-none">
                     {targetDate.toLocaleDateString("vi-VN")}
                   </div>
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                <label className="block text-xs font-medium text-slate-700 mb-1.5">
                   Giờ khởi hành
                 </label>
                 <input
                   title="Giờ khởi hành"
                   type="time"
                   required
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500/20 outline-none text-xs transition-colors hover:border-slate-400"
                   value={time}
                   onChange={(e) => setTime(e.target.value)}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                <label className="block text-xs font-medium text-slate-700 mb-1.5">
                   Giá vé (VNĐ)
                 </label>
                 <CurrencyInput
                   required
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none font-bold"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500/20 outline-none font-bold text-xs transition-colors hover:border-slate-400"
                   value={price}
                   onChange={(e) => setPrice(parseCurrency(e.target.value))}
                 />
               </div>
-              <div className="mt-auto pt-4 border-t border-slate-100">
-                <div className="flex items-start gap-2 text-xs text-slate-500 bg-slate-50 p-2 rounded border border-slate-100">
-                  <Info size={14} className="shrink-0 mt-0.5 text-slate-400" />
+              <div className="mt-auto pt-4 border-t border-slate-200">
+                <div className="flex items-start gap-2 text-[10px] text-slate-600 bg-indigo-50/30 p-3 rounded border border-indigo-100">
+                  <Info size={14} className="shrink-0 mt-0.5 text-indigo-400" />
                   <p>
                     Hệ thống bảo toàn số ghế cũ dựa trên mã số ghế khi bạn thay
                     đổi xe hoặc cập nhật thông tin.

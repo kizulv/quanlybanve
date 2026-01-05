@@ -466,16 +466,26 @@ export const RightSheet: React.FC<RightSheetProps> = ({
                                             (!ticket?.status &&
                                               booking.status === "payment");
 
+                                          // Lấy label từ trip
+                                          const trip = trips.find(
+                                            (t) => t.id === item.tripId
+                                          );
+                                          const seat = trip?.seats?.find(
+                                            (seat) =>
+                                              String(seat.id) === String(s)
+                                          );
+                                          const label = seat?.label || s;
+
                                           return (
                                             <span
                                               key={s}
-                                              className={`w-7 h-6 flex items-center justify-center py-0.5 rounded border font-semibold ${
+                                              className={`min-w-7 h-6 px-2 flex items-center justify-center py-0.5 rounded border font-semibold ${
                                                 isPaid
                                                   ? "bg-blue-50 border-blue-200 text-blue-700"
                                                   : "bg-amber-50 border-amber-200 text-amber-700"
                                               }`}
                                             >
-                                              {s}
+                                              {label}
                                             </span>
                                           );
                                         })}
@@ -581,6 +591,7 @@ export const RightSheet: React.FC<RightSheetProps> = ({
         isOpen={!!viewHistoryBooking}
         onClose={() => setViewHistoryBooking(null)}
         booking={viewHistoryBooking}
+        trips={trips}
       />
     </>
   );

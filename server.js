@@ -1946,6 +1946,250 @@ app.post("/api/maintenance/fix-floor-seats", async (req, res) => {
   }
 });
 
+// Reset Bus Configs to Standard Defaults
+app.post("/api/maintenance/reset-bus-configs", async (req, res) => {
+  try {
+    const logs = [];
+    let cabinCount = 0;
+    let sleeperCount = 0;
+
+    const buses = await Bus.find();
+
+    for (const bus of buses) {
+      const isCabin = bus.type === "CABIN";
+      let defaultConfig;
+
+      if (isCabin) {
+        // CABIN: 24 phòng + 6 sàn = 30 chỗ
+        const active = [];
+        for (let f = 1; f <= 2; f++) {
+          for (let r = 0; r < 6; r++) {
+            for (let c = 0; c < 2; c++) {
+              active.push(`${f}-${r}-${c}`);
+            }
+          }
+        }
+        for (let i = 0; i < 6; i++) {
+          active.push(`1-floor-${i}`);
+        }
+
+        const labels = {};
+        for (let i = 0; i < 6; i++) {
+          labels[`1-floor-${i}`] = `Sàn ${i + 1}`;
+        }
+        for (let c = 0; c < 2; c++) {
+          const prefix = c === 0 ? "B" : "A";
+          for (let f = 1; f <= 2; f++) {
+            for (let r = 0; r < 6; r++) {
+              const key = `${f}-${r}-${c}`;
+              const num = r * 2 + f;
+              labels[key] = `${prefix}${num}`;
+            }
+          }
+        }
+
+        defaultConfig = {
+          floors: 2,
+          rows: 6,
+          cols: 2,
+          activeSeats: active,
+          seatLabels: labels,
+          hasRearBench: false,
+          benchFloors: [],
+          hasFloorSeats: true,
+          floorSeatCount: 6,
+        };
+        cabinCount++;
+      } else {
+        // SLEEPER: 36 giường + băng tầng 2 = 41 chỗ
+        const active = [];
+        for (let f = 1; f <= 2; f++) {
+          for (let r = 0; r < 6; r++) {
+            for (let c = 0; c < 3; c++) {
+              active.push(`${f}-${r}-${c}`);
+            }
+          }
+        }
+        for (let i = 0; i < 5; i++) {
+          active.push(`2-bench-${i}`);
+        }
+
+        const labels = {};
+        const regularSeats = active.filter((k) => !k.includes("bench"));
+        regularSeats.sort((a, b) => {
+          const [af, ar, ac] = a.split("-").map(Number);
+          const [bf, br, bc] = b.split("-").map(Number);
+          if (ar !== br) return ar - br;
+          if (af !== bf) return af - bf;
+          return ac - bc;
+        });
+        regularSeats.forEach((key, idx) => {
+          labels[key] = (idx + 1).toString();
+        });
+
+        defaultConfig = {
+          floors: 2,
+          rows: 6,
+          cols: 3,
+          activeSeats: active,
+          seatLabels: labels,
+          hasRearBench: false,
+          benchFloors: [2],
+          hasFloorSeats: false,
+          floorSeatCount: 0,
+        };
+        sleeperCount++;
+      }
+
+      bus.layoutConfig = defaultConfig;
+      bus.markModified("layoutConfig");
+      await bus.save();
+
+      logs.push({
+        route: "N/A",
+        date: new Date().toLocaleDateString("vi-VN"),
+        seat: "Bus Config",
+        action: `Reset ${bus.type}`,
+        details: `Reset xe ${bus.plate}: ${defaultConfig.activeSeats.length} ghế`,
+      });
+    }
+
+    res.json({
+      logs,
+      cabinCount,
+      sleeperCount,
+      totalCount: buses.length,
+    });
+  } catch (e) {
+    console.error("Reset bus configs error:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Sync Trip Seatmaps from Bus Configs (NO bus config changes)
+app.post("/api/maintenance/sync-bus-layouts", async (req, res) => {
+  try {
+    const logs = [];
+    let tripUpdateCount = 0;
+
+    const buses = await Bus.find();
+
+    for (const bus of buses) {
+      // KHÔNG thay đổi bus.layoutConfig - chỉ đọc config hiện tại
+      const config = bus.layoutConfig;
+      if (!config || !config.activeSeats) {
+        logs.push({
+          route: "N/A",
+          date: new Date().toLocaleDateString("vi-VN"),
+          seat: "Skip",
+          action: "No Config",
+          details: `Bỏ qua xe ${bus.plate}: không có layoutConfig`,
+        });
+        continue;
+      }
+
+      // Sync trips với bus này
+      const trips = await Trip.find({ licensePlate: bus.plate });
+
+      console.log(
+        `[DEBUG] Syncing bus ${bus.plate} (${bus.type}): ${config.activeSeats.length} seats in config, ${trips.length} trips found`
+      );
+
+      for (const trip of trips) {
+        // Generate seats từ bus config HIỆN TẠI
+        const newSeats = config.activeSeats.map((key) => {
+          const parts = key.split("-");
+          const floor = parseInt(parts[0]);
+          const label = config.seatLabels[key] || key;
+
+          // Parse row, col từ seat ID
+          let row = 0;
+          let col = 0;
+          let isFloorSeat = false;
+          let isBench = false;
+
+          if (key.includes("floor")) {
+            // Floor seat: "1-floor-0"
+            isFloorSeat = true;
+            row = parseInt(parts[2]);
+          } else if (key.includes("bench")) {
+            // Bench seat: "2-bench-0"
+            isBench = true;
+            row = 6; // Row 6 - sau các regular seats (0-5)
+            col = parseInt(parts[2]);
+          } else {
+            // Regular seat: "1-0-0" (floor-row-col)
+            row = parseInt(parts[1]);
+            col = parseInt(parts[2]);
+          }
+
+          return {
+            id: key, // ✅ Dùng position-based ID cho TẤT CẢ: stable khi đổi label
+            label: label, // Label chỉ là display name, có thể đổi tùy ý
+            status: "available",
+            floor: floor,
+            row: row,
+            col: col,
+            isFloorSeat: isFloorSeat,
+            isBench: isBench,
+          };
+        });
+
+        // Preserve booking status for matching seats only
+        if (trip.seats && trip.seats.length > 0) {
+          let preservedCount = 0;
+
+          trip.seats.forEach((oldSeat) => {
+            const newSeat = newSeats.find(
+              (s) => String(s.id) === String(oldSeat.id)
+            );
+            if (newSeat && oldSeat.status !== "available") {
+              // Match found - preserve status
+              newSeat.status = oldSeat.status;
+              preservedCount++;
+            }
+            // No else - seats không match sẽ bị bỏ qua
+          });
+
+          if (preservedCount > 0) {
+            console.log(
+              `[DEBUG] Preserved ${preservedCount} booking statuses for trip ${trip.id}`
+            );
+          }
+        }
+
+        console.log(
+          `[DEBUG] Trip ${trip.id} (${trip.type || "NO TYPE"}): Old seats: ${
+            trip.seats?.length || 0
+          }, New seats: ${newSeats.length}`
+        );
+
+        trip.seats = newSeats;
+        trip.markModified("seats");
+        await trip.save();
+        tripUpdateCount++;
+
+        logs.push({
+          route: trip.route || "N/A",
+          date: trip.departureTime || new Date().toLocaleDateString("vi-VN"),
+          seat: "Trip Seats",
+          action: "Sync từ Bus",
+          details: `Sync chuyến ${trip.licensePlate}: ${newSeats.length} ghế (${bus.type})`,
+        });
+      }
+    }
+
+    res.json({
+      logs,
+      tripUpdateCount,
+      totalCount: buses.length,
+    });
+  } catch (e) {
+    console.error("Sync trip seatmaps error:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.listen(PORT, "0.0.0.0", async () => {
   console.log(`🚀 Server running on http://0.0.0.0:${PORT}`);
 });

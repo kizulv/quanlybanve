@@ -173,20 +173,29 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
     });
 
     if (currentBusType === BusType.CABIN) {
-      for (let col = 0; col < colsCount; col++) {
-        let prefix = col === 0 ? "B" : "A";
-        const colSeats = activeSeats.filter((key) => {
+      // CABIN: Mỗi dãy A và B có 12 phòng (6 hàng × 2 tầng)
+      // Đánh số theo hàng: Hàng 0 floor 1=1, floor 2=2; Hàng 1 floor 1=3, floor 2=4; ...
+
+      // Lấy tất cả regular seats
+      const regularSeats = activeSeats.filter((key) => {
+        const k = parseKey(key);
+        return !k.isBench && !k.isFloor;
+      });
+
+      // Đánh số cho từng dãy riêng biệt
+      for (let layoutCol = 0; layoutCol < colsCount; layoutCol++) {
+        const prefix = layoutCol === 0 ? "B" : "A";
+
+        // Lấy seats của dãy này
+        const dãySeats = regularSeats.filter((key) => {
           const k = parseKey(key);
-          return !k.isBench && !k.isFloor && k.c === col;
+          return k.c === layoutCol;
         });
-        const uniqueRows = Array.from(
-          new Set(colSeats.map((s) => parseKey(s).r))
-        ).sort((a, b) => a - b);
-        colSeats.forEach((key) => {
+
+        // Đánh số: row * 2 + floor
+        dãySeats.forEach((key) => {
           const k = parseKey(key);
-          const logicalRowIndex = uniqueRows.indexOf(k.r);
-          // 22 phòng thường đánh số A1-A11, B1-B11 (nếu 1 tầng) hoặc xen kẽ
-          const num = logicalRowIndex + 1;
+          const num = k.r * 2 + k.floor;
           newLabels[key] = `${prefix}${num}`;
         });
       }
@@ -209,29 +218,45 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
 
   const initDefaultConfig = (busType: BusType) => {
     let active: string[] = [];
-    let rows = 11;
+    let rows = 6;
     let cols = 2;
     let hasBench = false;
+    let hasFloor = false;
+    let floorCount = 0;
 
     if (busType === BusType.CABIN) {
-      rows = 11; // 11 hàng * 2 dãy = 22 phòng
-      cols = 2;
-      for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-          active.push(`1-${r}-${c}`);
+      rows = 6; // 6 hàng
+      cols = 2; // 2 dãy (B và A)
+
+      // Tạo seats cho 2 floors (tầng 1 và tầng 2)
+      // Floor 1 = tầng 1, Floor 2 = tầng 2
+      for (let f = 1; f <= 2; f++) {
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            active.push(`${f}-${r}-${c}`);
+          }
         }
       }
+
+      // Thêm 6 ghế sàn ở giữa
+      for (let i = 0; i < 6; i++) {
+        active.push(`1-floor-${i}`);
+      }
       hasBench = false;
+      hasFloor = true;
+      floorCount = 6;
     } else {
-      rows = 6; // 6 hàng * 3 dãy * 2 tầng = 36 chỗ + 5 băng cuối = 41 chỗ
+      rows = 6; // 6 hàng × 3 dãy × 2 tầng = 36 chỗ + 5 băng cuối = 41 chỗ
       cols = 3;
       for (let f = 1; f <= 2; f++) {
         for (let r = 0; r < rows; r++) {
           for (let c = 0; c < cols; c++) active.push(`${f}-${r}-${c}`);
         }
       }
-      for (let i = 0; i < 5; i++) active.push(`1-bench-${i}`);
+      for (let i = 0; i < 5; i++) active.push(`2-bench-${i}`);
       hasBench = true;
+      hasFloor = false;
+      floorCount = 0;
     }
 
     const finalLabels = recalculateLabels(active, busType, cols, {});
@@ -242,9 +267,9 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
       activeSeats: active,
       seatLabels: finalLabels,
       hasRearBench: hasBench,
-      benchFloors: [1],
-      hasFloorSeats: false,
-      floorSeatCount: 0,
+      benchFloors: [2],
+      hasFloorSeats: hasFloor,
+      floorSeatCount: floorCount,
     });
   };
 
@@ -293,8 +318,11 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
 
   const handleRowChange = (newRows: number) => {
     let newActive = [...config.activeSeats];
+    const isCabin = type === BusType.CABIN;
+    const maxFloor = isCabin ? 1 : 2; // CABIN chỉ có 1 tầng, SLEEPER có 2 tầng
+
     if (newRows > config.rows) {
-      for (let f = 1; f <= 2; f++) {
+      for (let f = 1; f <= maxFloor; f++) {
         for (let r = config.rows; r < newRows; r++) {
           for (let c = 0; c < config.cols; c++) {
             const key = `${f}-${r}-${c}`;
@@ -321,6 +349,8 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
   const toggleRearBenchMaster = (checked: boolean) => {
     let newActive = [...config.activeSeats];
     let newLabels = { ...config.seatLabels };
+
+    // Toggle băng tầng 1 (optional)
     if (checked) {
       const f = 1;
       for (let i = 0; i < 5; i++) {
@@ -328,15 +358,32 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
         if (!newActive.includes(key)) newActive.push(key);
       }
     } else {
-      newActive = newActive.filter((k) => !k.includes("bench"));
+      // Chỉ xóa băng tầng 1, giữ băng tầng 2
+      newActive = newActive.filter((k) => !k.startsWith("1-bench-"));
     }
+
     newLabels = recalculateLabels(newActive, type, config.cols, newLabels);
+
+    // benchFloors: [2] mặc định (tầng 2 always on), [1,2] khi bật cả 2
+    const currentBenchFloors = [...(config.benchFloors || [])];
+    let newBenchFloors = currentBenchFloors;
+
+    if (checked) {
+      // Thêm tầng 1
+      if (!newBenchFloors.includes(1)) {
+        newBenchFloors = [...newBenchFloors, 1].sort();
+      }
+    } else {
+      // Xóa tầng 1, giữ tầng 2
+      newBenchFloors = newBenchFloors.filter((f) => f !== 1);
+    }
+
     setConfig({
       ...config,
-      hasRearBench: checked,
+      hasRearBench: checked, // Chỉ track băng tầng 1
       activeSeats: newActive,
       seatLabels: newLabels,
-      benchFloors: checked ? [1] : [],
+      benchFloors: newBenchFloors,
     });
   };
 
@@ -397,7 +444,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
             isBench
               ? "h-9 w-7 text-[10px]"
               : isFloor
-              ? "h-8 w-11 text-[9px]"
+              ? "h-11 w-12 text-xs"
               : "h-11 w-12 text-xs"
           }
           ${isEditing ? "ring-2 ring-primary ring-offset-2 z-10" : ""}
@@ -427,32 +474,48 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
         isOpen={isOpen}
         onClose={onClose}
         title={initialData ? "Cập nhật thông tin xe" : "Thêm xe mới"}
-        className="max-w-6xl w-full"
+        className="max-w-6xl w-full text-slate-900 border-indigo-900"
+        headerClassName="px-4 h-[40px] border-b border-indigo-900 flex items-center justify-between shrink-0 rounded-t-xl bg-gradient-to-r from-indigo-950 via-indigo-900 to-indigo-950 text-white text-xs font-semibold"
         footer={
-          <>
-            <Button variant="outline" onClick={onClose} disabled={isSaving}>
+          <div className="flex gap-3">
+            <Button
+              variant="custom"
+              onClick={onClose}
+              disabled={isSaving}
+              className="bg-indigo-950 border-indigo-950 text-white hover:bg-indigo-900 hover:text-white h-8 px-6 text-xs font-bold min-w-20"
+            >
               Đóng
             </Button>
             <Button
+              variant="custom"
               onClick={handleSave}
-              className="flex items-center gap-2"
               disabled={isSaving || !plate}
+              className={`h-8 font-bold text-xs transition-all min-w-30 border text-white flex items-center gap-2 ${
+                isSaving || !plate
+                  ? "bg-slate-700 opacity-40 cursor-not-allowed border-slate-700"
+                  : "bg-indigo-950 border-indigo-950 text-white hover:bg-indigo-900 hover:text-white active:scale-95"
+              }`}
             >
               {isSaving ? (
-                <Loader2 className="animate-spin" size={16} />
+                <>
+                  <Loader2 className="animate-spin" size={16} />
+                  Đang lưu...
+                </>
               ) : (
-                <Save size={16} />
+                <>
+                  <Save size={16} />
+                  Lưu cấu hình
+                </>
               )}
-              {isSaving ? "Đang lưu..." : "Lưu cấu hình"}
             </Button>
-          </>
+          </div>
         }
       >
-        <div className="grid grid-cols-12 gap-6 lg:h-[70vh]">
-          <div className="col-span-12 lg:col-span-4 h-full flex flex-col gap-4 overflow-y-auto pr-2">
-            <div className="bg-slate-50 p-5 rounded-xl border border-slate-200">
-              <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-4 pb-2 border-b border-slate-200 text-sm">
-                <Info size={18} /> Thông tin xe
+        <div className="grid grid-cols-12 gap-6">
+          <div className="col-span-12 lg:col-span-4 h-full flex flex-col gap-4 overflow-y-auto pr-2 p-4">
+            <div className="bg-slate-50/50 p-5 rounded border border-slate-200">
+              <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-4 pb-2 border-b border-slate-200 text-xs">
+                <Info size={16} /> Thông tin xe
               </h3>
               <div className="space-y-4">
                 <div>
@@ -463,7 +526,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
                     value={plate}
                     onChange={(e) => setPlate(e.target.value)}
                     placeholder="29B-123.45"
-                    className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none bg-white text-slate-900 shadow-sm font-bold text-sm"
+                    className="w-full px-4 py-2 border border-slate-300 rounded focus:ring-2 focus:ring-indigo-500/20 outline-none bg-white text-slate-900 font-bold text-xs transition-colors hover:border-slate-400"
                   />
                 </div>
                 <div>
@@ -474,7 +537,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
                     value={phoneNumber}
                     onChange={handlePhoneChange}
                     placeholder="0912 076 076"
-                    className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none bg-white text-sm"
+                    className="w-full px-4 py-2 border border-slate-300 rounded focus:ring-2 focus:ring-indigo-500/20 outline-none bg-white text-xs transition-colors hover:border-slate-400"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -485,7 +548,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
                     <select
                       value={status}
                       onChange={handleStatusChange}
-                      className="w-full px-2 py-2 border border-slate-200 rounded-lg bg-white text-xs"
+                      className="w-full px-2 py-2 border border-slate-200 rounded bg-white text-xs"
                     >
                       <option value="Hoạt động">Hoạt động</option>
                       <option value="Xe thuê/Tăng cường">
@@ -502,7 +565,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
                       value={defaultRouteId}
                       onChange={(e) => setDefaultRouteId(e.target.value)}
                       disabled={status !== "Hoạt động"}
-                      className="w-full px-2 py-2 border border-slate-200 rounded-lg text-xs disabled:bg-slate-100"
+                      className="w-full px-2 py-2 border border-slate-200 rounded text-xs disabled:bg-slate-100"
                     >
                       <option value="">-- Chọn --</option>
                       {routes
@@ -523,13 +586,15 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
                     <button
                       type="button"
                       onClick={() => {
-                        setType(BusType.CABIN);
-                        initDefaultConfig(BusType.CABIN);
+                        const newType = BusType.CABIN;
+                        setType(newType);
+                        // Force reset config khi chuyển loại, bất kể đang edit hay tạo mới
+                        initDefaultConfig(newType);
                       }}
-                      className={`flex-1 p-3 rounded-lg border-2 transition-all ${
+                      className={`flex-1 p-3 rounded border-2 transition-all ${
                         type === BusType.CABIN
-                          ? "border-primary bg-blue-50"
-                          : "border-slate-200 bg-white"
+                          ? "border-indigo-500 bg-indigo-50"
+                          : "border-slate-200 bg-white hover:border-slate-300"
                       }`}
                     >
                       <div className="font-bold text-xs">Xe phòng VIP (22)</div>
@@ -537,13 +602,15 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
                     <button
                       type="button"
                       onClick={() => {
-                        setType(BusType.SLEEPER);
-                        initDefaultConfig(BusType.SLEEPER);
+                        const newType = BusType.SLEEPER;
+                        setType(newType);
+                        // Force reset config khi chuyển loại, bất kể đang edit hay tạo mới
+                        initDefaultConfig(newType);
                       }}
-                      className={`flex-1 p-3 rounded-lg border-2 transition-all ${
+                      className={`flex-1 p-3 rounded border-2 transition-all ${
                         type === BusType.SLEEPER
-                          ? "border-primary bg-blue-50"
-                          : "border-slate-200 bg-white"
+                          ? "border-indigo-500 bg-indigo-50"
+                          : "border-slate-200 bg-white hover:border-slate-300"
                       }`}
                     >
                       <div className="font-bold text-xs">Giường đơn (41)</div>
@@ -553,12 +620,12 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
               </div>
             </div>
 
-            <div className="bg-white p-5 rounded-xl border border-slate-200 flex-1 flex flex-col shadow-sm">
-              <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-4 pb-2 border-b border-slate-100 text-sm">
-                <Settings2 size={18} /> Cấu hình sơ đồ
+            <div className="bg-white p-5 rounded border border-slate-200 flex-1 flex flex-col">
+              <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-4 pb-2 border-b border-slate-100 text-xs">
+                <Settings2 size={16} /> Cấu hình sơ đồ
               </h3>
               <div className="space-y-6">
-                <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-4">
+                <div className="bg-slate-50/50 p-3 rounded border border-slate-200 space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex flex-col">
                       <span className="text-xs font-bold text-slate-700">
@@ -608,9 +675,9 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
               </div>
               <div className="mt-auto pt-4">
                 {editingSeat ? (
-                  <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg animate-in fade-in slide-in-from-bottom-2">
+                  <div className="bg-indigo-50 border border-indigo-200 p-3 rounded">
                     <div className="flex justify-between items-center mb-2">
-                      <span className="text-xs font-bold text-blue-700 uppercase">
+                      <span className="text-xs font-bold text-indigo-700 uppercase">
                         Đổi tên ghế
                       </span>
                       <button title="Hủy" onClick={() => setEditingSeat(null)}>
@@ -634,7 +701,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
                     />
                     <Button
                       size="sm"
-                      className="w-full h-8 bg-blue-600 text-white"
+                      className="w-full h-8 bg-indigo-600 text-white text-xs"
                       onClick={handleUpdateLabel}
                     >
                       Cập nhật
@@ -650,7 +717,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
             </div>
           </div>
 
-          <div className="col-span-12 lg:col-span-8 h-full bg-slate-100/50 rounded-xl border border-slate-200 overflow-hidden relative flex flex-col">
+          <div className="col-span-12 lg:col-span-8 h-full bg-slate-100/50 overflow-hidden relative flex flex-col">
             <div className="absolute top-4 right-4 bg-white/90 backdrop-blur px-3 py-1 rounded-full text-xs font-bold text-primary shadow-sm z-10">
               Tổng: {config.activeSeats.length} chỗ
             </div>
@@ -658,7 +725,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
               <div className="min-h-full min-w-full flex flex-col justify-center items-center gap-6">
                 {type === BusType.CABIN ? (
                   <div className="flex gap-4 md:gap-12">
-                    <div className="bg-white rounded-2xl border border-slate-300 w-45 overflow-hidden shadow-sm">
+                    <div className="bg-white rounded border border-slate-300 w-45 overflow-hidden">
                       <div className="bg-slate-50 border-b py-2 text-center text-[10px] font-bold text-slate-500">
                         DÃY B (PHÒNG LẺ)
                       </div>
@@ -672,7 +739,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
                       </div>
                     </div>
                     {config.hasFloorSeats && (
-                      <div className="w-20 bg-slate-200/50 rounded-xl border border-dashed border-slate-300 flex flex-col items-center p-2 gap-2">
+                      <div className="w-20 bg-slate-200/50 rounded border border-dashed border-slate-300 flex flex-col items-center p-2 gap-2">
                         <div className="text-[9px] font-bold text-slate-400 uppercase mb-1">
                           SÀN
                         </div>
@@ -686,7 +753,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
                         ))}
                       </div>
                     )}
-                    <div className="bg-white rounded-2xl border border-slate-300 w-45 overflow-hidden shadow-sm">
+                    <div className="bg-white rounded  border border-slate-300 w-45 overflow-hidden">
                       <div className="bg-slate-50 border-b py-2 text-center text-[10px] font-bold text-slate-500">
                         DÃY A (PHÒNG CHẴN)
                       </div>
@@ -706,7 +773,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
                       {[1, 2].map((floor) => (
                         <div
                           key={floor}
-                          className="bg-white rounded-2xl border border-slate-300 w-50 overflow-hidden shadow-sm"
+                          className="bg-white rounded border border-slate-300 w-50 overflow-hidden"
                         >
                           <div className="bg-slate-50 border-b py-2 text-center text-[10px] font-bold text-slate-500">
                             TẦNG {floor}
@@ -724,25 +791,24 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
                                 ))
                               )}
                             </div>
-                            {config.hasRearBench &&
-                              config.benchFloors?.includes(floor) && (
-                                <div className="flex justify-center gap-1 mt-1 pt-1 border-t border-dashed border-slate-200">
-                                  {[...Array(5)].map((_, i) => (
-                                    <SeatButton
-                                      key={i}
-                                      isBench={true}
-                                      index={i}
-                                      floor={floor}
-                                    />
-                                  ))}
-                                </div>
-                              )}
+                            {config.benchFloors?.includes(floor) && (
+                              <div className="flex justify-center gap-1 mt-1 pt-1 border-t border-dashed border-slate-200">
+                                {[...Array(5)].map((_, i) => (
+                                  <SeatButton
+                                    key={i}
+                                    isBench={true}
+                                    index={i}
+                                    floor={floor}
+                                  />
+                                ))}
+                              </div>
+                            )}
                           </div>
                         </div>
                       ))}
                     </div>
                     {config.hasFloorSeats && (
-                      <div className="w-full max-w-105 bg-slate-200/50 rounded-xl border border-dashed border-slate-300 p-4">
+                      <div className="w-full max-w-105 bg-slate-200/50 rounded border border-dashed border-slate-300 p-4">
                         <div className="text-center mb-3 text-[9px] font-bold text-slate-400 uppercase">
                           DÃY VÉ SÀN NẰM (GIỮA LỐI ĐI)
                         </div>

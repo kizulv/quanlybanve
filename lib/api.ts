@@ -246,5 +246,11 @@ export const api = {
       fetchJson(`${API_URL}/maintenance/fix-payments/`, { method: "POST" }),
     fixFloorSeats: () =>
       fetchJson(`${API_URL}/maintenance/fix-floor-seats/`, { method: "POST" }),
+    resetBusConfigs: () =>
+      fetchJson(`${API_URL}/maintenance/reset-bus-configs/`, {
+        method: "POST",
+      }),
+    syncBusLayouts: () =>
+      fetchJson(`${API_URL}/maintenance/sync-bus-layouts/`, { method: "POST" }),
   },
 };

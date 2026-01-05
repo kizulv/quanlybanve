@@ -151,16 +151,22 @@ export const ManifestList: React.FC<ManifestListProps> = ({
                       );
                       const isPayment = ticket?.status === "payment";
 
+                      // Lấy label từ trip.seats
+                      const seat = selectedTrip?.seats?.find(
+                        (seat) => String(seat.id) === String(s)
+                      );
+                      const label = seat?.label || s;
+
                       return (
                         <span
                           key={s}
-                          className={`w-7 h-6 flex items-center justify-center py-0.5 rounded border font-semibold ${
+                          className={`min-w-7 h-6 px-2 flex items-center justify-center py-0.5 rounded border font-semibold ${
                             isPayment
                               ? "bg-blue-50 border-blue-200 text-blue-700"
                               : "bg-amber-50 border-amber-200 text-amber-600"
                           }`}
                         >
-                          {s}
+                          {label}
                         </span>
                       );
                     })}

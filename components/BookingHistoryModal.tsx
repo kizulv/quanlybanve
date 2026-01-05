@@ -29,19 +29,66 @@ import {
 } from "lucide-react";
 import { Badge } from "./ui/Badge";
 
+import { BusTrip } from "../types";
+
 interface BookingHistoryModalProps {
   isOpen: boolean;
   onClose: () => void;
   booking: Booking | null;
+  trips?: BusTrip[];
 }
 
 export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
   isOpen,
   onClose,
   booking,
+  trips = [],
 }) => {
   const [history, setHistory] = useState<BookingHistory[]>([]);
   const [loading, setLoading] = useState(false);
+
+  // Helper tìm Seat Label
+  const getSeatLabel = (
+    seatId: string,
+    tripInfo?: { tripId?: string; licensePlate?: string; date?: string }
+  ) => {
+    if (!seatId) return "";
+
+    // Nếu seatId đã là label (ngắn, ko chứa dấu gạch ngang phức tạp hoặc fallback logic)
+    // Nhưng ID mới là "1-2-0" => chứa gạch ngang.
+
+    let foundTrip = null;
+
+    if (tripInfo?.tripId) {
+      foundTrip = trips.find((t) => t.id === tripInfo.tripId);
+    }
+
+    if (!foundTrip && tripInfo?.licensePlate && tripInfo?.date) {
+      // Cố gắng tìm theo biển số + ngày (chỉ đúng tương đối)
+      // Date compare logic is tricky due to format differences, skip if unsure
+    }
+
+    if (foundTrip) {
+      const seat = foundTrip.seats.find((s) => s.id === seatId);
+      if (seat) return seat.label;
+    }
+
+    // Fallback: Nếu không tìm thấy trip, thử tìm trong booking items hiện tại
+    // (Chỉ work cho current booking state, không work cho deleted/changed seats đã mất khỏi booking)
+    if (booking) {
+      // Tìm trong tất cả items của booking xem có seatId này không
+      for (const item of booking.items) {
+        const trip = trips.find((t) => t.id === item.tripId);
+        if (trip) {
+          const seat = trip.seats.find((s) => s.id === seatId);
+          if (seat) return seat.label;
+        }
+      }
+    }
+
+    // Fallback cuối cùng: return ID
+    return seatId;
+  };
 
   useEffect(() => {
     const fetchHistory = async (id: string) => {
@@ -167,18 +214,23 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
                 </span>
               </div>
               <div className="flex flex-wrap gap-2">
-                {trip.seats.map((s: string) => (
-                  <Badge
-                    key={s}
-                    className={`${
-                      isCancelled
-                        ? "bg-red-50 text-red-400 border-red-100 line-through decoration-red-300"
-                        : "bg-emerald-50 text-emerald-700 border-emerald-200"
-                    } text-[10px] font-black px-2 py-0.5 rounded-lg`}
-                  >
-                    {s}
-                  </Badge>
-                ))}
+                {trip.seats.map((s: string) => {
+                  const label = getSeatLabel(s, {
+                    tripId: trip.tripId || trip.id,
+                  }); // Try passing ID if available
+                  return (
+                    <Badge
+                      key={s}
+                      className={`${
+                        isCancelled
+                          ? "bg-red-50 text-red-400 border-red-100 line-through decoration-red-300"
+                          : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                      } min-w-7 h-6 px-2 flex items-center justify-center font-semibold rounded text-[11px]`}
+                    >
+                      {label}
+                    </Badge>
+                  );
+                })}
               </div>
             </div>
           ))}
@@ -215,9 +267,9 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
                         {change.kept?.map((s: string) => (
                           <Badge
                             key={s}
-                            className="bg-green-50 text-slate-700 border-green-200 font-bold text-[10px] px-2 py-1 shadow-xs"
+                            className="bg-green-50 text-slate-700 border-green-200 font-bold text-[10px] min-w-7 h-6 px-2 flex items-center justify-center shadow-xs"
                           >
-                            {s}
+                            {getSeatLabel(s)}
                           </Badge>
                         ))}
                         <div className="flex items-center">
@@ -228,9 +280,9 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
                             {change.removed?.map((s: string) => (
                               <Badge
                                 key={s}
-                                className="bg-red-50 text-red-400 border-red-100 line-through decoration-red-300 font-bold text-[10px] px-2 py-1 opacity-70"
+                                className="bg-red-50 text-red-400 border-red-100 line-through decoration-red-300 font-bold text-[10px] min-w-7 h-6 px-2 flex items-center justify-center opacity-70"
                               >
-                                {s}
+                                {getSeatLabel(s)}
                               </Badge>
                             ))}
                           </div>
@@ -245,9 +297,9 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
                           {change.added.map((s: string) => (
                             <Badge
                               key={s}
-                              className="bg-emerald-50 text-emerald-700 border-emerald-200 font-black text-[10px] px-2 py-1 shadow-sm ring-1 ring-emerald-500/10"
+                              className="bg-emerald-50 text-emerald-700 border-emerald-200 font-black text-[10px] min-w-7 h-6 px-2 flex items-center justify-center shadow-sm ring-1 ring-emerald-500/10"
                             >
-                              {s}
+                              {getSeatLabel(s)}
                             </Badge>
                           ))}
                         </div>
@@ -283,7 +335,7 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
                   Từ ghế
                 </span>
                 <span className="font-black text-slate-500 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-xs text-sm min-w-11.25 text-center">
-                  {details.from}
+                  {getSeatLabel(details.from, { tripId: details.tripId })}
                 </span>
               </div>
               <div className="p-2 bg-purple-100 rounded-full text-purple-600 shadow-sm mt-4">
@@ -294,7 +346,7 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
                   Sang ghế
                 </span>
                 <span className="font-black text-purple-700 bg-white px-3 py-1.5 rounded-xl border border-purple-300 shadow-md text-sm min-w-11.25 text-center">
-                  {details.to}
+                  {getSeatLabel(details.to, { tripId: details.tripId })}
                 </span>
               </div>
             </div>
@@ -354,9 +406,9 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
                 {details.seats?.map((s: string) => (
                   <Badge
                     key={s}
-                    className="bg-indigo-600 text-white border-transparent text-[10px] font-bold px-2 py-0.5"
+                    className="bg-indigo-600 text-white border-transparent text-[10px] font-bold min-w-7 h-6 px-2 flex items-center justify-center"
                   >
-                    {s}
+                    {getSeatLabel(s, { tripId: details.tripId })}
                   </Badge>
                 ))}
               </div>
