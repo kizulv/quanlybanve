@@ -5,6 +5,7 @@ interface PopoverProps {
   trigger: React.ReactNode;
   content: (close: () => void) => React.ReactNode;
   align?: "left" | "right";
+  side?: "top" | "bottom";
   className?: string;
 }
 
@@ -12,6 +13,7 @@ export const Popover: React.FC<PopoverProps> = ({
   trigger,
   content,
   align = "left",
+  side = "bottom",
   className = "",
 }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -29,7 +31,10 @@ export const Popover: React.FC<PopoverProps> = ({
       const rect = triggerRef.current.getBoundingClientRect();
       const isMobile = window.innerWidth < 768;
       setCoords({
-        top: rect.bottom + window.scrollY + 8,
+        top:
+          side === "bottom"
+            ? rect.bottom + window.scrollY + 8
+            : rect.top + window.scrollY - 8,
         left: rect.left + window.scrollX,
         right: window.innerWidth - rect.right - window.scrollX,
         width: rect.width,
@@ -89,6 +94,7 @@ export const Popover: React.FC<PopoverProps> = ({
             : "absolute"
         } 
         ${className}
+        ${side === "top" ? "-translate-y-full" : ""}
       `}
       style={
         !coords.isMobile

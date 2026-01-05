@@ -182,3 +182,11 @@ export type UndoAction =
       label2: string;
       tripDate: string;
     };
+
+export interface User {
+  id: string;
+  username: string;
+  name?: string;
+  role: "admin" | "sale" | "guest";
+  permissions?: string[];
+}

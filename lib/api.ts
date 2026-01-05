@@ -253,4 +253,14 @@ export const api = {
     syncBusLayouts: () =>
       fetchJson(`${API_URL}/maintenance/sync-bus-layouts/`, { method: "POST" }),
   },
+
+  roles: {
+    getAll: () => fetchJson(`${API_URL}/roles/`),
+    update: (name: string, permissions: string[]) =>
+      fetchJson(`${API_URL}/roles/${encodeURIComponent(name)}/`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ permissions }),
+      }),
+  },
 };

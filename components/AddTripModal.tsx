@@ -318,7 +318,7 @@ export const AddTripModal: React.FC<AddTripModalProps> = ({
             variant="custom"
             onClick={onClose}
             disabled={isSaving}
-            className="bg-indigo-950 border-indigo-950 text-white hover:bg-indigo-900 hover:text-white h-8 px-6 text-xs font-bold min-w-25"
+            className="bg-red-800 border-red-800 text-white hover:bg-red-900 hover:text-white h-8 px-6 text-xs font-bold min-w-20"
           >
             Hủy bỏ
           </Button>

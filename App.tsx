@@ -10,6 +10,11 @@ import { RightSheet } from "./components/RightSheet";
 import { BookingForm } from "./components/BookingForm";
 import { SeatDetailModal } from "./components/SeatDetailModal";
 import { ManifestList } from "./components/ManifestList";
+import { AuthProvider, useAuth } from "./components/AuthContext";
+import { LoginView } from "./components/LoginView";
+import { UserManagement } from "./components/UserManagement";
+import { AccountSettings } from "./components/AccountSettings";
+
 import {
   BusTrip,
   Seat,
@@ -24,9 +29,11 @@ import { BusFront, Loader2, ArrowRightLeft } from "lucide-react";
 import { api } from "./lib/api";
 import { isSameDay } from "./utils/dateUtils";
 import { ORDER_DOMAIN } from "./constants";
+import { PERMISSIONS } from "./lib/permissions";
 
 function AppContent() {
   const { toast } = useToast();
+  const { isAuthenticated, hasPermission } = useAuth();
   const [activeTab, setActiveTab] = useState("sales");
 
   // -- GLOBAL STATE (Fetched from API) --
@@ -440,6 +447,10 @@ function AppContent() {
     return <OrderInformation onBackToDashboard={() => setActiveTab("sales")} />;
   }
 
+  if (!isAuthenticated && activeTab === "login") {
+    return <LoginView />;
+  }
+
   return (
     <Layout
       activeTab={activeTab}
@@ -462,7 +473,7 @@ function AppContent() {
         />
       }
     >
-      {activeTab === "sales" && (
+      {activeTab === "sales" && hasPermission(PERMISSIONS.VIEW_SALES) && (
         <div className="flex flex-col md:flex-row gap-4 animate-in fade-in duration-300">
           <div
             className={`flex flex-col bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden shrink-0 md:flex-1 md:h-[calc(100vh-140px)] ${
@@ -550,8 +561,10 @@ function AppContent() {
           </div>
         </div>
       )}
-      {activeTab === "finance" && <PaymentManager />}
-      {activeTab === "schedule" && (
+      {activeTab === "finance" && hasPermission(PERMISSIONS.VIEW_FINANCE) && (
+        <PaymentManager />
+      )}
+      {activeTab === "schedule" && hasPermission(PERMISSIONS.VIEW_SCHEDULE) && (
         <ScheduleView
           trips={trips}
           routes={routes}
@@ -574,17 +587,23 @@ function AppContent() {
           }}
         />
       )}
-      {activeTab === "settings" && (
-        <SettingsView
-          routes={routes}
-          setRoutes={setRoutes}
-          buses={buses}
-          setBuses={setBuses}
-          trips={trips}
-          setTrips={setTrips}
-          onDataChange={refreshData}
-        />
+
+      {activeTab === "settings" &&
+        hasPermission(PERMISSIONS.MANAGE_SETTINGS) && (
+          <SettingsView
+            routes={routes}
+            setRoutes={setRoutes}
+            buses={buses}
+            setBuses={setBuses}
+            trips={trips}
+            setTrips={setTrips}
+            onDataChange={refreshData}
+          />
+        )}
+      {activeTab === "users" && hasPermission(PERMISSIONS.MANAGE_USERS) && (
+        <UserManagement />
       )}
+      {activeTab === "account" && isAuthenticated && <AccountSettings />}
 
       <SeatDetailModal
         isOpen={!!seatDetailModal}
@@ -642,7 +661,9 @@ function AppContent() {
 function App() {
   return (
     <ToastProvider>
-      <AppContent />
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
     </ToastProvider>
   );
 }

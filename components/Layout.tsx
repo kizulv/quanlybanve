@@ -14,13 +14,25 @@ import {
   ArrowLeftRight,
   QrCode,
   Search,
+  Users,
+  LogOut,
+  User as UserIcon,
+  ChevronsUpDown,
+  CircleHelp,
+  LifeBuoy,
+  Send,
+  LogIn,
+  FileText,
+  X,
 } from "lucide-react";
 import { Button } from "./ui/Button";
 import { Popover } from "./ui/Popover";
 import { Calendar } from "./ui/Calendar";
 import { formatLunarDate, daysOfWeek } from "../utils/dateUtils";
-import { BusTrip, BusType, Route } from "../types";
+import { BusTrip, BusType, Route, User } from "../types";
 import { api } from "../lib/api";
+import { useAuth } from "./AuthContext";
+import { PERMISSIONS } from "../lib/permissions";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -62,6 +74,7 @@ export const Layout: React.FC<LayoutProps> = ({
   routes = [],
   headerRight,
 }) => {
+  const { user, logout, hasPermission, isAuthenticated } = useAuth();
   // Default sidebar state set to false (Hidden by default)
   const [isSidebarOpen, setSidebarOpen] = useState(false);
 
@@ -87,11 +100,56 @@ export const Layout: React.FC<LayoutProps> = ({
     loadSettings();
   }, [activeTab]);
 
-  const navItems = [
-    { id: "sales", icon: <Bus size={20} />, label: "Bán vé" },
-    { id: "schedule", icon: <CalendarIcon size={20} />, label: "Lịch trình" },
-    { id: "finance", icon: <BadgeDollarSign size={20} />, label: "Tài chính" },
-    { id: "order-info", icon: <Search size={20} />, label: "Tra cứu vé" },
+  const navGroups = [
+    {
+      title: "Chức năng",
+      items: [
+        {
+          id: "sales",
+          icon: <Bus size={18} />,
+          label: "Bán vé",
+          permission: PERMISSIONS.VIEW_SALES,
+        },
+        {
+          id: "schedule",
+          icon: <FileText size={18} />,
+          label: "Lịch trình",
+          permission: PERMISSIONS.VIEW_SCHEDULE,
+        },
+        {
+          id: "order-info",
+          icon: <Search size={18} />,
+          label: "Tra cứu vé",
+          permission: PERMISSIONS.VIEW_ORDER_INFO,
+        },
+      ],
+    },
+    {
+      title: "Hệ thống",
+      items: [
+        {
+          id: "finance",
+          icon: <BadgeDollarSign size={18} />,
+          label: "Tài chính",
+          permission: PERMISSIONS.VIEW_FINANCE,
+        },
+        {
+          id: "users",
+          icon: <Users size={18} />,
+          label: "Người dùng",
+          permission: PERMISSIONS.MANAGE_USERS,
+        },
+      ],
+    },
+  ];
+
+  const footerNavItems = [
+    {
+      id: "settings",
+      icon: <Settings size={18} />,
+      label: "Cài đặt",
+      permission: PERMISSIONS.MANAGE_SETTINGS,
+    },
   ];
 
   const pageInfo: Record<string, { title: string; description: string }> = {
@@ -114,6 +172,14 @@ export const Layout: React.FC<LayoutProps> = ({
     settings: {
       title: "Cài đặt hệ thống",
       description: "Quản lý tài nguyên và cấu hình vận hành",
+    },
+    users: {
+      title: "Quản lý người dùng",
+      description: "Quản lý tài khoản và phân quyền truy cập",
+    },
+    account: {
+      title: "Tài khoản",
+      description: "Cập nhật thông tin cá nhân",
     },
   };
 
@@ -274,7 +340,7 @@ export const Layout: React.FC<LayoutProps> = ({
 
       {/* Sidebar */}
       <aside
-        className={`bg-white border-r border-slate-200 flex-col fixed h-full z-20 transition-all duration-300 ${
+        className={`bg-white border-r border-slate-200 flex flex-col fixed h-full z-20 transition-all duration-300 ${
           isSidebarOpen
             ? "w-64 translate-x-0"
             : "w-64 -translate-x-full md:translate-x-0 md:w-0 md:opacity-0 md:overflow-hidden"
@@ -289,41 +355,147 @@ export const Layout: React.FC<LayoutProps> = ({
           </span>
         </div>
 
-        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-          {navItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => {
-                onTabChange(item.id);
-                if (window.innerWidth < 768) setSidebarOpen(false);
-              }}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${
-                activeTab === item.id
-                  ? "bg-primary/10 text-primary"
-                  : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-              }`}
-            >
-              {item.icon}
-              {item.label}
-            </button>
-          ))}
+        <nav className="flex-1 px-3 py-4 space-y-6 overflow-y-auto">
+          {navGroups.map((group, idx) => {
+            const visibleItems = group.items.filter((item) =>
+              hasPermission(item.permission)
+            );
+
+            if (visibleItems.length === 0) return null;
+
+            return (
+              <div key={idx}>
+                <h4 className="mb-2 px-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  {group.title}
+                </h4>
+                <div className="space-y-0.5">
+                  {visibleItems.map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        onTabChange(item.id);
+                        if (window.innerWidth < 768) setSidebarOpen(false);
+                      }}
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${
+                        activeTab === item.id
+                          ? "bg-slate-100 text-slate-900"
+                          : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                      }`}
+                    >
+                      {item.icon}
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </nav>
 
-        <div className="p-4 border-t border-slate-100">
-          <button
-            onClick={() => {
-              onTabChange("settings");
-              if (window.innerWidth < 768) setSidebarOpen(false);
-            }}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${
-              activeTab === "settings"
-                ? "bg-primary/10 text-primary"
-                : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-            }`}
-          >
-            <Settings size={20} />
-            <span>Cài đặt</span>
-          </button>
+        {/* Footer Section */}
+        <div className="p-3 mt-auto border-t border-slate-100">
+          {/* Footer Nav Items */}
+          <div className="space-y-0.5 mb-4">
+            {footerNavItems.map((item) => {
+              if (!hasPermission(item.permission)) return null;
+
+              const isActive = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    if (item.id === "help" || item.id === "feedback") {
+                      // Placeholder for now
+                      return;
+                    }
+                    onTabChange(item.id);
+                    if (window.innerWidth < 768) setSidebarOpen(false);
+                  }}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${
+                    activeTab === item.id
+                      ? "bg-slate-100 text-slate-900"
+                      : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                  }`}
+                >
+                  {item.icon}
+                  {item.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {user ? (
+            <Popover
+              align="left"
+              side="top"
+              trigger={
+                <button className="flex items-center gap-3 px-3 py-2 w-full rounded-md hover:bg-slate-100 transition-colors group">
+                  <div className="w-8 h-8 rounded-lg bg-slate-200 flex items-center justify-center text-slate-600 shrink-0 group-hover:bg-white group-hover:border group-hover:border-slate-200 transition-all">
+                    <span className="font-bold text-xs">
+                      {user.name?.charAt(0) || user.username.charAt(0)}
+                    </span>
+                  </div>
+                  <div className="flex flex-col items-start text-sm">
+                    <span className="font-medium text-slate-700 group-hover:text-slate-900 truncate w-32 text-left">
+                      {user.name || user.username}
+                    </span>
+                    <span className="text-xs text-slate-500 group-hover:text-slate-600 truncate w-32 text-left">
+                      {user.role}
+                    </span>
+                  </div>
+                  <ChevronsUpDown
+                    className="ml-auto text-slate-400 group-hover:text-slate-600"
+                    size={14}
+                  />
+                </button>
+              }
+              content={(close) => (
+                <div className="w-56 p-1 bg-white rounded-lg border border-slate-200 shadow-lg">
+                  <div className="px-2 py-1.5 mb-1 border-b border-slate-100">
+                    <p className="text-sm font-medium text-slate-900">
+                      {user.name || user.username}
+                    </p>
+                    <p className="text-xs text-slate-500 truncate mt-0.5">
+                      {user.username}
+                    </p>
+                  </div>
+                  <div className="space-y-0.5">
+                    <button
+                      onClick={() => {
+                        onTabChange("account");
+                        close();
+                        if (window.innerWidth < 768) setSidebarOpen(false);
+                      }}
+                      className="flex items-center gap-2 w-full px-2 py-1.5 text-sm text-slate-700 hover:bg-slate-100 rounded-md transition-colors"
+                    >
+                      <UserIcon size={16} />
+                      Tài khoản
+                    </button>
+                    <button
+                      onClick={() => {
+                        logout();
+                        close();
+                      }}
+                      className="flex items-center gap-2 w-full px-2 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                    >
+                      <LogOut size={16} />
+                      Đăng xuất
+                    </button>
+                  </div>
+                </div>
+              )}
+            />
+          ) : (
+            <button
+              onClick={() => onTabChange("login")}
+              className="flex items-center gap-3 px-3 py-2 w-full rounded-md hover:bg-blue-50 text-blue-600 transition-colors group border border-dashed border-blue-200"
+            >
+              <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center shrink-0">
+                <LogIn size={16} />
+              </div>
+              <span className="font-medium text-sm">Đăng nhập ngay</span>
+            </button>
+          )}
         </div>
       </aside>
 

@@ -4,6 +4,11 @@ import { defineConfig, loadEnv } from "vite";
 import cors from "cors";
 import bodyParser from "body-parser";
 
+import jwt from "jsonwebtoken";
+import bcrypt from "bcrypt";
+
+const SECRET_KEY = process.env.SECRET_KEY || "vinabus-secret-key-123";
+
 const app = express();
 
 // Middleware
@@ -211,6 +216,26 @@ const settingSchema = new mongoose.Schema(
   { toJSON: { virtuals: true, transform: transformId } }
 );
 
+const userSchema = new mongoose.Schema(
+  {
+    username: { type: String, required: true, unique: true },
+    password: { type: String, required: true },
+    name: String,
+    role: { type: String, enum: ["admin", "sale", "guest"], default: "guest" },
+    permissions: { type: [String], default: [] },
+    createdAt: { type: Date, default: Date.now },
+  },
+  { toJSON: { virtuals: true, transform: transformId } }
+);
+
+const roleSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true, unique: true },
+    permissions: { type: [String], default: [] },
+  },
+  { toJSON: { virtuals: true, transform: transformId } }
+);
+
 const Bus = mongoose.model("Bus", busSchema);
 const Route = mongoose.model("Route", routeSchema);
 const Trip = mongoose.model("Trip", tripSchema);
@@ -218,8 +243,75 @@ const Booking = mongoose.model("Booking", bookingSchema);
 const Payment = mongoose.model("Payment", paymentSchema);
 const History = mongoose.model("History", historySchema);
 const Setting = mongoose.model("Setting", settingSchema);
+const User = mongoose.model("User", userSchema);
+const Role = mongoose.model("Role", roleSchema);
 
 // --- HELPERS ---
+
+const DEFAULT_PERMISSIONS = {
+  admin: [
+    "VIEW_SALES",
+    "VIEW_SCHEDULE",
+    "VIEW_ORDER_INFO",
+    "VIEW_FINANCE",
+    "MANAGE_USERS",
+    "MANAGE_SETTINGS",
+    "CREATE_TRIP",
+    "UPDATE_TRIP",
+    "DELETE_TRIP",
+    "BOOK_TICKET",
+  ],
+  sale: ["VIEW_SALES", "VIEW_SCHEDULE", "VIEW_ORDER_INFO", "BOOK_TICKET"],
+  guest: ["VIEW_ORDER_INFO"],
+};
+
+// Create default admin if not exists
+const seedAdmin = async () => {
+  const admin = await User.findOne({ username: "admin" });
+  if (!admin) {
+    const hashedPassword = await bcrypt.hash("admin123", 10);
+    const newAdmin = new User({
+      username: "admin",
+      password: hashedPassword,
+      name: "Administrator",
+      role: "admin",
+      permissions: [],
+    });
+    await newAdmin.save();
+    console.log("✅ Default admin created");
+  }
+
+  // Seed Roles
+  for (const [roleName, permissions] of Object.entries(DEFAULT_PERMISSIONS)) {
+    const role = await Role.findOne({ name: roleName });
+    if (!role) {
+      await Role.create({ name: roleName, permissions });
+      console.log(`✅ Default role '${roleName}' created`);
+    }
+  }
+};
+seedAdmin();
+
+const verifyToken = (req, res, next) => {
+  const token = req.headers["authorization"]?.split(" ")[1];
+  if (!token) return res.status(401).json({ error: "Access denied" });
+
+  try {
+    const verified = jwt.verify(token, SECRET_KEY);
+    const { id, username, role, name, permissions } = verified;
+    req.user = { id, username, role, name, permissions: permissions || [] };
+    next();
+  } catch (err) {
+    res.status(400).json({ error: "Invalid token" });
+  }
+};
+
+const isAdmin = (req, res, next) => {
+  if (req.user?.role !== "admin") {
+    return res.status(403).json({ error: "Admin access required" });
+  }
+  next();
+};
 
 const logBookingAction = async (
   bookingId,
@@ -408,6 +500,124 @@ const getBookingsWithPayment = async (match = {}) => {
 };
 
 // --- ROUTES ---
+
+// AUTH ROUTES
+app.post("/api/auth/login", async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    const user = await User.findOne({ username });
+    if (!user) return res.status(400).json({ error: "User not found" });
+
+    const validPass = await bcrypt.compare(password, user.password);
+    if (!validPass) return res.status(400).json({ error: "Invalid password" });
+
+    const token = jwt.sign(
+      {
+        id: user._id,
+        username: user.username,
+        role: user.role,
+        name: user.name,
+        permissions: user.permissions,
+      },
+      SECRET_KEY,
+      { expiresIn: "24h" }
+    );
+    res.json({
+      token,
+      user: {
+        id: user._id,
+        username: user.username,
+        role: user.role,
+        name: user.name,
+        permissions: user.permissions,
+      },
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post("/api/auth/change-password", verifyToken, async (req, res) => {
+  try {
+    const { oldPassword, newPassword } = req.body;
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    const validPass = await bcrypt.compare(oldPassword, user.password);
+    if (!validPass)
+      return res.status(400).json({ error: "Mật khẩu cũ không đúng" });
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    user.password = hashedPassword;
+    await user.save();
+    res.json({ success: true, message: "Đổi mật khẩu thành công" });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// USER MANAGEMENT ROUTES (Admin only)
+app.get("/api/users", verifyToken, isAdmin, async (req, res) => {
+  try {
+    const users = await User.find({}, "-password");
+    res.json(users);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// CREATE USER
+app.post("/api/users", verifyToken, isAdmin, async (req, res) => {
+  try {
+    const { username, password, name, role, permissions } = req.body;
+    const existing = await User.findOne({ username });
+    if (existing)
+      return res.status(400).json({ error: "Username already exists" });
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const user = new User({
+      username,
+      password: hashedPassword,
+      name,
+      role,
+      permissions: permissions || [],
+    });
+    await user.save();
+    res.json(user);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.put("/api/users/:id", verifyToken, isAdmin, async (req, res) => {
+  try {
+    const { password, name, role } = req.body;
+    const updateData = { name, role };
+    if (password) {
+      updateData.password = await bcrypt.hash(password, 10);
+    }
+    const user = await User.findByIdAndUpdate(req.params.id, updateData, {
+      new: true,
+    });
+    res.json({
+      id: user._id,
+      username: user.username,
+      name: user.name,
+      role: user.role,
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.delete("/api/users/:id", verifyToken, isAdmin, async (req, res) => {
+  try {
+    await User.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
 
 app.get("/api/buses", async (req, res) => {
   try {

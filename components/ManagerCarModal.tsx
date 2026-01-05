@@ -474,15 +474,15 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
         isOpen={isOpen}
         onClose={onClose}
         title={initialData ? "Cập nhật thông tin xe" : "Thêm xe mới"}
-        className="max-w-6xl w-full text-slate-900 border-indigo-900"
+        className="max-w-5xl w-full text-slate-900 border-indigo-900"
         headerClassName="px-4 h-[40px] border-b border-indigo-900 flex items-center justify-between shrink-0 rounded-t-xl bg-gradient-to-r from-indigo-950 via-indigo-900 to-indigo-950 text-white text-xs font-semibold"
         footer={
-          <div className="flex gap-3">
+          <div className="flex gap-3 justify-between">
             <Button
               variant="custom"
               onClick={onClose}
               disabled={isSaving}
-              className="bg-indigo-950 border-indigo-950 text-white hover:bg-indigo-900 hover:text-white h-8 px-6 text-xs font-bold min-w-20"
+              className="bg-red-800 border-red-800 text-white hover:bg-red-900 hover:text-white h-8 px-6 text-xs font-bold min-w-20"
             >
               Đóng
             </Button>
@@ -512,7 +512,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
         }
       >
         <div className="grid grid-cols-12 gap-6">
-          <div className="col-span-12 lg:col-span-4 h-full flex flex-col gap-4 overflow-y-auto pr-2 p-4">
+          <div className="col-span-12 md:col-span-5 h-full flex flex-col gap-4 overflow-y-auto pr-2 p-4">
             <div className="bg-slate-50/50 p-5 rounded border border-slate-200">
               <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-4 pb-2 border-b border-slate-200 text-xs">
                 <Info size={16} /> Thông tin xe
@@ -717,7 +717,7 @@ export const ManagerCarModal: React.FC<ManagerCarModalProps> = ({
             </div>
           </div>
 
-          <div className="col-span-12 lg:col-span-8 h-full bg-slate-100/50 overflow-hidden relative flex flex-col">
+          <div className="col-span-12 md:col-span-7 h-full bg-slate-100/50 overflow-hidden relative flex flex-col">
             <div className="absolute top-4 right-4 bg-white/90 backdrop-blur px-3 py-1 rounded-full text-xs font-bold text-primary shadow-sm z-10">
               Tổng: {config.activeSeats.length} chỗ
             </div>

@@ -95,7 +95,7 @@ export const ManifestList: React.FC<ManifestListProps> = ({
 
       <div className="flex-1 overflow-y-auto p-0 scrollbar-thin">
         {filteredManifest.length === 0 ? (
-          <div className="p-8 text-center text-slate-400 text-xs italic">
+          <div className="p-8 text-center text-slate-400 text-xs">
             Không có dữ liệu đặt vé
           </div>
         ) : (
