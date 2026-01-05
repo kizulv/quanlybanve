@@ -219,16 +219,16 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
                     tripId: trip.tripId || trip.id,
                   }); // Try passing ID if available
                   return (
-                    <Badge
+                    <span
                       key={s}
                       className={`${
                         isCancelled
                           ? "bg-red-50 text-red-400 border-red-100 line-through decoration-red-300"
-                          : "bg-emerald-50 text-emerald-700 border-emerald-200"
-                      } min-w-7 h-6 px-2 flex items-center justify-center font-semibold rounded text-[11px]`}
+                          : "bg-blue-50 border-blue-200 text-blue-700"
+                      } min-w-7 h-6 px-2 flex items-center justify-center py-0.5 rounded border font-semibold text-[11px]`}
                     >
                       {label}
-                    </Badge>
+                    </span>
                   );
                 })}
               </div>
