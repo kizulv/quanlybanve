@@ -642,42 +642,48 @@ export const OrderInformation: React.FC<OrderInformationProps> = ({
                             </Badge>
                           </div>
                           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                            {item.tickets.map((t) => (
-                              <div
-                                key={t.seatId}
-                                className="flex flex-col bg-white border-2 border-slate-300 rounded py-2 px-3 md:px-4 hover:border-primary transition-all duration-300 group/ticket"
-                              >
-                                <div className="flex justify-between items-center">
-                                  <span className="text-xl font-black text-slate-900 group-hover/ticket:scale-110 transition-transform">
-                                    {t.seatId}
-                                  </span>
-                                  <span className="text-sm text-slate-900 font-black">
-                                    {formatCurrency(t.price)} đ
-                                  </span>
-                                </div>
-                                <div className="mt-1 pt-2 border-t border-slate-50  flex flex-col md:flex-row md:gap-2 items-center">
-                                  <div className="flex items-center gap-1 text-[10px] text-slate-500 font-medium truncate">
-                                    <MapPin
-                                      size={10}
-                                      className="text-slate-500"
-                                    />{" "}
-                                    {t.pickup || "---"}
+                            {item.tickets.map((t) => {
+                              // Find the seat label from the trip
+                              const seatLabel =
+                                fullTrip?.seats.find((s) => s.id === t.seatId)
+                                  ?.label || t.seatId;
+                              return (
+                                <div
+                                  key={t.seatId}
+                                  className="flex flex-col bg-white border-2 border-slate-300 rounded py-2 px-3 md:px-4 hover:border-primary transition-all duration-300 group/ticket"
+                                >
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-xl font-black text-slate-900 group-hover/ticket:scale-110 transition-transform">
+                                      {seatLabel}
+                                    </span>
+                                    <span className="text-sm text-slate-900 font-black">
+                                      {formatCurrency(t.price)} đ
+                                    </span>
                                   </div>
-                                  <div className="flex items-center gap-1 md:gap-2 text-[10px] text-slate-500 font-medium truncate">
-                                    <ArrowRight
-                                      size={10}
-                                      className="text-slate-500"
-                                    />{" "}
-                                    {t.dropoff || "---"}
+                                  <div className="mt-1 pt-2 border-t border-slate-50  flex flex-col md:flex-row md:gap-2 items-center">
+                                    <div className="flex items-center gap-1 text-[10px] text-slate-500 font-medium truncate">
+                                      <MapPin
+                                        size={10}
+                                        className="text-slate-500"
+                                      />{" "}
+                                      {t.pickup || "---"}
+                                    </div>
+                                    <div className="flex items-center gap-1 md:gap-2 text-[10px] text-slate-500 font-medium truncate">
+                                      <ArrowRight
+                                        size={10}
+                                        className="text-slate-500"
+                                      />{" "}
+                                      {t.dropoff || "---"}
+                                    </div>
                                   </div>
+                                  {t.note && (
+                                    <span className="text-[10px] text-amber-600 font-bold italic mt-1 truncate border-t border-amber-50 pt-2">
+                                      *{t.note}
+                                    </span>
+                                  )}
                                 </div>
-                                {t.note && (
-                                  <span className="text-[10px] text-amber-600 font-bold italic mt-1 truncate border-t border-amber-50 pt-2">
-                                    *{t.note}
-                                  </span>
-                                )}
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                           <div className="px-4 py-3 bg-blue-50/70 rounded border-2 border-dashed border-slate-200 flex justify-between items-center mt-6">
                             <span className="text-sm font-black text-slate-600">

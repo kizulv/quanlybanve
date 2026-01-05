@@ -447,8 +447,9 @@ function AppContent() {
     return <OrderInformation onBackToDashboard={() => setActiveTab("sales")} />;
   }
 
-  if (!isAuthenticated && activeTab === "login") {
-    return <LoginView />;
+  // Require login for all pages except order-info
+  if (!isAuthenticated) {
+    return <LoginView onLoginSuccess={() => setActiveTab("sales")} />;
   }
 
   return (

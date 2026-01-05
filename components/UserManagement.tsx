@@ -234,7 +234,7 @@ export const UserManagement: React.FC = () => {
     );
 
   return (
-    <div className="p-6 max-w-5xl mx-auto animate-in fade-in duration-300">
+    <div className=" mx-auto animate-in fade-in duration-300">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold text-slate-800">
           Quản lý người dùng
@@ -245,7 +245,7 @@ export const UserManagement: React.FC = () => {
               setIsCreating(true);
               resetForm();
             }}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-medium transition-colors shadow-sm"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 h-9 text-sm rounded-lg flex items-center gap-2 font-medium transition-colors shadow-sm"
           >
             <Plus size={18} /> Thêm người dùng
           </button>
@@ -426,9 +426,7 @@ export const UserManagement: React.FC = () => {
           <tbody className="divide-y divide-slate-100">
             {users.map((u) => (
               <tr key={u.id} className="hover:bg-slate-50 transition-colors">
-                <td className="p-4 font-mono text-sm text-slate-700">
-                  {u.username}
-                </td>
+                <td className="p-4 text-sm text-slate-700">{u.username}</td>
                 <td className="p-4 font-medium text-slate-800">{u.name}</td>
                 <td className="p-4">{getRoleBadge(u.role)}</td>
                 <td className="p-4 text-right">

@@ -3,7 +3,11 @@ import { useAuth } from "./AuthContext";
 import { api } from "../lib/api";
 import { BusFront, Lock, User as UserIcon, Loader2 } from "lucide-react";
 
-export const LoginView: React.FC = () => {
+interface LoginViewProps {
+  onLoginSuccess?: () => void;
+}
+
+export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
   const { login } = useAuth();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -30,6 +34,7 @@ export const LoginView: React.FC = () => {
       if (!res.ok) throw new Error(data.error || "Đăng nhập thất bại");
 
       login(data.token, data.user);
+      onLoginSuccess?.(); // Gọi callback sau khi login thành công
     } catch (e: any) {
       setError(e.message);
     } finally {
