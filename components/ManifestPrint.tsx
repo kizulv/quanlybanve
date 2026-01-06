@@ -224,14 +224,14 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
       const rows = [0, 1, 2, 3, 4, 5];
 
       layoutHtml = `
-        <div class="flex gap-6 w-full h-[170mm] overflow-hidden">
+        <div class="flex gap-4 w-full h-[170mm] overflow-hidden">
           <div class="flex-1 flex flex-col">
             <div class="text-sm font-bold py-1 px-2 mb-1.5 text-center uppercase tracking-wider">Dãy B</div>
             <div class="flex flex-col justify-around h-full">
               ${rows
                 .map(
                   (r) => `
-                <div class="grid grid-cols-2 gap-0.5">
+                <div class="grid grid-cols-2 gap-1.5">
                   ${renderSeatHtml(
                     colB.find((s) => s.row === r && s.floor === 1)
                   )}
