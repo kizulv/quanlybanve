@@ -23,6 +23,7 @@ import {
   Send,
   LogIn,
   FileText,
+  Shield,
   X,
 } from "lucide-react";
 import { Button } from "./ui/Button";
@@ -121,6 +122,12 @@ export const Layout: React.FC<LayoutProps> = ({
           icon: <BadgeDollarSign size={18} />,
           label: "Tài chính",
           permission: PERMISSIONS.VIEW_FINANCE,
+        },
+        {
+          id: "qr-payment",
+          icon: <QrCode size={18} />,
+          label: "Tạo mã QR",
+          permission: PERMISSIONS.VIEW_SALES,
         },
       ],
     },

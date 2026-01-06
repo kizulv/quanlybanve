@@ -52,7 +52,7 @@ export const formatCurrency = (
   if (amount === undefined || amount === null || amount === "") return "0";
   const num =
     typeof amount === "string"
-      ? parseInt(amount.replace(/\D/g, "") || "0", 10)
+      ? parseInt(amount.replace(/[^0-9-]/g, "") || "0", 10)
       : amount;
   return new Intl.NumberFormat("vi-VN").format(num);
 };
@@ -63,7 +63,7 @@ export const formatCurrency = (
 export const parseCurrency = (value: string | number): number => {
   if (typeof value === "number") return value;
   if (!value) return 0;
-  return parseInt(value.replace(/\D/g, "") || "0", 10);
+  return parseInt(value.replace(/[^0-9-]/g, "") || "0", 10);
 };
 
 /**

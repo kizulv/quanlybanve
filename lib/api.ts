@@ -244,6 +244,19 @@ export const api = {
       }),
   },
 
+  qrgeneral: {
+    get: () => fetchJson(`${API_URL}/qrgeneral/`),
+    create: (data: any) =>
+      fetchJson(`${API_URL}/qrgeneral/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      }),
+    simulateSuccess: () =>
+      fetchJson(`${API_URL}/qrgeneral/simulate-success`, { method: "POST" }),
+    delete: () => fetchJson(`${API_URL}/qrgeneral/`, { method: "DELETE" }),
+  },
+
   maintenance: {
     fixSeats: () =>
       fetchJson(`${API_URL}/maintenance/fix-seats/`, { method: "POST" }),

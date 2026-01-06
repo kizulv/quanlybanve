@@ -5,6 +5,7 @@ import { SettingsView } from "./components/SettingsView";
 import { ScheduleView } from "./components/ScheduleView";
 import { PaymentManager } from "./components/PaymentManager";
 import { OrderInformation } from "./components/OrderInformation";
+import { QRPaymentPage } from "./components/QRPaymentPage";
 import { ToastProvider, useToast } from "./components/ui/Toast";
 import { RightSheet } from "./components/RightSheet";
 import { BookingForm } from "./components/BookingForm";
@@ -463,6 +464,11 @@ function AppContent() {
   // Require login for all pages except order-info
   if (!isAuthenticated) {
     return <LoginView onLoginSuccess={() => setActiveTab("sales")} />;
+  }
+
+  // Render QRPaymentPage as a standalone page without Sidebar and Header
+  if (activeTab === "qr-payment") {
+    return <QRPaymentPage />;
   }
 
   return (

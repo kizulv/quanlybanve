@@ -263,6 +263,17 @@ const History = mongoose.model("History", historySchema);
 const Setting = mongoose.model("Setting", settingSchema);
 const User = mongoose.model("User", userSchema);
 const Role = mongoose.model("Role", roleSchema);
+const QRGeneral = mongoose.model(
+  "QRGeneral",
+  new mongoose.Schema(
+    {
+      data: Object,
+      status: { type: String, default: "pending" }, // pending, success
+      timestamp: { type: Date, default: Date.now },
+    },
+    { timestamps: true }
+  )
+);
 
 // --- HELPERS ---
 
@@ -810,11 +821,65 @@ app.get("/api/bookings", async (req, res) => {
   }
 });
 
+// GET HISTORY
 app.get("/api/bookings/:id/history", async (req, res) => {
   try {
     res.json(
       await History.find({ bookingId: req.params.id }).sort({ timestamp: -1 })
     );
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// QR GENERAL ROUTES
+app.get("/api/qrgeneral", async (req, res) => {
+  try {
+    const record = await QRGeneral.findOne().sort({ createdAt: -1 });
+    res.json(record || { data: null });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post("/api/qrgeneral", async (req, res) => {
+  try {
+    // Delete all previous records to ensure only 1 exists (or just create new and let get pick latest)
+    // Requirement says: "Chỉ tồn tại duy nhất 1 bản ghi" -> Delete all first
+    await QRGeneral.deleteMany({});
+
+    const newRecord = new QRGeneral({
+      data: req.body,
+      status: "pending",
+    });
+    await newRecord.save();
+    res.json(newRecord);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.delete("/api/qrgeneral", async (req, res) => {
+  try {
+    await QRGeneral.deleteMany({});
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post("/api/qrgeneral/simulate-success", async (req, res) => {
+  try {
+    const record = await QRGeneral.findOne().sort({ createdAt: -1 });
+    if (!record)
+      return res.status(404).json({ error: "No active transaction" });
+
+    record.status = "success";
+    // Optional: Update payment info in data object if needed
+    // record.data.payment.paidTransfer = record.data.payment.totalAmount;
+
+    await record.save();
+    res.json({ success: true, record });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

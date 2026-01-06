@@ -17,6 +17,7 @@ import {
   AlertCircle,
   X,
   Printer,
+  XCircle,
 } from "lucide-react";
 import {
   BusTrip,
@@ -33,7 +34,10 @@ import {
 } from "../utils/formatters";
 import { CurrencyInput } from "./ui/CurrencyInput";
 import { BookingPrint } from "./BookingPrint";
-
+import { useToast } from "./ui/Toast";
+import { api } from "../lib/api";
+import { QrCode } from "lucide-react";
+import { formatDate } from "../utils/formatters";
 interface SeatOverride {
   price?: number;
   pickup?: string;
@@ -99,6 +103,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   isProcessing = false,
   initialOverrides = {},
 }) => {
+  const { toast } = useToast();
   const [seatOverrides, setSeatOverrides] = useState<
     Record<string, SeatOverride>
   >({});
@@ -106,6 +111,44 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const [isSaved, setIsSaved] = useState(false);
   const [localProcessing, setLocalProcessing] = useState(false);
   const [stableItems, setStableItems] = useState<PaymentItem[]>([]);
+  const [isWaitingForPayment, setIsWaitingForPayment] = useState(false); // New state for polling
+  const [isPaymentSuccessful, setIsPaymentSuccessful] = useState(false); // New state for success
+
+  // Polling Effect
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+
+    if (isWaitingForPayment && isOpen && !isPaymentSuccessful) {
+      interval = setInterval(async () => {
+        try {
+          const res = await api.qrgeneral.get();
+          if (res && res.status === "success") {
+            setIsWaitingForPayment(false);
+            setIsPaymentSuccessful(true); // Mark as successful
+            toast({
+              type: "success",
+              title: "Thanh toán thành công",
+              message: "Đã nhận được chuyển khoản.",
+            });
+            // Auto complete
+            handleConfirmClick();
+          }
+        } catch (error) {
+          console.error("Polling error", error);
+        }
+      }, 3000);
+    }
+
+    return () => clearInterval(interval);
+  }, [isWaitingForPayment, isOpen, isPaymentSuccessful]);
+
+  // RESET QR STATES WHEN AMOUNT CHANGES
+  useEffect(() => {
+    if (isWaitingForPayment || isPaymentSuccessful) {
+      setIsWaitingForPayment(false);
+      setIsPaymentSuccessful(false);
+    }
+  }, [paidTransfer]);
 
   useEffect(() => {
     if (
@@ -273,8 +316,12 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     if (!isOpen) {
       setStableItems([]);
       setSeatOverrides({});
+      setStableItems([]);
+      setSeatOverrides({});
       setIsSaved(false);
       setSavedBooking(null);
+      setIsWaitingForPayment(false);
+      setIsPaymentSuccessful(false);
     }
   }, [isOpen, selectionBasket, buses, bookingForm, initialOverrides]);
 
@@ -395,6 +442,21 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         newValue = parseCurrency(value);
         // Tự động tích nếu > 0, bỏ tích nếu = 0
         extraChanges.isPaid = (newValue as number) > 0;
+
+        // Reset CURRENT payments logic
+        // We need to calculate what the NEW total should be (history + 0)
+        // But since we don't have direct access to setPaidCash/Transfer here (only onMoneyChange)
+        // We derive history first.
+        const historyCash = editingBooking?.payment?.paidCash || 0;
+        const historyTransfer = editingBooking?.payment?.paidTransfer || 0;
+
+        // Reset TOTAL paid to just the history amount (implying current transaction is 0)
+        onMoneyChange({
+          target: { name: "paidCash", value: historyCash.toString() },
+        } as any);
+        onMoneyChange({
+          target: { name: "paidTransfer", value: historyTransfer.toString() },
+        } as any);
       }
 
       return {
@@ -418,13 +480,32 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
   const handleQuickSettle = (method: "cash" | "transfer") => {
     if (isSaved) setIsSaved(false);
+
+    const historyAmount =
+      method === "cash"
+        ? editingBooking?.payment?.paidCash || 0
+        : editingBooking?.payment?.paidTransfer || 0;
+
     const gap = remainingBalance;
-    const currentVal = method === "cash" ? paidCash : paidTransfer;
-    const newVal = Math.max(0, currentVal + gap);
+    const currentTotalVal = method === "cash" ? paidCash : paidTransfer;
+
+    // Quick settle calculates the TOTAL required.
+    // gap is (FinalTotal - AllPaid).
+    // NewTotal = AllPaid + gap = FinalTotal.
+    // So we just add gap to the specific method's current total.
+
+    // For refund, gap is negative.
+    // newVal should be simply currentTotalVal + gap.
+    // We ALLOW negative values to support cross-method refunds (e.g. Paid Cash -> Refund via Transfer).
+
+    const newVal = currentTotalVal + gap;
+    // User requirement: "Không cho hoàn tiền vượt số đã thu" -> Handled by logic check or UI validation?
+    // For quick settle, let's just fill the gap.
+
     const event = {
       target: {
         name: method === "cash" ? "paidCash" : "paidTransfer",
-        value: newVal.toString(),
+        value: newVal.toString(), // Submit TOTAL amount
       },
     } as React.ChangeEvent<HTMLInputElement>;
     onMoneyChange(event);
@@ -492,6 +573,10 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       );
       if (result) {
         setSavedBooking(result as Booking);
+        // Clean up QR data after successful confirmation
+        if (isPaymentSuccessful) {
+          await api.qrgeneral.delete();
+        }
       }
       setIsSaved(true);
     } catch (e) {
@@ -765,8 +850,8 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                     <div className="flex items-center gap-2 text-xs">
                       <Calendar size={12} />
                       <span>
-                        Ngày {tripDate.getDate()}/{tripDate.getMonth() + 1}/
-                        {tripDate.getFullYear()} - {formatLunarDate(tripDate)}
+                        Ngày {formatDate(tripDate.toISOString())} -{" "}
+                        {formatLunarDate(tripDate)}
                       </span>
                     </div>
                   </div>
@@ -807,141 +892,373 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         </div>
 
         <div className="w-full md:w-90 p-4 flex flex-col gap-4 shrink-0 border-t md:border-t-0 md:border-l border-slate-200 overflow-y-auto">
-          <div className="rounded p-4 border border-slate-200 space-y-3">
-            <div className="flex items-center gap-2 mb-2 text-xs font-bold uppercase tracking-wider">
-              <Calculator size={14} /> Tổng thanh toán
-            </div>
-
-            {editingBooking && (
-              <div className="space-y-2 pb-3 border-b border-slate-200">
-                <div className="flex justify-between items-center text-xs">
-                  <span className=" flex items-center gap-1">
-                    <History size={12} /> Đã thanh toán:
-                  </span>
-                  <span className="text-slate-400 decoration-slate-400 line-through decoration-1">
-                    {formatCurrency(previouslyPaid)} đ
-                  </span>
-                </div>
-                <div className="flex justify-between items-center text-xs">
-                  <span className="flex items-center gap-1">
-                    <TrendingUp size={12} /> Tổng tiền mới:
-                  </span>
-                  <span className="font-bold ">
-                    {formatCurrency(finalTotal)} đ
-                  </span>
-                </div>
-              </div>
-            )}
-
-            <div className="flex justify-between items-center">
-              <span className="text-xs font-medium">Cần thanh toán</span>
-              <span className="text-xl font-bold text-slate-700 tracking-tight">
-                {formatCurrency(finalTotal)}{" "}
-                <span className="text-sm font-normal text-slate-700">đ</span>
-              </span>
+          <div className="flex items-end justify-between gap-2 text-center bg-linear-to-r from-indigo-950 via-indigo-900 to-indigo-950 text-white px-4 py-3 rounded-md">
+            <span className="font-bold uppercase">Tổng tiền</span>
+            <div className="text-xl font-bold">
+              {formatCurrency(finalTotal)} VNĐ
             </div>
           </div>
-
-          <div
-            className={`p-2 rounded border shadow-sm animate-in fade-in slide-in-from-top-2 flex items-center gap-3 justify-between
-                 ${
-                   remainingBalance > 0
-                     ? "bg-amber-50/20 border-amber-700/50 text-amber-400"
-                     : isBalanceMatched
-                     ? "border-green-700/50 text-green-400"
-                     : "border-blue-700/50 text-blue-400"
-                 }
-             `}
-          >
-            <div className="flex items-center gap-2">
-              <div
-                className={`p-2 rounded-full shrink-0 ${
-                  remainingBalance > 0
-                    ? "bg-amber-50/20 "
-                    : isBalanceMatched
-                    ? "bg-green-500/20 text-green-400"
-                    : "bg-blue-500/20 text-blue-400"
-                }`}
-              >
-                {remainingBalance > 0 ? (
-                  <AlertCircle size={20} />
-                ) : isBalanceMatched ? (
-                  <CheckCircle2 size={20} />
-                ) : (
-                  <RotateCcw size={20} />
-                )}
-              </div>
-              <div>
-                <h4 className="text-xs font-bold">
-                  {remainingBalance > 0
-                    ? "Cần thu thêm"
-                    : isBalanceMatched
-                    ? "Đã khớp tiền"
-                    : "Cần hoàn lại"}
-                </h4>
-                {!isBalanceMatched && (
-                  <div className="text-sm font-bold">
-                    {formatCurrency(Math.abs(remainingBalance))}{" "}
-                    <span className="text-xs font-normal opacity-70">đ</span>
+          <div className="rounded p-4 border border-slate-200 space-y-3">
+            <div className="space-y-2">
+              <div className="flex items-end justify-between gap-2 text-xs font-bold uppercase">
+                <div className="flex items-center gap-2">
+                  <History size={14} />
+                  Đã thanh toán
+                </div>
+                {editingBooking && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm">
+                      {formatCurrency(previouslyPaid)}
+                    </span>
                   </div>
                 )}
               </div>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="bg-slate-100 rounded p-2 flex justify-between items-center opacity-70">
+                  <span className="text-slate-600 text-[10px] font-bold flex items-center gap-1">
+                    TM
+                  </span>
+                  <span className="font-bold text-slate-700">
+                    {formatCurrency(editingBooking?.payment?.paidCash || 0)}
+                  </span>
+                </div>
+                <div className="bg-slate-100 rounded p-2 flex justify-between items-center opacity-70">
+                  <span className="text-slate-600 text-[10px] font-bold flex items-center gap-1">
+                    CK
+                  </span>
+                  <span className="font-bold text-slate-700">
+                    {formatCurrency(editingBooking?.payment?.paidTransfer || 0)}
+                  </span>
+                </div>
+              </div>
             </div>
-
-            {!isBalanceMatched && !isSaved && (
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => handleQuickSettle("cash")}
-                  className="text-[10px] font-bold py-2 px-2 rounded border transition-colors flex items-center justify-center gap-1 bg-white/10 hover:bg-white/20"
-                >
-                  <DollarSign size={10} />{" "}
-                  {remainingBalance > 0 ? "Thu TM" : "Hoàn TM"}
-                </button>
-                <button
-                  onClick={() => handleQuickSettle("transfer")}
-                  className="text-[10px] font-bold py-2 px-2 rounded border transition-colors flex items-center justify-center gap-1 bg-white/10 hover:bg-white/20"
-                >
-                  <CreditCard size={10} />{" "}
-                  {remainingBalance > 0 ? "Thu CK" : "Hoàn CK"}
-                </button>
+          </div>
+          <div className={`flex space-x-3`}>
+            {remainingBalance > 0 ? (
+              <div className="flex flex-col w-full gap-2">
+                <div className="w-full flex justify-between items-end rounded-md px-4 py-3 bg-linear-to-r from-rose-900 via-rose-700 to-rose-900 text-white">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle size={20} />
+                    <span className="text-xs font-bold">Cần thu thêm</span>
+                  </div>
+                  <span className="font-bold text-sm">
+                    {formatCurrency(Math.abs(remainingBalance))}
+                  </span>
+                </div>
+                <div className="">
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => handleQuickSettle("cash")}
+                      className="text-xs font-bold h-10 px-2 rounded transition-colors flex items-center justify-center gap-1  border-2 border-rose-900 text-rose-900 bg-rose-100 cursor-pointer"
+                    >
+                      Thu TM
+                    </button>
+                    <button
+                      onClick={() => handleQuickSettle("transfer")}
+                      className="text-xs font-bold h-10 px-2 rounded transition-colors flex items-center justify-center gap-1  border-2 border-rose-900 text-rose-900 bg-rose-100 cursor-pointer"
+                    >
+                      Thu CK
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : isBalanceMatched ? (
+              <div className="flex flex-col w-full gap-2">
+                <div className="w-full flex justify-between items-end rounded-md px-4 py-3 bg-linear-to-r from-green-900 via-green-700 to-green-900 text-white ">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 size={20} />
+                    <span className="text-xs font-bold">Đã đủ tiền</span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col w-full gap-2">
+                <div className="w-full flex justify-between items-end rounded-md px-4 py-3 bg-linear-to-r from-blue-900 via-blue-700 to-blue-900 text-white ">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle size={20} />
+                    <span className="text-xs font-bold">Cần hoàn lại</span>
+                  </div>
+                  <span className="font-bold">
+                    {formatCurrency(Math.abs(remainingBalance))}
+                  </span>
+                </div>
+                <div className="">
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => handleQuickSettle("cash")}
+                      className="text-xs font-bold h-10 px-2 rounded transition-colors flex items-center justify-center gap-1  border-2 border-blue-900 text-blue-900 bg-blue-100 cursor-pointer"
+                    >
+                      Hoàn TM
+                    </button>
+                    <button
+                      onClick={() => handleQuickSettle("transfer")}
+                      className="text-xs font-bold h-10 px-2 rounded transition-colors flex items-center justify-center gap-1  border-2 border-blue-900 text-blue-900 bg-blue-100 cursor-pointer"
+                    >
+                      Hoàn CK
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
           </div>
 
-          <div className="space-y-3 pt-2">
-            <div className="text-xs font-bold uppercase mb-2">
-              Thanh toán hiện tại
-            </div>
-            <div className="relative group">
-              <div className="absolute top-2.5 left-3 pointer-events-none group-focus-within:text-green-500">
-                <DollarSign size={16} />
+          <div className="border border-slate-200 p-4 rounded space-y-4">
+            <div className="space-y-3">
+              <div className="text-xs font-bold uppercase mb-2 flex items-center gap-2">
+                <CreditCard size={14} />
+                <span>
+                  {remainingBalance < 0
+                    ? "Hoàn tiền lần này"
+                    : "Thanh toán lần này"}
+                </span>
               </div>
-              <CurrencyInput
-                name="paidCash"
-                value={paidCash}
-                onChange={handleMoneyChangeLocal}
-                className="w-full pl-9 pr-8 py-2 border border-slate-300 rounded text-right font-bold text-sm  focus:border-green-500 focus:outline-none transition-colors"
-                placeholder="0"
-              />
-              <span className="absolute top-3 right-3 text-[10px]  pointer-events-none font-bold">
-                TM
-              </span>
-            </div>
-            <div className="relative group">
-              <div className="absolute top-2.5 left-3 pointer-events-none group-focus-within:text-slate-500">
-                <CreditCard size={16} />
+              <div className="w-full flex gap-2">
+                {/* INPUT 1: TIỀN MẶT */}
+                <div className="w-1/2 relative group">
+                  <CurrencyInput
+                    value={
+                      finalTotal - previouslyPaid < -100
+                        ? Math.abs(
+                            paidCash - (editingBooking?.payment?.paidCash || 0)
+                          ).toString()
+                        : (
+                            paidCash - (editingBooking?.payment?.paidCash || 0)
+                          ).toString()
+                    }
+                    onChange={(e) => {
+                      const history = editingBooking?.payment?.paidCash || 0;
+                      const inputVal = parseCurrency(e.target.value);
+
+                      // Logic:
+                      // If Refund Mode (Balance < 0 originally OR currently):
+                      // Users want to enter POSITIVE refund amount.
+                      // If Refunding: newTotal = history - inputVal.
+                      // If Paying: newTotal = history + inputVal.
+
+                      // How to detect mode?
+                      // "Khi remainingAmount < 0: Xác định đây là nghiệp vụ hoàn tiền".
+
+                      const isRefundContext =
+                        finalTotal - previouslyPaid < -100; // Tolerance
+
+                      let newTotal;
+                      if (isRefundContext) {
+                        // Refund Mode: Input is amount to REFUND (subtract from history)
+                        newTotal = history - inputVal;
+                      } else {
+                        // Payment Mode: Input is amount to ADD
+                        newTotal = history + inputVal;
+                      }
+
+                      onMoneyChange({
+                        target: {
+                          name: "paidCash",
+                          value: newTotal.toString(),
+                        },
+                      } as any);
+                    }}
+                    placeholder="0"
+                    className={`w-full h-8 px-2 text-xs bg-slate-100/70 text-slate-600 border rounded text-right font-bold focus:outline-none transition-colors border-none`}
+                  />
+                  <span className="absolute top-2.25 left-2 text-[10px] pointer-events-none text-slate-600 font-bold">
+                    TM
+                  </span>
+                  {/* Visual Label for clarity in Refund Mode */}
+                  {finalTotal - previouslyPaid < 0 && (
+                    <span className="absolute -top-2 left-2 bg-white px-1 text-[10px] text-amber-600 font-bold uppercase">
+                      Hoàn TM
+                    </span>
+                  )}
+                </div>
+
+                {/* INPUT 2: CHUYỂN KHOẢN */}
+                <div className="w-1/2 relative group">
+                  <div
+                    className={`absolute top-2.5 left-3 pointer-events-none ${
+                      remainingBalance < 0
+                        ? "text-amber-500"
+                        : "group-focus-within:text-blue-500"
+                    }`}
+                  ></div>
+                  <CurrencyInput
+                    value={
+                      finalTotal - previouslyPaid < -100
+                        ? Math.abs(
+                            paidTransfer -
+                              (editingBooking?.payment?.paidTransfer || 0)
+                          ).toString()
+                        : (
+                            paidTransfer -
+                            (editingBooking?.payment?.paidTransfer || 0)
+                          ).toString()
+                    }
+                    onChange={(e) => {
+                      const history =
+                        editingBooking?.payment?.paidTransfer || 0;
+                      const inputVal = parseCurrency(e.target.value);
+
+                      // Determine Mode based on BOOKING STATUS
+                      const isRefundContext =
+                        finalTotal - previouslyPaid < -100;
+
+                      let newTotal;
+                      if (isRefundContext) {
+                        // REFUND MODE: Input is "How much to give back"
+                        // Operation: SUBTRACT from History
+                        newTotal = history - inputVal;
+                      } else {
+                        // PAYMENT MODE: Input is "How much to add"
+                        // Operation: ADD to History
+                        newTotal = history + inputVal;
+                      }
+
+                      onMoneyChange({
+                        target: {
+                          name: "paidTransfer",
+                          value: newTotal.toString(),
+                        },
+                      } as any);
+                    }}
+                    placeholder="0"
+                    className={`w-full h-8 px-2 text-xs bg-slate-100/70 text-slate-600 border rounded text-right font-bold focus:outline-none transition-colors border-none`}
+                  />
+                  <span className="absolute top-2.5 left-2 text-[10px] text-slate-600 pointer-events-none font-bold">
+                    CK
+                  </span>
+                  {/* Visual Label for clarity in Refund Mode */}
+                  {finalTotal - previouslyPaid < 0 && (
+                    <span className="absolute -top-2 left-2 bg-white px-1 text-[10px] text-amber-600 font-bold uppercase">
+                      Hoàn CK
+                    </span>
+                  )}
+                </div>
               </div>
-              <CurrencyInput
-                name="paidTransfer"
-                value={paidTransfer}
-                onChange={handleMoneyChangeLocal}
-                className="w-full pl-9 pr-8 py-2  border border-slate-300 rounded text-right font-bold text-sm  focus:border-slate-400 focus:outline-none transition-colors"
-                placeholder="0"
-              />
-              <span className="absolute top-3 right-3 text-[10px] pointer-events-none font-bold">
-                CK
-              </span>
             </div>
+          </div>
+
+          <div className="flex justify-center flex-col gap-2">
+            {/* Logic hiển thị nút tạo QR: Chỉ khi có phát sinh thanh toán CK > 0 trong đợt này HOẶC đã thanh toán thành công */}
+            {(paidTransfer - (editingBooking?.payment?.paidTransfer || 0) > 0 ||
+              isPaymentSuccessful) && (
+              <>
+                {!isWaitingForPayment && !isPaymentSuccessful && (
+                  <button
+                    onClick={async () => {
+                      const currentBookingItems = stableItems
+                        .map((trip) => {
+                          const activeSeats = trip.seats.filter(
+                            (s) => s.diffStatus !== "removed"
+                          );
+
+                          const mappedSeats = activeSeats.map((seat) => {
+                            const { price, isPaid, pickup, dropoff } =
+                              getSeatValues(
+                                trip.tripId,
+                                seat,
+                                trip.pickup,
+                                trip.dropoff,
+                                trip.basePrice
+                              );
+                            return { ...seat, price, isPaid };
+                          });
+
+                          return {
+                            tripId: trip.tripId,
+                            route: trip.route,
+                            tripDate: trip.tripDate,
+                            licensePlate: trip.licensePlate,
+                            seats: mappedSeats,
+                            pickup: trip.pickup,
+                            dropoff: trip.dropoff,
+                          };
+                        })
+                        .filter((trip) => trip.seats.length > 0);
+
+                      // Calculate CURRENT transaction amount for QR
+                      const historyTransfer =
+                        editingBooking?.payment?.paidTransfer || 0;
+                      const currentTransactionTransfer =
+                        paidTransfer - historyTransfer;
+
+                      const qrData = {
+                        passenger: {
+                          phone: bookingForm.phone,
+                          name: "Khách lẻ",
+                          note: bookingForm.note,
+                        },
+                        items: currentBookingItems,
+                        payment: {
+                          totalAmount: finalTotal,
+                          paidTransfer: currentTransactionTransfer,
+                          paidCash: 0,
+                        },
+                        timestamp: new Date().toISOString(),
+                      };
+
+                      try {
+                        await api.qrgeneral.create(qrData);
+                        setIsWaitingForPayment(true);
+                        setIsPaymentSuccessful(false);
+                        toast({
+                          type: "success",
+                          title: "Tạo mã QR thành công",
+                          message: "Vui lòng chờ khách hàng thanh toán...",
+                        });
+                      } catch (e) {
+                        toast({
+                          type: "error",
+                          title: "Lỗi",
+                          message: "Không thể tạo mã QR.",
+                        });
+                      }
+                    }}
+                    className={`flex items-center justify-center gap-2 text-xs px-3 py-1.5 rounded-md h-9 border transition-colors text-white bg-indigo-700 hover:bg-indigo-800 border-indigo-900 cursor-pointer`}
+                  >
+                    <QrCode size={14} />
+                    Tạo mã QR thanh toán
+                  </button>
+                )}
+
+                {isWaitingForPayment && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => {
+                        setIsWaitingForPayment(false);
+                        setIsPaymentSuccessful(false);
+                      }}
+                      className="flex items-center justify-center gap-1 text-xs px-3 py-1.5 rounded-md h-9 border transition-colors bg-red-700 text-white hover:bg-red-800 border-red-700 cursor-pointer w-full"
+                    >
+                      <XCircle size={14} />
+                      Không thành công
+                    </button>
+                    <button
+                      onClick={async () => {
+                        try {
+                          // Explicitly delete QR data immediately as requested
+                          await api.qrgeneral.delete();
+                        } catch (e) {
+                          console.error("Failed to delete QR data", e);
+                        }
+                        setIsWaitingForPayment(false);
+                        setIsPaymentSuccessful(true);
+                        handleConfirmClick();
+                      }}
+                      className="flex items-center justify-center gap-1 text-xs px-3 py-1.5 rounded-md h-9 border transition-colors text-white bg-indigo-700 hover:bg-indigo-800 border-indigo-700 cursor-pointer w-full"
+                    >
+                      <CheckCircle2 size={14} />
+                      Chuyển thành công
+                    </button>
+                  </div>
+                )}
+
+                {isPaymentSuccessful && (
+                  <div className="flex items-center justify-center gap-2 text-xs px-3 py-1.5 rounded-md h-9 border transition-colors bg-green-50 text-green-700 border-green-200 cursor-not-allowed w-full font-bold">
+                    <CheckCircle2 size={14} />
+                    Đã chuyển khoản thành công
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </div>
       </div>
