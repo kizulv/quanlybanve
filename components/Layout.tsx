@@ -117,22 +117,16 @@ export const Layout: React.FC<LayoutProps> = ({
           permission: PERMISSIONS.VIEW_SCHEDULE,
         },
         {
-          id: "order-info",
-          icon: <Search size={18} />,
-          label: "Tra cứu vé",
-          permission: PERMISSIONS.VIEW_ORDER_INFO,
+          id: "finance",
+          icon: <BadgeDollarSign size={18} />,
+          label: "Tài chính",
+          permission: PERMISSIONS.VIEW_FINANCE,
         },
       ],
     },
     {
       title: "Hệ thống",
       items: [
-        {
-          id: "finance",
-          icon: <BadgeDollarSign size={18} />,
-          label: "Tài chính",
-          permission: PERMISSIONS.VIEW_FINANCE,
-        },
         {
           id: "users",
           icon: <Users size={18} />,

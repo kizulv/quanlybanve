@@ -176,6 +176,7 @@ export type UndoAction =
   | {
       type: "SWAPPED_SEATS";
       tripId: string;
+      tripId2?: string;
       seat1: string;
       seat2: string;
       label1: string;

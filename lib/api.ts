@@ -182,11 +182,16 @@ export const api = {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ bookingIds, payment }),
       }),
-    swapSeats: (tripId: string, seatId1: string, seatId2: string) =>
-      fetchJson(`${API_URL}/bookings/swap/`, {
+    swapSeats: (
+      tripId1: string,
+      seatId1: string,
+      tripId2: string,
+      seatId2: string
+    ) =>
+      fetchJson(`${API_URL}/bookings/swap`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tripId, seatId1, seatId2 }),
+        body: JSON.stringify({ tripId1, seatId1, tripId2, seatId2 }),
       }),
     transferSeat: (
       bookingId: string,

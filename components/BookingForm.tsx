@@ -234,7 +234,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
       const pickup = b.passenger.pickupPoint || "";
       const dropoff = b.passenger.dropoffPoint || "";
       if (!pickup && !dropoff) return;
-      const key = `${pickup.toLowerCase().trim()}|${dropoff
+      const key = `${b.passenger.phone}|${pickup.toLowerCase().trim()}|${dropoff
         .toLowerCase()
         .trim()}`;
       const existing = uniqueRoutes.get(key);
@@ -812,7 +812,10 @@ export const BookingForm: React.FC<BookingFormProps> = ({
     const isPriceChanged =
       Math.abs(totalBasketPrice - (editingBooking.totalPrice || 0)) >= 1;
 
-    if (isPriceChanged && bookingMode === "payment") {
+    if (
+      bookingMode === "payment" &&
+      (isPriceChanged || editingBooking.status !== "payment")
+    ) {
       setModalInitialOverrides(overrides);
       setPendingPaymentContext({
         type: "update",
@@ -1203,8 +1206,29 @@ export const BookingForm: React.FC<BookingFormProps> = ({
       >
         <AlertDialogContent className="max-w-3xl">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-blue-600 flex items-center gap-2">
-              <FileEdit size={20} /> Xác nhận thay đổi
+            <AlertDialogTitle className="text-blue-600 flex items-start gap-2">
+              {bookingMode === "payment" ? (
+                <>
+                  <Banknote size={20} className="mt-0.5 shrink-0" />
+                  <span>
+                    Bạn muốn thanh toán cho các vé{" "}
+                    <span className="font-black text-indigo-700">
+                      {updateSummary?.diffTrips
+                        .flatMap((t) =>
+                          t.seats
+                            .filter((s) => s.status !== "removed")
+                            .map((s) => s.label)
+                        )
+                        .join(", ")}
+                    </span>
+                    ?
+                  </span>
+                </>
+              ) : (
+                <>
+                  <FileEdit size={20} /> Xác nhận thay đổi
+                </>
+              )}
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="text-slate-600 pt-2 space-y-4">

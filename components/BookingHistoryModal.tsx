@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { formatDate } from "../utils/formatters";
 import { Dialog } from "./ui/Dialog";
 import { Button } from "./ui/Button";
 import { api } from "../lib/api";
@@ -48,6 +49,7 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
   const [loading, setLoading] = useState(false);
 
   // Helper tìm Seat Label
+
   const getSeatLabel = (
     seatId: string,
     tripInfo?: { tripId?: string; licensePlate?: string; date?: string }
@@ -116,7 +118,11 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
   const getActionTheme = (action: string) => {
     switch (action) {
       case "CREATE":
-        return { icon: <Plus size={14} />, color: "emerald", label: "Đặt vé" };
+        return {
+          icon: <Plus size={14} />,
+          color: "emerald",
+          label: "Đặt vé/Mua vé",
+        };
       case "DELETE":
       case "CANCEL":
         return { icon: <Trash2 size={14} />, color: "red", label: "Hủy vé" };
@@ -160,20 +166,6 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
         };
     }
   };
-
-  const formatDate = (dateStr: string) => {
-    try {
-      const date = new Date(dateStr);
-      return (
-        date.toLocaleDateString("vi-VN") +
-        " " +
-        date.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })
-      );
-    } catch (e) {
-      return dateStr;
-    }
-  };
-
   const renderDetails = (log: BookingHistory) => {
     const details = log.details || {};
 
@@ -214,18 +206,29 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
                 </span>
               </div>
               <div className="flex flex-wrap gap-2">
-                {trip.seats.map((s: string) => {
-                  const label = getSeatLabel(s, {
-                    tripId: trip.tripId || trip.id,
-                  }); // Try passing ID if available
+                {trip.seats.map((s: any) => {
+                  /* START MODIFIED LOGIC */
+                  const isObject = typeof s === "object" && s !== null;
+                  const seatId = isObject ? s.id : s;
+                  const label = isObject
+                    ? s.label
+                    : getSeatLabel(seatId, { tripId: trip.tripId || trip.id });
+
+                  let isPaid = false;
+                  if (isObject) {
+                    isPaid = s.status === "payment"; // Use captured status from history
+                  }
+
                   return (
                     <span
-                      key={s}
+                      key={seatId}
                       className={`${
                         isCancelled
                           ? "bg-red-50 text-red-400 border-red-100 line-through decoration-red-300"
-                          : "bg-blue-50 border-blue-200 text-blue-700"
-                      } min-w-7 h-6 px-2 flex items-center justify-center py-0.5 rounded border font-semibold text-[11px]`}
+                          : isPaid
+                          ? "bg-blue-50 border-blue-200 text-blue-700"
+                          : "bg-amber-50 border-amber-200 text-amber-600"
+                      } min-w-10 h-6 px-2 flex items-center justify-center py-0.5 rounded border font-semibold text-[11px]`}
                     >
                       {label}
                     </span>
@@ -264,27 +267,52 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
                   <div className="flex items-center mb-4">
                     {(hasKept || hasRemoved) && (
                       <div className="flex flex-wrap gap-2">
-                        {change.kept?.map((s: string) => (
-                          <Badge
-                            key={s}
-                            className="bg-green-50 text-slate-700 border-green-200 font-bold text-[10px] min-w-7 h-6 px-2 flex items-center justify-center shadow-xs"
-                          >
-                            {getSeatLabel(s)}
-                          </Badge>
-                        ))}
+                        {change.kept?.map((s: any) => {
+                          const isObject = typeof s === "object" && s !== null;
+                          const seatId = isObject ? s.id : s;
+                          const label = isObject
+                            ? s.label
+                            : getSeatLabel(seatId);
+
+                          let isPaid = false;
+                          if (isObject) {
+                            isPaid = s.status === "payment";
+                          }
+
+                          return (
+                            <span
+                              key={s}
+                              className={`${
+                                isPaid
+                                  ? "bg-blue-50 border-blue-200 text-blue-700"
+                                  : "bg-amber-50 border-amber-200 text-amber-600"
+                              } min-w-10 h-6 px-2 flex items-center justify-center py-0.5 rounded border font-semibold text-[11px]`}
+                            >
+                              {label}
+                            </span>
+                          );
+                        })}
                         <div className="flex items-center">
                           {hasRemoved && hasKept && (
                             <span className="mx-4 text-slate-300"> - </span>
                           )}
                           <div className="flex flex-wrap gap-2">
-                            {change.removed?.map((s: string) => (
-                              <Badge
-                                key={s}
-                                className="bg-red-50 text-red-400 border-red-100 line-through decoration-red-300 font-bold text-[10px] min-w-7 h-6 px-2 flex items-center justify-center opacity-70"
-                              >
-                                {getSeatLabel(s)}
-                              </Badge>
-                            ))}
+                            {change.removed?.map((s: any) => {
+                              const isObject =
+                                typeof s === "object" && s !== null;
+                              const seatId = isObject ? s.id : s;
+                              const label = isObject
+                                ? s.label
+                                : getSeatLabel(seatId);
+                              return (
+                                <span
+                                  key={seatId}
+                                  className="bg-red-50 text-red-400 border-red-100 line-through decoration-red-300 min-w-10 h-6 px-2 flex items-center justify-center py-0.5 rounded border font-semibold text-[11px]"
+                                >
+                                  {label}
+                                </span>
+                              );
+                            })}
                           </div>
                         </div>
                       </div>
@@ -294,14 +322,32 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
                       <div className="flex items-center">
                         <span className="mx-4 text-slate-300">+</span>
                         <div className="flex flex-wrap gap-2">
-                          {change.added.map((s: string) => (
-                            <Badge
-                              key={s}
-                              className="bg-emerald-50 text-emerald-700 border-emerald-200 font-black text-[10px] min-w-7 h-6 px-2 flex items-center justify-center shadow-sm ring-1 ring-emerald-500/10"
-                            >
-                              {getSeatLabel(s)}
-                            </Badge>
-                          ))}
+                          {change.added.map((s: any) => {
+                            const isObject =
+                              typeof s === "object" && s !== null;
+                            const seatId = isObject ? s.id : s;
+                            const label = isObject
+                              ? s.label
+                              : getSeatLabel(seatId);
+
+                            let isPaid = false;
+                            if (isObject) {
+                              isPaid = s.status === "payment";
+                            }
+
+                            return (
+                              <span
+                                key={seatId}
+                                className={`${
+                                  isPaid
+                                    ? "bg-blue-50 border-blue-200 text-blue-700"
+                                    : "bg-amber-50 border-amber-200 text-amber-600"
+                                } min-w-10 h-6 px-2 flex items-center justify-center py-0.5 rounded border font-semibold text-[11px]`}
+                              >
+                                {label}
+                              </span>
+                            );
+                          })}
                         </div>
                       </div>
                     )}

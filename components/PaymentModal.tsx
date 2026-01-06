@@ -168,9 +168,25 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               const originalTicket = bookingItem?.tickets?.find(
                 (t) => String(t.seatId) === String(oid)
               );
+
+              // FIND LABEL logic
+              let label = String(oid);
+              // 1. Try finding in basket trip data (if available)
+              if (basketItem?.trip) {
+                const s = basketItem.trip.seats.find(
+                  (s) => String(s.id) === String(oid)
+                );
+                if (s) label = s.label;
+              }
+              // 2. If not, try bus config
+              if (label === String(oid) && busObj?.layoutConfig?.seatLabels) {
+                const mapped = busObj.layoutConfig.seatLabels[String(oid)];
+                if (mapped) label = mapped;
+              }
+
               allSeats.push({
                 id: String(oid),
-                label: String(oid), // Use ID as label if we don't have snapshot
+                label: label, // Corrected label
                 status: SeatStatus.AVAILABLE, // Trở thành trống
                 price: originalTicket?.price || 0,
                 diffStatus: "removed",

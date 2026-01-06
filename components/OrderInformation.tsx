@@ -218,7 +218,7 @@ const SeatMapPreview: React.FC<{ trip: BusTrip; bookedSeatIds: string[] }> = ({
       </div>
       {benchSeats.length > 0 && (
         <div className="w-full flex flex-col items-center">
-          <div className="flex gap-4 w-full px-2 lg:px-0">
+          <div className="flex flex-col gap-4 w-full px-2 lg:px-0">
             {[1, 2].map((f) => {
               const floorBench = benchSeats
                 .filter((s) => s.floor === f)
@@ -232,7 +232,7 @@ const SeatMapPreview: React.FC<{ trip: BusTrip; bookedSeatIds: string[] }> = ({
                   <div className="text-[10px] font-black text-slate-300 uppercase tracking-tighter">
                     Tầng {f}
                   </div>
-                  <div className="flex gap-1.5 sm:gap-2 justify-center">
+                  <div className="flex  gap-1.5 sm:gap-2 justify-center">
                     {floorBench.map((s) => renderSeat(s))}
                   </div>
                 </div>

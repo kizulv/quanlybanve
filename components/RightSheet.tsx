@@ -278,7 +278,7 @@ export const RightSheet: React.FC<RightSheetProps> = ({
         </SheetTrigger>
         <SheetContent
           side="right"
-          className="flex flex-col h-full w-full p-0 gap-0 border-l shadow-xl bg-white"
+          className="flex flex-col h-full w-full p-0 gap-0 border-l border-slate-100 shadow-xl bg-white"
         >
           <SheetHeader className="px-6 py-5 border-b border-slate-100 shrink-0 bg-white">
             <div className="flex items-center justify-between">
@@ -479,7 +479,7 @@ export const RightSheet: React.FC<RightSheetProps> = ({
                                           return (
                                             <span
                                               key={s}
-                                              className={`min-w-7 h-6 px-2 flex items-center justify-center py-0.5 rounded border font-semibold ${
+                                              className={`min-w-10 h-6 px-2 flex items-center justify-center py-0.5 rounded border font-semibold ${
                                                 isPaid
                                                   ? "bg-blue-50 border-blue-200 text-blue-700"
                                                   : "bg-amber-50 border-amber-200 text-amber-700"

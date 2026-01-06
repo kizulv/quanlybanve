@@ -53,6 +53,7 @@ export const PaymentManager: React.FC = () => {
   const { toast } = useToast();
   const [payments, setPayments] = useState<any[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [trips, setTrips] = useState<BusTrip[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -60,7 +61,6 @@ export const PaymentManager: React.FC = () => {
     from: undefined,
     to: undefined,
   });
-
   const [selectedGroup, setSelectedGroup] = useState<PaymentGroup | null>(null);
   const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
   const [editNote, setEditNote] = useState("");
@@ -68,12 +68,14 @@ export const PaymentManager: React.FC = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [paymentsData, bookingsData] = await Promise.all([
+      const [paymentsData, bookingsData, tripsData] = await Promise.all([
         api.payments.getAll(),
         api.bookings.getAll(),
+        api.trips.getAll(),
       ]);
       setPayments(paymentsData);
       setBookings(bookingsData);
+      setTrips(tripsData);
     } catch (e) {
       console.error(e);
       toast({
@@ -188,42 +190,104 @@ export const PaymentManager: React.FC = () => {
 
     Object.values(groups).forEach((g) => {
       const currentBooking = bookings.find((b) => b.id === g.bookingId);
-      const activePaidLabels = new Set<string>();
-      const activeBookedLabels = new Set<string>();
+      // Helper to find label by seatId and tripId
+      // Logic copied from BookingHistoryModal for consistency
+      const getLabel = (sid: string, tid?: string) => {
+        // 1. If we have tripId, look up in trips list
+        if (tid) {
+          const trip = trips.find((t) => t.id === tid);
+          if (trip) {
+            const seat = trip.seats.find((s) => s.id === sid);
+            if (seat) return seat.label;
+          }
+        }
 
+        // 2. If no tripId, try to infer from current booking items
+        if (!tid && currentBooking) {
+          const item = currentBooking.items.find(
+            (it) =>
+              it.seatIds.includes(sid) ||
+              it.tickets?.some((t) => t.seatId === sid)
+          );
+          if (item) {
+            const trip = trips.find((t) => t.id === item.tripId);
+            if (trip) {
+              const seat = trip.seats.find((s) => s.id === sid);
+              if (seat) return seat.label;
+            }
+          }
+        }
+
+        // 3. Last resort: scan all trips manually (legacy fallback)
+        for (const t of trips) {
+          const seat = t.seats.find((s) => s.id === sid);
+          if (seat) return seat.label;
+        }
+
+        return sid;
+      };
+
+      // 1. COLLECT ALL SEATS FROM HISTORY (normalized to labels)
+      const allHistoryLabels = new Set<string>();
+      g.payments.forEach((p) => {
+        const pTrips = normalizeTrips(p.details);
+        pTrips.forEach((t: any) => {
+          const seats = t.labels && t.labels.length > 0 ? t.labels : t.seats;
+          if (seats) {
+            seats.forEach((s: string) => {
+              // Normalize to label using tripId from history details
+              const label = getLabel(s, t.tripId);
+              allHistoryLabels.add(label);
+            });
+          }
+        });
+      });
+
+      // 2. IDENTIFY STATUS FROM ACTIVE BOOKING
+      // Map<Label, Status>
+      const activeStatusMap = new Map<string, string>();
       if (currentBooking && currentBooking.status !== "cancelled") {
         currentBooking.items.forEach((item) => {
+          const tid = item.tripId;
+
           if (item.tickets && item.tickets.length > 0) {
-            item.tickets.forEach((ticket) => {
-              if (ticket.price > 0) activePaidLabels.add(ticket.seatId);
-              else activeBookedLabels.add(ticket.seatId);
+            item.tickets.forEach((t) => {
+              const label = getLabel(t.seatId, tid);
+              const status = t.status || currentBooking.status;
+              activeStatusMap.set(label, status);
             });
           } else {
             item.seatIds.forEach((sid) => {
-              if (currentBooking.status === "payment")
-                activePaidLabels.add(sid);
-              else activeBookedLabels.add(sid);
+              const label = getLabel(sid, tid);
+              activeStatusMap.set(label, currentBooking.status);
             });
           }
         });
       }
 
-      const allLabelsInHistory = new Set<string>();
-      g.payments.forEach((p) => {
-        const pTrips = normalizeTrips(p.details);
-        pTrips.forEach((t: any) => {
-          const labels = t.labels && t.labels.length > 0 ? t.labels : t.seats;
-          if (labels) labels.forEach((l: string) => allLabelsInHistory.add(l));
-        });
+      // 3. MERGE AND FINALIZE
+      // Ensure all currently active seats are included in the list, even if missed by history checks
+      // (e.g. seats added via UPDATE which standard normalization might miss)
+      activeStatusMap.forEach((_, label) => {
+        allHistoryLabels.add(label);
       });
 
-      g.tripInfo.seats = Array.from(allLabelsInHistory)
+      g.tripInfo.seats = Array.from(allHistoryLabels)
         .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
         .map((label) => {
-          if (activePaidLabels.has(label))
-            return { label, status: "paid" as const };
-          if (activeBookedLabels.has(label))
-            return { label, status: "booked" as const };
+          const activeStatus = activeStatusMap.get(label);
+
+          if (activeStatus) {
+            // If in active booking, use real status
+            return {
+              label,
+              status:
+                activeStatus === "payment"
+                  ? ("paid" as const)
+                  : ("booked" as const),
+            };
+          }
+          // If not in active booking, must be refunded/removed
           return { label, status: "refunded" as const };
         });
     });
@@ -231,7 +295,7 @@ export const PaymentManager: React.FC = () => {
     return Object.values(groups).sort(
       (a, b) => b.latestTransaction.getTime() - a.latestTransaction.getTime()
     );
-  }, [payments, bookings]);
+  }, [payments, bookings, trips]);
 
   const filteredGroups = useMemo(() => {
     const term = searchTerm.toLowerCase().trim();
@@ -662,7 +726,7 @@ export const PaymentManager: React.FC = () => {
                         return (
                           <span
                             key={i}
-                            className={`min-w-7 h-6 px-2 flex items-center justify-center py-0.5 rounded border font-semibold text-[11px] ${badgeClass}`}
+                            className={`min-w-10 h-6 px-2 flex items-center justify-center py-0.5 rounded border font-semibold text-[11px] ${badgeClass}`}
                           >
                             {s.label}
                           </span>

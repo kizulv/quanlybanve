@@ -11,6 +11,17 @@
       }
     ],
     "no-inline-styles": "off",
-    "meta-viewport": "off"
-  }
+    "meta-viewport": "off",
+    "compat-api/css": "off"
+  },
+  "browserslist": [
+    "defaults",
+    "not ie 11",
+    "not and_chr <= 143",
+    "not chrome <= 143",
+    "not edge <= 143",
+    "not firefox <= 146",
+    "not safari <= 26.2",
+    "not samsung <= 29"
+  ]
 }

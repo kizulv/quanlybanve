@@ -837,23 +837,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                               "Bắt đầu quét & sửa lỗi"
                             )}
                           </Button>
-                          <Button
-                            onClick={handleSyncBusLayouts}
-                            disabled={isFixingFloorSeats}
-                            className="bg-indigo-600 hover:bg-indigo-700 h-10 px-8 font-bold text-base"
-                          >
-                            {isFixingFloorSeats ? (
-                              <>
-                                <Loader2
-                                  className="animate-spin mr-2"
-                                  size={18}
-                                />
-                                Đang sửa...
-                              </>
-                            ) : (
-                              "Sync sơ đồ ghế vào chuyến"
-                            )}
-                          </Button>
                         </div>
                       </div>
                     </div>

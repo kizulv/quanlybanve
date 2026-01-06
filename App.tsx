@@ -46,7 +46,10 @@ function AppContent() {
 
   // -- UI STATE --
   const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
-  const [swapSourceSeat, setSwapSourceSeat] = useState<Seat | null>(null);
+  const [swapSource, setSwapSource] = useState<{
+    seat: Seat;
+    trip: BusTrip;
+  } | null>(null);
   const [highlightedBookingId, setHighlightedBookingId] = useState<
     string | null
   >(null);
@@ -193,31 +196,40 @@ function AppContent() {
   // -- HANDLERS --
   const handleSeatClick = async (clickedSeat: Seat) => {
     if (!selectedTrip) return;
-    if (swapSourceSeat) {
-      if (swapSourceSeat.id === clickedSeat.id)
-        return (
-          setSwapSourceSeat(null), toast({ type: "info", title: "Hủy đổi" })
-        );
+    if (swapSource) {
+      if (swapSource.seat.id === clickedSeat.id)
+        return setSwapSource(null), toast({ type: "info", title: "Hủy đổi" });
+
+      // Check if trying to swap between different vehicle types
+      if (swapSource.trip.type !== selectedTrip.type) {
+        return toast({
+          type: "error",
+          title: "Lỗi",
+          message: "Không thể đổi chỗ giữa các loại xe khác nhau",
+        });
+      }
+
       try {
         const result = await api.bookings.swapSeats(
+          swapSource.trip.id,
+          swapSource.seat.id,
           selectedTrip.id,
-          swapSourceSeat.id,
           clickedSeat.id
         );
-        setBookings(result.bookings);
-        const updatedTripsMap = new Map<string, BusTrip>(
-          result.trips.map((t: BusTrip) => [t.id, t])
-        );
-        setTrips((prev) => prev.map((t) => updatedTripsMap.get(t.id) || t));
+
+        // Reload all data to ensure payment and booking info are updated
+        await refreshData();
+
         setUndoStack((p) => [
           ...p,
           {
             type: "SWAPPED_SEATS",
             tripId: selectedTrip.id,
+            tripId2: swapSource.trip.id,
             seat1: clickedSeat.id,
-            seat2: swapSourceSeat.id,
+            seat2: swapSource.seat.id,
             label1: clickedSeat.label,
-            label2: swapSourceSeat.label,
+            label2: swapSource.seat.label,
             tripDate: selectedTrip.departureTime,
           },
         ]);
@@ -225,7 +237,7 @@ function AppContent() {
       } catch (e) {
         toast({ type: "error", title: "Lỗi", message: "Đổi chỗ thất bại." });
       } finally {
-        setSwapSourceSeat(null);
+        setSwapSource(null);
         if (editingBooking) setEditingBooking(null);
       }
       return;
@@ -339,8 +351,9 @@ function AppContent() {
         setTrips((prev) => prev.map((t) => utMap.get(t.id) || t));
       } else if (action.type === "SWAPPED_SEATS") {
         const swapRes = await api.bookings.swapSeats(
-          action.tripId,
+          action.tripId, // trip for seat1
           action.seat1,
+          action.tripId2 || action.tripId, // trip for seat2 (fallback for old stack)
           action.seat2
         );
         setBookings(swapRes.bookings);
@@ -478,31 +491,31 @@ function AppContent() {
         <div className="flex flex-col md:flex-row gap-4 animate-in fade-in duration-300">
           <div
             className={`flex flex-col bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden shrink-0 md:flex-1 md:h-[calc(100vh-140px)] ${
-              swapSourceSeat ? "ring-2 ring-indigo-500" : ""
+              swapSource ? "ring-2 ring-indigo-500" : ""
             }`}
           >
             <div
               className={`px-4 h-10 border-b flex items-center justify-between shrink-0 rounded-t-xl ${
-                swapSourceSeat
+                swapSource
                   ? "bg-indigo-600"
                   : "bg-linear-to-r from-indigo-950 via-indigo-900 to-indigo-950"
               }`}
             >
               <div className="flex items-center gap-3 text-white text-xs font-bold">
-                {swapSourceSeat ? (
+                {swapSource ? (
                   <ArrowRightLeft size={16} className="animate-pulse" />
                 ) : (
                   <BusFront size={16} />
                 )}
                 {selectedTrip
-                  ? swapSourceSeat
-                    ? `Đang đổi: ${swapSourceSeat.label}`
+                  ? swapSource
+                    ? `Đang đổi: ${swapSource.seat.label} (${swapSource.trip.route})`
                     : `${selectedTrip.name} - ${selectedTrip.licensePlate}`
                   : "Chọn chuyến xe"}
               </div>
-              {swapSourceSeat && (
+              {swapSource && (
                 <button
-                  onClick={() => setSwapSourceSeat(null)}
+                  onClick={() => setSwapSource(null)}
                   className="text-white text-xs bg-white/20 px-2 py-1 rounded"
                 >
                   Hủy
@@ -517,12 +530,15 @@ function AppContent() {
                   onSeatClick={handleSeatClick}
                   bookings={tripBookings}
                   currentTripId={selectedTrip.id}
-                  onSeatSwap={setSwapSourceSeat}
+                  onSeatSwap={(seat) => {
+                    if (selectedTrip)
+                      setSwapSource({ seat, trip: selectedTrip });
+                  }}
                   editingBooking={editingBooking}
                   onSeatRightClick={(s, b) =>
                     setSeatDetailModal({ booking: b, seat: s })
                   }
-                  swapSourceSeatId={swapSourceSeat?.id}
+                  swapSourceSeatId={swapSource?.seat.id}
                 />
               ) : (
                 <div className="h-full flex flex-col items-center justify-center text-slate-300 p-8 text-center">
@@ -546,7 +562,9 @@ function AppContent() {
               setUndoStack={setUndoStack}
               setEditingBooking={setEditingBooking}
               onCancelSelection={cancelAllSelections}
-              onInitiateSwap={setSwapSourceSeat}
+              onInitiateSwap={(seat) => {
+                if (selectedTrip) setSwapSource({ seat, trip: selectedTrip });
+              }}
               onNavigateToTrip={(d, id) => {
                 setSelectedDate(d);
                 setSelectedTripId(id);
