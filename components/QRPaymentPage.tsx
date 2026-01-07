@@ -9,6 +9,7 @@ export const QRPaymentPage: React.FC = () => {
   const { toast } = useToast();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [timeLeft, setTimeLeft] = useState(300); // 5 minutes in seconds
 
   const fetchData = async () => {
     try {
@@ -17,6 +18,7 @@ export const QRPaymentPage: React.FC = () => {
       // Only update if data changed (deep comparison) prevents timer reset
       setData((prev: any) => {
         if (JSON.stringify(prev) !== JSON.stringify(newData)) {
+          setTimeLeft(300); // Reset timer on new data
           return newData;
         }
         return prev;
@@ -35,20 +37,31 @@ export const QRPaymentPage: React.FC = () => {
   }, []);
 
   // Auto-delete after 5 minutes = 300s of displaying data
+  // Countdown timer logic
   useEffect(() => {
     if (!data) return;
 
-    const timer = setTimeout(async () => {
-      try {
-        await api.qrgeneral.delete();
-        setData(null);
-      } catch (error) {
-        console.error("Failed to auto-delete QR data", error);
-      }
-    }, 300000);
+    const timer = setInterval(async () => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          // Time is up
+          api.qrgeneral.delete().catch((e) => console.error(e));
+          setData(null);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
 
-    return () => clearTimeout(timer);
+    return () => clearInterval(timer);
   }, [data]);
+
+  // Format seconds to mm:ss
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
+  };
 
   const handleSimulateSuccess = async () => {
     if (!data) return;
@@ -173,6 +186,14 @@ export const QRPaymentPage: React.FC = () => {
               tất đơn hàng bên màn hình bán vé.
             </p>
           </div>
+        </div>
+      </div>
+
+      {/* Countdown Display */}
+      <div className="text-center pt-8 pb-4">
+        <p className="text-slate-400 text-sm mb-1">Thời gian còn lại</p>
+        <div className="text-3xl font-mono font-bold text-slate-700">
+          {formatTime(timeLeft)}
         </div>
       </div>
     </div>

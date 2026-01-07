@@ -444,18 +444,22 @@ export const OrderInformation: React.FC<OrderInformationProps> = ({
                 </div>
               </div>
               <div className="flex gap-2">
-                {trip.seats.map((s: string) => (
-                  <span
-                    key={s}
-                    className={`rounded-full w-8 text-center border ${
-                      isCancelled
-                        ? "bg-red-50 text-red-400 border-red-100 line-through hover:bg-red-50"
-                        : "bg-slate-100 text-slate-600 border-slate-300 hover:bg-slate-100"
-                    } text-[10px] font-black px-2 py-0.5 rounded`}
-                  >
-                    {s}
-                  </span>
-                ))}
+                {trip.seats.map((s: any, i: number) => {
+                  const label = typeof s === "object" ? s.label || s.seatId : s;
+                  const key = typeof s === "object" ? s.id || s.seatId || i : s;
+                  return (
+                    <span
+                      key={key}
+                      className={`rounded-full w-8 text-center border ${
+                        isCancelled
+                          ? "bg-red-50 text-red-400 border-red-100 line-through hover:bg-red-50"
+                          : "bg-slate-100 text-slate-600 border-slate-300 hover:bg-slate-100"
+                      } text-[10px] font-black px-2 py-0.5 rounded`}
+                    >
+                      {label}
+                    </span>
+                  );
+                })}
               </div>
             </div>
           ))}
@@ -481,30 +485,43 @@ export const OrderInformation: React.FC<OrderInformationProps> = ({
                 </span>
               </div>
               <div className="flex flex-wrap gap-1.5">
-                {change.kept?.map((s: string) => (
-                  <span
-                    key={s}
-                    className="rounded-full w-8 text-center border bg-slate-100 text-slate-600 border-slate-300 hover:bg-slate-100 text-[10px] font-black px-2 py-0.5"
-                  >
-                    {s}
-                  </span>
-                ))}
-                {change.removed?.map((s: string) => (
-                  <span
-                    key={s}
-                    className="rounded-full w-8 text-center bg-red-50 border border-red-300 text-red-400 line-through font-bold text-[10px] py-0.5 px-2"
-                  >
-                    {s}
-                  </span>
-                ))}
-                {change.added?.map((s: string) => (
-                  <span
-                    key={s}
-                    className="rounded-full w-8 bg-emerald-50 text-emerald-700 border border-emerald-300 font-black text-[10px] py-0.5 px-2"
-                  >
-                    {s}
-                  </span>
-                ))}
+                {change.kept?.map((s: any, i: number) => {
+                  const label = typeof s === "object" ? s.label || s.seatId : s;
+                  const key = typeof s === "object" ? s.id || s.seatId || i : s;
+
+                  return (
+                    <span
+                      key={key}
+                      className="rounded-full w-8 text-center border bg-slate-100 text-slate-600 border-slate-300 hover:bg-slate-100 text-[10px] font-black px-2 py-0.5"
+                    >
+                      {label}
+                    </span>
+                  );
+                })}
+                {change.removed?.map((s: any, i: number) => {
+                  const label = typeof s === "object" ? s.label || s.seatId : s;
+                  const key = typeof s === "object" ? s.id || s.seatId || i : s;
+                  return (
+                    <span
+                      key={key}
+                      className="rounded-full w-8 text-center bg-red-50 border border-red-300 text-red-400 line-through font-bold text-[10px] py-0.5 px-2"
+                    >
+                      {label}
+                    </span>
+                  );
+                })}
+                {change.added?.map((s: any, i: number) => {
+                  const label = typeof s === "object" ? s.label || s.seatId : s;
+                  const key = typeof s === "object" ? s.id || s.seatId || i : s;
+                  return (
+                    <span
+                      key={key}
+                      className="rounded-full w-8 bg-emerald-50 text-emerald-700 border border-emerald-300 font-black text-[10px] py-0.5 px-2"
+                    >
+                      {label}
+                    </span>
+                  );
+                })}
               </div>
             </div>
           ))}
