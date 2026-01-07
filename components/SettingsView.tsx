@@ -1163,37 +1163,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       Thông tin tài khoản ngân hàng
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="col-span-2">
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium text-slate-700">
-                            Tên ngân hàng (Short Name)
-                          </label>
-                          <input
-                            className="flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
-                            placeholder="VD: BIDV, VCB, MB..."
-                            value={systemSettings.bankName}
-                            onChange={(e) =>
-                              setSystemSettings({
-                                ...systemSettings,
-                                bankName: e.target.value,
-                              })
-                            }
-                          />
-                        </div>
-                      </div>
                       <div className="space-y-2">
                         <label className="text-sm font-medium text-slate-700">
-                          Số tài khoản
+                          Tên ngân hàng (Short Name)
                         </label>
                         <input
                           className="flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
-                          placeholder="Nhập số tài khoản"
-                          type="text"
-                          value={systemSettings.bankAccount}
+                          placeholder="VD: BIDV, VCB, MB..."
+                          value={systemSettings.bankName}
                           onChange={(e) =>
                             setSystemSettings({
                               ...systemSettings,
-                              bankAccount: e.target.value,
+                              bankName: e.target.value,
                             })
                           }
                         />
@@ -1215,7 +1196,24 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                           }
                         />
                       </div>
-                      <div className="col-span-2 space-y-2">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-slate-700">
+                          Số tài khoản
+                        </label>
+                        <input
+                          className="flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+                          placeholder="Nhập số tài khoản"
+                          type="text"
+                          value={systemSettings.bankAccount}
+                          onChange={(e) =>
+                            setSystemSettings({
+                              ...systemSettings,
+                              bankAccount: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                      <div className="space-y-2">
                         <label className="text-sm font-medium text-slate-700">
                           Tên chủ tài khoản
                         </label>
@@ -1243,10 +1241,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         <label className="text-sm font-medium text-slate-700">
                           Thời gian hết hạn (giây)
                         </label>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 relative">
                           <input
                             type="number"
-                            className="flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+                            className="absolute top-0 left-0 flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
                             value={systemSettings.qrExpiryTime}
                             onChange={(e) =>
                               setSystemSettings({
@@ -1255,9 +1253,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                               })
                             }
                           />
-                          <span className="text-sm text-slate-500 whitespace-nowrap">
-                            phút: {Math.floor(systemSettings.qrExpiryTime / 60)}
-                            p {systemSettings.qrExpiryTime % 60}s
+                          <span className="absolute top-2.25 right-2 text-sm text-slate-500 whitespace-nowrap">
+                            {Math.floor(systemSettings.qrExpiryTime / 60)}{" "}
+                            {"phút : "} {systemSettings.qrExpiryTime % 60}s
                           </span>
                         </div>
                       </div>

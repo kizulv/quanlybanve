@@ -23,6 +23,7 @@ import { Button } from "./ui/Button";
 import { Badge } from "./ui/Badge";
 import { useToast } from "./ui/Toast";
 import { BusTrip, BusType, Seat } from "../types";
+import { count } from "console";
 
 // --- SEAT MAP PREVIEW COMPONENT (Copied from OrderInformation.tsx) ---
 const SeatMapPreview: React.FC<{ trip: BusTrip; bookedSeatIds: string[] }> = ({
@@ -229,6 +230,38 @@ export const QRPaymentPage: React.FC = () => {
   const [timeLeft, setTimeLeft] = useState(300); // Default 5 mins
   const [trips, setTrips] = useState<BusTrip[]>([]);
 
+  // Calculate transfer content formatted
+  const transferContent = React.useMemo(() => {
+    if (!data) return "";
+    const phone = (data.passenger?.phone || "").replace(/\s/g, "");
+    const items = data.items || [];
+
+    // Group seats by date string to avoid duplicate dates
+    const groupedItems: Record<string, string[]> = {};
+
+    items.forEach((item: any) => {
+      const date = new Date(item.tripDate);
+      const day = date.getDate().toString().padStart(2, "0");
+      const month = (date.getMonth() + 1).toString().padStart(2, "0");
+      const dateStr = `${day}${month}DL`;
+
+      const seatLabels = (item.seats || []).map((s: any) =>
+        /^\d+$/.test(s.label) ? `G${s.label}` : s.label
+      );
+
+      if (!groupedItems[dateStr]) {
+        groupedItems[dateStr] = [];
+      }
+      groupedItems[dateStr].push(...seatLabels);
+    });
+
+    const tripDetails = Object.entries(groupedItems)
+      .map(([dateStr, seats]) => `${dateStr} ${seats.join(" ")}`)
+      .join(" ");
+
+    return `${phone} MUA VE ${tripDetails}`;
+  }, [data]);
+
   // Fetch all trips and settings once
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -368,9 +401,9 @@ export const QRPaymentPage: React.FC = () => {
                       systemSettings.bankBin ||
                       systemSettings.bankName ||
                       "BIDV"
-                    }-${systemSettings.bankAccount}-${
-                      systemSettings.qrTemplate || "qr_only"
-                    }.png?amount=${(data.items || []).reduce(
+                    }-${systemSettings.bankAccount}-nixEGpj.jpg?amount=${(
+                      data.items || []
+                    ).reduce(
                       (acc: number, item: any) =>
                         acc +
                         (item.seats || []).reduce(
@@ -379,8 +412,7 @@ export const QRPaymentPage: React.FC = () => {
                         ),
                       0
                     )}&addInfo=${encodeURIComponent(
-                      data.passenger?.note ||
-                        `${data.passenger?.phone} THANH TOAN`
+                      transferContent
                     )}&accountName=${encodeURIComponent(
                       systemSettings.accountName || ""
                     )}`}
@@ -475,8 +507,7 @@ export const QRPaymentPage: React.FC = () => {
                     Nội dung
                   </span>
                   <div className="p-3 bg-slate-100 rounded text-sm font-mono text-slate-600 break-all border border-slate-200">
-                    {data.passenger?.note ||
-                      `${data.passenger?.phone} THANH TOAN`}
+                    {transferContent}
                   </div>
                 </div>
               </div>
