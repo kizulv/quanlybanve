@@ -200,6 +200,18 @@ const paymentSchema = new mongoose.Schema(
   { toJSON: { virtuals: true, transform: transformId } }
 );
 
+const systemSettingsSchema = new mongoose.Schema(
+  {
+    bankName: { type: String, default: "BIDV" },
+    bankAccount: { type: String, default: "" },
+    accountName: { type: String, default: "" },
+    bankBin: { type: String, default: "" }, // Bin code for VietQR if needed
+    qrTemplate: { type: String, default: "compact" }, // compact, print, etc
+    qrExpiryTime: { type: Number, default: 300 }, // seconds
+  },
+  { toJSON: { virtuals: true, transform: transformId } }
+);
+
 const historySchema = new mongoose.Schema(
   {
     bookingId: { type: mongoose.Schema.Types.ObjectId, ref: "Booking" },
@@ -261,6 +273,7 @@ const Booking = mongoose.model("Booking", bookingSchema);
 const Payment = mongoose.model("Payment", paymentSchema);
 const History = mongoose.model("History", historySchema);
 const Setting = mongoose.model("Setting", settingSchema);
+const SystemSettings = mongoose.model("SystemSettings", systemSettingsSchema);
 const User = mongoose.model("User", userSchema);
 const Role = mongoose.model("Role", roleSchema);
 const QRGeneral = mongoose.model(
@@ -827,6 +840,35 @@ app.get("/api/bookings/:id/history", async (req, res) => {
     res.json(
       await History.find({ bookingId: req.params.id }).sort({ timestamp: -1 })
     );
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// SYSTEM SETTINGS ROUTES
+app.get("/api/system-settings", async (req, res) => {
+  try {
+    let settings = await SystemSettings.findOne();
+    if (!settings) {
+      settings = new SystemSettings();
+      await settings.save();
+    }
+    res.json(settings);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.put("/api/system-settings", async (req, res) => {
+  try {
+    let settings = await SystemSettings.findOne();
+    if (!settings) {
+      settings = new SystemSettings(req.body);
+    } else {
+      Object.assign(settings, req.body);
+    }
+    await settings.save();
+    res.json(settings);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

@@ -103,6 +103,29 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     tripUpdateCount: number;
   } | null>(null);
 
+  // System Settings State
+  const [systemSettings, setSystemSettings] = useState({
+    bankName: "",
+    bankAccount: "",
+    accountName: "",
+    bankBin: "",
+    qrTemplate: "compact",
+    qrExpiryTime: 300,
+  });
+
+  // Fetch Settings on Mount
+  React.useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const res = await api.systemSettings.get();
+        if (res) setSystemSettings(res);
+      } catch (e) {
+        console.error("Failed to fetch system settings", e);
+      }
+    };
+    fetchSettings();
+  }, []);
+
   // Stats
   const activeBusesCount = buses.filter((b) => b.status === "Hoạt động").length;
   const activeRoutesCount = routes.filter(
@@ -370,6 +393,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <TabsTrigger value="routes">Tuyến đường</TabsTrigger>
               <TabsTrigger value="buses">Đội xe</TabsTrigger>
               <TabsTrigger value="system">Hệ thống</TabsTrigger>
+              <TabsTrigger value="qr-bank">QR / Ngân hàng</TabsTrigger>
             </TabsList>
 
             <TabsContent value="routes" className="space-y-4">
@@ -1112,6 +1136,178 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         </div>
                       </div>
                     )}
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="qr-bank" className="space-y-6">
+              <div className="max-w-2xl mx-auto bg-white border border-slate-200 rounded-lg p-6">
+                <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-100">
+                  <div className="p-2 bg-indigo-50 rounded text-indigo-600">
+                    <WalletCards size={24} />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-slate-900">
+                      Cấu hình thanh toán
+                    </h2>
+                    <p className="text-sm text-slate-500">
+                      Thiết lập thông tin nhận tiền và thời gian mã QR
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-6">
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide flex items-center gap-2">
+                      Thông tin tài khoản ngân hàng
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="col-span-2">
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-slate-700">
+                            Tên ngân hàng (Short Name)
+                          </label>
+                          <input
+                            className="flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+                            placeholder="VD: BIDV, VCB, MB..."
+                            value={systemSettings.bankName}
+                            onChange={(e) =>
+                              setSystemSettings({
+                                ...systemSettings,
+                                bankName: e.target.value,
+                              })
+                            }
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-slate-700">
+                          Số tài khoản
+                        </label>
+                        <input
+                          className="flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+                          placeholder="Nhập số tài khoản"
+                          type="text"
+                          value={systemSettings.bankAccount}
+                          onChange={(e) =>
+                            setSystemSettings({
+                              ...systemSettings,
+                              bankAccount: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-slate-700">
+                          Bin ngân hàng
+                        </label>
+                        <input
+                          className="flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+                          placeholder="Mã Bin (VietQR)"
+                          type="text"
+                          value={systemSettings.bankBin}
+                          onChange={(e) =>
+                            setSystemSettings({
+                              ...systemSettings,
+                              bankBin: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                      <div className="col-span-2 space-y-2">
+                        <label className="text-sm font-medium text-slate-700">
+                          Tên chủ tài khoản
+                        </label>
+                        <input
+                          className="flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+                          placeholder="Tên in hoa không dấu"
+                          value={systemSettings.accountName}
+                          onChange={(e) =>
+                            setSystemSettings({
+                              ...systemSettings,
+                              accountName: e.target.value.toUpperCase(),
+                            })
+                          }
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="border-t border-slate-100 pt-6 space-y-4">
+                    <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide flex items-center gap-2">
+                      Thiết lập mã QR
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-slate-700">
+                          Thời gian hết hạn (giây)
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            className="flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+                            value={systemSettings.qrExpiryTime}
+                            onChange={(e) =>
+                              setSystemSettings({
+                                ...systemSettings,
+                                qrExpiryTime: parseInt(e.target.value) || 0,
+                              })
+                            }
+                          />
+                          <span className="text-sm text-slate-500 whitespace-nowrap">
+                            phút: {Math.floor(systemSettings.qrExpiryTime / 60)}
+                            p {systemSettings.qrExpiryTime % 60}s
+                          </span>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-slate-700">
+                          Mẫu QR (Template)
+                        </label>
+                        <select
+                          className="flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+                          value={systemSettings.qrTemplate}
+                          onChange={(e) =>
+                            setSystemSettings({
+                              ...systemSettings,
+                              qrTemplate: e.target.value,
+                            })
+                          }
+                        >
+                          <option value="compact">Compact (Mặc định)</option>
+                          <option value="compact2">
+                            Compact 2 (Kèm thông tin)
+                          </option>
+                          <option value="qr_only">QR Only (Chỉ mã QR)</option>
+                          <option value="print">Print (In ấn)</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-6 flex justify-end">
+                    <Button
+                      className="bg-indigo-600 hover:bg-indigo-700 min-w-30"
+                      onClick={async () => {
+                        try {
+                          await api.systemSettings.update(systemSettings);
+                          toast({
+                            type: "success",
+                            title: "Đã lưu cài đặt",
+                            message: "Thông tin cấu hình đã được cập nhật.",
+                          });
+                        } catch (e) {
+                          toast({
+                            type: "error",
+                            title: "Lỗi",
+                            message: "Không thể lưu cài đặt.",
+                          });
+                        }
+                      }}
+                    >
+                      <CheckCircle2 size={16} className="mr-2" /> Lưu thay đổi
+                    </Button>
                   </div>
                 </div>
               </div>

@@ -281,4 +281,14 @@ export const api = {
         body: JSON.stringify({ permissions }),
       }),
   },
+
+  systemSettings: {
+    get: () => fetchJson(`${API_URL}/system-settings/`),
+    update: (settings: any) =>
+      fetchJson(`${API_URL}/system-settings/`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(settings),
+      }),
+  },
 };

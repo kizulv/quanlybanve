@@ -191,3 +191,13 @@ export interface User {
   role: "admin" | "sale" | "guest";
   permissions?: string[];
 }
+
+export interface SystemSettings {
+  id: string;
+  bankName: string;
+  bankAccount: string;
+  accountName: string;
+  bankBin: string;
+  qrTemplate: string;
+  qrExpiryTime: number;
+}

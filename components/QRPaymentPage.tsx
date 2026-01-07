@@ -225,20 +225,28 @@ export const QRPaymentPage: React.FC = () => {
   const { toast } = useToast();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [timeLeft, setTimeLeft] = useState(3000); // 5 minutes in seconds
+  const [systemSettings, setSystemSettings] = useState<any>(null);
+  const [timeLeft, setTimeLeft] = useState(300); // Default 5 mins
   const [trips, setTrips] = useState<BusTrip[]>([]);
 
-  // Fetch all trips once to have styling/layout data
+  // Fetch all trips and settings once
   useEffect(() => {
-    const fetchTrips = async () => {
+    const fetchInitialData = async () => {
       try {
-        const res = await api.trips.getAll();
-        setTrips(res);
+        const [tripsRes, settingsRes] = await Promise.all([
+          api.trips.getAll(),
+          api.systemSettings.get(),
+        ]);
+        setTrips(tripsRes);
+        setSystemSettings(settingsRes);
+        if (settingsRes?.qrExpiryTime) {
+          setTimeLeft(settingsRes.qrExpiryTime);
+        }
       } catch (e) {
-        console.error("Failed to fetch trips", e);
+        console.error("Failed to fetch initial data", e);
       }
     };
-    fetchTrips();
+    fetchInitialData();
   }, []);
 
   const fetchData = async () => {
@@ -248,7 +256,7 @@ export const QRPaymentPage: React.FC = () => {
       // Only update if data changed (deep comparison) prevents timer reset
       setData((prev: any) => {
         if (JSON.stringify(prev) !== JSON.stringify(newData)) {
-          setTimeLeft(3000); // Reset timer on new data
+          setTimeLeft(systemSettings?.qrExpiryTime || 300); // Reset timer on new data
           return newData;
         }
         return prev;
@@ -353,14 +361,44 @@ export const QRPaymentPage: React.FC = () => {
             </div>
 
             <div className="p-6 flex flex-col items-center justify-center border-b border-slate-100 bg-white space-y-4">
-              <div className="w-76 h-76 bg-slate-50 rounded-xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center text-slate-400 space-y-2">
-                <QrCode size={80} className="opacity-10" />
-                <p className="text-xs font-bold uppercase tracking-widest text-center px-4">
-                  Quét mã QR bằng ứng dụng ngân hàng
-                </p>
+              <div className="w-76 h-auto min-h-76 bg-white rounded-xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center overflow-hidden p-2">
+                {systemSettings?.bankAccount && data ? (
+                  <img
+                    src={`https://img.vietqr.io/image/${
+                      systemSettings.bankBin ||
+                      systemSettings.bankName ||
+                      "BIDV"
+                    }-${systemSettings.bankAccount}-${
+                      systemSettings.qrTemplate || "qr_only"
+                    }.png?amount=${(data.items || []).reduce(
+                      (acc: number, item: any) =>
+                        acc +
+                        (item.seats || []).reduce(
+                          (s: number, seat: any) => s + (seat.price || 0),
+                          0
+                        ),
+                      0
+                    )}&addInfo=${encodeURIComponent(
+                      data.passenger?.note ||
+                        `${data.passenger?.phone} THANH TOAN`
+                    )}&accountName=${encodeURIComponent(
+                      systemSettings.accountName || ""
+                    )}`}
+                    alt="Mã QR Thanh toán"
+                    className="w-full h-full object-contain"
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center text-slate-400 space-y-2 py-10">
+                    <QrCode size={80} className="opacity-10" />
+                    <p className="text-xs font-bold uppercase tracking-widest text-center px-4">
+                      Chưa cấu hình tài khoản ngân hàng
+                    </p>
+                  </div>
+                )}
               </div>
-              <div className="text-slate-400 text-sm">
-                {formatTime(timeLeft)}
+              <div className="text-slate-400 text-sm font-bold">
+                Hết hạn trong:{" "}
+                <span className="text-rose-600">{formatTime(timeLeft)}</span>
               </div>
               <div className="w-full space-y-4">
                 <div className="flex items-center flex-col bg-slate-50 border border-slate-200 rounded space-y-4 p-3">
@@ -371,7 +409,9 @@ export const QRPaymentPage: React.FC = () => {
                       </span>
                     </div>
                     <div className="flex items-center text-xs">
-                      <span className="font-bold uppercase">BIDV</span>
+                      <span className="font-bold uppercase">
+                        {systemSettings?.bankName || "Unknown Bank"}
+                      </span>
                     </div>
                   </div>
                   <div className="flex justify-between items-center w-full">
@@ -382,7 +422,7 @@ export const QRPaymentPage: React.FC = () => {
                     </div>
                     <div className="flex items-center text-xs ">
                       <span className="font-bold uppercase">
-                        Phạm Công Thành
+                        {systemSettings?.accountName || "Unknown Name"}
                       </span>
                     </div>
                   </div>
@@ -393,7 +433,9 @@ export const QRPaymentPage: React.FC = () => {
                       </span>
                     </div>
                     <div className="flex items-center text-xs">
-                      <span className="font-bold uppercase">3620136116</span>
+                      <span className="font-bold uppercase">
+                        {systemSettings?.bankAccount || "Unknown Account"}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -413,7 +455,18 @@ export const QRPaymentPage: React.FC = () => {
                     <span className="mt-px">Số tiền</span>
                   </div>
                   <span className="font-black text-rose-700 text-lg">
-                    {formatCurrency(data.payment?.paidTransfer || 0)} VNĐ
+                    {formatCurrency(
+                      (data.items || []).reduce(
+                        (acc: number, item: any) =>
+                          acc +
+                          (item.seats || []).reduce(
+                            (s: number, seat: any) => s + (seat.price || 0),
+                            0
+                          ),
+                        0
+                      )
+                    )}{" "}
+                    VNĐ
                   </span>
                 </div>
 
@@ -536,7 +589,7 @@ export const QRPaymentPage: React.FC = () => {
                       </div>
                       <div className="px-4 py-3 bg-blue-50/70 rounded border-2 border-dashed border-slate-200 flex justify-between items-center mt-6">
                         <span className="text-sm font-black text-slate-600">
-                          Thanh toán
+                          Tổng thanh toán
                         </span>
                         <span className="text-xl font-black text-slate-700">
                           {formatCurrency(
