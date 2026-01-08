@@ -83,7 +83,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const data = await api.settings.get('schedule_settings');
+        const data = await api.settings.get("schedule_settings");
         if (data) {
           setSettings(data);
         }
@@ -96,7 +96,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
 
   const handleSaveSettings = async () => {
     try {
-      await api.settings.set('schedule_settings', settings);
+      await api.settings.set("schedule_settings", settings);
       setIsSettingsOpen(false);
     } catch (e) {
       console.error("Failed to save settings", e);
@@ -517,8 +517,6 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
             </div>
           );
         })}
-
-        <div className="h-10"></div>
       </div>
 
       <AddTripModal

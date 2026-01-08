@@ -53,6 +53,7 @@ interface LayoutProps {
   routes: Route[];
   // Slot for right-aligned header content
   headerRight?: React.ReactNode;
+  footer?: React.ReactNode;
 }
 
 interface ScheduleSettings {
@@ -74,6 +75,7 @@ export const Layout: React.FC<LayoutProps> = ({
   onDirectionChange,
   routes = [],
   headerRight,
+  footer,
 }) => {
   const { user, logout, hasPermission, isAuthenticated } = useAuth();
   // Default sidebar state set to false (Hidden by default)
@@ -348,8 +350,8 @@ export const Layout: React.FC<LayoutProps> = ({
         }`}
       >
         <div className="p-6 flex items-center gap-3 border-b border-slate-100 h-16">
-          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white font-bold shrink-0">
-            V
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0">
+            <img src="/images/logo.png" alt="Logo" className="w-full h-full" />
           </div>
           <span className="font-bold text-xl tracking-tight text-slate-900 truncate">
             Quản lý bán vé
@@ -715,8 +717,27 @@ export const Layout: React.FC<LayoutProps> = ({
           </div>
         </header>
 
-        <main className="flex-1 p-4 md:p-8 overflow-y-auto bg-slate-50/50">
+        <main className="flex-1 p-4 md:p-8 overflow-y-auto bg-slate-50/50 relative space-y-4">
           <div className="mx-auto">{children}</div>
+          <div className=" md:absolute bottom-2 left-0 right-0 flex items-center justify-center text-sm">
+            <span className="hidden md:block text-slate-400">
+              Ứng dụng Đặt vé sử dụng nội bộ{" "}
+              <span className="font-semibold text-slate-600">
+                Nhà Xe Trung Dũng -
+              </span>
+            </span>
+            <span className="text-slate-400">
+              © 2026 Thiết kế bởi{" "}
+              <a
+                href="https://github.com/PhamCongThanh"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-slate-600 hover:text-slate-950 font-semibold"
+              >
+                Phạm Công Thành
+              </a>
+            </span>
+          </div>
         </main>
       </div>
     </div>
