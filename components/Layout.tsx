@@ -343,7 +343,7 @@ export const Layout: React.FC<LayoutProps> = ({
 
       {/* Sidebar */}
       <aside
-        className={`bg-white border-r border-slate-200 flex flex-col fixed h-full z-20 transition-all duration-300 ${
+        className={`bg-white border-r border-slate-200 flex flex-col fixed h-full z-200 transition-all duration-300 ${
           isSidebarOpen
             ? "w-64 translate-x-0"
             : "w-64 -translate-x-full md:translate-x-0 md:w-0 md:opacity-0 md:overflow-hidden"
@@ -719,7 +719,7 @@ export const Layout: React.FC<LayoutProps> = ({
 
         <main className="flex-1 p-4 md:p-8 overflow-y-auto bg-slate-50/50 relative">
           <div className="mx-auto">{children}</div>
-          <div className="mt-4 md:absolute bottom-2 left-0 right-0 flex items-center justify-center text-sm">
+          <div className="mt-4 md:absolute bottom-2 left-0 right-0 flex items-center justify-center text-xs md:text-sm">
             <span className="hidden md:block text-slate-400">
               Ứng dụng Đặt vé sử dụng nội bộ{" "}
               <span className="font-semibold text-slate-600">
