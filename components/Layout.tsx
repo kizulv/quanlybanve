@@ -343,7 +343,7 @@ export const Layout: React.FC<LayoutProps> = ({
 
       {/* Sidebar */}
       <aside
-        className={`bg-white border-r border-slate-200 flex flex-col fixed h-full z-200 transition-all duration-300 ${
+        className={`bg-white border-r border-slate-200 flex flex-col fixed h-full z-50 transition-all duration-300 ${
           isSidebarOpen
             ? "w-64 translate-x-0"
             : "w-64 -translate-x-full md:translate-x-0 md:w-0 md:opacity-0 md:overflow-hidden"
