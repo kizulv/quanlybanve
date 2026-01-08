@@ -499,7 +499,7 @@ export const PaymentManager: React.FC = () => {
   }
 
   return (
-    <div className="mx-auto space-y-6 animate-in fade-in duration-500">
+    <div className="mx-auto space-y-6 animate-in fade-in duration-500 mb-4">
       {/* STATS CARDS */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="bg-white p-4 rounded-lg border border-slate-200 flex flex-col justify-between">
