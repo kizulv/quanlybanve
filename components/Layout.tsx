@@ -717,19 +717,19 @@ export const Layout: React.FC<LayoutProps> = ({
           </div>
         </header>
 
-        <main className="flex-1 p-4 md:p-8 overflow-y-auto bg-slate-50/50 relative space-y-4">
+        <main className="flex-1 p-4 md:p-8 overflow-y-auto bg-slate-50/50 relative">
           <div className="mx-auto">{children}</div>
-          <div className=" md:absolute bottom-2 left-0 right-0 flex items-center justify-center text-sm">
+          <div className="mt-4 md:absolute bottom-2 left-0 right-0 flex items-center justify-center text-sm">
             <span className="hidden md:block text-slate-400">
               Ứng dụng Đặt vé sử dụng nội bộ{" "}
               <span className="font-semibold text-slate-600">
-                Nhà Xe Trung Dũng -
+                Nhà Xe Trung Dũng {" - "}
               </span>
             </span>
             <span className="text-slate-400">
               © 2026 Thiết kế bởi{" "}
               <a
-                href="https://github.com/PhamCongThanh"
+                href="https://www.facebook.com/pcthanh.ksdt"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-slate-600 hover:text-slate-950 font-semibold"
