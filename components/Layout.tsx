@@ -726,7 +726,7 @@ export const Layout: React.FC<LayoutProps> = ({
                 Nhà Xe Trung Dũng {" - "}
               </span>
             </span>
-            <span className="text-slate-400">
+            <span className="md:ml-1 text-slate-400">
               © 2026 Thiết kế bởi{" "}
               <a
                 href="https://www.facebook.com/pcthanh.ksdt"
