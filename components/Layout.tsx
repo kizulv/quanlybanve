@@ -353,7 +353,7 @@ export const Layout: React.FC<LayoutProps> = ({
           <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0">
             <img src="/images/logo.png" alt="Logo" className="w-full h-full" />
           </div>
-          <span className="font-bold text-xl tracking-tight text-slate-900 truncate">
+          <span className="font-bold text-md tracking-tight text-slate-900 truncate">
             Nhà xe Trung Dũng
           </span>
         </div>
