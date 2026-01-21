@@ -41,7 +41,16 @@ export const ManifestList: React.FC<ManifestListProps> = ({
   const totalManifestPrice = useMemo(() => {
     return filteredManifest.reduce((sum, booking) => {
       const tripItem = booking.items.find((i) => i.tripId === selectedTrip?.id);
-      return sum + (tripItem?.price || 0);
+      if (!tripItem?.tickets) return sum;
+
+      // Chỉ tính tổng tiền của các vé có trạng thái "payment"
+      const collectedAmount = tripItem.tickets.reduce((ticketSum, ticket) => {
+        return ticket.status === "payment"
+          ? ticketSum + ticket.price
+          : ticketSum;
+      }, 0);
+
+      return sum + collectedAmount;
     }, 0);
   }, [filteredManifest, selectedTrip]);
 
@@ -115,7 +124,16 @@ export const ManifestList: React.FC<ManifestListProps> = ({
             );
             const seatsToShow = tripItem ? tripItem.seatIds : [];
             const isHighlighted = booking.id === highlightedBookingId;
-            const tripCollected = tripItem ? tripItem.price : 0;
+
+            // Fix: Calculate collected amount only from paid tickets
+            const tripCollected = tripItem?.tickets
+              ? tripItem.tickets.reduce(
+                  (acc, t) => (t.status === "payment" ? acc + t.price : acc),
+                  0,
+                )
+              : booking.status === "payment" && tripItem
+                ? tripItem.price
+                : 0;
 
             return (
               <div

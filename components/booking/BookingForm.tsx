@@ -363,7 +363,6 @@ export const BookingForm: React.FC<BookingFormProps> = ({
             tripDate: selectionBasket[0].trip.departureTime,
           },
         ]);
-        setEditingBooking(savedBooking);
       }
 
       toast({
@@ -512,7 +511,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
       setBookings((prev) =>
         prev.map((b) => (b.id === targetBookingId ? result.booking : b)),
       );
-      onCancelSelection(true, true);
+
       toast({ type: "success", title: "Cập nhật thành công" });
 
       if (onRefreshData) {
@@ -536,8 +535,6 @@ export const BookingForm: React.FC<BookingFormProps> = ({
           },
         ]);
       }
-
-      setEditingBooking(savedBooking);
 
       toast({
         type: "success",
@@ -662,13 +659,29 @@ export const BookingForm: React.FC<BookingFormProps> = ({
     }
 
     if (bookingMode === "booking")
-      processBooking(undefined, {}, "", "booking").then(() =>
-        setEditingBooking(null),
-      );
+      processBooking(undefined, {}, "", "booking").then(() => {
+        setEditingBooking(null);
+        onCancelSelection(true, true);
+        setBookingForm({
+          phone: "",
+          pickup: "",
+          dropoff: "",
+          note: "",
+          exactBed: false,
+        });
+      });
     else if (bookingMode === "hold")
-      processBooking(undefined, {}, "", "hold").then(() =>
-        setEditingBooking(null),
-      );
+      processBooking(undefined, {}, "", "hold").then(() => {
+        setEditingBooking(null);
+        onCancelSelection(true, true);
+        setBookingForm({
+          phone: "",
+          pickup: "",
+          dropoff: "",
+          note: "",
+          exactBed: false,
+        });
+      });
     else handleInitiatePayment();
   };
 
@@ -787,6 +800,19 @@ export const BookingForm: React.FC<BookingFormProps> = ({
     setPhoneError(null);
     setUpdateSummary(null);
 
+    // If we finished the flow (not keeping editingBooking), clear selection
+    if (!resultBooking) {
+      onCancelSelection(true, true);
+      setBookingForm({
+        phone: "",
+        pickup: "",
+        dropoff: "",
+        note: "",
+        exactBed: false,
+      });
+      setBookingMode("booking");
+    }
+
     return resultBooking;
   };
 
@@ -845,6 +871,15 @@ export const BookingForm: React.FC<BookingFormProps> = ({
         noteSuffix,
       );
       setEditingBooking(null);
+      onCancelSelection(true, true);
+      setBookingForm({
+        phone: "",
+        pickup: "",
+        dropoff: "",
+        note: "",
+        exactBed: false,
+      });
+      setBookingMode("booking");
     }
   };
 

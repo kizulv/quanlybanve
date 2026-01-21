@@ -900,7 +900,9 @@ export const updateTicket = async (req, res) => {
     });
 
     // Fetch updated booking with payment info
-    const bookings = await getBookingsWithPayment({ _id: req.params.id });
+    const bookings = await getBookingsWithPayment({
+      _id: new mongoose.Types.ObjectId(req.params.id),
+    });
     const updatedBooking = bookings[0] || result.booking;
 
     res.json({ booking: updatedBooking, action: result.action });

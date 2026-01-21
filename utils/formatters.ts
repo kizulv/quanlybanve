@@ -24,6 +24,10 @@ export const getStandardizedLocation = (input: string): string => {
   const lower = value.toLowerCase();
 
   const mappings: Record<string, string> = {
+    n3bl: "N3BL",
+    N3bl: "N3BL",
+    Bx: "BX",
+    bx: "BX",
     "lai chau": "BX Lai Châu",
     "lai châu": "BX Lai Châu",
     "ha tinh": "BX Hà Tĩnh",
@@ -47,7 +51,7 @@ export const getStandardizedLocation = (input: string): string => {
  * Định dạng số tiền để hiển thị (VD: 100.000)
  */
 export const formatCurrency = (
-  amount: number | string | undefined | null
+  amount: number | string | undefined | null,
 ): string => {
   if (amount === undefined || amount === null || amount === "") return "0";
   const num =

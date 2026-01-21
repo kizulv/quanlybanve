@@ -80,7 +80,7 @@ export const RightSheet: React.FC<RightSheetProps> = ({
   const filteredList = useMemo(() => {
     // Lọc bỏ các đơn hàng trạng thái 'hold' có SĐT 0000000000
     const baseList = sortedBookings.filter(
-      (b) => b.passenger?.phone !== "0000000000",
+      (b) => b && b.passenger?.phone !== "0000000000",
     );
 
     if (!searchTerm.trim()) return baseList;

@@ -1,6 +1,7 @@
 import React from "react";
-import { Printer } from "lucide-react";
+import { Printer, ChevronDown } from "lucide-react";
 import { Button } from "../ui/Button";
+import { Popover } from "../ui/Popover";
 import { BusTrip, Booking, BusType, Seat, SeatStatus } from "../../types";
 import { formatLunarDate } from "../../utils/dateUtils";
 import { useToast } from "../ui/Toast";
@@ -18,7 +19,7 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
 }) => {
   const { toast } = useToast();
 
-  const handlePrint = () => {
+  const handlePrint = (template: "default" | "list_a4" = "default") => {
     if (!selectedTrip) return;
 
     const manifestWindow = window.open("", "_blank");
@@ -74,7 +75,7 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
         let seatStatus: "sold" | "booked" | "held" = "booked";
         if (ticket?.status === "hold") {
           seatStatus = "held";
-        } else if (ticket?.status === "payment" || (ticket?.price || 0) > 0) {
+        } else if (ticket?.status === "payment") {
           seatStatus = "sold";
         } else {
           // Fallback to booking level status if ticket status is ambiguous but booking says payment
@@ -116,15 +117,26 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
 
     // TÍNH TỔNG TIỀN VÉ
     const totalAmount = Array.from(seatDataMap.values()).reduce(
-      (sum, data) => sum + data.price,
+      (sum, data) => sum + (data.status === "sold" ? data.price : 0),
       0,
     );
 
     const isCabin = selectedTrip.type === BusType.CABIN;
-    const A4_landscape = isCabin
-      ? "size: A4 landscape; margin: 3mm;"
-      : "size: A4 portrait; margin: 0;";
-    const A4_margin = isCabin ? "margin-left: 20mm;" : "margin-top: 0;";
+    const isListLayout = template === "list_a4";
+
+    // Page Style setup
+    let pageStyle = "";
+    if (isListLayout) {
+      pageStyle = "size: A4 portrait; margin: 5mm;";
+    } else {
+      pageStyle = isCabin
+        ? "size: A4 landscape; margin: 3mm;"
+        : "size: A4 portrait; margin: 0;";
+    }
+
+    const A4_margin =
+      isCabin && !isListLayout ? "margin-left: 20mm;" : "margin-top: 0;";
+    // Default layout constants
     const A4_LayoutHeight = isCabin ? "h-[170px]" : "h-[190px]";
     const Manifest_RecordHight = isCabin ? "h-[98px]" : "h-[108px]";
     const Manifest_SeatFontSize = isCabin ? "text-[12px]" : "text-[10px]";
@@ -184,7 +196,7 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
           <div class="flex justify-between items-center border-b border-black/5 pb-0.5 mb-1">
             <span class="font-black text-[11px] text-black leading-none">${label}</span>
             ${
-              data.price > 0
+              data.status === "sold"
                 ? `<div class="text-[8px] font-semibold">Đã TT: ${
                     data.price / 1000
                   }</div>`
@@ -214,7 +226,335 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
       `;
     };
 
-    if (isCabin) {
+    if (isListLayout) {
+      // --- LOGIC FOR A4 LIST LAYOUT ---
+      const allSeats = [...(selectedTrip.seats || [])];
+
+      const regularSeats = allSeats.filter((s) => !s.isFloorSeat);
+      const floorSeats = allSeats.filter((s) => s.isFloorSeat);
+
+      // Group Regular Seats by Row.Floor (e.g., 1.1, 1.2)
+      const groupMap = new Map<string, Seat[]>();
+
+      regularSeats.forEach((seat) => {
+        const row = (seat.row || 0) + 1; // 1-based index
+        const floor = seat.floor || 1;
+        const key = `${row}.${floor}`;
+
+        if (!groupMap.has(key)) {
+          groupMap.set(key, []);
+        }
+        groupMap.get(key)?.push(seat);
+      });
+
+      // Sort Group Keys (1.1, 1.2, 2.1, 2.2...)
+      const sortedKeys = Array.from(groupMap.keys()).sort((a, b) => {
+        const [rA, fA] = a.split(".").map(Number);
+        const [rB, fB] = b.split(".").map(Number);
+        if (rA !== rB) return rA - rB;
+        return fA - fB;
+      });
+
+      // Sort seats within each group by Column (Left -> Right)
+      sortedKeys.forEach((key) => {
+        groupMap.get(key)?.sort((a, b) => (a.col || 0) - (b.col || 0));
+      });
+
+      // Prepare final groups list including Floor seats
+      const groups: { label: string; seats: Seat[] }[] = [];
+
+      // Add Regular Groups
+      sortedKeys.forEach((key) => {
+        groups.push({
+          label: key,
+          seats: groupMap.get(key) || [],
+        });
+      });
+
+      // Floor seats will be handled separately at the end
+      // as a summary below the table
+
+      layoutHtml = `
+            <table class="w-full border-collapse border border-slate-900 text-xs" style="table-layout: fixed;">
+                <colgroup>
+                    <col style="width: 5%;"> <!-- STT/Group -->
+                    <col style="width: 5%;"> <!-- Số -->
+                    <col style="width: 31%;"> <!-- SĐT -->
+                    <col style="width: 16%;"> <!-- Nơi đón -->
+                    <col style="width: 16%;"> <!-- Nơi trả -->
+                    <col style="width: 7%;"> <!-- Giá vé -->
+                    <col style="width: 20%;"> <!-- Ghi chú -->
+                </colgroup>
+                <thead>
+                    <tr class="bg-gray-100">
+                        <th class="border border-slate-900 py-1 px-1 text-center h-7"></th>
+                        <th class="border border-slate-900 py-1 px-1 text-center">Số</th>
+                        <th class="border border-slate-900 py-1 px-1 text-center">Số điện thoại</th>
+                        <th class="border border-slate-900 py-1 px-1 text-center">Nơi đón</th>
+                        <th class="border border-slate-900 py-1 px-1 text-center">Nơi trả</th>
+                        <th class="border border-slate-900 py-1 px-1 text-center">Giá</th>
+                        <th class="border border-slate-900 py-1 px-1 text-center">Ghi chú</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+
+      groups.forEach((group) => {
+        group.seats.forEach((seat, index) => {
+          const data = seatDataMap.get(seat.id);
+          const label = seat.label;
+          const isFirstInGroup = index === 0;
+
+          let rowClass = "h-5.5";
+          if (data) {
+            if (data.status === "sold") {
+              rowClass += " bg-slate-200";
+            } else if (data.status === "booked" && data.exactBed) {
+              rowClass += " bg-slate-100";
+            }
+          }
+
+          layoutHtml += `<tr class="${rowClass}">`;
+
+          // First Column with Rowspan (Group Label: 1.1, 1.2...)
+          if (isFirstInGroup) {
+            // Hide label for "Băng 5" (usually has more than 3 seats)
+            const showGroupLabel = group.seats.length <= 3;
+            layoutHtml += `<td class="border border-slate-900 py-0.5 px-1 text-center font-bold align-middle bg-white" rowspan="${group.seats.length}">${showGroupLabel ? group.label : ""}</td>`;
+          }
+
+          // Seat Number with Vertical Line Indicator
+          let numberCellContent = label;
+          let isConnectedTop = false;
+          let isConnectedBottom = false;
+
+          if (data && data.phone && data.phone !== "---") {
+            // Check connections for seamless vertical line
+            if (index > 0) {
+              const prevSeat = group.seats[index - 1];
+              const prevData = seatDataMap.get(prevSeat.id);
+              if (prevData && prevData.phone === data.phone) {
+                isConnectedTop = true;
+              }
+            }
+
+            if (index < group.seats.length - 1) {
+              const nextSeat = group.seats[index + 1];
+              const nextData = seatDataMap.get(nextSeat.id);
+              if (nextData && nextData.phone === data.phone) {
+                isConnectedBottom = true;
+              }
+            }
+
+            const topStyle = isConnectedTop ? "top-[-5px]" : "top-[20%]";
+            const bottomStyle = isConnectedBottom
+              ? "bottom-[-5px]"
+              : "bottom-[20%]";
+
+            const isExactBed = data?.exactBed;
+            const circleClass = isExactBed
+              ? "border border-slate-900 rounded-full w-4 h-4 flex items-center justify-center bg-white text-[10px]"
+              : "";
+
+            numberCellContent = `
+                <div class="absolute left-1.75 w-0.5 bg-slate-900 z-10 h-auto ${topStyle} ${bottomStyle}"></div>
+                <div class="relative w-full h-full flex items-center justify-center">
+                    <span class="relative z-20 ${circleClass}">${label}</span>
+                </div>
+             `;
+          } else {
+            const isExactBed = data?.exactBed;
+            if (isExactBed) {
+              numberCellContent = `
+                    <div class="relative w-full h-full flex items-center justify-center">
+                        <span class="border border-slate-900 rounded-full w-4 h-4 flex items-center justify-center bg-white text-[10px]">${label}</span>
+                    </div>
+                 `;
+            }
+          }
+
+          layoutHtml += `<td class="border border-slate-900 py-0.5 px-1 text-center font-bold p-0 relative align-middle">${numberCellContent}</td>`;
+
+          // Data Columns
+          if (data) {
+            // Only show info if it's the start of a sequence (or unique)
+            const showInfo = !isConnectedTop;
+
+            let phoneContent = "";
+            let pickupContent = "";
+            let dropoffContent = "";
+            let noteContent = "";
+            let priceContent = "";
+
+            if (showInfo) {
+              phoneContent = data.phone;
+              pickupContent = data.pickup;
+              dropoffContent = data.dropoff;
+              noteContent = data.note;
+
+              // Calculate Total Price for the Group (Same Phone)
+              if (data.phone && data.phone !== "---") {
+                let totalPrice = 0;
+                // Sum only for the current contiguous group within this row
+                for (let i = index; i < group.seats.length; i++) {
+                  const s = group.seats[i];
+                  const d = seatDataMap.get(s.id);
+                  if (d && d.phone === data.phone) {
+                    totalPrice += d.price || 0;
+                  } else {
+                    break;
+                  }
+                }
+
+                if (totalPrice > 0) {
+                  priceContent = (totalPrice / 1000).toLocaleString("vi-VN");
+                }
+              } else {
+                // No phone or "---", just show this ticket's price
+                if (data.price > 0) {
+                  priceContent = (data.price / 1000).toLocaleString("vi-VN");
+                }
+              }
+            } else {
+              // Check if it's the second row of the group
+              // It is the second row if it is connected to top (current row)
+              // AND (it's index 1 OR the one before prev (index-2) was NOT connected or different phone)
+              // Simpler: Check if index-1 was the start (!isConnectedTop of index-1)
+              // But we don't have easy access to index-1's computed isConnectedTop here without recomputing or looking at data
+
+              let isSecondRow = false;
+              if (index > 0) {
+                // We know isConnectedTop is true here (because else !showInfo)
+                // So group.seats[index-1] has same phone.
+                // We just need to check if group.seats[index-2] has DIFFERENT phone or doesn't exist.
+                if (index === 1) {
+                  isSecondRow = true;
+                } else {
+                  const prevPrevSeat = group.seats[index - 2];
+                  const prevPrevData = seatDataMap.get(prevPrevSeat.id);
+                  if (!prevPrevData || prevPrevData.phone !== data.phone) {
+                    isSecondRow = true;
+                  }
+                }
+              }
+
+              if (isSecondRow && data.phone && data.phone !== "---") {
+                // Calculate stats
+                let totalCount = 0;
+                let visualGroupCount = 0;
+                let seatLabels: string[] = [];
+
+                groups.forEach((g) => {
+                  g.seats.forEach((s, idx) => {
+                    const d = seatDataMap.get(s.id);
+                    if (d && d.phone === data.phone) {
+                      totalCount++;
+                      seatLabels.push(s.label);
+
+                      // Check if start of new visual group
+                      // A start is if idx==0 OR prev seat in this group has different phone/no data
+                      let isStart = false;
+                      if (idx === 0) {
+                        isStart = true;
+                      } else {
+                        const prev = g.seats[idx - 1];
+                        const prevD = seatDataMap.get(prev.id);
+                        if (!prevD || prevD.phone !== data.phone) {
+                          isStart = true;
+                        }
+                      }
+
+                      if (isStart) {
+                        visualGroupCount++;
+                      }
+                    }
+                  });
+                });
+
+                // Only show if > 1 visual group (discontiguous)
+                if (totalCount > 1 && visualGroupCount > 1) {
+                  phoneContent = `<div class="text-[10px] italic font-normal text-slate-600">(Tổng: ${totalCount} - Ghế: ${seatLabels.join(", ")})</div>`;
+                }
+              }
+            }
+
+            layoutHtml += `
+                <td class="border border-slate-900 py-0.5 px-1 text-center font-bold truncate">${phoneContent}</td>
+                <td class="border border-slate-900 py-0.5 px-1 truncate text-center">${pickupContent}</td>
+                <td class="border border-slate-900 py-0.5 px-1 truncate text-center">${dropoffContent}</td>
+                <td class="border border-slate-900 py-0.5 px-1 text-center">${priceContent}</td>
+                <td class="border border-slate-900 py-0.5 px-1 italic text-[10px] wrap-break-word">${noteContent}</td>
+            `;
+          } else {
+            // Empty data
+            layoutHtml += `
+                        <td class="border border-slate-900 py-0.5 px-1"></td>
+                        <td class="border border-slate-900 py-0.5 px-1"></td>
+                        <td class="border border-slate-900 py-0.5 px-1"></td>
+                        <td class="border border-slate-900 py-0.5 px-1"></td>
+                        <td class="border border-slate-900 py-0.5 px-1"></td>
+                    `;
+          }
+
+          layoutHtml += `</tr>`;
+        });
+      });
+
+      layoutHtml += `</tbody></table>`;
+
+      // Render Floor Seat Summary (below table, no border)
+      // Format: [Note] [Phone] [Pickup]-[Dropoff] (Grid 3 cols)
+      if (floorSeats.length > 0) {
+        // Group floor seats by Phone
+        const floorGroupByPhone = new Map<
+          string,
+          {
+            count: number;
+            phone: string;
+            pickup: string;
+            dropoff: string;
+            label: string;
+            note: string;
+          }
+        >();
+        const noPhoneSeats: Seat[] = [];
+
+        floorSeats.forEach((seat) => {
+          const data = seatDataMap.get(seat.id);
+          if (data && data.phone && data.phone !== "---") {
+            if (!floorGroupByPhone.has(data.phone)) {
+              floorGroupByPhone.set(data.phone, {
+                count: 0,
+                phone: data.phone,
+                pickup: data.pickup || "",
+                dropoff: data.dropoff || "",
+                label: seat.label,
+                note: data.note || "",
+              });
+            }
+            const entry = floorGroupByPhone.get(data.phone);
+            if (entry) {
+              entry.count++;
+            }
+          } else {
+            noPhoneSeats.push(seat);
+          }
+        });
+
+        // Grid Layout: 3 columns, auto rows (user asked for 2 rows, assuming data fits or flows)
+        layoutHtml += `<div class="mt-2 text-[11px] font-bold font-mono grid grid-cols-3 gap-y-1 gap-x-2">`;
+
+        floorGroupByPhone.forEach((entry) => {
+          // Note should be displayed first.
+          const notePart = entry.note
+            ? `<span class="mr-1">${entry.note} - </span>`
+            : "";
+          layoutHtml += `<div>${notePart}${entry.phone} ${entry.pickup}-${entry.dropoff}</div>`;
+        });
+
+        layoutHtml += `</div>`;
+      }
+    } else if (isCabin) {
       const regularSeats = (selectedTrip.seats || []).filter(
         (s) => !s.isFloorSeat,
       );
@@ -391,7 +731,7 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
         <meta charset="UTF-8">
         ${styles}
         <style>
-          @page { ${A4_landscape};}
+          @page { ${pageStyle}}
           @media print {
             .no-print { display: none; }
             body { padding: 0; margin: 0; }
@@ -447,15 +787,62 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
     manifestWindow.document.close();
   };
 
+  // Check if bus type is Cabin or similar
+  const isCabinOrDouble =
+    selectedTrip &&
+    (selectedTrip.type === BusType.CABIN ||
+      (selectedTrip.type as unknown as string) === "Giường Đôi" ||
+      (selectedTrip as any).busType?.includes("Cabin")); // Fallback if data has busType
+
+  if (isCabinOrDouble) {
+    return (
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-7 text-[12px] font-bold text-blue-600 hover:bg-blue-50 border border-blue-100"
+        disabled={disabled || !selectedTrip}
+        onClick={() => handlePrint("default")}
+      >
+        <Printer size={12} className="mr-1" /> In bảng kê
+      </Button>
+    );
+  }
+
   return (
-    <Button
-      variant="ghost"
-      size="sm"
-      onClick={handlePrint}
-      className="h-7 text-[12px] font-bold text-blue-600 hover:bg-blue-50 border border-blue-100"
-      disabled={disabled || !selectedTrip}
-    >
-      <Printer size={12} className="mr-1" /> In bảng kê
-    </Button>
+    <Popover
+      trigger={
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 text-[12px] font-bold text-blue-600 hover:bg-blue-50 border border-blue-100"
+          disabled={disabled || !selectedTrip}
+        >
+          <Printer size={12} className="mr-1" /> In bảng kê{" "}
+          <ChevronDown size={12} className="ml-1 opacity-50" />
+        </Button>
+      }
+      content={(close) => (
+        <div className="flex flex-col bg-white rounded border shadow-lg overflow-hidden min-w-37.5">
+          <button
+            onClick={() => {
+              handlePrint("default");
+              close();
+            }}
+            className="px-4 py-2 text-left text-sm hover:bg-slate-100 border-b border-slate-100 transition-colors"
+          >
+            Mẫu mới (A4 dọc)
+          </button>
+          <button
+            onClick={() => {
+              handlePrint("list_a4");
+              close();
+            }}
+            className="px-4 py-2 text-left text-sm hover:bg-slate-100 transition-colors"
+          >
+            Mẫu cũ (A4 dọc)
+          </button>
+        </div>
+      )}
+    />
   );
 };
