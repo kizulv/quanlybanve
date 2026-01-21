@@ -31,7 +31,7 @@ import {
   Info,
 } from "lucide-react";
 import { Badge } from "../ui/Badge";
-import { Booking, BusTrip, UndoAction } from "../../types";
+import { Booking, Bus, BusTrip, UndoAction } from "../../types";
 import { formatLunarDate, formatTime } from "../../utils/dateUtils";
 import {
   AlertDialog,
@@ -47,6 +47,7 @@ import { BookingHistoryModal } from "./BookingHistoryModal";
 interface RightSheetProps {
   bookings: Booking[];
   trips: BusTrip[];
+  buses?: Bus[];
   onSelectBooking: (booking: Booking) => void;
   onUndo?: () => void;
   lastUndoAction?: UndoAction;
@@ -55,6 +56,7 @@ interface RightSheetProps {
 export const RightSheet: React.FC<RightSheetProps> = ({
   bookings,
   trips,
+  buses,
   onSelectBooking,
   onUndo,
   lastUndoAction,
@@ -76,8 +78,10 @@ export const RightSheet: React.FC<RightSheetProps> = ({
   }, [bookings]);
 
   const filteredList = useMemo(() => {
-    // Lọc bỏ các đơn hàng trạng thái 'hold' theo yêu cầu -> TẠM THỜI BỎ ĐỂ HIỂN THỊ DỮ LIỆU
-    const baseList = sortedBookings; // .filter((b) => b.status !== "hold");
+    // Lọc bỏ các đơn hàng trạng thái 'hold' có SĐT 0000000000
+    const baseList = sortedBookings.filter(
+      (b) => b.passenger?.phone !== "0000000000",
+    );
 
     if (!searchTerm.trim()) return baseList;
 
@@ -419,7 +423,18 @@ export const RightSheet: React.FC<RightSheetProps> = ({
                               )}
                               <div className="mb-3 flex flex-col gap-1">
                                 {booking.items.map((item, idx) => {
-                                  const tripDateObj = new Date(item.tripDate);
+                                  // Fallback: lấy từ trip nếu item thiếu dữ liệu
+                                  const trip = trips.find(
+                                    (t) => t.id === item.tripId,
+                                  );
+                                  const displayRoute =
+                                    item.route || trip?.route || "N/A";
+                                  const displayTripDate =
+                                    item.tripDate ||
+                                    trip?.departureTime ||
+                                    new Date().toISOString();
+                                  const tripDateObj = new Date(displayTripDate);
+
                                   return (
                                     <div
                                       key={idx}
@@ -427,7 +442,7 @@ export const RightSheet: React.FC<RightSheetProps> = ({
                                     >
                                       <div className="flex flex-col justify-between flex-1 w-full">
                                         <div className="flex items-center gap-1.5  text-slate-700 text-[12px] whitespace-nowrap overflow-hidden text-ellipsis relative">
-                                          {item.route}
+                                          {displayRoute}
                                           {item.isEnhanced && (
                                             <span className="absolute top-0.5 right-2 inline-flex items-center text-[8px] font-black bg-amber-100 text-amber-700 px-1 py-0.5 rounded border border-amber-200 leading-none">
                                               <Zap
@@ -467,15 +482,43 @@ export const RightSheet: React.FC<RightSheetProps> = ({
                                             (!ticket?.status &&
                                               booking.status === "payment");
 
-                                          // Lấy label từ trip
+                                          // Lấy label từ bus.layoutConfig (preferred) hoặc fallback trip.seats
+                                          let label = s;
                                           const trip = trips.find(
                                             (t) => t.id === item.tripId,
                                           );
-                                          const seat = trip?.seats?.find(
-                                            (seat) =>
-                                              String(seat.id) === String(s),
-                                          );
-                                          const label = seat?.label || s;
+                                          if (trip && buses) {
+                                            const bus = buses.find(
+                                              (b) =>
+                                                b.plate === trip.licensePlate ||
+                                                (trip.busId &&
+                                                  (b.id === trip.busId ||
+                                                    (typeof trip.busId ===
+                                                      "object" &&
+                                                      b.id ===
+                                                        (trip.busId as any)
+                                                          .id))),
+                                            );
+                                            if (
+                                              bus?.layoutConfig?.seatLabels?.[s]
+                                            ) {
+                                              label =
+                                                bus.layoutConfig.seatLabels[s];
+                                            } else {
+                                              const seat = trip.seats?.find(
+                                                (seat) =>
+                                                  String(seat.id) === String(s),
+                                              );
+                                              if (seat?.label)
+                                                label = seat.label;
+                                            }
+                                          } else if (trip) {
+                                            const seat = trip.seats?.find(
+                                              (seat) =>
+                                                String(seat.id) === String(s),
+                                            );
+                                            if (seat?.label) label = seat.label;
+                                          }
 
                                           return (
                                             <span

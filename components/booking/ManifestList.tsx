@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { Users, Search, X, Calculator } from "lucide-react";
-import { Booking, BusTrip } from "../../types";
+import { Booking, Bus, BusTrip } from "../../types";
 import { ManifestPrint } from "./ManifestPrint";
 import { formatCurrency } from "../../utils/formatters";
 
@@ -9,6 +9,7 @@ interface ManifestListProps {
   selectedTrip: BusTrip | null;
   highlightedBookingId: string | null;
   onSelectBooking: (booking: Booking) => void;
+  buses?: Bus[];
 }
 
 export const ManifestList: React.FC<ManifestListProps> = ({
@@ -16,6 +17,7 @@ export const ManifestList: React.FC<ManifestListProps> = ({
   selectedTrip,
   highlightedBookingId,
   onSelectBooking,
+  buses,
 }) => {
   const [manifestSearch, setManifestSearch] = useState("");
 
@@ -151,11 +153,32 @@ export const ManifestList: React.FC<ManifestListProps> = ({
                       );
                       const isPayment = ticket?.status === "payment";
 
-                      // Lấy label từ trip.seats
-                      const seat = selectedTrip?.seats?.find(
-                        (seat) => String(seat.id) === String(s),
-                      );
-                      const label = seat?.label || s;
+                      // Lấy label từ bus.layoutConfig (preferred) hoặc fallback trip.seats
+                      let label = s;
+                      if (selectedTrip && buses) {
+                        const bus = buses.find(
+                          (b) =>
+                            b.plate === selectedTrip.licensePlate ||
+                            (selectedTrip.busId &&
+                              (b.id === selectedTrip.busId ||
+                                (typeof selectedTrip.busId === "object" &&
+                                  b.id === (selectedTrip.busId as any).id))),
+                        );
+                        if (bus?.layoutConfig?.seatLabels?.[s]) {
+                          label = bus.layoutConfig.seatLabels[s];
+                        } else {
+                          // Fallback: trip.seats
+                          const seat = selectedTrip.seats?.find(
+                            (seat) => String(seat.id) === String(s),
+                          );
+                          if (seat?.label) label = seat.label;
+                        }
+                      } else if (selectedTrip) {
+                        const seat = selectedTrip.seats?.find(
+                          (seat) => String(seat.id) === String(s),
+                        );
+                        if (seat?.label) label = seat.label;
+                      }
 
                       return (
                         <span

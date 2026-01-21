@@ -62,20 +62,41 @@ export const BookingHistoryModal: React.FC<BookingHistoryModalProps> = ({
     if (!foundTrip && tripInfo?.licensePlate && tripInfo?.date) {
       // Cố gắng tìm theo biển số + ngày (chỉ đúng tương đối)
       // Date compare logic is tricky due to format differences, skip if unsure
+      foundTrip = trips.find((t) => t.licensePlate === tripInfo.licensePlate);
     }
 
     if (foundTrip) {
+      // Priority 1: Check Bus Layout Config (Database Source) if populated
+      // Cast to any because BusTrip interface might not strictly define populated busId/bus object
+      const tripAny = foundTrip as any;
+      const bus = tripAny.busId || tripAny.bus;
+
+      if (typeof bus === "object" && bus?.layoutConfig?.seatLabels?.[seatId]) {
+        return bus.layoutConfig.seatLabels[seatId];
+      }
+
+      // Priority 2: Check active seats on trip (Legacy/Hydrated)
       const seat = foundTrip.seats?.find((s) => s.id === seatId);
       if (seat) return seat.label;
     }
 
-    // Fallback: Nếu không tìm thấy trip, thử tìm trong booking items hiện tại
-    // (Chỉ work cho current booking state, không work cho deleted/changed seats đã mất khỏi booking)
+    // Fallback: Tìm trong tất cả items của booking xem có seatId này không
     if (booking) {
-      // Tìm trong tất cả items của booking xem có seatId này không
       for (const item of booking.items) {
+        // Skip current trip check if we already checked it above
+        if (item.tripId === tripInfo?.tripId) continue;
+
         const trip = trips.find((t) => t.id === item.tripId);
         if (trip) {
+          const tripAny = trip as any;
+          const bus = tripAny.busId || tripAny.bus;
+          if (
+            typeof bus === "object" &&
+            bus?.layoutConfig?.seatLabels?.[seatId]
+          ) {
+            return bus.layoutConfig.seatLabels[seatId];
+          }
+
           const seat = trip.seats?.find((s) => s.id === seatId);
           if (seat) return seat.label;
         }

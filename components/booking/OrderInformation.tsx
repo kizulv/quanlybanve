@@ -7,7 +7,7 @@ import {
   Phone,
   User,
   Clock,
-  Bus,
+  Bus as BusIcon,
   CheckCircle2,
   AlertCircle,
   ArrowLeft,
@@ -37,89 +37,149 @@ import {
 import { Button } from "../ui/Button";
 import { Badge } from "../ui/Badge";
 import { api } from "../../lib/api";
-import { Booking, BookingHistory, BusTrip, BusType, Seat } from "../../types";
+import {
+  Booking,
+  BookingHistory,
+  Bus,
+  BusTrip,
+  BusType,
+  Seat,
+} from "../../types";
 import {
   formatCurrency,
   formatPhoneNumber,
   formatDate,
 } from "../../utils/formatters";
 import { formatLunarDate } from "../../utils/dateUtils";
+import { generateSeatsFromLayout } from "../../utils/seatUtils";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "../ui/Collapsible";
 
-const SeatMapPreview: React.FC<{ trip: BusTrip; bookedSeatIds: string[] }> = ({
-  trip,
-  bookedSeatIds,
-}) => {
+const SeatMapPreview: React.FC<{
+  trip: BusTrip;
+  bookedSeatIds: string[];
+  bus?: Bus;
+}> = ({ trip, bookedSeatIds, bus }) => {
   const isCabin = trip.type === BusType.CABIN;
-  const seats = trip.seats || [];
+
+  // Generate seats from bus layout if trip.seats is empty
+  const seats = useMemo(() => {
+    if (trip.seats && trip.seats.length > 0) {
+      return trip.seats;
+    }
+    // Fallback: generate from bus layoutConfig
+    if (bus?.layoutConfig) {
+      return generateSeatsFromLayout(
+        bus.layoutConfig,
+        trip.basePrice || 0,
+        trip.type,
+      );
+    }
+    return [];
+  }, [trip.seats, trip.basePrice, trip.type, bus?.layoutConfig]);
+
+  // Lấy label từ bus.layoutConfig.seatLabels (ưu tiên), fallback về seat.label
+  const getSeatLabel = (seat: Seat): string => {
+    if (bus?.layoutConfig?.seatLabels?.[seat.id]) {
+      return bus.layoutConfig.seatLabels[seat.id];
+    }
+    return seat.label;
+  };
+
+  // Determine max row based on bus config
+  const maxRow = useMemo(() => {
+    if (bus?.layoutConfig?.rows) {
+      return bus.layoutConfig.rows;
+    }
+    // Fallback: find max row from seats
+    let max = 0;
+    seats.forEach((s) => {
+      if (!s.isFloorSeat && !s.isBench && (s.row ?? 0) > max) {
+        max = s.row ?? 0;
+      }
+    });
+    return max + 1;
+  }, [bus?.layoutConfig?.rows, seats]);
+
+  // Separate seats by type
+  const regularSeats = useMemo(
+    () =>
+      seats.filter(
+        (s) => !s.isFloorSeat && !s.isBench && (s.row ?? 0) < maxRow,
+      ),
+    [seats, maxRow],
+  );
+
+  const benchSeats = useMemo(
+    () =>
+      seats.filter(
+        (s) => s.isBench || (!s.isFloorSeat && (s.row ?? 0) >= maxRow),
+      ),
+    [seats, maxRow],
+  );
+
+  const floorSeats = useMemo(() => seats.filter((s) => s.isFloorSeat), [seats]);
 
   const renderSeat = (seat: Seat | undefined) => {
     if (!seat)
       return (
         <div
           className={`${
-            isCabin ? "h-8 w-15" : "h-9 w-9 sm:w-11"
+            isCabin ? "h-8 w-15" : "h-8 w-9 sm:w-10"
           } rounded-md border border-dashed border-slate-200 bg-slate-50/50`}
         />
       );
 
     const isBooked = bookedSeatIds.includes(seat.id);
+    const label = getSeatLabel(seat);
     return (
       <div
         key={seat.id}
         className={`
           relative flex items-center justify-center border transition-all duration-200 rounded-md shadow-sm
-          ${
-            isCabin
-              ? "h-[35.5px] w-15 text-[10px]"
-              : "h-8 w-9 sm:w-11 text-[10px]"
-          }
+          ${isCabin ? "h-8 w-14 text-[9px]" : "h-8 w-9 sm:w-10 text-[9px]"}
           ${
             isBooked
               ? "bg-slate-900 border-slate-900 text-white font-black ring-2 ring-slate-100"
               : "bg-slate-200 border-slate-300 text-slate-500 font-bold"
           }
         `}
-        title={`${seat.label} ${isBooked ? "(Ghế của bạn)" : ""}`}
+        title={`${label} ${isBooked ? "(Ghế của bạn)" : ""}`}
       >
-        {seat.label}
+        {label}
       </div>
     );
   };
 
-  if (isCabin) {
-    const regularSeats = seats.filter(
-      (s) => !s.isFloorSeat && (s.row ?? 0) < 90,
-    );
-    const benchSeats = seats.filter(
-      (s) => !s.isFloorSeat && (s.row ?? 0) >= 90,
-    );
-    const rows = Array.from(new Set(regularSeats.map((s) => s.row ?? 0))).sort(
-      (a: number, b: number) => a - b,
-    );
+  // Get unique rows sorted
+  const gridRows = useMemo(() => {
+    const rowSet = new Set(regularSeats.map((s) => s.row ?? 0));
+    return Array.from(rowSet).sort((a, b) => a - b);
+  }, [regularSeats]);
 
+  if (isCabin) {
     return (
-      <div className="flex flex-col items-center md:gap-4 bg-slate-50 py-4 rounded border border-slate-100 w-full overflow-hidden">
-        <div className="md:hidden text-slate-400 font-semibold text-xs text-center uppercase">
+      <div className="flex flex-col items-center gap-3 bg-slate-50 py-3 px-2 rounded border border-slate-100 w-full overflow-hidden">
+        <div className="text-slate-400 font-semibold text-[10px] text-center uppercase">
           Sơ đồ vị trí
         </div>
-        <div className="grid grid-cols-2 gap-4 w-full">
+        <div className="grid grid-cols-2 gap-3 w-full">
+          {/* Dãy B (col 0) */}
           <div className="flex flex-col items-center">
-            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">
+            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
               Dãy B
             </div>
-            <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
-              <div className="text-[10px] font-bold text-slate-300 text-center uppercase">
+            <div className="grid grid-cols-2 gap-1">
+              <div className="text-[8px] font-bold text-slate-300 text-center">
                 T1
               </div>
-              <div className="text-[10px] font-bold text-slate-300 text-center uppercase">
+              <div className="text-[8px] font-bold text-slate-300 text-center">
                 T2
               </div>
-              {rows.map((r) => (
+              {gridRows.map((r) => (
                 <React.Fragment key={`row-b-${r}`}>
                   {renderSeat(
                     regularSeats.find(
@@ -135,18 +195,19 @@ const SeatMapPreview: React.FC<{ trip: BusTrip; bookedSeatIds: string[] }> = ({
               ))}
             </div>
           </div>
+          {/* Dãy A (col 1) */}
           <div className="flex flex-col items-center">
-            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">
+            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
               Dãy A
             </div>
-            <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
-              <div className="text-[10px] font-bold text-slate-300 text-center uppercase">
+            <div className="grid grid-cols-2 gap-1">
+              <div className="text-[8px] font-bold text-slate-300 text-center">
                 T1
               </div>
-              <div className="text-[10px] font-bold text-slate-300 text-center uppercase">
+              <div className="text-[8px] font-bold text-slate-300 text-center">
                 T2
               </div>
-              {rows.map((r) => (
+              {gridRows.map((r) => (
                 <React.Fragment key={`row-a-${r}`}>
                   {renderSeat(
                     regularSeats.find(
@@ -163,14 +224,15 @@ const SeatMapPreview: React.FC<{ trip: BusTrip; bookedSeatIds: string[] }> = ({
             </div>
           </div>
         </div>
-        {benchSeats.length > 0 && (
-          <div className="pt-4 border-t border-slate-200 border-dashed w-full flex flex-col items-center gap-2">
-            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-              Băng cuối
+        {/* Floor Seats */}
+        {floorSeats.length > 0 && (
+          <div className="pt-2 border-t border-slate-200 border-dashed w-full text-center">
+            <div className="text-[8px] font-black text-slate-400 uppercase mb-1">
+              Sàn
             </div>
-            <div className="flex gap-2 justify-center">
-              {benchSeats
-                .sort((a, b) => (a.col ?? 0) - (b.col ?? 0))
+            <div className="flex gap-1 justify-center flex-wrap">
+              {floorSeats
+                .sort((a, b) => (a.row ?? 0) - (b.row ?? 0))
                 .map((s) => renderSeat(s))}
             </div>
           </div>
@@ -179,68 +241,60 @@ const SeatMapPreview: React.FC<{ trip: BusTrip; bookedSeatIds: string[] }> = ({
     );
   }
 
-  const standardSeats = seats.filter((s) => !s.isFloorSeat && (s.row ?? 0) < 6);
-  const benchSeats = seats.filter((s) => !s.isFloorSeat && (s.row ?? 0) >= 6);
-  const rows = [0, 1, 2, 3, 4, 5];
-
+  // SLEEPER BUS
   return (
-    <div className="flex flex-col gap-3 bg-slate-50 p-4 rounded border border-slate-100 w-full overflow-hidden">
-      <div className="md:hidden text-slate-400 font-semibold text-xs text-center uppercase">
+    <div className="flex flex-col gap-2 bg-slate-50 p-3 rounded border border-slate-100 w-full overflow-hidden">
+      <div className="text-slate-400 font-semibold text-[10px] text-center uppercase">
         Sơ đồ vị trí
       </div>
-      <div className="grid grid-cols-2 gap-3 sm:gap-6 w-full">
-        {[1, 2].map((f) => (
-          <div key={`floor-${f}`} className="flex flex-col items-center">
-            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">
-              Tầng {f}
-            </div>
-            <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
-              {rows.map((r) => (
-                <React.Fragment key={`row-${f}-${r}`}>
-                  {[0, 1, 2].map((c) => {
-                    const s = standardSeats.find(
-                      (st) => st.row === r && st.col === c && st.floor === f,
-                    );
-                    return s ? (
-                      renderSeat(s)
-                    ) : (
-                      <div
-                        key={`empty-${f}-${r}-${c}`}
-                        className="h-9 w-9 sm:w-11"
-                      />
-                    );
-                  })}
-                </React.Fragment>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-      {benchSeats.length > 0 && (
-        <div className="w-full flex flex-col items-center">
-          <div className="flex flex-col gap-4 w-full px-2 lg:px-0">
-            {[1, 2].map((f) => {
-              const floorBench = benchSeats
-                .filter((s) => s.floor === f)
-                .sort((a, b) => (a.col ?? 0) - (b.col ?? 0));
-              if (floorBench.length === 0) return null;
-              return (
-                <div
-                  key={`bench-row-${f}`}
-                  className="flex justify-between items-center w-full"
-                >
-                  <div className="text-[10px] font-black text-slate-300 uppercase tracking-tighter">
-                    Tầng {f}
-                  </div>
-                  <div className="flex  gap-1.5 sm:gap-2 justify-center">
-                    {floorBench.map((s) => renderSeat(s))}
+      <div className="grid grid-cols-2 gap-4 w-full">
+        {[1, 2].map((f) => {
+          const floorRegular = regularSeats.filter((s) => s.floor === f);
+          const floorBench = benchSeats.filter((s) => s.floor === f);
+          const floorRows = Array.from(
+            new Set(floorRegular.map((s) => s.row ?? 0)),
+          ).sort((a, b) => a - b);
+
+          return (
+            <div key={`floor-${f}`} className="flex flex-col items-center">
+              <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                Tầng {f}
+              </div>
+              <div className="grid grid-cols-3 gap-1">
+                {floorRows.map((r) => (
+                  <React.Fragment key={`row-${f}-${r}`}>
+                    {[0, 1, 2].map((c) => {
+                      const seat = floorRegular.find(
+                        (st) => st.row === r && st.col === c,
+                      );
+                      return seat ? (
+                        <React.Fragment key={seat.id}>
+                          {renderSeat(seat)}
+                        </React.Fragment>
+                      ) : (
+                        <div
+                          key={`empty-${f}-${r}-${c}`}
+                          className="h-8 w-9 sm:w-10"
+                        />
+                      );
+                    })}
+                  </React.Fragment>
+                ))}
+              </div>
+              {/* Bench for this floor */}
+              {floorBench.length > 0 && (
+                <div className="mt-2 w-full">
+                  <div className="flex gap-1 justify-center">
+                    {floorBench
+                      .sort((a, b) => (a.col ?? 0) - (b.col ?? 0))
+                      .map((s) => renderSeat(s))}
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 };
@@ -256,6 +310,7 @@ export const OrderInformation: React.FC<OrderInformationProps> = ({
   const [booking, setBooking] = useState<Booking | null>(null);
   const [history, setHistory] = useState<BookingHistory[]>([]);
   const [trips, setTrips] = useState<BusTrip[]>([]);
+  const [buses, setBuses] = useState<Bus[]>([]);
   const [loading, setLoading] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -302,12 +357,14 @@ export const OrderInformation: React.FC<OrderInformationProps> = ({
     setError(null);
     setHistory([]);
     try {
-      const [allBookings, allTrips] = await Promise.all([
+      const [allBookings, allTrips, allBuses] = await Promise.all([
         api.bookings.getAll(),
         api.trips.getAll(),
+        api.buses.getAll(),
       ]);
 
       setTrips(allTrips);
+      setBuses(allBuses);
       const found = allBookings.find(
         (b: Booking) =>
           b.id === cleanId ||
@@ -568,7 +625,7 @@ export const OrderInformation: React.FC<OrderInformationProps> = ({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="w-11 h-11 bg-slate-100 border-2 border-slate-900 rounded flex items-center justify-center text-white shadow-lg">
-              <Bus size={28} className="text-slate-900 font-normal" />
+              <BusIcon size={28} className="text-slate-900 font-normal" />
             </div>
             <div>
               <h1 className="text-xl font-black text-slate-900 tracking-tight uppercase">
@@ -607,13 +664,26 @@ export const OrderInformation: React.FC<OrderInformationProps> = ({
             {/* Trips Detail */}
             <div className="bg-white rounded border border-slate-200 overflow-hidden flex flex-col">
               <h3 className="bg-slate-50 text-xs font-semibold text-slate-400 uppercase flex items-center gap-2 px-4 h-10 border-b border-slate-200">
-                <Bus size={16} /> Chi tiết chuyến ({booking.items.length}{" "}
+                <BusIcon size={16} /> Chi tiết chuyến ({booking.items.length}{" "}
                 chuyến)
               </h3>
               <div className="overflow-hidden py-6">
                 {booking.items.map((item, idx) => {
-                  const tripDate = new Date(item.tripDate);
                   const fullTrip = trips.find((t) => t.id === item.tripId);
+                  // Derive seatIds từ tickets vì backend không lưu trực tiếp
+                  const derivedSeatIds = (item.tickets || []).map(
+                    (t) => t.seatId,
+                  );
+                  // Tìm bus tương ứng với trip - ưu tiên fullTrip.licensePlate
+                  const tripBus = buses.find(
+                    (b) =>
+                      b.plate === fullTrip?.licensePlate ||
+                      b.plate === item.licensePlate ||
+                      (fullTrip?.busId &&
+                        (b.id === fullTrip.busId ||
+                          (typeof fullTrip.busId === "object" &&
+                            b.id === (fullTrip.busId as any).id))),
+                  );
                   return (
                     <div
                       key={idx}
@@ -622,9 +692,12 @@ export const OrderInformation: React.FC<OrderInformationProps> = ({
                       <div className="flex-1 px-5 lg:pr-0">
                         <div className="bg-slate-50 rounded border border-slate-100 space-y-1 lg:space-y-3 p-4">
                           <div className="flex items-center gap-2">
-                            <Bus size={16} className="text-slate-400 rounded" />
+                            <BusIcon
+                              size={16}
+                              className="text-slate-400 rounded"
+                            />
                             <h4 className="text-sm font-black text-slate-900 uppercase">
-                              {item.route}
+                              {fullTrip?.route || item.route || "---"}
                             </h4>
                           </div>
                           <div className="grid md:grid-cols-2 gap-2 lg:gap-6">
@@ -633,7 +706,10 @@ export const OrderInformation: React.FC<OrderInformationProps> = ({
                                 Biển số xe (dự kiến)
                               </span>
                               <div className="text-xl font-black text-slate-800">
-                                {item.licensePlate}
+                                {fullTrip?.licensePlate ||
+                                  tripBus?.plate ||
+                                  item.licensePlate ||
+                                  "---"}
                               </div>
                             </div>
                             <div className="space-y-1">
@@ -644,7 +720,9 @@ export const OrderInformation: React.FC<OrderInformationProps> = ({
                                 className="font-bold text-slate-800 truncate text-lg"
                                 title="Thời gian xuất bến dự kiến"
                               >
-                                {formatDate(item.tripDate)}
+                                {formatDate(
+                                  fullTrip?.departureTime || item.tripDate,
+                                )}
                               </div>
                             </div>
                           </div>
@@ -660,10 +738,19 @@ export const OrderInformation: React.FC<OrderInformationProps> = ({
                           </div>
                           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                             {item.tickets.map((t) => {
-                              // Find the seat label from the trip
-                              const seatLabel =
-                                fullTrip?.seats?.find((s) => s.id === t.seatId)
-                                  ?.label || t.seatId;
+                              // Lấy label ưu tiên từ bus.layoutConfig.seatLabels, fallback trip.seats
+                              let seatLabel = t.seatId;
+                              if (
+                                tripBus?.layoutConfig?.seatLabels?.[t.seatId]
+                              ) {
+                                seatLabel =
+                                  tripBus.layoutConfig.seatLabels[t.seatId];
+                              } else {
+                                const seat = fullTrip?.seats?.find(
+                                  (s) => s.id === t.seatId,
+                                );
+                                if (seat?.label) seatLabel = seat.label;
+                              }
                               return (
                                 <div
                                   key={t.seatId}
@@ -683,14 +770,18 @@ export const OrderInformation: React.FC<OrderInformationProps> = ({
                                         size={10}
                                         className="text-slate-500"
                                       />{" "}
-                                      {t.pickup || "---"}
+                                      {t.pickup ||
+                                        booking.passenger?.pickupPoint ||
+                                        "---"}
                                     </div>
                                     <div className="flex items-center gap-1 md:gap-2 text-[10px] text-slate-500 font-medium truncate">
                                       <ArrowRight
                                         size={10}
                                         className="text-slate-500"
                                       />{" "}
-                                      {t.dropoff || "---"}
+                                      {t.dropoff ||
+                                        booking.passenger?.dropoffPoint ||
+                                        "---"}
                                     </div>
                                   </div>
                                   {t.note && (
@@ -704,10 +795,18 @@ export const OrderInformation: React.FC<OrderInformationProps> = ({
                           </div>
                           <div className="px-4 py-3 bg-blue-50/70 rounded border-2 border-dashed border-slate-200 flex justify-between items-center mt-6">
                             <span className="text-sm font-black text-slate-600">
-                              Thanh toán
+                              Đã thanh toán
                             </span>
                             <span className="text-xl font-black text-slate-700">
-                              {formatCurrency(item.price)} đ
+                              {formatCurrency(
+                                item.tickets
+                                  ?.filter((t) => t.status === "payment")
+                                  .reduce(
+                                    (sum, t) => sum + (t.price || 0),
+                                    0,
+                                  ) || 0,
+                              )}{" "}
+                              đ
                             </span>
                           </div>
                         </div>
@@ -718,13 +817,14 @@ export const OrderInformation: React.FC<OrderInformationProps> = ({
                             <div className="flex justify-center w-full overflow-hidden">
                               <SeatMapPreview
                                 trip={fullTrip}
-                                bookedSeatIds={item.seatIds}
+                                bookedSeatIds={derivedSeatIds}
+                                bus={tripBus}
                               />
                             </div>
                           </div>
                         ) : (
                           <div className="h-full w-full flex flex-col items-center justify-center text-slate-300 py-20 border-2 border-dashed border-slate-100 rounded">
-                            <Bus
+                            <BusIcon
                               size={64}
                               className="opacity-10 mb-4 animate-pulse"
                             />

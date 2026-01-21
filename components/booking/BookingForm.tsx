@@ -219,7 +219,10 @@ export const BookingForm: React.FC<BookingFormProps> = ({
     if (cleanInput.length < 3) return [];
     return bookings.filter(
       (b) =>
+        b &&
         b.status !== "cancelled" &&
+        b.passenger &&
+        b.passenger.phone &&
         b.passenger.phone.replace(/\D/g, "").includes(cleanInput),
     );
   }, [bookings, bookingForm.phone]);
@@ -517,9 +520,11 @@ export const BookingForm: React.FC<BookingFormProps> = ({
       }
 
       const updatedTripsMap = new Map<string, BusTrip>(
-        result.updatedTrips.map((t: BusTrip) => [t.id, t]),
+        (result.updatedTrips || []).map((t: BusTrip) => [t.id, t]),
       );
-      setTrips((prev) => prev.map((t) => updatedTripsMap.get(t.id) || t));
+      if (result.updatedTrips?.length) {
+        setTrips((prev) => prev.map((t) => updatedTripsMap.get(t.id) || t));
+      }
 
       if (oldBooking) {
         setUndoStack((prev) => [

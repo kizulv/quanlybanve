@@ -52,7 +52,7 @@ export const AlertDialogFooter: React.FC<{
   className?: string;
 }> = ({ children, className = "" }) => (
   <div
-    className={`flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 gap-2 sm:gap-0 ${className}`}
+    className={`flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 gap-2 sm:gap-0 md:justify-between ${className}`}
   >
     {children}
   </div>
@@ -82,8 +82,7 @@ export const AlertDialogDescription: React.FC<{
   return <p className={`text-sm text-slate-500 ${className}`}>{children}</p>;
 };
 
-interface AlertDialogActionProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+interface AlertDialogActionProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   className?: string;
 }
 
@@ -99,7 +98,7 @@ export const AlertDialogAction: React.FC<AlertDialogActionProps> = ({
 
 export const AlertDialogCancel: React.FC<AlertDialogActionProps> = ({
   children,
-  className = "",
+  className = "text-slate-500",
   ...props
 }) => (
   <Button variant="outline" className={`mt-2 sm:mt-0 ${className}`} {...props}>

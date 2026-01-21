@@ -25,7 +25,7 @@ import { Dialog } from "../ui/Dialog";
 import { Popover } from "../ui/Popover";
 import { Calendar } from "../ui/Calendar";
 import { formatLunarDate } from "../../utils/dateUtils";
-import { Booking, BusTrip, BusType } from "../../types";
+import { Booking, Bus, BusTrip, BusType } from "../../types";
 import { Loader2 } from "lucide-react";
 import { formatPhoneNumber } from "../../utils/formatters";
 
@@ -54,6 +54,7 @@ export const PaymentManager: React.FC = () => {
   const [payments, setPayments] = useState<any[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [trips, setTrips] = useState<BusTrip[]>([]);
+  const [buses, setBuses] = useState<Bus[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -68,14 +69,17 @@ export const PaymentManager: React.FC = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [paymentsData, bookingsData, tripsData] = await Promise.all([
-        api.payments.getAll(),
-        api.bookings.getAll(),
-        api.trips.getAll(),
-      ]);
+      const [paymentsData, bookingsData, tripsData, busesData] =
+        await Promise.all([
+          api.payments.getAll(),
+          api.bookings.getAll(),
+          api.trips.getAll(),
+          api.buses.getAll(),
+        ]);
       setPayments(paymentsData);
       setBookings(bookingsData);
       setTrips(tripsData);
+      setBuses(busesData);
     } catch (e) {
       console.error(e);
       toast({
@@ -206,12 +210,25 @@ export const PaymentManager: React.FC = () => {
     Object.values(groups).forEach((g) => {
       const currentBooking = bookings.find((b) => b.id === g.bookingId);
       // Helper to find label by seatId and tripId
-      // Logic copied from BookingHistoryModal for consistency
+      // Prioritizes bus.layoutConfig.seatLabels (database source of truth)
       const getLabel = (sid: string, tid?: string) => {
-        // 1. If we have tripId, look up in trips list
+        // 1. If we have tripId, look up bus layoutConfig first
         if (tid) {
           const trip = trips.find((t) => t.id === tid);
           if (trip) {
+            // Find bus by licensePlate or busId
+            const bus = buses.find(
+              (b) =>
+                b.plate === trip.licensePlate ||
+                (trip.busId &&
+                  (b.id === trip.busId ||
+                    (typeof trip.busId === "object" &&
+                      b.id === (trip.busId as any).id))),
+            );
+            if (bus?.layoutConfig?.seatLabels?.[sid]) {
+              return bus.layoutConfig.seatLabels[sid];
+            }
+            // Fallback to trip.seats if layoutConfig not found
             const seat = trip.seats?.find((s) => s.id === sid);
             if (seat) return seat.label;
           }
@@ -227,13 +244,29 @@ export const PaymentManager: React.FC = () => {
           if (item) {
             const trip = trips.find((t) => t.id === item.tripId);
             if (trip) {
+              const bus = buses.find(
+                (b) =>
+                  b.plate === trip.licensePlate ||
+                  (trip.busId &&
+                    (b.id === trip.busId ||
+                      (typeof trip.busId === "object" &&
+                        b.id === (trip.busId as any).id))),
+              );
+              if (bus?.layoutConfig?.seatLabels?.[sid]) {
+                return bus.layoutConfig.seatLabels[sid];
+              }
               const seat = trip.seats?.find((s) => s.id === sid);
               if (seat) return seat.label;
             }
           }
         }
 
-        // 3. Last resort: scan all trips manually (legacy fallback)
+        // 3. Last resort: scan all buses and trips manually (legacy fallback)
+        for (const bus of buses) {
+          if (bus.layoutConfig?.seatLabels?.[sid]) {
+            return bus.layoutConfig.seatLabels[sid];
+          }
+        }
         for (const t of trips) {
           const seat = t.seats?.find((s) => s.id === sid);
           if (seat) return seat.label;
@@ -310,7 +343,7 @@ export const PaymentManager: React.FC = () => {
     return Object.values(groups).sort(
       (a, b) => b.latestTransaction.getTime() - a.latestTransaction.getTime(),
     );
-  }, [payments, bookings, trips]);
+  }, [payments, bookings, trips, buses]);
 
   const filteredGroups = useMemo(() => {
     const term = searchTerm.toLowerCase().trim();
@@ -433,6 +466,54 @@ export const PaymentManager: React.FC = () => {
     return `${fromStr} - ${dateRange.to.toLocaleDateString("vi-VN")}`;
   };
 
+  // Helper to lookup seat label from buses/trips - for use in calculateDiff
+  const getLabelBySeatId = (
+    seatId: string,
+    tripId?: string,
+    licensePlate?: string,
+  ) => {
+    // 1. Try to find by tripId first
+    if (tripId) {
+      const trip = trips.find((t) => t.id === tripId);
+      if (trip) {
+        const bus = buses.find(
+          (b) =>
+            b.plate === trip.licensePlate ||
+            (trip.busId &&
+              (b.id === trip.busId ||
+                (typeof trip.busId === "object" &&
+                  b.id === (trip.busId as any).id))),
+        );
+        if (bus?.layoutConfig?.seatLabels?.[seatId]) {
+          return bus.layoutConfig.seatLabels[seatId];
+        }
+        const seat = trip.seats?.find((s) => s.id === seatId);
+        if (seat) return seat.label;
+      }
+    }
+
+    // 2. Try to find by licensePlate
+    if (licensePlate) {
+      const bus = buses.find((b) => b.plate === licensePlate);
+      if (bus?.layoutConfig?.seatLabels?.[seatId]) {
+        return bus.layoutConfig.seatLabels[seatId];
+      }
+    }
+
+    // 3. Fallback: scan all buses
+    for (const bus of buses) {
+      if (bus.layoutConfig?.seatLabels?.[seatId]) {
+        return bus.layoutConfig.seatLabels[seatId];
+      }
+    }
+    for (const t of trips) {
+      const seat = t.seats?.find((s) => s.id === seatId);
+      if (seat) return seat.label;
+    }
+
+    return seatId;
+  };
+
   function calculateDiff(prevTrips: any[], currPayment: any) {
     const currTrips = normalizeTrips(currPayment.details);
     const isIncremental = currPayment.transactionType === "incremental";
@@ -468,7 +549,13 @@ export const PaymentManager: React.FC = () => {
             );
             if (t) price = t.price;
           }
-          seatDiffs.push({ id: s, status, price });
+          // Get label from bus.layoutConfig
+          const label = getLabelBySeatId(
+            s as string,
+            meta.tripId,
+            meta.licensePlate,
+          );
+          seatDiffs.push({ id: s, label, status, price });
         });
       } else {
         const allSeats = new Set([...pSeats, ...cSeats]);
@@ -492,14 +579,39 @@ export const PaymentManager: React.FC = () => {
             );
             if (t) price = t.price;
           }
-          seatDiffs.push({ id: s, status, price });
+          // Get label from bus.layoutConfig
+          const label = getLabelBySeatId(
+            s as string,
+            meta.tripId,
+            meta.licensePlate,
+          );
+          seatDiffs.push({ id: s, label, status, price });
         });
       }
 
       seatDiffs.sort((a, b) =>
-        a.id.localeCompare(b, undefined, { numeric: true }),
+        (a.label || a.id).localeCompare(b.label || b.id, undefined, {
+          numeric: true,
+        }),
       );
-      if (seatDiffs.length > 0) results.push({ ...meta, diffSeats: seatDiffs });
+      if (seatDiffs.length > 0) {
+        // Enrich meta with trip data if missing
+        let enrichedMeta = { ...meta };
+        if (
+          meta.tripId &&
+          (!meta.route || !meta.tripDate || !meta.licensePlate)
+        ) {
+          const fullTrip = trips.find((t) => t.id === meta.tripId);
+          if (fullTrip) {
+            if (!enrichedMeta.route) enrichedMeta.route = fullTrip.route;
+            if (!enrichedMeta.tripDate)
+              enrichedMeta.tripDate = fullTrip.departureTime;
+            if (!enrichedMeta.licensePlate)
+              enrichedMeta.licensePlate = fullTrip.licensePlate;
+          }
+        }
+        results.push({ ...enrichedMeta, diffSeats: seatDiffs });
+      }
     });
     return results;
   }
@@ -839,15 +951,41 @@ export const PaymentManager: React.FC = () => {
                       : [];
                     const diffResult = calculateDiff(prevTrips, p);
 
+                    // Xác định label và màu sắc dựa trên transactionLabel từ backend
+                    // Fallback: dựa trên totalAmount nếu không có transactionLabel
+                    let statusLabel = "Thanh toán";
+                    let statusColorClass =
+                      "bg-emerald-50 text-emerald-700 border-emerald-200";
+                    let dotColorClass = "bg-emerald-500";
+                    let amountColorClass = "text-emerald-600";
+
+                    if (
+                      p.transactionLabel === "hoan_tien" ||
+                      (!p.transactionLabel && p.totalAmount < 0)
+                    ) {
+                      statusLabel = "Hoàn tiền";
+                      statusColorClass =
+                        "bg-red-50 text-red-700 border-red-200";
+                      dotColorClass = "bg-red-500";
+                      amountColorClass = "text-red-600";
+                    } else if (
+                      p.transactionLabel === "cap_nhat" ||
+                      (!p.transactionLabel && p.totalAmount === 0)
+                    ) {
+                      statusLabel = "Cập nhật";
+                      statusColorClass =
+                        "bg-blue-50 text-blue-700 border-blue-200";
+                      dotColorClass = "bg-blue-500";
+                      amountColorClass = "text-blue-600";
+                    }
+
                     return (
                       <div
                         key={p.id}
                         className="relative pl-6 animate-in slide-in-from-left duration-300"
                       >
                         <div
-                          className={`absolute -left-2.75 top-0 w-5 h-5 rounded-full border-4 border-white shadow-md flex items-center justify-center ${
-                            isPositive ? "bg-emerald-500" : "bg-red-500"
-                          }`}
+                          className={`absolute -left-2.75 top-0 w-5 h-5 rounded-full border-4 border-white shadow-md flex items-center justify-center ${dotColorClass}`}
                         >
                           <div className="w-1.5 h-1.5 rounded-full bg-white"></div>
                         </div>
@@ -855,13 +993,9 @@ export const PaymentManager: React.FC = () => {
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                               <span
-                                className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border shadow-sm ${
-                                  isPositive
-                                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                    : "bg-red-50 text-red-700 border-red-200"
-                                }`}
+                                className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border shadow-sm ${statusColorClass}`}
                               >
-                                {isPositive ? "Thanh toán" : "Hoàn tiền"}
+                                {statusLabel}
                               </span>
                               <span className="text-[11px] text-slate-400 flex items-center gap-1">
                                 <Clock size={11} />{" "}
@@ -892,11 +1026,7 @@ export const PaymentManager: React.FC = () => {
                                 )}
                               </div>
                               <span
-                                className={`text-sm ${
-                                  isPositive
-                                    ? "text-emerald-600"
-                                    : "text-red-600"
-                                } ml-2`}
+                                className={`text-sm ${amountColorClass} ml-2`}
                               >
                                 {Number(p.totalAmount || 0).toLocaleString(
                                   "vi-VN",

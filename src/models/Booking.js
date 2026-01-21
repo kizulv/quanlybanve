@@ -21,12 +21,12 @@ const bookingItemSchema = new mongoose.Schema(
     tripId: String,
     tripDate: String,
     route: String,
+    licensePlate: String, // ADDED: Missing field
     seatIds: [String],
     tickets: [ticketDetailSchema],
     price: Number,
     isEnhanced: { type: Boolean, default: false },
     busType: String,
-    seatIds: [String], // Keeping for compatibility or if used in queries, though marked removed in comments
   },
   { _id: false },
 );

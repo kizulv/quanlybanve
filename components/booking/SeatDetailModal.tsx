@@ -10,18 +10,25 @@ import {
   Phone,
   CreditCard,
   Loader2,
-  DollarSign,
   CheckCircle2,
-  Tag,
   Trash2,
 } from "lucide-react";
 import {
   formatPhoneNumber,
   getStandardizedLocation,
-  formatCurrency,
   parseCurrency,
 } from "../../utils/formatters";
 import { CurrencyInput } from "../ui/CurrencyInput";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../ui/AlertDialog";
 
 interface SeatDetailModalProps {
   isOpen: boolean;
@@ -46,6 +53,7 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
   bookings,
   onSave,
 }) => {
+  const [isConfirmCancelOpen, setIsConfirmCancelOpen] = useState(false);
   const [form, setForm] = useState({
     phone: "",
     pickup: "",
@@ -285,16 +293,51 @@ export const SeatDetailModal: React.FC<SeatDetailModalProps> = ({
             </Button>
           )}
 
-          {isBooked && (
-            <Button
-              onClick={handleRefundSeat}
-              disabled={isSaving}
-              variant="custom"
-              className="bg-red-700 hover:bg-red-800 text-white font-bold h-9 text-xs border border-red-700 shadow-sm"
-            >
-              <Trash2 size={14} className="mr-1" /> Hủy vé
-            </Button>
-          )}
+          {(isBooked || isSold) &&
+            (isBooked ? (
+              <>
+                <Button
+                  onClick={() => setIsConfirmCancelOpen(true)}
+                  disabled={isSaving}
+                  variant="custom"
+                  className="bg-red-700 hover:bg-red-800 text-white font-bold h-9 text-xs border border-red-700 shadow-sm"
+                >
+                  <Trash2 size={14} className="mr-1" /> Hủy vé
+                </Button>
+
+                <AlertDialog
+                  open={isConfirmCancelOpen}
+                  onOpenChange={setIsConfirmCancelOpen}
+                >
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Xác nhận hủy vé</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Bạn có chắc chắn muốn hủy vé này không? Hành động này
+                        không thể hoàn tác.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel
+                        onClick={() => setIsConfirmCancelOpen(false)}
+                      >
+                        Hủy
+                      </AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={() => {
+                          handleRefundSeat();
+                          setIsConfirmCancelOpen(false);
+                        }}
+                        className="bg-red-600 hover:bg-red-700"
+                      >
+                        Xác nhận hủy
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </>
+            ) : null)}
+
           <Button
             onClick={handleSaveOnly}
             disabled={isSaving}

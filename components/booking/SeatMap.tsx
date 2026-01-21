@@ -109,6 +109,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
     );
 
     if (activeBooking) {
+      // Always populate data for display, even if deselected (ghost)
       currentBooking = activeBooking;
       const tripItem = activeBooking.items.find(
         (i) => i.tripId === currentTripId,
@@ -117,18 +118,27 @@ export const SeatMap: React.FC<SeatMapProps> = ({
         (t) => String(t.seatId) === String(seat.id),
       );
 
-      // Determine status based on Ticket > Booking priority
-      if (currentTicket?.status) {
-        if (currentTicket.status === "payment") currentStatus = SeatStatus.SOLD;
-        else if (currentTicket.status === "hold")
-          currentStatus = SeatStatus.HELD;
-        else currentStatus = SeatStatus.BOOKED;
-      } else {
-        // Fallback to booking status
-        if (activeBooking.status === "payment") currentStatus = SeatStatus.SOLD;
-        else if (activeBooking.status === "hold")
-          currentStatus = SeatStatus.HELD;
-        else currentStatus = SeatStatus.BOOKED;
+      const isLocallyDeselected =
+        editingBooking &&
+        activeBooking.id === editingBooking.id &&
+        seat.status === SeatStatus.AVAILABLE;
+
+      if (!isLocallyDeselected) {
+        // Determine status based on Ticket > Booking priority
+        if (currentTicket?.status) {
+          if (currentTicket.status === "payment")
+            currentStatus = SeatStatus.SOLD;
+          else if (currentTicket.status === "hold")
+            currentStatus = SeatStatus.HELD;
+          else currentStatus = SeatStatus.BOOKED;
+        } else {
+          // Fallback to booking status
+          if (activeBooking.status === "payment")
+            currentStatus = SeatStatus.SOLD;
+          else if (activeBooking.status === "hold")
+            currentStatus = SeatStatus.HELD;
+          else currentStatus = SeatStatus.BOOKED;
+        }
       }
     }
 
@@ -219,9 +229,9 @@ export const SeatMap: React.FC<SeatMapProps> = ({
           e.stopPropagation();
           if (onSeatRightClick) {
             if (hasInfo && booking) {
-              onSeatRightClick(seat, booking);
+              onSeatRightClick({ ...seat, status: currentStatus }, booking);
             } else if (currentStatus === SeatStatus.HELD) {
-              onSeatRightClick(seat, null);
+              onSeatRightClick({ ...seat, status: currentStatus }, null);
             }
           }
         }}

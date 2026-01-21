@@ -514,6 +514,7 @@ function AppContent() {
         <RightSheet
           bookings={bookings}
           trips={trips}
+          buses={buses}
           onSelectBooking={handleSelectBookingFromHistory}
           onUndo={handleUndo}
           lastUndoAction={undoStack[undoStack.length - 1]}
@@ -614,6 +615,7 @@ function AppContent() {
               selectedTrip={selectedTrip}
               highlightedBookingId={highlightedBookingId}
               onSelectBooking={handleSelectBookingFromHistory}
+              buses={buses}
             />
           </div>
         </div>
@@ -682,14 +684,16 @@ function AppContent() {
               action: extra?.action,
               payment: extra?.payment,
             });
-            setBookings((prev) =>
-              prev.map((b) => (b.id === booking.id ? res.booking || b : b)),
-            );
 
-            // Refresh trips if seat status changed (Payment/Refund)
-            if (extra?.action) {
-              const tripsData = await api.trips.getAll();
-              setTrips(tripsData);
+            // Refresh all data to ensure consistency after any changes
+            // Especially important for REFUND which may delete tickets or cancel bookings
+            if (extra?.action === "REFUND" || extra?.action === "PAY") {
+              await refreshData();
+            } else {
+              // For simple updates, just update local state
+              setBookings((prev) =>
+                prev.map((b) => (b.id === booking.id ? res.booking || b : b)),
+              );
             }
           } else {
             // Xử lý hủy giữ chỗ thủ công (không có booking)
@@ -708,7 +712,13 @@ function AppContent() {
             );
           }
           setSeatDetailModal(null);
-          toast({ type: "success", title: "Cập nhật thành công" });
+          toast({
+            type: "success",
+            title:
+              extra?.action === "REFUND"
+                ? "Đã hủy vé thành công"
+                : "Cập nhật thành công",
+          });
         }}
       />
     </Layout>
