@@ -315,6 +315,7 @@ export const OrderInformation: React.FC<OrderInformationProps> = ({
   const [historyLoading, setHistoryLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
+  const [showAllHistory, setShowAllHistory] = useState(false);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -842,115 +843,130 @@ export const OrderInformation: React.FC<OrderInformationProps> = ({
             {/* Main Content Grid: Summary & Payment */}
             <div className="flex flex-col lg:flex-row gap-6">
               {/* Booking Summary */}
-              <Collapsible
-                disabled={!isMobile}
-                defaultOpen={!isMobile}
-                className="w-full lg:flex-1 bg-white rounded border border-slate-200 overflow-hidden h-fit"
-              >
-                <div className="bg-slate-50 h-10 md:border-b md:border-slate-200">
-                  <CollapsibleTrigger className="h-full">
-                    <h3 className="bg-slate-50 text-xs flex items-center justify-between gap-2 px-4 h-full w-full">
-                      <div className="flex items-center font-semibold text-slate-400 uppercase">
-                        <User size={16} className="mr-2" /> Lịch sử đặt vé
+              <div className="w-full lg:flex-1 flex flex-col gap-2">
+                <Collapsible
+                  disabled={!isMobile}
+                  defaultOpen={!isMobile}
+                  className="w-full bg-white rounded border border-slate-200 overflow-hidden h-fit"
+                >
+                  <div className="bg-slate-50 h-10 md:border-b md:border-slate-200">
+                    <CollapsibleTrigger className="h-full">
+                      <h3 className="bg-slate-50 text-xs flex items-center justify-between gap-2 px-4 h-full w-full">
+                        <div className="flex items-center font-semibold text-slate-400 uppercase">
+                          <User size={16} className="mr-2" /> Lịch sử đặt vé
+                        </div>
+                        <div className="text-xs">
+                          {getStatusBadge(booking.status)}
+                        </div>
+                      </h3>
+                    </CollapsibleTrigger>
+                  </div>
+                  <CollapsibleContent className="p-4 pl-2 md:p-4">
+                    {historyLoading ? (
+                      <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+                        <Loader2 className="animate-spin mb-4" size={48} />
+                        <p className="text-xs tracking-widest uppercase">
+                          Đang đồng bộ dữ liệu lịch sử...
+                        </p>
                       </div>
-                      <div className="text-xs">
-                        {getStatusBadge(booking.status)}
+                    ) : history.length === 0 ? (
+                      <div className="text-center py-20 text-slate-400">
+                        <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6 border border-dashed border-slate-200 opacity-50">
+                          <FileClock size={40} />
+                        </div>
+                        <p className="text-xs text-slate-500 uppercase tracking-widest">
+                          Hệ thống chưa ghi nhận biến động dữ liệu
+                        </p>
                       </div>
-                    </h3>
-                  </CollapsibleTrigger>
-                </div>
-                <CollapsibleContent className="p-4 pl-2 md:p-4">
-                  {historyLoading ? (
-                    <div className="flex flex-col items-center justify-center py-20 text-slate-400">
-                      <Loader2 className="animate-spin mb-4" size={48} />
-                      <p className="text-xs tracking-widest uppercase">
-                        Đang đồng bộ dữ liệu lịch sử...
-                      </p>
-                    </div>
-                  ) : history.length === 0 ? (
-                    <div className="text-center py-20 text-slate-400">
-                      <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6 border border-dashed border-slate-200 opacity-50">
-                        <FileClock size={40} />
-                      </div>
-                      <p className="text-xs text-slate-500 uppercase tracking-widest">
-                        Hệ thống chưa ghi nhận biến động dữ liệu
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="relative border-l-4 border-slate-100 ml-2 md:ml-3 space-y-6 py-2">
-                      {history.map((log, idx) => {
-                        const theme = getActionTheme(log.action);
-                        const colorClasses = {
-                          emerald: "bg-emerald-500 shadow-emerald-500/20",
-                          red: "bg-red-500 shadow-red-500/20",
-                          blue: "bg-blue-500 shadow-blue-500/20",
-                          purple: "bg-purple-500 shadow-purple-500/20",
-                          orange: "bg-orange-500 shadow-orange-500/20",
-                          slate: "bg-slate-500 shadow-slate-500/20",
-                          green: "bg-green-600 shadow-green-600/20",
-                          indigo: "bg-indigo-600 shadow-indigo-600/20",
-                        }[theme.color];
+                    ) : (
+                      <div className="relative border-l-4 border-slate-100 ml-2 md:ml-3 space-y-6 py-2">
+                        {history
+                          .slice(0, showAllHistory ? history.length : 1)
+                          .map((log, idx) => {
+                            const theme = getActionTheme(log.action);
+                            const colorClasses = {
+                              emerald: "bg-emerald-500 shadow-emerald-500/20",
+                              red: "bg-red-500 shadow-red-500/20",
+                              blue: "bg-blue-500 shadow-blue-500/20",
+                              purple: "bg-purple-500 shadow-purple-500/20",
+                              orange: "bg-orange-500 shadow-orange-500/20",
+                              slate: "bg-slate-500 shadow-slate-500/20",
+                              green: "bg-green-600 shadow-green-600/20",
+                              indigo: "bg-indigo-600 shadow-indigo-600/20",
+                            }[theme.color];
 
-                        return (
-                          <div
-                            key={log.id}
-                            className="relative pl-4 md:pl-6 animate-in slide-in-from-left duration-500"
-                          >
-                            <div
-                              className={`absolute -left-3.5 top-1 w-6 h-6 rounded-full border-4 border-white shadow-lg flex items-center justify-center ${colorClasses} z-10`}
-                            >
-                              <div className="w-1.5 h-1.5 rounded-full bg-white"></div>
-                            </div>
-
-                            <div className="flex flex-col gap-4">
-                              <div className="flex items-center justify-between flex-wrap gap-3">
-                                <span
-                                  className={`text-[10px] font-black uppercase px-3 py-1.5 rounded-full border flex items-center gap-1 ${
-                                    log.action === "CREATE"
-                                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                      : log.action === "DELETE" ||
-                                          log.action === "CANCEL" ||
-                                          log.action === "REFUND_SEAT"
-                                        ? "bg-red-50 text-red-700 border-red-200"
-                                        : log.action === "UPDATE"
-                                          ? "bg-slate-50 text-slate-900 border-slate-200"
-                                          : log.action === "SWAP"
-                                            ? "bg-slate-50 text-slate-900 border-slate-200"
-                                            : log.action === "TRANSFER"
-                                              ? "bg-slate-50 text-slate-900 border-slate-200"
-                                              : log.action ===
-                                                  "PASSENGER_UPDATE"
-                                                ? "bg-orange-50 text-orange-700 border-orange-200"
-                                                : "bg-green-50 text-green-700 border-green-200"
-                                  }
-                              `}
+                            return (
+                              <div
+                                key={log.id}
+                                className="relative pl-4 md:pl-6 animate-in slide-in-from-left duration-500"
+                              >
+                                <div
+                                  className={`absolute -left-3.5 top-1 w-6 h-6 rounded-full border-4 border-white shadow-lg flex items-center justify-center ${colorClasses} z-10`}
                                 >
-                                  {theme.icon}
-                                  {theme.label}
-                                </span>
-                                <span className="text-[11px] text-slate-400 bg-slate-50 px-4 py-1.5 rounded-full border border-slate-100 flex items-center gap-2">
-                                  <Clock size={14} />{" "}
-                                  {formatDate(log.timestamp)}
-                                </span>
-                              </div>
+                                  <div className="w-1.5 h-1.5 rounded-full bg-white"></div>
+                                </div>
 
-                              <div className="bg-slate-50/50 p-3  md:px-6 md:py-4 rounded border border-slate-100 hover:bg-white hover:shadow-2xl hover:border-primary/20 transition-all duration-300 group/log">
-                                {renderLogDetails(log)}
-                                <div className="mt-3 flex items-center gap-1 px-3 py-2 border border-slate-200 bg-slate-100 rounded">
-                                  <p className="text-xs leading-relaxed text-slate-500">
-                                    {log.description}
-                                  </p>
+                                <div className="flex flex-col gap-4">
+                                  <div className="flex items-center justify-between flex-wrap gap-3">
+                                    <span
+                                      className={`text-[10px] font-black uppercase px-3 py-1.5 rounded-full border flex items-center gap-1 ${
+                                        log.action === "CREATE"
+                                          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                          : log.action === "DELETE" ||
+                                              log.action === "CANCEL" ||
+                                              log.action === "REFUND_SEAT"
+                                            ? "bg-red-50 text-red-700 border-red-200"
+                                            : log.action === "UPDATE"
+                                              ? "bg-slate-50 text-slate-900 border-slate-200"
+                                              : log.action === "SWAP"
+                                                ? "bg-slate-50 text-slate-900 border-slate-200"
+                                                : log.action === "TRANSFER"
+                                                  ? "bg-slate-50 text-slate-900 border-slate-200"
+                                                  : log.action ===
+                                                      "PASSENGER_UPDATE"
+                                                    ? "bg-orange-50 text-orange-700 border-orange-200"
+                                                    : "bg-green-50 text-green-700 border-green-200"
+                                      }
+                              `}
+                                    >
+                                      {theme.icon}
+                                      {theme.label}
+                                    </span>
+                                    <span className="text-[11px] text-slate-400 bg-slate-50 px-4 py-1.5 rounded-full border border-slate-100 flex items-center gap-2">
+                                      <Clock size={14} />{" "}
+                                      {formatDate(log.timestamp)}
+                                    </span>
+                                  </div>
+
+                                  <div className="bg-slate-50/50 p-3  md:px-6 md:py-4 rounded border border-slate-100 hover:bg-white hover:shadow-2xl hover:border-primary/20 transition-all duration-300 group/log">
+                                    {renderLogDetails(log)}
+                                    <div className="mt-3 flex items-center gap-1 px-3 py-2 border border-slate-200 bg-slate-100 rounded">
+                                      <p className="text-xs leading-relaxed text-slate-500">
+                                        {log.description}
+                                      </p>
+                                    </div>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                      <div className="absolute bottom-0 -left-2 w-3 h-3 rounded-full bg-slate-200"></div>
-                    </div>
-                  )}
-                </CollapsibleContent>
-              </Collapsible>
+                            );
+                          })}
+
+                        <div className="absolute bottom-0 -left-2 w-3 h-3 rounded-full bg-slate-200"></div>
+                      </div>
+                    )}
+                  </CollapsibleContent>
+                </Collapsible>
+                {history.length > 1 && !showAllHistory && (
+                  <Button
+                    onClick={() => setShowAllHistory(true)}
+                    variant="outline"
+                    className="w-full text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-50 border-slate-200 bg-white shadow-sm border-dashed"
+                  >
+                    <FileClock size={14} className="mr-2" />
+                    Tải thêm {history.length - 1} thay đổi
+                  </Button>
+                )}
+              </div>
               {/* Payment Summary */}
               <div className="bg-white rounded border border-slate-200 overflow-hidden flex flex-col w-full lg:w-[35%]">
                 <h3 className="bg-slate-50 text-xs font-semibold text-slate-400 uppercase flex items-center gap-2 px-4 h-10 border-b border-slate-200">

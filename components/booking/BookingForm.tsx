@@ -887,12 +887,15 @@ export const BookingForm: React.FC<BookingFormProps> = ({
                 <div
                   key={idx}
                   className="bg-indigo-900 border border-indigo-700 rounded-lg p-2.5 text-white relative transition-colors cursor-pointer hover:bg-indigo-800"
-                  onClick={() =>
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    // Chỉ navigate đến tuyến, không làm mất các ghế đã chọn
+                    // Logic giữ lại ghế đã được xử lý trong handleSelectBookingFromHistory
                     onNavigateToTrip?.(
                       new Date(item.trip.departureTime),
                       item.trip.id,
-                    )
-                  }
+                    );
+                  }}
                 >
                   <div className="text-xs text-white mb-1 truncate flex items-center">
                     {item.trip.route}

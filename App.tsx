@@ -104,10 +104,28 @@ function AppContent() {
         const bus = busesData.find(
           (b: Bus) => b.id === trip.busId || b.plate === trip.licensePlate,
         );
-        const seats =
+        let seats =
           bus && bus.layoutConfig
             ? generateSeatsFromLayout(bus.layoutConfig, 0, bus.type)
             : [];
+
+        // Nếu đang chỉnh sửa booking, restore trạng thái SELECTED cho các ghế đã có trong đơn hàng
+        if (editingBooking) {
+          const matchingItem = editingBooking.items.find(
+            (i) => i.tripId === trip.id,
+          );
+          if (matchingItem) {
+            seats = seats.map((s) => {
+              if (
+                matchingItem.seatIds.some((sid) => String(sid) === String(s.id))
+              ) {
+                return { ...s, status: SeatStatus.SELECTED };
+              }
+              return s;
+            });
+          }
+        }
+
         return { ...trip, seats };
       });
       setTrips(hydratedTrips);
