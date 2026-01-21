@@ -5,20 +5,33 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:server": "node --watch src/app.js",
+    "start": "node src/app.js",
     "build": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@radix-ui/react-alert-dialog": "^1.1.15",
+    "@radix-ui/react-collapsible": "^1.1.12",
+    "@radix-ui/react-dialog": "^1.1.15",
+    "@radix-ui/react-label": "^2.1.8",
+    "@radix-ui/react-scroll-area": "^1.2.10",
+    "@radix-ui/react-separator": "^1.1.8",
+    "@radix-ui/react-slot": "^1.2.4",
+    "@radix-ui/react-tooltip": "^1.2.8",
+    "bcrypt": "^5.1.1",
     "body-parser": "^2.2.1",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
     "cors": "^2.8.5",
     "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.560.0",
     "mongoose": "^9.0.1",
     "qrcode": "^1.5.4",
     "react": "^19.2.1",
     "react-dom": "^19.2.3",
-    "jsonwebtoken": "^9.0.2",
-    "bcrypt": "^5.1.1"
+    "tailwind-merge": "^3.4.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.18",

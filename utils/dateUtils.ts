@@ -20,7 +20,7 @@ export const getDaysInMonth = (year: number, month: number): Date[] => {
 
 // Accurate Lunar Date calculation using Native Intl API
 export const getLunarDate = (
-  date: Date
+  date: Date,
 ): { day: number; month: number; year: number } => {
   try {
     const formatter = new Intl.DateTimeFormat("en-US-u-ca-chinese", {
@@ -92,4 +92,11 @@ export const isSameDay = (d1: Date, d2: Date): boolean => {
     d1.getMonth() === d2.getMonth() &&
     d1.getFullYear() === d2.getFullYear()
   );
+};
+
+export const formatDateForApi = (date: Date): string => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 };

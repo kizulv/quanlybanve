@@ -1,20 +1,20 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { Layout } from "./components/Layout";
-import { SeatMap } from "./components/SeatMap";
-import { SettingsView } from "./components/SettingsView";
-import { ScheduleView } from "./components/ScheduleView";
-import { PaymentManager } from "./components/PaymentManager";
-import { OrderInformation } from "./components/OrderInformation";
-import { QRPaymentPage } from "./components/QRPaymentPage";
+import { Layout } from "./components/layout/Layout";
+import { SeatMap } from "./components/booking/SeatMap";
+import { SettingsView } from "./components/settings/SettingsView";
+import { ScheduleView } from "./components/schedule/ScheduleView";
+import { PaymentManager } from "./components/payment/PaymentManager";
+import { OrderInformation } from "./components/booking/OrderInformation";
+import { QRPaymentPage } from "./components/payment/QRPaymentPage";
 import { ToastProvider, useToast } from "./components/ui/Toast";
-import { RightSheet } from "./components/RightSheet";
-import { BookingForm } from "./components/BookingForm";
-import { SeatDetailModal } from "./components/SeatDetailModal";
-import { ManifestList } from "./components/ManifestList";
-import { AuthProvider, useAuth } from "./components/AuthContext";
-import { LoginView } from "./components/LoginView";
-import { UserManagement } from "./components/UserManagement";
-import { AccountSettings } from "./components/AccountSettings";
+import { RightSheet } from "./components/booking/RightSheet";
+import { BookingForm } from "./components/booking/BookingForm";
+import { SeatDetailModal } from "./components/booking/SeatDetailModal";
+import { ManifestList } from "./components/booking/ManifestList";
+import { AuthProvider, useAuth } from "./components/auth/AuthContext";
+import { LoginView } from "./components/auth/LoginView";
+import { UserManagement } from "./components/auth/UserManagement";
+import { AccountSettings } from "./components/auth/AccountSettings";
 
 import {
   BusTrip,
@@ -28,9 +28,11 @@ import {
 } from "./types";
 import { BusFront, Loader2, ArrowRightLeft } from "lucide-react";
 import { api } from "./lib/api";
-import { isSameDay } from "./utils/dateUtils";
+import { isSameDay, formatDateForApi } from "./utils/dateUtils";
 import { ORDER_DOMAIN } from "./constants";
 import { PERMISSIONS } from "./lib/permissions";
+
+import { generateSeatsFromLayout } from "./utils/seatUtils";
 
 function AppContent() {
   const { toast } = useToast();
@@ -84,6 +86,8 @@ function AppContent() {
   // -- DATA FETCHING --
   const refreshData = async () => {
     try {
+      if (trips.length === 0) setIsLoading(true);
+      const dateStr = formatDateForApi(selectedDate);
       const [tripsData, routesData, busesData, bookingsData] =
         await Promise.all([
           api.trips.getAll(),
@@ -91,10 +95,22 @@ function AppContent() {
           api.buses.getAll(),
           api.bookings.getAll(),
         ]);
-      setTrips(tripsData);
       setRoutes(routesData);
       setBuses(busesData);
       setBookings(bookingsData);
+
+      // Hydrate trips with seats from bus layout
+      const hydratedTrips = tripsData.map((trip: BusTrip) => {
+        const bus = busesData.find(
+          (b: Bus) => b.id === trip.busId || b.plate === trip.licensePlate,
+        );
+        const seats =
+          bus && bus.layoutConfig
+            ? generateSeatsFromLayout(bus.layoutConfig, 0, bus.type)
+            : [];
+        return { ...trip, seats };
+      });
+      setTrips(hydratedTrips);
     } catch (error) {
       toast({
         type: "error",
@@ -108,18 +124,18 @@ function AppContent() {
 
   useEffect(() => {
     refreshData();
-  }, []);
+  }, [selectedDate]);
 
   // -- CALCULATED STATE --
   const selectionBasket = useMemo(() => {
     const basket: { trip: BusTrip; seats: Seat[] }[] = [];
     trips.forEach((trip) => {
-      const selected = trip.seats.filter(
-        (s) => s.status === SeatStatus.SELECTED
+      const selected = (trip.seats || []).filter(
+        (s) => s.status === SeatStatus.SELECTED,
       );
       if (selected.length > 0) {
         const route = routes.find(
-          (r) => r.id === trip.routeId || r.name === trip.route
+          (r) => r.id === trip.routeId || r.name === trip.route,
         );
         basket.push({
           trip,
@@ -148,8 +164,10 @@ function AppContent() {
     if (!selectedTrip) return [];
     return bookings.filter(
       (b) =>
+        b &&
+        b.items &&
         b.items.some((i) => i.tripId === selectedTrip.id) &&
-        b.status !== "cancelled"
+        b.status !== "cancelled",
     );
   }, [bookings, selectedTrip]);
 
@@ -157,7 +175,7 @@ function AppContent() {
   const getCorrectSeatStatus = (
     seatId: string,
     tripId: string,
-    excludeBookingId?: string
+    excludeBookingId?: string,
   ): SeatStatus => {
     const booking = bookings.find(
       (b) =>
@@ -166,8 +184,8 @@ function AppContent() {
         b.items.some(
           (i) =>
             i.tripId === tripId &&
-            i.seatIds.some((sid) => String(sid) === String(seatId))
-        )
+            i.seatIds.some((sid) => String(sid) === String(seatId)),
+        ),
     );
     if (!booking) return SeatStatus.AVAILABLE;
 
@@ -178,7 +196,7 @@ function AppContent() {
     ) {
       // Ưu tiên trạng thái của từng vé nếu có
       const ticket = tripItem.tickets?.find(
-        (t) => String(t.seatId) === String(seatId)
+        (t) => String(t.seatId) === String(seatId),
       );
       if (ticket?.status) {
         if (ticket.status === "payment") return SeatStatus.SOLD;
@@ -198,8 +216,11 @@ function AppContent() {
   const handleSeatClick = async (clickedSeat: Seat) => {
     if (!selectedTrip) return;
     if (swapSource) {
-      if (swapSource.seat.id === clickedSeat.id)
-        return setSwapSource(null), toast({ type: "info", title: "Hủy đổi" });
+      if (
+        swapSource.seat.id === clickedSeat.id &&
+        swapSource.trip.id === selectedTrip.id
+      )
+        return (setSwapSource(null), toast({ type: "info", title: "Hủy đổi" }));
 
       // Check if trying to swap between different vehicle types
       if (swapSource.trip.type !== selectedTrip.type) {
@@ -215,7 +236,7 @@ function AppContent() {
           swapSource.trip.id,
           swapSource.seat.id,
           selectedTrip.id,
-          clickedSeat.id
+          clickedSeat.id,
         );
 
         // Reload all data to ensure payment and booking info are updated
@@ -245,16 +266,17 @@ function AppContent() {
     }
 
     if (
+      clickedSeat.status &&
       [SeatStatus.BOOKED, SeatStatus.SOLD, SeatStatus.HELD].includes(
-        clickedSeat.status
+        clickedSeat.status,
       )
     ) {
       const booking = tripBookings.find((b) =>
         b.items.some(
           (i) =>
             i.tripId === selectedTrip.id &&
-            i.seatIds.some((sid) => String(sid) === String(clickedSeat.id))
-        )
+            i.seatIds.some((sid) => String(sid) === String(clickedSeat.id)),
+        ),
       );
       if (editingBooking && booking?.id === editingBooking.id) {
         // Toggling off a seat from the current editing booking
@@ -263,14 +285,14 @@ function AppContent() {
             t.id === selectedTrip.id
               ? {
                   ...t,
-                  seats: t.seats.map((s) =>
+                  seats: (t.seats || []).map((s) =>
                     s.id === clickedSeat.id
                       ? { ...s, status: SeatStatus.AVAILABLE }
-                      : s
+                      : s,
                   ),
                 }
-              : t
-          )
+              : t,
+          ),
         );
       } else if (booking) setHighlightedBookingId(booking.id);
       return;
@@ -281,7 +303,7 @@ function AppContent() {
         t.id === selectedTrip.id
           ? {
               ...t,
-              seats: t.seats.map((s) =>
+              seats: (t.seats || []).map((s) =>
                 s.id === clickedSeat.id
                   ? {
                       ...s,
@@ -294,11 +316,11 @@ function AppContent() {
                           ? SeatStatus.HELD
                           : undefined,
                     }
-                  : s
+                  : s,
               ),
             }
-          : t
-      )
+          : t,
+      ),
     );
   };
 
@@ -308,16 +330,17 @@ function AppContent() {
     setTrips((prevTrips) =>
       prevTrips.map((trip) => {
         const matchingItemInBooking = booking.items.find(
-          (i) => i.tripId === trip.id
+          (i) => i.tripId === trip.id,
         );
 
         return {
           ...trip,
-          seats: trip.seats.map((seat) => {
+          ...trip,
+          seats: (trip.seats || []).map((seat) => {
             // Nếu ghế thuộc đơn hàng mới chọn, đặt thành SELECTED
             if (
               matchingItemInBooking?.seatIds.some(
-                (sid) => String(sid) === String(seat.id)
+                (sid) => String(sid) === String(seat.id),
               )
             ) {
               return { ...seat, status: SeatStatus.SELECTED };
@@ -328,14 +351,18 @@ function AppContent() {
             if (seat.status === SeatStatus.SELECTED) {
               return {
                 ...seat,
-                status: getCorrectSeatStatus(seat.id, trip.id, booking.id),
+                status: getCorrectSeatStatus(
+                  seat.id,
+                  trip.id,
+                  editingBooking?.id || "",
+                ),
               };
             }
 
             return seat;
           }),
         };
-      })
+      }),
     );
   };
 
@@ -347,7 +374,7 @@ function AppContent() {
         const del = await api.bookings.delete(action.bookingId);
         setBookings(del.bookings);
         const utMap = new Map<string, BusTrip>(
-          del.trips.map((t: BusTrip) => [t.id, t])
+          del.trips.map((t: BusTrip) => [t.id, t]),
         );
         setTrips((prev) => prev.map((t) => utMap.get(t.id) || t));
       } else if (action.type === "SWAPPED_SEATS") {
@@ -355,11 +382,11 @@ function AppContent() {
           action.tripId, // trip for seat1
           action.seat1,
           action.tripId2 || action.tripId, // trip for seat2 (fallback for old stack)
-          action.seat2
+          action.seat2,
         );
         setBookings(swapRes.bookings);
         const utMap = new Map<string, BusTrip>(
-          swapRes.trips.map((t: BusTrip) => [t.id, t])
+          swapRes.trips.map((t: BusTrip) => [t.id, t]),
         );
         setTrips((prev) => prev.map((t) => utMap.get(t.id) || t));
       }
@@ -372,7 +399,7 @@ function AppContent() {
 
   const cancelAllSelections = (
     suppressToast: boolean = false,
-    forceClear: boolean = false
+    forceClear: boolean = false,
   ) => {
     // Nếu không phải forceClear và đang có đơn hàng đang sửa, thực hiện logic hồi phục trạng thái ghế
     if (!forceClear && editingBooking) {
@@ -381,20 +408,20 @@ function AppContent() {
       setTrips((prevTrips) =>
         prevTrips.map((trip) => {
           const bookingItem = savedBooking.items.find(
-            (i) => i.tripId === trip.id
+            (i) => i.tripId === trip.id,
           );
           const bookingSeatIds = bookingItem ? bookingItem.seatIds : [];
 
           return {
             ...trip,
-            seats: trip.seats.map((seat) => {
+            seats: (trip.seats || []).map((seat) => {
               // 1. Restore seats that were originally part of the booking
               if (
                 bookingSeatIds.some((sid) => String(sid) === String(seat.id))
               ) {
                 // Tìm ticket tương ứng với ghế này để lấy trạng thái chính xác
                 const ticket = bookingItem?.tickets?.find(
-                  (t) => String(t.seatId) === String(seat.id)
+                  (t) => String(t.seatId) === String(seat.id),
                 );
 
                 let status = SeatStatus.BOOKED;
@@ -422,14 +449,14 @@ function AppContent() {
                   status: getCorrectSeatStatus(
                     seat.id,
                     trip.id,
-                    savedBooking.id
+                    savedBooking.id,
                   ),
                 };
               }
               return seat;
             }),
           };
-        })
+        }),
       );
       return;
     }
@@ -437,19 +464,19 @@ function AppContent() {
     setTrips((prev) =>
       prev.map((t) => ({
         ...t,
-        seats: t.seats.map((s) =>
+        seats: (t.seats || []).map((s) =>
           s.status === SeatStatus.SELECTED
             ? { ...s, status: s.originalStatus || SeatStatus.AVAILABLE }
-            : s
+            : s,
         ),
-      }))
+      })),
     );
     if (!suppressToast) {
       toast({ type: "info", title: "Đã hủy chọn" });
     }
   };
 
-  if (isLoading)
+  if (isLoading && trips.length === 0)
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <Loader2 className="animate-spin text-primary" size={48} />
@@ -532,6 +559,7 @@ function AppContent() {
               {selectedTrip ? (
                 <SeatMap
                   seats={selectedTrip.seats}
+                  bus={buses.find((b) => b.plate === selectedTrip.licensePlate)}
                   busType={selectedTrip.type}
                   onSeatClick={handleSeatClick}
                   bookings={tripBookings}
@@ -544,7 +572,11 @@ function AppContent() {
                   onSeatRightClick={(s, b) =>
                     setSeatDetailModal({ booking: b, seat: s })
                   }
-                  swapSourceSeatId={swapSource?.seat.id}
+                  swapSourceSeatId={
+                    swapSource?.trip.id === selectedTrip.id
+                      ? swapSource?.seat.id
+                      : undefined
+                  }
                 />
               ) : (
                 <div className="h-full flex flex-col items-center justify-center text-slate-300 p-8 text-center">
@@ -651,7 +683,7 @@ function AppContent() {
               payment: extra?.payment,
             });
             setBookings((prev) =>
-              prev.map((b) => (b.id === booking.id ? res.booking : b))
+              prev.map((b) => (b.id === booking.id ? res.booking || b : b)),
             );
 
             // Refresh trips if seat status changed (Payment/Refund)
@@ -665,14 +697,14 @@ function AppContent() {
               extra?.action === "REFUND" && seat.status === SeatStatus.HELD
                 ? SeatStatus.AVAILABLE
                 : seat.status;
-            const updatedSeats = selectedTrip!.seats.map((s) =>
-              s.id === seat.id ? { ...s, note: p.note, status: newStatus } : s
+            const updatedSeats = (selectedTrip!.seats || []).map((s) =>
+              s.id === seat.id ? { ...s, note: p.note, status: newStatus } : s,
             );
             await api.trips.updateSeats(selectedTrip!.id, updatedSeats);
             setTrips((prev) =>
               prev.map((t) =>
-                t.id === selectedTrip!.id ? { ...t, seats: updatedSeats } : t
-              )
+                t.id === selectedTrip!.id ? { ...t, seats: updatedSeats } : t,
+              ),
             );
           }
           setSeatDetailModal(null);

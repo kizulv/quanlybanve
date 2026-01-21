@@ -1,0 +1,16 @@
+export const DEFAULT_PERMISSIONS = {
+  admin: [
+    "VIEW_SALES",
+    "VIEW_SCHEDULE",
+    "VIEW_ORDER_INFO",
+    "VIEW_FINANCE",
+    "MANAGE_USERS",
+    "MANAGE_SETTINGS",
+    "CREATE_TRIP",
+    "UPDATE_TRIP",
+    "DELETE_TRIP",
+    "BOOK_TICKET",
+  ],
+  sale: ["VIEW_SALES", "VIEW_SCHEDULE", "VIEW_ORDER_INFO", "BOOK_TICKET"],
+  guest: ["VIEW_ORDER_INFO"],
+};

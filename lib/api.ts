@@ -3,8 +3,10 @@ import { Bus, BusTrip, Route, Passenger, Seat, Booking } from "../types";
 // Dynamically determine the API URL based on current window location
 const getApiUrl = () => {
   let url = "";
-  // Ưu tiên biến môi trường từ .env.local
-  if (import.meta.env.VITE_API_URL) {
+  // Trong môi trường development, luôn ưu tiên sử dụng localhost
+  if (import.meta.env.DEV) {
+    url = "http://localhost:5001/api";
+  } else if (import.meta.env.VITE_API_URL) {
     url = import.meta.env.VITE_API_URL;
   } else if (
     typeof window !== "undefined" &&
@@ -38,7 +40,7 @@ const fetchJson = async (url: string, options?: RequestInit) => {
         .json()
         .catch(() => ({ error: res.statusText }));
       throw new Error(
-        `API Error ${res.status}: ${errorData.error || res.statusText}`
+        `API Error ${res.status}: ${errorData.error || res.statusText}`,
       );
     }
     return await res.json();
@@ -89,7 +91,8 @@ export const api = {
   },
 
   trips: {
-    getAll: () => fetchJson(`${API_URL}/trips/`),
+    getAll: (date?: string) =>
+      fetchJson(`${API_URL}/trips/${date ? `?date=${date}` : ""}`),
     create: (trip: Omit<BusTrip, "id">) =>
       fetchJson(`${API_URL}/trips/`, {
         method: "POST",
@@ -115,12 +118,13 @@ export const api = {
   },
 
   bookings: {
-    getAll: () => fetchJson(`${API_URL}/bookings/`),
+    getAll: (date?: string) =>
+      fetchJson(`${API_URL}/bookings/${date ? `?date=${date}` : ""}`),
     create: (
       items: { tripId: string; seats: Seat[] }[],
       passenger: Passenger,
       payment?: { paidCash: number; paidTransfer: number },
-      status?: string
+      status?: string,
     ) =>
       fetchJson(`${API_URL}/bookings/`, {
         method: "POST",
@@ -132,7 +136,7 @@ export const api = {
       items: { tripId: string; seats: Seat[] }[],
       passenger: Passenger,
       payment?: { paidCash: number; paidTransfer: number },
-      status?: string
+      status?: string,
     ) =>
       fetchJson(`${API_URL}/bookings/${encodeURIComponent(id)}/`, {
         method: "PUT",
@@ -157,17 +161,17 @@ export const api = {
         exactBed?: boolean; // ✅ Xếp đúng giường
         action?: string;
         payment?: any;
-      }
+      },
     ) =>
       fetchJson(
         `${API_URL}/bookings/${encodeURIComponent(
-          id
+          id,
         )}/tickets/${encodeURIComponent(seatId)}/`,
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(details),
-        }
+        },
       ),
     delete: (id: string) =>
       fetchJson(`${API_URL}/bookings/${encodeURIComponent(id)}/`, {
@@ -175,7 +179,7 @@ export const api = {
       }),
     updatePayment: (
       bookingIds: string[],
-      payment: { paidCash: number; paidTransfer: number }
+      payment: { paidCash: number; paidTransfer: number },
     ) =>
       fetchJson(`${API_URL}/bookings/payment/`, {
         method: "PUT",
@@ -186,7 +190,7 @@ export const api = {
       tripId1: string,
       seatId1: string,
       tripId2: string,
-      seatId2: string
+      seatId2: string,
     ) =>
       fetchJson(`${API_URL}/bookings/swap`, {
         method: "POST",
@@ -197,7 +201,7 @@ export const api = {
       bookingId: string,
       fromTripId: string,
       toTripId: string,
-      seatTransfers: { sourceSeatId: string; targetSeatId: string }[]
+      seatTransfers: { sourceSeatId: string; targetSeatId: string }[],
     ) =>
       fetchJson(`${API_URL}/bookings/transfer/`, {
         method: "POST",

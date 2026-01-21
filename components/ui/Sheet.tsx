@@ -59,55 +59,60 @@ export const SheetTrigger: React.FC<{
   );
 };
 
-export const SheetContent: React.FC<{
-  children: React.ReactNode;
-  className?: string;
+interface SheetContentProps extends React.HTMLAttributes<HTMLDivElement> {
   side?: "right" | "left";
-}> = ({ children, className = "", side = "right" }) => {
-  const context = useContext(SheetContext);
-  if (!context) throw new Error("SheetContent must be used within Sheet");
+}
 
-  const { isOpen, setIsOpen } = context;
+export const SheetContent = React.forwardRef<HTMLDivElement, SheetContentProps>(
+  ({ children, className = "", side = "right", ...props }, ref) => {
+    const context = useContext(SheetContext);
+    if (!context) throw new Error("SheetContent must be used within Sheet");
 
-  // Prevent body scroll when open
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "unset";
-    }
-    return () => {
-      document.body.style.overflow = "unset";
-    };
-  }, [isOpen]);
+    const { isOpen, setIsOpen } = context;
 
-  if (!isOpen) return null;
+    // Prevent body scroll when open
+    useEffect(() => {
+      if (isOpen) {
+        document.body.style.overflow = "hidden";
+      } else {
+        document.body.style.overflow = "unset";
+      }
+      return () => {
+        document.body.style.overflow = "unset";
+      };
+    }, [isOpen]);
 
-  return createPortal(
-    <div className="fixed inset-0 z-100 flex justify-end">
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/40 backdrop-blur-sm animate-in fade-in duration-300"
-        onClick={() => setIsOpen(false)}
-      />
+    if (!isOpen) return null;
 
-      {/* Content */}
-      <div
-        className={`fixed inset-y-0 right-0 z-101 h-full w-full md:w-100 border-l bg-white shadow-2xl transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right duration-300 ${className}`}
-      >
-        <button
+    return createPortal(
+      <div className="fixed inset-0 z-100 flex justify-end">
+        {/* Backdrop */}
+        <div
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm animate-in fade-in duration-300"
           onClick={() => setIsOpen(false)}
-          className="absolute right-4 top-7 rounded-sm opacity-70 ring-offset-white transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-slate-950 focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-slate-100"
+        />
+
+        {/* Content */}
+        <div
+          ref={ref}
+          className={`fixed inset-y-0 right-0 z-101 h-full w-full md:w-100 border-l bg-white shadow-2xl transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right duration-300 ${className}`}
+          {...props}
         >
-          <X className="h-4 w-4" />
-          <span className="sr-only">Close</span>
-        </button>
-        {children}
-      </div>
-    </div>,
-    document.body
-  );
-};
+          <button
+            onClick={() => setIsOpen(false)}
+            className="absolute right-4 top-7 rounded-sm opacity-70 ring-offset-white transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-slate-950 focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-slate-100"
+          >
+            <X className="h-4 w-4" />
+            <span className="sr-only">Close</span>
+          </button>
+          {children}
+        </div>
+      </div>,
+      document.body,
+    );
+  },
+);
+SheetContent.displayName = "SheetContent";
 
 export const SheetHeader: React.FC<{
   children: React.ReactNode;

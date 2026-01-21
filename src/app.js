@@ -1,0 +1,63 @@
+import express from "express";
+import cors from "cors";
+import bodyParser from "body-parser";
+import { loadEnv } from "vite";
+import connectDB from "./config/db.js";
+
+// Import routes
+import authRoutes from "./routes/authRoutes.js";
+import userRoutes from "./routes/userRoutes.js";
+import roleRoutes from "./routes/roleRoutes.js";
+import busRoutes from "./routes/busRoutes.js";
+import routeRoutes from "./routes/routeRoutes.js";
+import tripRoutes from "./routes/tripRoutes.js";
+import bookingRoutes from "./routes/bookingRoutes.js";
+import settingRoutes from "./routes/settingRoutes.js";
+import maintenanceRoutes from "./routes/maintenanceRoutes.js";
+import qrRoutes from "./routes/qrRoutes.js";
+import paymentRoutes from "./routes/paymentRoutes.js"; // Added missing payment routes
+
+// Load env
+const env = loadEnv(process.env.NODE_ENV || "development", process.cwd(), "");
+const MONGO_URI = env.MONGO_URI;
+const VITE_API_URL = env.VITE_API_URL || "http://localhost:5001/api";
+
+// Connect DB
+connectDB(MONGO_URI);
+
+// App init
+const app = express();
+
+// Middleware
+app.use(cors({ origin: true, credentials: true }));
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Private-Network", "true");
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Origin, X-Requested-With, Content-Type, Accept",
+  );
+  next();
+});
+app.use(bodyParser.json());
+
+// Routes
+app.use("/api/auth", authRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/roles", roleRoutes);
+app.use("/api/buses", busRoutes);
+app.use("/api/routes", routeRoutes);
+app.use("/api/trips", tripRoutes);
+app.use("/api/bookings", bookingRoutes);
+app.use("/api/payments", paymentRoutes); // Mounted payment routes
+app.use("/api/maintenance", maintenanceRoutes);
+app.use("/api/qrgeneral", qrRoutes);
+app.use("/api", settingRoutes); // Use settings last as it might have generic paths? No, usually specific.
+
+const urlPort =
+  VITE_API_URL.match(/:(\d+)\//)?.[1] || VITE_API_URL.match(/:(\d+)$/)?.[1];
+const PORT = process.env.PORT || urlPort || 5001;
+
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`🔗 API URL: ${VITE_API_URL}`);
+});

@@ -15,11 +15,12 @@ export interface Seat {
   id: string;
   label: string;
   floor: 1 | 2;
-  status: SeatStatus;
+  status?: SeatStatus;
   price: number;
   row?: number;
   col?: number;
   isFloorSeat?: boolean; // NEW: Mark as floor seat
+  isBench?: boolean; // NEW: Mark as bench seat
   note?: string; // Added note field
   originalStatus?: SeatStatus; // Track previous status (e.g., HELD) when selected
 }
@@ -96,6 +97,7 @@ export interface BookingHistory {
 
 export interface BusTrip {
   id: string;
+  busId?: string;
   routeId: string | number;
   name: string;
   route: string;
@@ -104,7 +106,7 @@ export interface BusTrip {
   licensePlate: string;
   driver: string;
   basePrice: number;
-  seats: Seat[];
+  seats?: Seat[];
   direction?: "outbound" | "inbound";
 }
 
@@ -200,4 +202,18 @@ export interface SystemSettings {
   bankBin: string;
   qrTemplate: string;
   qrExpiryTime: number;
+}
+
+export interface MaintenanceLog {
+  id: string;
+  action: string;
+  details: string;
+  result: string;
+  timestamp: Date;
+  bookingId?: string;
+  actualPrice?: number;
+  paidAmount?: number;
+  seat?: string;
+  route?: string;
+  date?: string;
 }

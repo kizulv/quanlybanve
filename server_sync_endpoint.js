@@ -1,4 +1,5 @@
-// NEW: Sync Bus Layouts - API endpointapp.post("/api/maintenance/sync-bus-layouts", async (req, res) => {
+// NEW: Sync Bus Layouts - API endpoint
+app.post("/api/maintenance/sync-bus-layouts", async (req, res) => {
   try {
     const logs = [];
     let cabinCount = 0;
