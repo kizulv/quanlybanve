@@ -444,12 +444,21 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
                 let visualGroupCount = 0;
                 let seatLabels: string[] = [];
 
+                // New logic for exactBed
+                let exactBedCount = 0;
+                let exactBedLabels: string[] = [];
+
                 groups.forEach((g) => {
                   g.seats.forEach((s, idx) => {
                     const d = seatDataMap.get(s.id);
                     if (d && d.phone === data.phone) {
                       totalCount++;
                       seatLabels.push(s.label);
+
+                      if (d.exactBed) {
+                        exactBedCount++;
+                        exactBedLabels.push(s.label);
+                      }
 
                       // Check if start of new visual group
                       // A start is if idx==0 OR prev seat in this group has different phone/no data
@@ -473,7 +482,14 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
 
                 // Only show if > 1 visual group (discontiguous)
                 if (totalCount > 1 && visualGroupCount > 1) {
-                  phoneContent = `<div class="text-[10px] italic font-normal text-slate-600">(Tổng: ${totalCount} - Ghế: ${seatLabels.join(", ")})</div>`;
+                  const isSold = data.status === "sold";
+                  if (exactBedCount > 0) {
+                    phoneContent = `<div class="text-[10px] italic font-normal text-slate-600">(Tổng: ${totalCount} - Xếp đúng giường: ${exactBedLabels.join(", ")})</div>`;
+                  } else if (isSold) {
+                    phoneContent = `<div class="text-[10px] italic font-normal text-slate-600">(Tổng: ${totalCount} - Giường: ${seatLabels.join(", ")})</div>`;
+                  } else {
+                    phoneContent = `<div class="text-[10px] italic font-normal text-slate-600">(Tổng ${totalCount} Giường - Chưa sắp chỗ)</div>`;
+                  }
                 }
               }
             }
