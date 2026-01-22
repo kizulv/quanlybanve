@@ -78,7 +78,7 @@ export const Calendar: React.FC<CalendarProps> = ({
     const check = new Date(
       date.getFullYear(),
       date.getMonth(),
-      date.getDate()
+      date.getDate(),
     ).getTime();
     const start = new Date(shutdownRange.start).setHours(0, 0, 0, 0);
     const end = new Date(shutdownRange.end).setHours(0, 0, 0, 0);
@@ -87,14 +87,14 @@ export const Calendar: React.FC<CalendarProps> = ({
 
   const isPeakDay = (date: Date) => {
     const dateStr = `${date.getFullYear()}-${String(
-      date.getMonth() + 1
+      date.getMonth() + 1,
     ).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
     return peakDays.includes(dateStr);
   };
 
   const isHighlighted = (date: Date) => {
     const dateStr = `${date.getFullYear()}-${String(
-      date.getMonth() + 1
+      date.getMonth() + 1,
     ).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
     return highlightDays.includes(dateStr);
   };
@@ -205,8 +205,8 @@ export const Calendar: React.FC<CalendarProps> = ({
               mode === "range" && !isInRange
                 ? "rounded-md"
                 : mode === "single"
-                ? "rounded-md"
-                : ""
+                  ? "rounded-md"
+                  : ""
             }
             ${isStart && range?.to ? "rounded-r-none rounded-l-md" : ""}
             ${isEnd ? "rounded-l-none rounded-r-md" : ""}
@@ -225,10 +225,10 @@ export const Calendar: React.FC<CalendarProps> = ({
               isSelected
                 ? "text-primary-foreground/80"
                 : isShutdown
-                ? "text-red-500 font-bold"
-                : showMonth
-                ? "text-slate-500 font-medium"
-                : "text-slate-400"
+                  ? "text-red-500 font-bold"
+                  : showMonth
+                    ? "text-slate-500 font-medium"
+                    : "text-slate-400"
             }`}
           >
             {isShutdown ? "Nghỉ Tết" : lunarText}
@@ -255,7 +255,7 @@ export const Calendar: React.FC<CalendarProps> = ({
               <div className="w-1.5 h-1.5 bg-orange-500 rounded-full shadow-sm"></div>
             </div>
           )}
-        </button>
+        </button>,
       );
     }
     return days;

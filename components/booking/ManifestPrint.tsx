@@ -838,7 +838,7 @@ export const ManifestPrint: React.FC<ManifestPrintProps> = ({
         </Button>
       }
       content={(close) => (
-        <div className="flex flex-col bg-white rounded border shadow-lg overflow-hidden min-w-37.5">
+        <div className="flex flex-col bg-white rounded border border-slate-200 shadow-lg overflow-hidden min-w-37.5">
           <button
             onClick={() => {
               handlePrint("default");

@@ -27,6 +27,7 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  CalendarDays,
 } from "lucide-react";
 import { Button } from "../ui/Button";
 import { Popover } from "../ui/Popover";
@@ -134,6 +135,12 @@ export const Layout: React.FC<LayoutProps> = ({
           permission: PERMISSIONS.VIEW_SCHEDULE,
         },
         {
+          id: "schedule-new",
+          icon: <CalendarDays size={18} />,
+          label: "Lịch biểu",
+          permission: PERMISSIONS.VIEW_SCHEDULE,
+        },
+        {
           id: "finance",
           icon: <BadgeDollarSign size={18} />,
           label: "Tài chính",
@@ -177,6 +184,10 @@ export const Layout: React.FC<LayoutProps> = ({
     schedule: {
       title: "Lịch trình",
       description: "Xem tổng quan lịch chạy xe",
+    },
+    "schedule-new": {
+      title: "Lịch biểu",
+      description: "Lịch chạy xe dạng lưới (Lịch)",
     },
     finance: {
       title: "Tài chính",

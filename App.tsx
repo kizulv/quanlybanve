@@ -3,6 +3,7 @@ import { Layout } from "./components/layout/Layout";
 import { SeatMap } from "./components/booking/SeatMap";
 import { SettingsView } from "./components/settings/SettingsView";
 import { ScheduleView } from "./components/schedule/ScheduleView";
+import { Schedule } from "./components/schedule/Schedule";
 import { PaymentManager } from "./components/payment/PaymentManager";
 import { OrderInformation } from "./components/booking/OrderInformation";
 import { QRPaymentPage } from "./components/payment/QRPaymentPage";
@@ -664,6 +665,30 @@ function AppContent() {
           }}
         />
       )}
+      {activeTab === "schedule-new" &&
+        hasPermission(PERMISSIONS.VIEW_SCHEDULE) && (
+          <Schedule
+            trips={trips}
+            routes={routes}
+            buses={buses}
+            onAddTrip={async (d, t) => {
+              await api.trips.create(t as any);
+              refreshData();
+            }}
+            onUpdateTrip={async (id, t) => {
+              await api.trips.update(id, t);
+              refreshData();
+            }}
+            onDeleteTrip={async (id) => {
+              await api.trips.delete(id);
+              refreshData();
+            }}
+            onUpdateBus={async (id, u) => {
+              await api.buses.update(id, u);
+              refreshData();
+            }}
+          />
+        )}
 
       {activeTab === "settings" &&
         hasPermission(PERMISSIONS.MANAGE_SETTINGS) && (

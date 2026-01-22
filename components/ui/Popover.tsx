@@ -86,16 +86,11 @@ export const Popover: React.FC<PopoverProps> = ({
   const popoverContent = (
     <div
       id="popover-portal-content"
-      className={`
-        z-9999 animate-in fade-in zoom-in-95 duration-200
-        ${
-          coords.isMobile
-            ? "fixed inset-0 flex items-center justify-center p-4 bg-black/40 backdrop-blur-[2px]"
-            : "absolute"
-        } 
-        ${className}
-        ${side === "top" ? "-translate-y-full" : ""}
-      `}
+      className={`z-9999 ${
+        coords.isMobile
+          ? "fixed inset-0 flex items-center justify-center p-4 bg-black/40 backdrop-blur-[2px]"
+          : "absolute"
+      } ${side === "top" ? "-translate-y-full" : ""} ${className}`}
       style={
         !coords.isMobile
           ? {
