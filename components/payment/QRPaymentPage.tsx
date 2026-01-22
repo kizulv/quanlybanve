@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { api } from "../../lib/api";
+import { CalenderHoliday } from "./CalenderHoliday";
 import {
   Loader2,
   QrCode,
@@ -362,23 +363,7 @@ export const QRPaymentPage: React.FC = () => {
   }
 
   if (!data) {
-    return (
-      <div className="min-h-screen bg-white flex flex-col items-center justify-center p-4">
-        <div className="relative mb-12">
-          <div className="absolute inset-0 bg-slate-100 rounded-md animate-ping opacity-75"></div>
-          <div className="relative bg-slate-50 text-slate-600 p-6 rounded-md">
-            <QrCode size={48} />
-          </div>
-        </div>
-        <h2 className="text-xl md:text-2xl font-black text-slate-800 uppercase tracking-tight text-center mb-2">
-          Không có mã thanh toán nào
-        </h2>
-        <p className="text-slate-500 text-sm md:text-base text-center max-w-md">
-          Hiện tại không có mã QR nào cần thanh toán. Giao dịch đã hoàn tất hoặc
-          đã hết hạn.
-        </p>
-      </div>
-    );
+    return <CalenderHoliday />;
   }
 
   return (
