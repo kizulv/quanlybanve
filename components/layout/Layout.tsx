@@ -57,9 +57,12 @@ interface LayoutProps {
   // Slot for right-aligned header content
   headerRight?: React.ReactNode;
   footer?: React.ReactNode;
+
+  // Shared Settings
+  scheduleSettings?: ScheduleSettings;
 }
 
-interface ScheduleSettings {
+export interface ScheduleSettings {
   shutdownStartDate: string;
   shutdownEndDate: string;
   peakDays: string[];
@@ -79,6 +82,11 @@ export const Layout: React.FC<LayoutProps> = ({
   routes = [],
   headerRight,
   footer,
+  scheduleSettings = {
+    shutdownStartDate: "",
+    shutdownEndDate: "",
+    peakDays: [],
+  },
 }) => {
   const { user, logout, hasPermission, isAuthenticated } = useAuth();
   // Default sidebar state set to false (Hidden by default)
@@ -96,28 +104,6 @@ export const Layout: React.FC<LayoutProps> = ({
     localStorage.setItem("sidebar_open", String(isSidebarOpen));
   }, [isSidebarOpen]);
 
-  // Schedule settings state
-  const [scheduleSettings, setScheduleSettings] = useState<ScheduleSettings>({
-    shutdownStartDate: "",
-    shutdownEndDate: "",
-    peakDays: [],
-  });
-
-  // Load schedule settings from API
-  useEffect(() => {
-    const loadSettings = async () => {
-      try {
-        const data = await api.settings.get("schedule_settings");
-        if (data) {
-          setScheduleSettings(data);
-        }
-      } catch (e) {
-        console.error("Failed to load schedule settings", e);
-      }
-    };
-    loadSettings();
-  }, [activeTab]);
-
   const navGroups = [
     {
       title: "Chức năng",
@@ -129,15 +115,9 @@ export const Layout: React.FC<LayoutProps> = ({
           permission: PERMISSIONS.VIEW_SALES,
         },
         {
-          id: "schedule",
-          icon: <FileText size={18} />,
-          label: "Lịch trình",
-          permission: PERMISSIONS.VIEW_SCHEDULE,
-        },
-        {
           id: "schedule-new",
           icon: <CalendarDays size={18} />,
-          label: "Lịch biểu",
+          label: "Lịch trình",
           permission: PERMISSIONS.VIEW_SCHEDULE,
         },
         {

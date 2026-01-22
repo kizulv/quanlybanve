@@ -4,7 +4,7 @@ import { createPortal } from "react-dom";
 interface PopoverProps {
   trigger: React.ReactNode;
   content: (close: () => void) => React.ReactNode;
-  align?: "left" | "right";
+  align?: "left" | "right" | "center";
   side?: "top" | "bottom";
   className?: string;
 }
@@ -90,14 +90,18 @@ export const Popover: React.FC<PopoverProps> = ({
         coords.isMobile
           ? "fixed inset-0 flex items-center justify-center p-4 bg-black/40 backdrop-blur-[2px]"
           : "absolute"
-      } ${side === "top" ? "-translate-y-full" : ""} ${className}`}
+      } ${side === "top" ? "-translate-y-full" : ""} ${
+        align === "center" ? "-translate-x-1/2" : ""
+      } ${className}`}
       style={
         !coords.isMobile
           ? {
               top: coords.top,
               ...(align === "right"
                 ? { right: coords.right }
-                : { left: coords.left }),
+                : align === "center"
+                  ? { left: coords.left + coords.width / 2 }
+                  : { left: coords.left }),
             }
           : {}
       }

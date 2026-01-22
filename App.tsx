@@ -4,10 +4,16 @@ import { SeatMap } from "./components/booking/SeatMap";
 import { SettingsView } from "./components/settings/SettingsView";
 import { ScheduleView } from "./components/schedule/ScheduleView";
 import { Schedule } from "./components/schedule/Schedule";
+import {
+  ScheduleSetting,
+  ScheduleSettingsData,
+} from "./components/schedule/ScheduleSetting"; // Import
 import { PaymentManager } from "./components/payment/PaymentManager";
 import { OrderInformation } from "./components/booking/OrderInformation";
 import { QRPaymentPage } from "./components/payment/QRPaymentPage";
 import { ToastProvider, useToast } from "./components/ui/Toast";
+import { Popover } from "./components/ui/Popover";
+import { Calendar } from "./components/ui/Calendar";
 import { RightSheet } from "./components/booking/RightSheet";
 import { BookingForm } from "./components/booking/BookingForm";
 import { SeatDetailModal } from "./components/booking/SeatDetailModal";
@@ -27,7 +33,14 @@ import {
   Bus,
   UndoAction,
 } from "./types";
-import { BusFront, Loader2, ArrowRightLeft } from "lucide-react";
+import {
+  BusFront,
+  Loader2,
+  ArrowRightLeft,
+  ChevronLeft,
+  ChevronRight,
+  Settings,
+} from "lucide-react"; // Added Icons
 import { api } from "./lib/api";
 import { isSameDay, formatDateForApi } from "./utils/dateUtils";
 import { ORDER_DOMAIN } from "./constants";
@@ -68,6 +81,37 @@ function AppContent() {
   const [selectedDirection, setSelectedDirection] = useState<
     "outbound" | "inbound"
   >("outbound");
+
+  // -- SCHEDULE STATE (Lifted from Schedule.tsx) --
+  const [scheduleDate, setScheduleDate] = useState(new Date());
+  const [isScheduleSettingsOpen, setIsScheduleSettingsOpen] = useState(false);
+  const [scheduleSettings, setScheduleSettings] =
+    useState<ScheduleSettingsData>({
+      shutdownStartDate: "",
+      shutdownEndDate: "",
+      peakDays: [],
+    });
+
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const data = await api.settings.get("schedule_settings");
+        if (data) setScheduleSettings(data);
+      } catch (e) {
+        console.error(e);
+      }
+    };
+    loadSettings();
+  }, []);
+
+  const handleSaveScheduleSettings = async () => {
+    try {
+      await api.settings.set("schedule_settings", scheduleSettings);
+      setIsScheduleSettingsOpen(false);
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   // -- DEEP LINKING & SUBDOMAIN ROUTING --
   useEffect(() => {
@@ -529,15 +573,90 @@ function AppContent() {
       selectedDirection={selectedDirection}
       onDirectionChange={setSelectedDirection}
       routes={routes}
+      scheduleSettings={scheduleSettings}
       headerRight={
-        <RightSheet
-          bookings={bookings}
-          trips={trips}
-          buses={buses}
-          onSelectBooking={handleSelectBookingFromHistory}
-          onUndo={handleUndo}
-          lastUndoAction={undoStack[undoStack.length - 1]}
-        />
+        <>
+          {activeTab === "sales" && (
+            <RightSheet
+              bookings={bookings}
+              trips={trips}
+              buses={buses}
+              onSelectBooking={handleSelectBookingFromHistory}
+              onUndo={handleUndo}
+              lastUndoAction={undoStack[undoStack.length - 1]}
+            />
+          )}
+
+          {activeTab === "schedule-new" && (
+            <div className="flex items-center gap-2">
+              <div className="flex items-center bg-white border border-slate-200 rounded-lg p-1 shadow-sm">
+                <button
+                  title="Tháng trước"
+                  onClick={() =>
+                    setScheduleDate(
+                      new Date(
+                        scheduleDate.getFullYear(),
+                        scheduleDate.getMonth() - 1,
+                        1,
+                      ),
+                    )
+                  }
+                  className="p-1.5 hover:bg-slate-50 text-slate-400 hover:text-slate-600 rounded-md transition-colors"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <Popover
+                  align="center"
+                  trigger={
+                    <button className="px-3 text-sm font-bold text-slate-700 min-w-35 text-center select-none hover:bg-slate-50 rounded transition-colors py-1">
+                      Tháng {scheduleDate.getMonth() + 1} /{" "}
+                      {scheduleDate.getFullYear()}
+                    </button>
+                  }
+                  content={(close) => (
+                    <Calendar
+                      selected={scheduleDate}
+                      onSelect={(date) => {
+                        if (date) setScheduleDate(date);
+                        close();
+                      }}
+                    />
+                  )}
+                />
+                <button
+                  title="Tháng sau"
+                  onClick={() =>
+                    setScheduleDate(
+                      new Date(
+                        scheduleDate.getFullYear(),
+                        scheduleDate.getMonth() + 1,
+                        1,
+                      ),
+                    )
+                  }
+                  className="p-1.5 hover:bg-slate-50 text-slate-400 hover:text-slate-600 rounded-md transition-colors"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+
+              <button
+                onClick={() => setScheduleDate(new Date())}
+                className="px-3 py-2 text-sm font-semibold text-slate-600 bg-white border border-slate-200 rounded-lg hover:border-slate-300 hover:text-slate-800 shadow-sm transition-all whitespace-nowrap"
+              >
+                Hôm nay
+              </button>
+
+              <button
+                onClick={() => setIsScheduleSettingsOpen(true)}
+                className="p-2 text-slate-800 bg-white border border-slate-200 rounded-lg hover:border-slate-300 hover:text-slate-600 shadow-sm transition-colors"
+                title="Cấu hình lịch trình"
+              >
+                <Settings size={18} />
+              </button>
+            </div>
+          )}
+        </>
       }
     >
       {activeTab === "sales" && hasPermission(PERMISSIONS.VIEW_SALES) && (
@@ -665,12 +784,15 @@ function AppContent() {
           }}
         />
       )}
+
       {activeTab === "schedule-new" &&
         hasPermission(PERMISSIONS.VIEW_SCHEDULE) && (
           <Schedule
             trips={trips}
             routes={routes}
             buses={buses}
+            currentDate={scheduleDate}
+            settings={scheduleSettings}
             onAddTrip={async (d, t) => {
               await api.trips.create(t as any);
               refreshData();
@@ -706,6 +828,15 @@ function AppContent() {
         <UserManagement />
       )}
       {activeTab === "account" && isAuthenticated && <AccountSettings />}
+
+      <ScheduleSetting
+        isOpen={isScheduleSettingsOpen}
+        onClose={() => setIsScheduleSettingsOpen(false)}
+        settings={scheduleSettings}
+        onSettingsChange={setScheduleSettings}
+        onSave={handleSaveScheduleSettings}
+        currentMonthDate={scheduleDate}
+      />
 
       <SeatDetailModal
         isOpen={!!seatDetailModal}

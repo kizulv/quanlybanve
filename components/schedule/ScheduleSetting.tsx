@@ -69,17 +69,28 @@ export const ScheduleSetting: React.FC<ScheduleSettingProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title="Cấu hình lịch trình"
-      className="max-w-2xl"
+      className="max-w-2xl text-slate-900 border-indigo-900"
+      headerClassName="px-4 h-[40px] border-b border-indigo-900 flex items-center justify-between shrink-0 rounded-t-xl bg-gradient-to-r from-indigo-950 via-indigo-900 to-indigo-950 text-white text-xs font-semibold"
       footer={
-        <>
-          <Button variant="outline" onClick={onClose}>
+        <div className="flex flex-row justify-between items-center w-full gap-3">
+          <Button
+            variant="custom"
+            onClick={onClose}
+            className="bg-red-500 border-red-800 text-white hover:bg-red-700 hover:text-white h-8 px-6 text-xs font-bold min-w-25 rounded-md"
+          >
             Đóng
           </Button>
-          <Button onClick={onSave}>Lưu cấu hình</Button>
-        </>
+          <Button
+            variant="custom"
+            onClick={onSave}
+            className="bg-indigo-950 border-indigo-950 text-white hover:bg-indigo-900 hover:text-white h-8 px-6 text-xs font-bold min-w-25 shadow-slate-500/20 active:scale-95 rounded-md"
+          >
+            Lưu cấu hình
+          </Button>
+        </div>
       }
     >
-      <div className="space-y-6 py-2">
+      <div className="space-y-6 p-4">
         {/* Section 1: Shutdown Range */}
         <div className="space-y-3">
           <div className="bg-red-50 p-3 rounded-lg border border-red-100 flex gap-3 items-start">

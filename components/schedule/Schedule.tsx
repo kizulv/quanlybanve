@@ -1,17 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { Bus, BusTrip, Route } from "../../types";
-import {
-  ChevronLeft,
-  ChevronRight,
-  Plus,
-  CalendarDays,
-  Calendar,
-  X,
-  Zap,
-  ArrowRight,
-  Settings,
-  ArrowLeft,
-} from "lucide-react";
+import { Plus, X, Zap, ArrowRight, ArrowLeft } from "lucide-react";
 import { Button } from "../ui/Button";
 import { Card, CardHeader, CardContent, CardTitle } from "../ui/Card";
 import {
@@ -22,8 +11,7 @@ import {
   formatTime,
 } from "../../utils/dateUtils";
 import { AddTripModal } from "./AddTripModal";
-import { ScheduleSetting, ScheduleSettingsData } from "./ScheduleSetting";
-import { api } from "../../lib/api";
+import { ScheduleSettingsData } from "./ScheduleSetting";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,6 +27,8 @@ interface ScheduleProps {
   trips: BusTrip[];
   routes: Route[];
   buses: Bus[];
+  currentDate: Date;
+  settings: ScheduleSettingsData;
   onAddTrip: (date: Date, tripData: Partial<BusTrip>) => Promise<void>;
   onUpdateTrip: (tripId: string, tripData: Partial<BusTrip>) => Promise<void>;
   onDeleteTrip: (tripId: string) => Promise<void>;
@@ -49,12 +39,13 @@ export const Schedule: React.FC<ScheduleProps> = ({
   trips,
   routes,
   buses,
+  currentDate,
+  settings,
   onAddTrip,
   onUpdateTrip,
   onDeleteTrip,
   onUpdateBus,
 }) => {
-  const [currentDate, setCurrentDate] = useState(new Date());
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedDateForAdd, setSelectedDateForAdd] = useState<Date>(
     new Date(),
@@ -63,38 +54,6 @@ export const Schedule: React.FC<ScheduleProps> = ({
   const [editingTrip, setEditingTrip] = useState<BusTrip | undefined>(
     undefined,
   );
-
-  // Settings State
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [settings, setSettings] = useState<ScheduleSettingsData>({
-    shutdownStartDate: "",
-    shutdownEndDate: "",
-    peakDays: [],
-  });
-
-  // Load settings
-  React.useEffect(() => {
-    const loadSettings = async () => {
-      try {
-        const data = await api.settings.get("schedule_settings");
-        if (data) {
-          setSettings(data);
-        }
-      } catch (e) {
-        console.error("Failed to load settings", e);
-      }
-    };
-    loadSettings();
-  }, []);
-
-  const handleSaveSettings = async () => {
-    try {
-      await api.settings.set("schedule_settings", settings);
-      setIsSettingsOpen(false);
-    } catch (e) {
-      console.error("Failed to save settings", e);
-    }
-  };
 
   const [deletingTripId, setDeletingTripId] = useState<string | null>(null);
 
@@ -105,10 +64,6 @@ export const Schedule: React.FC<ScheduleProps> = ({
   const activeRoutes = useMemo(() => {
     return routes.filter((r) => r.status !== "inactive");
   }, [routes]);
-
-  const handlePrevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
-  const handleNextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
-  const handleToday = () => setCurrentDate(new Date());
 
   const handleOpenAdd = (date: Date, routeId: string = "") => {
     setSelectedDateForAdd(date);
@@ -146,59 +101,18 @@ export const Schedule: React.FC<ScheduleProps> = ({
 
   return (
     <div className="h-full flex flex-col space-y-4 mb-4">
-      {/* Header */}
-      <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row justify-between items-center gap-4 shrink-0">
-        <div className="flex items-center gap-2 w-full md:w-auto">
-          {/* Navigation Group */}
-          <div className="flex items-center bg-white border border-slate-200 rounded-lg p-1 shadow-sm">
-            <button
-              title="Tháng trước"
-              onClick={handlePrevMonth}
-              className="p-1.5 hover:bg-slate-50 text-slate-400 hover:text-slate-600 rounded-md transition-colors"
-            >
-              <ChevronLeft size={16} />
-            </button>
-            <span className="px-3 text-sm font-bold text-slate-700 min-w-35 text-center select-none">
-              Tháng {month + 1} / {year}
-            </span>
-            <button
-              title="Tháng sau"
-              onClick={handleNextMonth}
-              className="p-1.5 hover:bg-slate-50 text-slate-400 hover:text-slate-600 rounded-md transition-colors"
-            >
-              <ChevronRight size={16} />
-            </button>
-          </div>
-
-          {/* Today Button */}
-          <button
-            onClick={handleToday}
-            className="px-4 py-2 text-sm font-semibold text-slate-600 bg-white border border-slate-200 rounded-lg hover:border-slate-300 hover:text-slate-800 shadow-sm transition-all"
-          >
-            Hôm nay
-          </button>
-
-          {/* Settings Button */}
-          <button
-            onClick={() => setIsSettingsOpen(true)}
-            className="p-2 text-slate-400 bg-white border border-slate-200 rounded-lg hover:border-slate-300 hover:text-slate-600 shadow-sm transition-colors"
-            title="Cấu hình lịch trình"
-          >
-            <Settings size={18} />
-          </button>
-        </div>
-
-        <div className="flex items-center gap-4 text-xs text-slate-500">
-          {/* You can add route stats here later if needed */}
-        </div>
-      </div>
+      {/* Header moved to Layout via App.tsx */}
 
       {/* Grid Content */}
       <div className="flex-1 overflow-y-auto pr-2">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {days.map((day) => {
             const isToday = new Date().toDateString() === day.toDateString();
-            const dateStr = day.toISOString().split("T")[0];
+
+            const dateKey = `${day.getFullYear()}-${String(
+              day.getMonth() + 1,
+            ).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
+            const isPeak = settings.peakDays?.includes(dateKey);
 
             // Filter trips for this day
             const dayTrips = trips.filter((t) => {
@@ -209,11 +123,9 @@ export const Schedule: React.FC<ScheduleProps> = ({
             return (
               <Card
                 key={day.toISOString()}
-                className={`flex flex-col h-full shadow-sm hover:shadow-md transition-shadow bg-white ${
-                  isToday
-                    ? "border-primary ring-1 ring-primary/20"
-                    : "border-slate-200"
-                }`}
+                className={`flex flex-col h-full shadow-sm hover:shadow-md transition-shadow ${
+                  isPeak ? "bg-orange-100" : "bg-white"
+                } ${isToday ? "ring-2 ring-primary/20" : "border-slate-200"}`}
               >
                 <CardHeader className="p-3 py-1.5 border-b border-slate-100 bg-slate-50/50 rounded-t-lg">
                   <div className="flex justify-between items-center">
@@ -246,15 +158,12 @@ export const Schedule: React.FC<ScheduleProps> = ({
                         t.direction === "inbound",
                     );
 
-                    // const hasTrips = outboundTrips.length > 0 || inboundTrips.length > 0;
-                    // if (!hasTrips) return null; // Optional: Hide routes with no trips if desired, or keep as is. User didn't specify hiding.
-                    // Actually, current code shows activeRoutes. Let's keep showing them but maybe cleaner if empty.
-                    // Wait, the user didn't ask to hide empty routes. I'll just add the header.
-
                     return (
                       <div
                         key={route.id}
-                        className="border border-slate-100 rounded-md p-2 bg-slate-50/50"
+                        className={`border border-slate-100 rounded-md p-2 ${
+                          isPeak ? "bg-orange-50" : "bg-slate-50/50"
+                        }`}
                       >
                         {/* Route Header */}
                         <div className="flex items-center gap-1 text-[11px] font-bold text-slate-800 mb-2 pb-1 border-b border-slate-100 uppercase tracking-tight group/zap cursor-pointer">
@@ -277,12 +186,12 @@ export const Schedule: React.FC<ScheduleProps> = ({
                           <div className="border-r border-slate-100 pr-1">
                             <div className="flex items-center justify-between mb-2">
                               <div className="flex items-center gap-1.5">
-                                <span className="flex items-center gap-1 text-[10px] font-normal text-zinc-500 uppercase">
+                                <span className="flex items-center gap-1 text-[9px] font-normal text-zinc-500 uppercase">
                                   <ArrowRight size={8} />
                                   Chiều đi
                                 </span>
                                 {route.departureTime && (
-                                  <span className="text-[10px] text-slate-400">
+                                  <span className="text-[9px] text-slate-400">
                                     ({route.departureTime.slice(0, 5)})
                                   </span>
                                 )}
@@ -303,7 +212,7 @@ export const Schedule: React.FC<ScheduleProps> = ({
                                   <div
                                     key={trip.id}
                                     onClick={() => handleEditTrip(trip)}
-                                    className="group/trip text-[10px] font-bold text-slate-700 bg-indigo-50/50 border border-indigo-100 rounded px-1.5 py-1 cursor-pointer hover:border-indigo-300 hover:bg-indigo-50 transition-all flex items-center gap-1.5 relative pr-5"
+                                    className="group/trip text-[11px] font-bold text-slate-700 bg-indigo-50/50 border border-indigo-100 rounded px-1.5 py-1 cursor-pointer hover:border-indigo-300 hover:bg-indigo-50 transition-all flex items-center gap-1.5 relative pr-5"
                                   >
                                     <div className="w-1 h-2.5 bg-indigo-300 rounded-full shrink-0"></div>
                                     <span className="truncate">
@@ -332,12 +241,12 @@ export const Schedule: React.FC<ScheduleProps> = ({
                           <div className="pl-1">
                             <div className="flex items-center justify-between mb-1">
                               <div className="flex items-center gap-1.5">
-                                <span className="flex items-center gap-1 text-[10px] font-normal text-zinc-500 uppercase">
+                                <span className="flex items-center gap-1 text-[9px] font-normal text-zinc-500 uppercase">
                                   <ArrowLeft size={8} />
                                   Chiều về
                                 </span>
                                 {route.returnTime && (
-                                  <span className="text-[10px] text-slate-400">
+                                  <span className="text-[9px] text-slate-400">
                                     ({route.returnTime.slice(0, 5)})
                                   </span>
                                 )}
@@ -358,7 +267,7 @@ export const Schedule: React.FC<ScheduleProps> = ({
                                   <div
                                     key={trip.id}
                                     onClick={() => handleEditTrip(trip)}
-                                    className="group/trip text-[10px] font-bold text-slate-700 bg-orange-50/50 border border-orange-100 rounded px-1.5 py-1 cursor-pointer hover:border-orange-300 hover:bg-orange-50 transition-all flex items-center gap-1.5 relative pr-5"
+                                    className="group/trip text-[11px] font-bold text-slate-700 bg-orange-50/50 border border-orange-100 rounded px-1.5 py-1 cursor-pointer hover:border-orange-300 hover:bg-orange-50 transition-all flex items-center gap-1.5 relative pr-5"
                                   >
                                     <div className="w-1 h-2.5 bg-orange-500 rounded-full shrink-0"></div>
                                     <span className="truncate">
@@ -431,15 +340,6 @@ export const Schedule: React.FC<ScheduleProps> = ({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      <ScheduleSetting
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-        settings={settings}
-        onSettingsChange={setSettings}
-        onSave={handleSaveSettings}
-        currentMonthDate={currentDate}
-      />
     </div>
   );
 };
