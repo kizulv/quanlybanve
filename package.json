@@ -25,12 +25,18 @@
     "clsx": "^2.1.1",
     "cors": "^2.8.5",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.2.1",
+    "express-validator": "^7.3.1",
+    "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.560.0",
     "mongoose": "^9.0.1",
+    "morgan": "^1.10.1",
     "qrcode": "^1.5.4",
     "react": "^19.2.1",
     "react-dom": "^19.2.3",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1",
     "tailwind-merge": "^3.4.0"
   },
   "devDependencies": {

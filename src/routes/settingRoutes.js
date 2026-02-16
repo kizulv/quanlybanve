@@ -9,27 +9,87 @@ import { verifyToken, isAdmin } from "../middleware/auth.js";
 
 const router = express.Router();
 
-// Public or Protected?
-// In server.js they were just app.get/app.post without explicit middleware,
-// likely taking advantage of global middleware or public access.
-// However, `updateSetting` generally should be protected.
-// `server.js` didn't have specific auth middleware on them shown in previous snippets.
-// But mostly these are admin functions.
-// For now I will match server.js which seemed open or relied on something else?
-// Wait, generic Middleware in server.js?
-// I'll keep them open for now to match behavior, or add verifyToken if I see fit.
-// Given strict modularization, I should probably check if auth was applied globally.
-// In `src/app.js`, no global auth middleware is applied to `/api/*`.
-// So `server.js` endpoints were PUBLIC. I will keep them PUBLIC to avoid breaking changes,
-// unless I am sure.
-// BUT, `updateSystemSettings` definitely feels like it should be admin only.
-// The user didn't ask me to secure them, but to modularize.
-// I will replicate `server.js` behavior: No explicit middleware shown in snippet.
+/**
+ * @swagger
+ * tags:
+ *   name: Settings
+ *   description: Cấu hình hệ thống và tham số
+ */
 
+/**
+ * @swagger
+ * /settings/{key}:
+ *   get:
+ *     summary: Lấy cài đặt theo khóa
+ *     tags: [Settings]
+ *     parameters:
+ *       - in: path
+ *         name: key
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Khóa cài đặt
+ *     responses:
+ *       200:
+ *         description: Giá trị cài đặt
+ */
 router.get("/settings/:key", getSettingByKey);
-router.post("/settings", updateSetting);
 
-router.get("/system-settings", getSystemSettings);
-router.put("/system-settings", updateSystemSettings);
+/**
+ * @swagger
+ * /settings:
+ *   post:
+ *     summary: Cập nhật hoặc tạo mới cài đặt
+ *     tags: [Settings]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - key
+ *               - value
+ *             properties:
+ *               key:
+ *                 type: string
+ *               value:
+ *                 type: object
+ *     responses:
+ *       200:
+ *         description: Lưu thành công
+ */
+router.post("/settings", verifyToken, isAdmin, updateSetting);
+
+/**
+ * @swagger
+ * /system-settings:
+ *   get:
+ *     summary: Lấy toàn bộ cấu hình hệ thống
+ *     tags: [Settings]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Cấu hình hệ thống
+ *   put:
+ *     summary: Cập nhật cấu hình hệ thống
+ *     tags: [Settings]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200:
+ *         description: Cập nhật thành công
+ */
+router.get("/system-settings", verifyToken, isAdmin, getSystemSettings);
+router.put("/system-settings", verifyToken, isAdmin, updateSystemSettings);
 
 export default router;

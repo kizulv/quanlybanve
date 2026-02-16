@@ -3,19 +3,11 @@ import { Bus, BusTrip, Route, Passenger, Seat, Booking } from "../types";
 // Dynamically determine the API URL based on current window location
 const getApiUrl = () => {
   let url = "";
-  // Trong môi trường development, luôn ưu tiên sử dụng localhost
-  if (import.meta.env.DEV) {
-    url = "http://localhost:5001/api";
-  } else if (import.meta.env.VITE_API_URL) {
+  // Nếu có VITE_API_URL trong env, ưu tiên sử dụng nó trước
+  if (import.meta.env.VITE_API_URL) {
     url = import.meta.env.VITE_API_URL;
-  } else if (
-    typeof window !== "undefined" &&
-    window.location &&
-    window.location.hostname &&
-    window.location.hostname.trim() !== ""
-  ) {
-    url = `${window.location.protocol}//${window.location.hostname}:5001/api`;
-  } else {
+  } else if (import.meta.env.DEV) {
+    // Nếu không có, mới fallback về localhost khi dev
     url = "http://localhost:5001/api";
   }
 
@@ -33,8 +25,22 @@ const getApiUrl = () => {
 const API_URL = getApiUrl();
 
 const fetchJson = async (url: string, options?: RequestInit) => {
+  // Inject Authorization header if token exists
+  const token =
+    typeof window !== "undefined" ? localStorage.getItem("token") : null;
+
+  const headers = new Headers(options?.headers);
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+
+  const config: RequestInit = {
+    ...options,
+    headers,
+  };
+
   try {
-    const res = await fetch(url, options);
+    const res = await fetch(url, config);
     if (!res.ok) {
       const errorData = await res
         .json()
