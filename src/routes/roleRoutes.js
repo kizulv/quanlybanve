@@ -36,8 +36,6 @@ const router = express.Router();
  *                     type: array
  *                     items:
  *                       type: string
- *                     items:
- *                       type: string
  * */
 router.get("/", verifyToken, isAdmin, getAllRoles);
 

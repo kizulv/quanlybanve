@@ -92,20 +92,6 @@ router.post("/", verifyToken, isAdmin, createRoute);
  *     responses:
  *       200:
  *         description: Xóa thành công
- *   delete:
- *     summary: Xóa tuyến đường
- *     tags: [Routes]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Xóa thành công
  */
 router.put("/:id", verifyToken, isAdmin, updateRoute);
 router.delete("/:id", verifyToken, isAdmin, deleteRoute);
