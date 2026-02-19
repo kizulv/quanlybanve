@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useAuth } from "./AuthContext";
 import { useToast } from "../ui/Toast";
 import { KeyRound, Save, Loader2 } from "lucide-react";
+import { api } from "../../lib/api";
 
 export const AccountSettings: React.FC = () => {
   const { user, token } = useAuth();
@@ -24,21 +25,7 @@ export const AccountSettings: React.FC = () => {
 
     setIsLoading(true);
     try {
-      const res = await fetch(
-        `${
-          import.meta.env.VITE_API_URL || "http://localhost:5001/api"
-        }/api/auth/change-password`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ oldPassword, newPassword }),
-        },
-      );
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed");
+      await api.auth.changePassword({ oldPassword, newPassword });
 
       toast({
         type: "success",

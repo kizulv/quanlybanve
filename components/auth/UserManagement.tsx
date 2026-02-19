@@ -91,16 +91,7 @@ export const UserManagement: React.FC = () => {
 
   const fetchUsers = async () => {
     try {
-      const res = await fetch(
-        `${
-          import.meta.env.VITE_API_URL || "http://localhost:5001/api"
-        }/api/users`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      );
-      if (!res.ok) throw new Error("Failed to fetch users");
-      const data = await res.json();
+      const data = await api.users.getAll();
       setUsers(data);
     } catch (e) {
       toast({
@@ -120,28 +111,10 @@ export const UserManagement: React.FC = () => {
 
   const handleSave = async () => {
     try {
-      const url = isEditing
-        ? `${
-            import.meta.env.VITE_API_URL || "http://localhost:5001/api"
-          }/api/users/${isEditing}`
-        : `${
-            import.meta.env.VITE_API_URL || "http://localhost:5001/api"
-          }/api/users`;
-
-      const method = isEditing ? "PUT" : "POST";
-
-      const res = await fetch(url, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(formData),
-      });
-
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Save failed");
+      if (isEditing) {
+        await api.users.update(isEditing, formData);
+      } else {
+        await api.users.create(formData);
       }
 
       toast({
@@ -160,16 +133,7 @@ export const UserManagement: React.FC = () => {
   const handleDelete = async (id: string) => {
     if (!confirm("Bạn có chắc muốn xóa người dùng này?")) return;
     try {
-      const res = await fetch(
-        `${
-          import.meta.env.VITE_API_URL || "http://localhost:5001/api"
-        }/api/users/${id}`,
-        {
-          method: "DELETE",
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      );
-      if (!res.ok) throw new Error("Delete failed");
+      await api.users.delete(id);
       toast({ type: "success", title: "Đã xóa" });
       fetchUsers();
     } catch (e) {

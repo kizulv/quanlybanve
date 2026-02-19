@@ -13,6 +13,7 @@ export default defineConfig(({ mode }) => {
         "banve.pcthanh.com",
         "vetet.nhaxetrungdung.com",
         "api.pcthanh.com",
+        "localhost",
       ],
       hmr: {
         protocol: env.VITE_USE_WSS === "true" ? "wss" : "ws",
@@ -23,10 +24,10 @@ export default defineConfig(({ mode }) => {
     define: {
       "process.env.GEMINI_API_KEY": JSON.stringify(env.GEMINI_API_KEY),
       "import.meta.env.VITE_APP_MAIN_DOMAIN": JSON.stringify(
-        env.VITE_APP_MAIN_DOMAIN
+        env.VITE_APP_MAIN_DOMAIN,
       ),
       "import.meta.env.VITE_APP_ORDER_DOMAIN": JSON.stringify(
-        env.VITE_APP_ORDER_DOMAIN
+        env.VITE_APP_ORDER_DOMAIN,
       ),
       "import.meta.env.MONGO_URI": JSON.stringify(env.MONGO_URI),
       "import.meta.env.VITE_API_URL": JSON.stringify(env.VITE_API_URL),

@@ -57,6 +57,7 @@ app.use("/api", limiter);
 // CORS Configuration
 const allowedOrigins = [
   "http://localhost:5173", // Vite Dev Server
+  "http://localhost:3000", // Alternative Dev Port
   VITE_API_URL,
   `https://${VITE_APP_MAIN_DOMAIN}`,
   `https://${VITE_APP_ORDER_DOMAIN}`,
@@ -67,21 +68,22 @@ app.use(
     origin: function (origin, callback) {
       // Allow requests with no origin (like mobile apps or curl requests)
       if (!origin) return callback(null, true);
-      if (allowedOrigins.indexOf(origin) === -1) {
-        // For development convenience, we might want to log this but allow it temporarily
-        // or just restrict it tightly. Let's restrict it but allow localhost.
-        // check if origin starts with localhost
-        if (origin.startsWith("http://localhost")) {
-          return callback(null, true);
-        }
-        return callback(
-          new Error(
-            "The CORS policy for this site does not allow access from the specified Origin.",
-          ),
-          false,
-        );
+
+      const isAllowed =
+        allowedOrigins.includes(origin) ||
+        origin.startsWith("http://localhost");
+
+      if (isAllowed) {
+        return callback(null, true);
       }
-      return callback(null, true);
+
+      console.log(`[CORS] Blocked origin: ${origin}`);
+      return callback(
+        new Error(
+          "The CORS policy for this site does not allow access from the specified Origin.",
+        ),
+        false,
+      );
     },
     credentials: true,
   }),
@@ -114,7 +116,7 @@ app.use("/api/qrgeneral", qrRoutes);
 app.use("/api", settingRoutes); // Use settings last as it might have generic paths? No, usually specific.
 
 const urlPort =
-  VITE_API_URL.match(/:(\d+)\//)?.[1] || VITE_API_URL.match(/:(\d+)$/)?.[1];
+  VITE_API_URL?.match(/:(\d+)\//)?.[1] || VITE_API_URL?.match(/:(\d+)$/)?.[1];
 const PORT = process.env.PORT || urlPort || 5001;
 
 app.listen(PORT, () => {

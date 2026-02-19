@@ -56,83 +56,97 @@ const fetchJson = async (url: string, options?: RequestInit) => {
 };
 
 export const api = {
+  auth: {
+    login: (credentials: any) =>
+      fetchJson(`${API_URL}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(credentials),
+      }),
+    changePassword: (data: any) =>
+      fetchJson(`${API_URL}/auth/change-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      }),
+  },
   buses: {
-    getAll: () => fetchJson(`${API_URL}/buses/`),
+    getAll: () => fetchJson(`${API_URL}/buses`),
     create: (bus: Omit<Bus, "id">) =>
-      fetchJson(`${API_URL}/buses/`, {
+      fetchJson(`${API_URL}/buses`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(bus),
       }),
     update: (id: string, updates: Partial<Bus>) =>
-      fetchJson(`${API_URL}/buses/${encodeURIComponent(id)}/`, {
+      fetchJson(`${API_URL}/buses/${encodeURIComponent(id)}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updates),
       }),
     delete: (id: string) =>
-      fetchJson(`${API_URL}/buses/${encodeURIComponent(id)}/`, {
+      fetchJson(`${API_URL}/buses/${encodeURIComponent(id)}`, {
         method: "DELETE",
       }),
   },
 
   routes: {
-    getAll: () => fetchJson(`${API_URL}/routes/`),
+    getAll: () => fetchJson(`${API_URL}/routes`),
     create: (route: Omit<Route, "id">) =>
-      fetchJson(`${API_URL}/routes/`, {
+      fetchJson(`${API_URL}/routes`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(route),
       }),
     update: (id: string, updates: Partial<Route>) =>
-      fetchJson(`${API_URL}/routes/${encodeURIComponent(id)}/`, {
+      fetchJson(`${API_URL}/routes/${encodeURIComponent(id)}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updates),
       }),
     delete: (id: string) =>
-      fetchJson(`${API_URL}/routes/${encodeURIComponent(id)}/`, {
+      fetchJson(`${API_URL}/routes/${encodeURIComponent(id)}`, {
         method: "DELETE",
       }),
   },
 
   trips: {
     getAll: (date?: string) =>
-      fetchJson(`${API_URL}/trips/${date ? `?date=${date}` : ""}`),
+      fetchJson(`${API_URL}/trips${date ? `?date=${date}` : ""}`),
     create: (trip: Omit<BusTrip, "id">) =>
-      fetchJson(`${API_URL}/trips/`, {
+      fetchJson(`${API_URL}/trips`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(trip),
       }),
     update: (id: string, updates: Partial<BusTrip>) =>
-      fetchJson(`${API_URL}/trips/${encodeURIComponent(id)}/`, {
+      fetchJson(`${API_URL}/trips/${encodeURIComponent(id)}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updates),
       }),
     updateSeats: (id: string, seats: Seat[]) =>
-      fetchJson(`${API_URL}/trips/${encodeURIComponent(id)}/seats/`, {
+      fetchJson(`${API_URL}/trips/${encodeURIComponent(id)}/seats`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ seats }),
       }),
     delete: (id: string) =>
-      fetchJson(`${API_URL}/trips/${encodeURIComponent(id)}/`, {
+      fetchJson(`${API_URL}/trips/${encodeURIComponent(id)}`, {
         method: "DELETE",
       }),
   },
 
   bookings: {
     getAll: (date?: string) =>
-      fetchJson(`${API_URL}/bookings/${date ? `?date=${date}` : ""}`),
+      fetchJson(`${API_URL}/bookings${date ? `?date=${date}` : ""}`),
     create: (
       items: { tripId: string; seats: Seat[] }[],
       passenger: Passenger,
       payment?: { paidCash: number; paidTransfer: number },
       status?: string,
     ) =>
-      fetchJson(`${API_URL}/bookings/`, {
+      fetchJson(`${API_URL}/bookings`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ items, passenger, payment, status }),
@@ -144,7 +158,7 @@ export const api = {
       payment?: { paidCash: number; paidTransfer: number },
       status?: string,
     ) =>
-      fetchJson(`${API_URL}/bookings/${encodeURIComponent(id)}/`, {
+      fetchJson(`${API_URL}/bookings/${encodeURIComponent(id)}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ items, passenger, payment, status }),
@@ -187,7 +201,7 @@ export const api = {
       bookingIds: string[],
       payment: { paidCash: number; paidTransfer: number },
     ) =>
-      fetchJson(`${API_URL}/bookings/payment/`, {
+      fetchJson(`${API_URL}/bookings/payment`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ bookingIds, payment }),
@@ -220,34 +234,54 @@ export const api = {
         }),
       }),
     getHistory: (id: string) =>
-      fetchJson(`${API_URL}/bookings/${encodeURIComponent(id)}/history/`),
+      fetchJson(`${API_URL}/bookings/${encodeURIComponent(id)}/history`),
   },
 
-  payments: {
-    getAll: () => fetchJson(`${API_URL}/payments/`),
-    create: (data: any) =>
-      fetchJson(`${API_URL}/payments/`, {
+  users: {
+    getAll: () => fetchJson(`${API_URL}/users`),
+    create: (user: any) =>
+      fetchJson(`${API_URL}/users`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify(user),
       }),
     update: (id: string, updates: any) =>
-      fetchJson(`${API_URL}/payments/${encodeURIComponent(id)}/`, {
+      fetchJson(`${API_URL}/users/${encodeURIComponent(id)}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updates),
       }),
     delete: (id: string) =>
-      fetchJson(`${API_URL}/payments/${encodeURIComponent(id)}/`, {
+      fetchJson(`${API_URL}/users/${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      }),
+  },
+
+  payments: {
+    getAll: () => fetchJson(`${API_URL}/payments`),
+    create: (data: any) =>
+      fetchJson(`${API_URL}/payments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      }),
+    update: (id: string, updates: any) =>
+      fetchJson(`${API_URL}/payments/${encodeURIComponent(id)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      }),
+    delete: (id: string) =>
+      fetchJson(`${API_URL}/payments/${encodeURIComponent(id)}`, {
         method: "DELETE",
       }),
   },
 
   settings: {
     get: (key: string) =>
-      fetchJson(`${API_URL}/settings/${encodeURIComponent(key)}/`),
+      fetchJson(`${API_URL}/settings/${encodeURIComponent(key)}`),
     set: (key: string, value: any) =>
-      fetchJson(`${API_URL}/settings/`, {
+      fetchJson(`${API_URL}/settings`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ key, value }),
@@ -255,25 +289,25 @@ export const api = {
   },
 
   qrgeneral: {
-    get: () => fetchJson(`${API_URL}/qrgeneral/`),
+    get: () => fetchJson(`${API_URL}/qrgeneral`),
     create: (data: any) =>
-      fetchJson(`${API_URL}/qrgeneral/`, {
+      fetchJson(`${API_URL}/qrgeneral`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       }),
     simulateSuccess: () =>
       fetchJson(`${API_URL}/qrgeneral/simulate-success`, { method: "POST" }),
-    delete: () => fetchJson(`${API_URL}/qrgeneral/`, { method: "DELETE" }),
+    delete: () => fetchJson(`${API_URL}/qrgeneral`, { method: "DELETE" }),
   },
 
   maintenance: {
     fixSeats: () =>
-      fetchJson(`${API_URL}/maintenance/fix-seats/`, { method: "POST" }),
+      fetchJson(`${API_URL}/maintenance/fix-seats`, { method: "POST" }),
     fixPayments: () =>
-      fetchJson(`${API_URL}/maintenance/fix-payments/`, { method: "POST" }),
+      fetchJson(`${API_URL}/maintenance/fix-payments`, { method: "POST" }),
     fixFloorSeats: () =>
-      fetchJson(`${API_URL}/maintenance/fix-floor-seats/`, { method: "POST" }),
+      fetchJson(`${API_URL}/maintenance/fix-floor-seats`, { method: "POST" }),
     resetBusConfigs: () =>
       fetchJson(`${API_URL}/maintenance/reset-bus-configs/`, {
         method: "POST",
@@ -283,9 +317,9 @@ export const api = {
   },
 
   roles: {
-    getAll: () => fetchJson(`${API_URL}/roles/`),
+    getAll: () => fetchJson(`${API_URL}/roles`),
     update: (name: string, permissions: string[]) =>
-      fetchJson(`${API_URL}/roles/${encodeURIComponent(name)}/`, {
+      fetchJson(`${API_URL}/roles/${encodeURIComponent(name)}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ permissions }),
@@ -293,9 +327,9 @@ export const api = {
   },
 
   systemSettings: {
-    get: () => fetchJson(`${API_URL}/system-settings/`),
+    get: () => fetchJson(`${API_URL}/system-settings`),
     update: (settings: any) =>
-      fetchJson(`${API_URL}/system-settings/`, {
+      fetchJson(`${API_URL}/system-settings`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(settings),

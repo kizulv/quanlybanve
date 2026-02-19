@@ -96,7 +96,7 @@ function AppContent() {
     const loadSettings = async () => {
       try {
         const data = await api.settings.get("schedule_settings");
-        if (data) setScheduleSettings(data);
+        if (data) setScheduleSettings((prev) => ({ ...prev, ...data }));
       } catch (e) {
         console.error(e);
       }

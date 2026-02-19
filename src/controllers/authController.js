@@ -6,7 +6,16 @@ const getSecretKey = () => process.env.SECRET_KEY || "vinabus-secret-key-123";
 
 export const login = async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const username = req.body.username?.trim();
+    const password = req.body.password?.trim();
+
+    if (!username || !password) {
+      console.log(`[AUTH] Login failed: Missing credentials`);
+      return res
+        .status(400)
+        .json({ error: "Tên đăng nhập và mật khẩu là bắt buộc" });
+    }
+
     const user = await User.findOne({ username });
     if (!user) {
       console.log(`[AUTH] Login failed: User not found (${username})`);

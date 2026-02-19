@@ -50,16 +50,17 @@ export const ScheduleSetting: React.FC<ScheduleSettingProps> = ({
     const dateStr = `${date.getFullYear()}-${String(
       date.getMonth() + 1,
     ).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-    return settings.peakDays.includes(dateStr);
+    return (settings.peakDays || []).includes(dateStr);
   };
 
   const togglePeakDay = (date: Date) => {
     const dateStr = `${date.getFullYear()}-${String(
       date.getMonth() + 1,
     ).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-    const newPeakDays = settings.peakDays.includes(dateStr)
-      ? settings.peakDays.filter((d) => d !== dateStr)
-      : [...settings.peakDays, dateStr];
+    const peakDays = settings.peakDays || [];
+    const newPeakDays = peakDays.includes(dateStr)
+      ? peakDays.filter((d) => d !== dateStr)
+      : [...peakDays, dateStr];
 
     onSettingsChange({ ...settings, peakDays: newPeakDays });
   };

@@ -20,18 +20,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
     setIsLoading(true);
 
     try {
-      const res = await fetch(
-        `${
-          import.meta.env.VITE_API_URL || "http://localhost:5001/api"
-        }/api/auth/login`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username, password }),
-        },
-      );
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Đăng nhập thất bại");
+      const data = await api.auth.login({ username, password });
 
       login(data.token, data.user);
       onLoginSuccess?.(); // Gọi callback sau khi login thành công
