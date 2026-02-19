@@ -8,10 +8,16 @@ export const login = async (req, res) => {
   try {
     const { username, password } = req.body;
     const user = await User.findOne({ username });
-    if (!user) return res.status(400).json({ error: "User not found" });
+    if (!user) {
+      console.log(`[AUTH] Login failed: User not found (${username})`);
+      return res.status(400).json({ error: "User not found" });
+    }
 
     const validPass = await bcrypt.compare(password, user.password);
-    if (!validPass) return res.status(400).json({ error: "Invalid password" });
+    if (!validPass) {
+      console.log(`[AUTH] Login failed: Invalid password for user ${username}`);
+      return res.status(400).json({ error: "Invalid password" });
+    }
 
     const token = jwt.sign(
       {
