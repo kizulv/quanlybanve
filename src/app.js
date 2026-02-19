@@ -35,6 +35,9 @@ connectDB(MONGO_URI);
 // App init
 const app = express();
 
+// Trust Proxy - Cần thiết khi chạy sau Nginx/của Cloudflare để lấy đúng IP client
+app.set("trust proxy", 1);
+
 // Security and Logging Middleware
 app.use(helmet());
 app.use(morgan("dev"));
