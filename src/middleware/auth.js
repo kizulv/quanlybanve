@@ -1,13 +1,13 @@
 import jwt from "jsonwebtoken";
 
-const SECRET_KEY = process.env.SECRET_KEY || "vinabus-secret-key-123";
+const getSecretKey = () => process.env.SECRET_KEY || "vinabus-secret-key-123";
 
 export const verifyToken = (req, res, next) => {
   const token = req.headers["authorization"]?.split(" ")[1];
   if (!token) return res.status(401).json({ error: "Access denied" });
 
   try {
-    const verified = jwt.verify(token, SECRET_KEY);
+    const verified = jwt.verify(token, getSecretKey());
     const { id, username, role, name, permissions } = verified;
     req.user = { id, username, role, name, permissions: permissions || [] };
     next();

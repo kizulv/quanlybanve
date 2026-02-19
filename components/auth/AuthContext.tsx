@@ -48,6 +48,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const refreshPermissions = async () => {
     try {
+      if (!localStorage.getItem("token")) return; // Don't fetch if not logged in
       const roles = await api.roles.getAll();
       if (Array.isArray(roles) && roles.length > 0) {
         const dynamicMap: Record<string, string[]> = {};

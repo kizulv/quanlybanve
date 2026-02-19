@@ -2,7 +2,7 @@ import User from "../models/User.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
-const SECRET_KEY = process.env.SECRET_KEY || "vinabus-secret-key-123";
+const getSecretKey = () => process.env.SECRET_KEY || "vinabus-secret-key-123";
 
 export const login = async (req, res) => {
   try {
@@ -27,7 +27,7 @@ export const login = async (req, res) => {
         name: user.name,
         permissions: user.permissions,
       },
-      SECRET_KEY,
+      getSecretKey(),
       { expiresIn: "24h" },
     );
     res.json({

@@ -24,10 +24,12 @@ import paymentRoutes from "./routes/paymentRoutes.js"; // Added missing payment 
 
 // Load env
 const env = loadEnv(process.env.NODE_ENV || "development", process.cwd(), "");
-const MONGO_URI = env.MONGO_URI;
-const VITE_API_URL = env.VITE_API_URL;
-const VITE_APP_MAIN_DOMAIN = env.VITE_APP_MAIN_DOMAIN;
-const VITE_APP_ORDER_DOMAIN = env.VITE_APP_ORDER_DOMAIN;
+Object.assign(process.env, env);
+
+const MONGO_URI = process.env.MONGO_URI;
+const VITE_API_URL = process.env.VITE_API_URL;
+const VITE_APP_MAIN_DOMAIN = process.env.VITE_APP_MAIN_DOMAIN;
+const VITE_APP_ORDER_DOMAIN = process.env.VITE_APP_ORDER_DOMAIN;
 
 // Connect DB
 connectDB(MONGO_URI);
