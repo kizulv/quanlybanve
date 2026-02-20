@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
+import { cn } from "../../lib/utils";
 
 interface PopoverProps {
   trigger: React.ReactNode;
@@ -86,13 +87,17 @@ export const Popover: React.FC<PopoverProps> = ({
   const popoverContent = (
     <div
       id="popover-portal-content"
-      className={`z-9999 ${
+      className={cn(
+        "z-9999",
         coords.isMobile
           ? "fixed inset-0 flex items-center justify-center p-4 bg-black/40 backdrop-blur-[2px]"
-          : "absolute"
-      } ${side === "top" ? "-translate-y-full" : ""} ${
-        align === "center" ? "-translate-x-1/2" : ""
-      } ${className}`}
+          : cn(
+              "absolute",
+              side === "top" && "-translate-y-full",
+              align === "center" && "-translate-x-1/2",
+            ),
+        className,
+      )}
       style={
         !coords.isMobile
           ? {
